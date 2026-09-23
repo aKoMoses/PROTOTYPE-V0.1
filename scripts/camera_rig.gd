@@ -1,10 +1,12 @@
 extends Node3D
 
-@export var follow_speed := 7.0
-@export var look_ahead_distance := 1.8
+@export var follow_speed := 3.2
+@export var aim_smoothing_speed := 4.0
+@export var look_ahead_distance := 1.6
 
 var _target: Node3D
 var _camera: Camera3D
+var _smoothed_aim := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -14,6 +16,8 @@ func _ready() -> void:
 func set_target(target: Node3D) -> void:
 	_target = target
 	global_position = target.global_position
+	if "aim_direction" in _target:
+		_smoothed_aim = _target.aim_direction
 	_resolve_camera()
 	_aim_camera()
 
@@ -22,10 +26,11 @@ func _process(delta: float) -> void:
 	if _target == null:
 		return
 	_resolve_camera()
-	var aim := Vector3.ZERO
+	var target_aim := Vector3.ZERO
 	if "aim_direction" in _target:
-		aim = _target.aim_direction * look_ahead_distance
-	var desired := _target.global_position + aim
+		target_aim = _target.aim_direction
+	_smoothed_aim = _smoothed_aim.lerp(target_aim, 1.0 - exp(-aim_smoothing_speed * delta))
+	var desired := _target.global_position + _smoothed_aim * look_ahead_distance
 	desired.y = 0.0
 	global_position = global_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
 	_aim_camera()

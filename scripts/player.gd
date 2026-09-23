@@ -87,6 +87,11 @@ func _build_collision() -> void:
 
 
 func _build_robot() -> void:
+	var visuals := Node3D.new()
+	visuals.name = "Visuals"
+	visuals.scale = Vector3.ONE * 0.88
+	add_child(visuals)
+
 	var selection_ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
 	ring_mesh.inner_radius = 0.78
@@ -94,7 +99,7 @@ func _build_robot() -> void:
 	selection_ring.mesh = ring_mesh
 	selection_ring.position.y = 0.045
 	selection_ring.material_override = _material(Color("#bdefff"), 0.3, Color("#56dfff"))
-	add_child(selection_ring)
+	visuals.add_child(selection_ring)
 
 	var body := MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
@@ -103,7 +108,7 @@ func _build_robot() -> void:
 	body.mesh = body_mesh
 	body.position.y = 0.8
 	body.material_override = _material(Color("#e4d0ae"), 0.72)
-	add_child(body)
+	visuals.add_child(body)
 
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
@@ -112,7 +117,7 @@ func _build_robot() -> void:
 	head.mesh = head_mesh
 	head.position = Vector3(0.0, 1.55, 0.0)
 	head.material_override = _material(Color("#efe1c4"), 0.65)
-	add_child(head)
+	visuals.add_child(head)
 
 	var eye := MeshInstance3D.new()
 	var eye_mesh := SphereMesh.new()
@@ -122,7 +127,7 @@ func _build_robot() -> void:
 	eye.position = Vector3(0.0, 1.58, -0.42)
 	eye.scale = Vector3(1.2, 0.75, 0.45)
 	eye.material_override = _material(Color("#4ee8ff"), 0.25, Color("#21cfff"))
-	add_child(eye)
+	visuals.add_child(eye)
 
 	var gun := MeshInstance3D.new()
 	var gun_mesh := BoxMesh.new()
@@ -130,7 +135,7 @@ func _build_robot() -> void:
 	gun.mesh = gun_mesh
 	gun.position = Vector3(0.5, 0.95, -0.82)
 	gun.material_override = _material(Color("#5c5148"), 0.5)
-	add_child(gun)
+	visuals.add_child(gun)
 
 	var scarf := MeshInstance3D.new()
 	var scarf_mesh := BoxMesh.new()
@@ -139,7 +144,7 @@ func _build_robot() -> void:
 	scarf.position = Vector3(0.0, 1.2, 0.65)
 	scarf.rotation_degrees.x = -18.0
 	scarf.material_override = _material(Color("#a62f25"), 0.9)
-	add_child(scarf)
+	visuals.add_child(scarf)
 
 
 func _material(color: Color, roughness: float, emission: Color = Color.BLACK) -> StandardMaterial3D:

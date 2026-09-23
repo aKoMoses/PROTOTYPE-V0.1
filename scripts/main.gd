@@ -75,7 +75,7 @@ func _build_camera() -> void:
 	camera.name = "Camera3D"
 	# A high, slightly perspective view keeps the arena readable while preserving
 	# the visible height and depth found in the visual references.
-	camera.position = Vector3(0.0, 17.0, 14.5)
+	camera.position = Vector3(0.0, 20.5, 17.5)
 	camera.fov = 38.0
 	camera.current = true
 	rig.add_child(camera)
