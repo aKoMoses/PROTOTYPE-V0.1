@@ -28,6 +28,13 @@ var _axe_pivot_home_rotation := Vector3.ZERO
 var _robot_visuals: Node3D
 var _axe_light: OmniLight3D
 var _axe_tip: Node3D
+var _trail_mesh: MeshInstance3D
+var _trail_material: StandardMaterial3D
+var _trail_points: Array[Vector3] = []
+var _trail_elapsed := 0.0
+var _trail_duration := 0.0
+var _trail_width := 0.1
+var _trail_active := false
 
 
 func _ready() -> void:
@@ -37,10 +44,11 @@ func _ready() -> void:
 	_build_robot()
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	_update_aim()
 	_update_movement()
 	_update_attack()
+	_update_axe_trail(delta)
 
 
 func _update_movement() -> void:
@@ -96,6 +104,7 @@ func _perform_axe_attack() -> void:
 	_combo_expires_at = Time.get_ticks_msec() / 1000.0 + AXE_COMBO_WINDOW
 	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
 	_play_axe_animation(step)
+	_begin_axe_trail(step)
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
 	var impact_point: Vector3 = global_position + aim_direction * AXE_RANGE[step]
 	var did_hit := false
@@ -176,6 +185,77 @@ func _play_axe_animation(step: int) -> void:
 	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
 	if rig != null and rig.has_method("shake"):
 		rig.call("shake", 0.05 if step < 2 else 0.13)
+
+
+func _begin_axe_trail(step: int) -> void:
+	_finish_axe_trail(0.08)
+	_trail_points.clear()
+	_trail_elapsed = 0.0
+	_trail_duration = [0.56, 0.64, 0.70][step]
+	_trail_width = [0.07, 0.24, 0.13][step]
+	_trail_active = true
+	_trail_mesh = MeshInstance3D.new()
+	_trail_mesh.name = "AxeEnergyTrail"
+	_trail_material = _create_fx_material(Color("#7befff") if step < 2 else Color("#d8fcff"), 0.78)
+	get_tree().current_scene.add_child(_trail_mesh)
+
+
+func _update_axe_trail(delta: float) -> void:
+	if not _trail_active or _axe_tip == null or _trail_mesh == null:
+		return
+	_trail_elapsed += delta
+	var tip_position := _axe_tip.global_position
+	if _trail_points.is_empty() or _trail_points[-1].distance_to(tip_position) >= 0.025:
+		_trail_points.append(tip_position)
+		if _trail_points.size() > 18:
+			_trail_points.pop_front()
+		_rebuild_axe_trail()
+	if _trail_elapsed >= _trail_duration:
+		_finish_axe_trail(0.22)
+
+
+func _rebuild_axe_trail() -> void:
+	if _trail_mesh == null or _trail_points.size() < 2:
+		return
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, _trail_material)
+	for index in range(1, _trail_points.size()):
+		var previous := _trail_points[index - 1]
+		var current := _trail_points[index]
+		var movement := current - previous
+		var side := movement.cross(Vector3.UP).normalized()
+		if side.length_squared() < 0.001:
+			side = Vector3(-aim_direction.z, 0.0, aim_direction.x).normalized()
+		var age_ratio := float(index) / float(_trail_points.size() - 1)
+		var segment_width := _trail_width * lerpf(0.20, 1.0, age_ratio)
+		var previous_left := previous - side * segment_width
+		var previous_right := previous + side * segment_width
+		var current_left := current - side * segment_width
+		var current_right := current + side * segment_width
+		mesh.surface_add_vertex(previous_left)
+		mesh.surface_add_vertex(previous_right)
+		mesh.surface_add_vertex(current_right)
+		mesh.surface_add_vertex(previous_left)
+		mesh.surface_add_vertex(current_right)
+		mesh.surface_add_vertex(current_left)
+	mesh.surface_end()
+	_trail_mesh.mesh = mesh
+
+
+func _finish_axe_trail(fade_duration: float) -> void:
+	if not _trail_active:
+		return
+	_trail_active = false
+	var finished_mesh := _trail_mesh
+	var finished_material := _trail_material
+	_trail_mesh = null
+	_trail_material = null
+	if finished_mesh == null:
+		return
+	var tween := create_tween()
+	if finished_material != null:
+		tween.tween_method(Callable(self, "_set_material_alpha").bind(finished_material), finished_material.albedo_color.a, 0.0, fade_duration)
+	tween.tween_callback(finished_mesh.queue_free)
 
 
 func _trigger_hit_stop(duration: float) -> void:
