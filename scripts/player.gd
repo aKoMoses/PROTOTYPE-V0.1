@@ -258,18 +258,19 @@ func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool) -> void:
 		var end := global_position + Vector3.UP * 0.92 + aim_direction * (AXE_RANGE[0] if not did_hit else maxf(0.4, (impact_point - global_position).length()))
 		for index in range(3):
 			_create_lightning_arc(start + Vector3.UP * (float(index) - 1.0) * 0.08, end + Vector3.UP * (float(index) - 1.0) * 0.08, Color("#67eaff") if index < 2 else Color("#d2fcff"), 0.05, 0.30)
-		_spawn_particle_burst(impact_point + Vector3.UP * 0.9, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
+		var weapon_tip := global_position + Vector3.UP * 0.96 + aim_direction * 1.68
+		_spawn_particle_burst(weapon_tip, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
 	elif step == 1:
-		var center := global_position + Vector3.UP * 0.82
+		var center := global_position + Vector3.UP * 0.90
 		var forward := aim_direction
 		var side := Vector3(-forward.z, 0.0, forward.x)
 		var reach := AXE_RANGE[1] if not did_hit else maxf(0.5, (impact_point - global_position).length())
-		for index in range(5):
-			var bend := side * (float(index) - 2.0) * 0.28
-			_create_lightning_arc(center + bend * 0.10, center + forward * reach + bend, Color("#52e7ff") if index % 2 == 0 else Color("#bafaff"), 0.05, 0.34 + float(index) * 0.025)
-		_spawn_particle_burst(impact_point + Vector3.UP * 0.8, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
+		_create_cleave_arc(center, forward, side, reach, 0.0, Color("#52e7ff"), 0.32)
+		_create_cleave_arc(center + Vector3.UP * 0.10, forward, side, reach * 0.92, 0.12, Color("#d5fcff"), 0.38)
+		var weapon_tip := global_position + Vector3.UP * 0.96 + aim_direction * 1.68
+		_spawn_particle_burst(weapon_tip, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
 	else:
@@ -348,7 +349,32 @@ func _create_slash_outline(radius: float, half_angle: float, color: Color) -> Me
 	return outline
 
 
+func _create_cleave_arc(center: Vector3, forward: Vector3, side: Vector3, reach: float, height_offset: float, color: Color, lifetime: float) -> void:
+	var arc := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _create_fx_material(color, 0.95)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
+	var radius := reach * 0.72
+	var half_angle := deg_to_rad(68.0)
+	for index in range(15):
+		var angle := lerpf(-half_angle, half_angle, float(index) / 14.0)
+		var jitter := Vector3(randf_range(-0.06, 0.06), randf_range(-0.03, 0.03), randf_range(-0.06, 0.06))
+		var point := center + forward * (cos(angle) * radius) + side * (sin(angle) * radius) + Vector3.UP * height_offset + jitter
+		mesh.surface_add_vertex(point)
+	mesh.surface_end()
+	arc.mesh = mesh
+	get_tree().current_scene.add_child(arc)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(arc, "scale", Vector3(1.18, 1.0, 1.18), lifetime * 0.45)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.95, 0.0, lifetime)
+	tween.set_parallel(false)
+	tween.tween_callback(arc.queue_free)
+
+
 func _create_shockwave_fx(impact_point: Vector3) -> void:
+	_create_shockwave_wave(impact_point, 0.55, Color("#8ff7ff"), 0.58)
+	_create_shockwave_wave(impact_point + Vector3.UP * 0.04, 0.34, Color("#e7ffff"), 0.42)
 	var crater := MeshInstance3D.new()
 	var crater_mesh := ImmediateMesh.new()
 	var crater_material := _create_fx_material(Color("#1d2730"), 0.96)
@@ -415,6 +441,28 @@ func _create_shockwave_fx(impact_point: Vector3) -> void:
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.18, Color("#a8f8ff"), 34, 0.75, 7.0, 0.19)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.12, Color("#ffb13b"), 16, 0.52, 5.0, 0.14)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.2, Color("#d19b70"), 22, 0.80, 4.0, 0.18)
+
+
+func _create_shockwave_wave(origin: Vector3, radius: float, color: Color, lifetime: float) -> void:
+	var wave := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _create_fx_material(color, 0.92)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
+	var points := 20
+	for index in range(points + 1):
+		var angle := TAU * float(index) / float(points)
+		var irregular_radius := radius + randf_range(-0.10, 0.10)
+		mesh.surface_add_vertex(Vector3(cos(angle) * irregular_radius, 0.12, sin(angle) * irregular_radius))
+	mesh.surface_end()
+	wave.mesh = mesh
+	get_tree().current_scene.add_child(wave)
+	wave.global_position = origin
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(wave, "scale", Vector3(3.0, 1.0, 3.0), lifetime)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.92, 0.0, lifetime)
+	tween.set_parallel(false)
+	tween.tween_callback(wave.queue_free)
 
 
 func _create_crater_fractures(origin: Vector3) -> void:
