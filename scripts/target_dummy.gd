@@ -9,6 +9,7 @@ var _body_material: StandardMaterial3D
 var _status_label: Label3D
 var _slow_until := 0.0
 var _stun_until := 0.0
+var _body_mesh: MeshInstance3D
 
 
 func _ready() -> void:
@@ -36,6 +37,24 @@ func apply_slow(duration: float, percent: float) -> void:
 func apply_stun(duration: float) -> void:
 	_stun_until = maxf(_stun_until, Time.get_ticks_msec() / 1000.0 + duration)
 	_update_status("ÉTOURDI  %.1fs" % duration)
+
+
+func flash_impact(critical: bool = false) -> void:
+	if _body_mesh == null:
+		return
+	var original_scale := _body_mesh.scale
+	var tween := create_tween()
+	tween.tween_property(_body_mesh, "scale", original_scale * (1.24 if critical else 1.12), 0.055)
+	tween.tween_property(_body_mesh, "scale", original_scale, 0.14)
+	_body_material.emission_enabled = true
+	_body_material.emission = Color("#fff0b0") if critical else Color("#ff684d")
+	_body_material.emission_energy_multiplier = 4.0 if critical else 2.5
+	tween.tween_callback(_clear_impact_flash)
+
+
+func _clear_impact_flash() -> void:
+	if _body_material != null:
+		_body_material.emission_enabled = false
 
 
 func _process(_delta: float) -> void:
@@ -74,18 +93,18 @@ func _build_collision() -> void:
 
 
 func _build_visuals() -> void:
-	var body := MeshInstance3D.new()
+	_body_mesh = MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
 	body_mesh.radius = 0.72
 	body_mesh.height = 1.45
-	body.mesh = body_mesh
-	body.position.y = 0.9
+	_body_mesh.mesh = body_mesh
+	_body_mesh.position.y = 0.9
 	_body_material = StandardMaterial3D.new()
 	_body_material.albedo_color = Color("#8f302b")
 	_body_material.metallic = 0.35
 	_body_material.roughness = 0.62
-	body.material_override = _body_material
-	add_child(body)
+	_body_mesh.material_override = _body_material
+	add_child(_body_mesh)
 
 	var eye := MeshInstance3D.new()
 	var eye_mesh := SphereMesh.new()
