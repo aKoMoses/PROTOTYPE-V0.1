@@ -70,14 +70,18 @@ func _build_camera() -> void:
 	var rig := Node3D.new()
 	rig.name = "CameraRig"
 	rig.set_script(CAMERA_RIG_SCRIPT)
-	add_child(rig)
 
 	var camera := Camera3D.new()
 	camera.name = "Camera3D"
-	camera.position = Vector3(0.0, 15.5, 13.5)
-	camera.fov = 42.0
+	# A high, slightly perspective view keeps the arena readable while preserving
+	# the visible height and depth found in the visual references.
+	camera.position = Vector3(0.0, 17.0, 14.5)
+	camera.fov = 38.0
 	camera.current = true
 	rig.add_child(camera)
+	# Add the complete rig only after its Camera3D child exists. Otherwise the
+	# rig's _ready() runs too early and the camera never gets aimed at the player.
+	add_child(rig)
 	rig.call("set_target", player)
 
 
@@ -148,4 +152,3 @@ func _material(color: Color, roughness: float = 0.8, emission: Color = Color.BLA
 		material.emission = emission
 		material.emission_energy_multiplier = 2.5
 	return material
-

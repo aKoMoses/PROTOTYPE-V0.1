@@ -87,6 +87,15 @@ func _build_collision() -> void:
 
 
 func _build_robot() -> void:
+	var selection_ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.78
+	ring_mesh.outer_radius = 0.93
+	selection_ring.mesh = ring_mesh
+	selection_ring.position.y = 0.045
+	selection_ring.material_override = _material(Color("#bdefff"), 0.3, Color("#56dfff"))
+	add_child(selection_ring)
+
 	var body := MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
 	body_mesh.radius = 0.58
@@ -142,4 +151,3 @@ func _material(color: Color, roughness: float, emission: Color = Color.BLACK) ->
 		material.emission = emission
 		material.emission_energy_multiplier = 3.0
 	return material
-
