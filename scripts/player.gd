@@ -27,6 +27,7 @@ var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
 var _robot_visuals: Node3D
 var _axe_light: OmniLight3D
+var _axe_tip: Node3D
 
 
 func _ready() -> void:
@@ -108,20 +109,34 @@ func _perform_axe_attack() -> void:
 		did_hit = distance <= AXE_RANGE[step] and distance > 0.01 and facing_dot >= cone_limit
 		if did_hit:
 			impact_point = target.global_position
-	_show_attack_hitbox(step, impact_point, did_hit)
-	if not did_hit or target == null:
-		return
-	var damage: float = float(AXE_DAMAGE[step])
-	if step == 2 and distance <= 0.9:
-		damage *= CRIT_MULTIPLIER
-		target.call("apply_stun", AXE_STUN_DURATION)
-		target.call("flash_impact", true)
-	else:
-		target.call("apply_slow", AXE_SLOW_DURATION if step < 2 else AXE_SHOCKWAVE_DURATION, AXE_SLOW_PERCENT)
-		target.call("flash_impact", false)
-	target.call("take_damage", damage)
-	_create_target_hit_fx(impact_point, step == 2 and distance <= 0.9)
-	_trigger_hit_stop(HIT_STOP_CRITICAL if step == 2 and distance <= 0.9 else HIT_STOP_NORMAL)
+	var critical_hit := did_hit and step == 2 and distance <= 0.9
+	var damage: float = float(AXE_DAMAGE[step]) * (CRIT_MULTIPLIER if critical_hit else 1.0)
+	_queue_attack_impact(step, target, did_hit, impact_point, damage, critical_hit)
+
+
+func _queue_attack_impact(step: int, target: Node, did_hit: bool, impact_point: Vector3, damage: float, critical_hit: bool) -> void:
+	var impact_delays := [0.26, 0.31, 0.41]
+	var timer := get_tree().create_timer(impact_delays[step], true, false, false)
+	timer.timeout.connect(func() -> void:
+		if not is_inside_tree():
+			return
+		var tip_position := _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
+		var effect_point := impact_point
+		if step == 2:
+			effect_point = Vector3(tip_position.x, 0.0, tip_position.z)
+		_show_attack_hitbox(step, effect_point, did_hit, tip_position)
+		if not did_hit or target == null or not is_instance_valid(target):
+			return
+		if step == 2 and critical_hit:
+			target.call("apply_stun", AXE_STUN_DURATION)
+			target.call("flash_impact", true)
+		else:
+			target.call("apply_slow", AXE_SLOW_DURATION if step < 2 else AXE_SHOCKWAVE_DURATION, AXE_SLOW_PERCENT)
+			target.call("flash_impact", false)
+		target.call("take_damage", damage)
+		_create_target_hit_fx(impact_point, critical_hit)
+		_trigger_hit_stop(HIT_STOP_CRITICAL if critical_hit else HIT_STOP_NORMAL)
+	)
 
 
 func _play_axe_animation(step: int) -> void:
@@ -157,7 +172,6 @@ func _play_axe_animation(step: int) -> void:
 		_axe_light.light_energy = 8.0 if step == 2 else 5.0
 		var light_tween := create_tween()
 		light_tween.tween_property(_axe_light, "light_energy", 0.0, 0.24 if step < 2 else 0.42)
-	_create_axe_lightning(step)
 	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
 	if rig != null and rig.has_method("shake"):
 		rig.call("shake", 0.05 if step < 2 else 0.13)
@@ -216,9 +230,9 @@ func _create_lightning_arc(start: Vector3, end: Vector3, color: Color, width: fl
 	tween.tween_callback(arc.queue_free)
 
 
-func _create_axe_lightning(step: int) -> void:
-	var blade_origin := global_position + Vector3.UP * 0.95 + aim_direction * 0.8
-	var blade_end := global_position + Vector3.UP * 0.95 + aim_direction * (1.75 if step == 0 else 1.35)
+func _create_axe_lightning(step: int, tip_position: Vector3) -> void:
+	var blade_origin := tip_position
+	var blade_end := tip_position + aim_direction * (0.75 if step == 0 else 0.45)
 	var bolt_color := Color("#8ff7ff")
 	for index in range(3 if step < 2 else 6):
 		var side := Vector3.UP * randf_range(-0.20, 0.30) + Vector3(-aim_direction.z, 0.0, aim_direction.x) * randf_range(-0.45, 0.45)
@@ -252,25 +266,24 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
 
 
-func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool) -> void:
+func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3) -> void:
+	_create_axe_lightning(step, tip_position)
 	if step == 0:
-		var start := global_position + Vector3.UP * 0.92 + aim_direction * 0.25
-		var end := global_position + Vector3.UP * 0.92 + aim_direction * (AXE_RANGE[0] if not did_hit else maxf(0.4, (impact_point - global_position).length()))
+		var start := tip_position
+		var end := impact_point + Vector3.UP * 0.92 if did_hit else tip_position + aim_direction * 1.0
 		for index in range(3):
 			_create_lightning_arc(start + Vector3.UP * (float(index) - 1.0) * 0.08, end + Vector3.UP * (float(index) - 1.0) * 0.08, Color("#67eaff") if index < 2 else Color("#d2fcff"), 0.05, 0.30)
-		var weapon_tip := global_position + Vector3.UP * 0.96 + aim_direction * 1.68
-		_spawn_particle_burst(weapon_tip, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
+		_spawn_particle_burst(tip_position, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
 	elif step == 1:
-		var center := global_position + Vector3.UP * 0.90
+		var center := tip_position
 		var forward := aim_direction
 		var side := Vector3(-forward.z, 0.0, forward.x)
 		var reach := AXE_RANGE[1] if not did_hit else maxf(0.5, (impact_point - global_position).length())
 		_create_cleave_arc(center, forward, side, reach, 0.0, Color("#52e7ff"), 0.32)
 		_create_cleave_arc(center + Vector3.UP * 0.10, forward, side, reach * 0.92, 0.12, Color("#d5fcff"), 0.38)
-		var weapon_tip := global_position + Vector3.UP * 0.96 + aim_direction * 1.68
-		_spawn_particle_burst(weapon_tip, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
+		_spawn_particle_burst(tip_position, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
 	else:
@@ -506,7 +519,7 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 	tween.tween_callback(spark.queue_free)
 
 
-func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false) -> void:
+func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false, tip_position: Vector3 = Vector3.ZERO) -> void:
 	if SHOW_DEBUG_HITBOX:
 		var hitbox := MeshInstance3D.new()
 		hitbox.name = "AxeHitbox"
@@ -515,7 +528,7 @@ func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hi
 		mesh.bottom_radius = mesh.top_radius
 		mesh.height = 0.06
 		hitbox.mesh = mesh
-		hitbox.position = global_position + aim_direction * (AXE_RANGE[step] * 0.5)
+		hitbox.position = tip_position if tip_position != Vector3.ZERO else global_position + aim_direction * (AXE_RANGE[step] * 0.5)
 		hitbox.position.y = 0.04
 		var material := StandardMaterial3D.new()
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -530,7 +543,9 @@ func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hi
 		tween.tween_callback(hitbox.queue_free)
 	if impact_point == Vector3.ZERO:
 		impact_point = global_position + aim_direction * AXE_RANGE[step]
-	_play_impact_fx(step, impact_point, did_hit)
+	if tip_position == Vector3.ZERO:
+		tip_position = _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
+	_play_impact_fx(step, impact_point, did_hit, tip_position)
 
 
 func _build_collision() -> void:
@@ -623,6 +638,10 @@ func _build_robot() -> void:
 	axe_edge.position = Vector3(0.0, -0.11, -1.25)
 	axe_edge.material_override = _material(Color("#eaffff"), 0.1, Color("#9cf6ff"))
 	_axe_pivot.add_child(axe_edge)
+	_axe_tip = Node3D.new()
+	_axe_tip.name = "AxeTip"
+	_axe_tip.position = Vector3(0.0, 0.0, -1.58)
+	_axe_pivot.add_child(_axe_tip)
 	_axe_light = OmniLight3D.new()
 	_axe_light.light_color = Color("#62eaff")
 	_axe_light.light_energy = 0.0
