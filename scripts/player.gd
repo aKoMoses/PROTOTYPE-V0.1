@@ -121,10 +121,11 @@ func _queue_attack_impact(step: int, target: Node, did_hit: bool, impact_point: 
 		if not is_inside_tree():
 			return
 		var tip_position := _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
+		var tip_forward := _get_axe_forward()
 		var effect_point := impact_point
 		if step == 2:
 			effect_point = Vector3(tip_position.x, 0.0, tip_position.z)
-		_show_attack_hitbox(step, effect_point, did_hit, tip_position)
+		_show_attack_hitbox(step, effect_point, did_hit, tip_position, tip_forward)
 		if not did_hit or target == null or not is_instance_valid(target):
 			return
 		if step == 2 and critical_hit:
@@ -232,14 +233,24 @@ func _create_lightning_arc(start: Vector3, end: Vector3, color: Color, width: fl
 
 func _create_axe_lightning(step: int, tip_position: Vector3) -> void:
 	var blade_origin := tip_position
-	var blade_end := tip_position + aim_direction * (0.75 if step == 0 else 0.45)
+	var forward := _get_axe_forward()
+	var blade_end := tip_position + forward * (0.75 if step == 0 else 0.45)
 	var bolt_color := Color("#8ff7ff")
 	for index in range(3 if step < 2 else 6):
-		var side := Vector3.UP * randf_range(-0.20, 0.30) + Vector3(-aim_direction.z, 0.0, aim_direction.x) * randf_range(-0.45, 0.45)
+		var side := Vector3.UP * randf_range(-0.20, 0.30) + Vector3(-forward.z, 0.0, forward.x) * randf_range(-0.45, 0.45)
 		_create_lightning_arc(blade_origin + side, blade_end + side * 0.3, bolt_color, 0.04, 0.26 if step < 2 else 0.42)
 
 
-func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float) -> void:
+func _get_axe_forward() -> Vector3:
+	if _axe_tip != null:
+		var forward := -_axe_tip.global_transform.basis.z
+		forward.y = 0.0
+		if forward.length_squared() > 0.001:
+			return forward.normalized()
+	return aim_direction
+
+
+func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float, emission_direction: Vector3 = Vector3.UP, emission_spread: float = 180.0) -> void:
 	var particles := GPUParticles3D.new()
 	particles.amount = amount
 	particles.lifetime = lifetime
@@ -248,7 +259,7 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	var process_material := ParticleProcessMaterial.new()
 	process_material.direction = Vector3.UP
-	process_material.spread = 180.0
+	process_material.spread = emission_spread
 	process_material.initial_velocity_min = speed * 0.55
 	process_material.initial_velocity_max = speed
 	process_material.gravity = Vector3(0.0, -10.0, 0.0)
@@ -262,28 +273,31 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	particles.draw_pass_1 = particle_mesh
 	get_tree().current_scene.add_child(particles)
 	particles.global_position = origin
+	if emission_direction != Vector3.UP and emission_direction.length_squared() > 0.001:
+		process_material.direction = Vector3.FORWARD
+		particles.look_at(origin + emission_direction.normalized(), Vector3.UP)
 	particles.emitting = true
 	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
 
 
-func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3) -> void:
+func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3, tip_forward: Vector3) -> void:
 	_create_axe_lightning(step, tip_position)
 	if step == 0:
 		var start := tip_position
-		var end := impact_point + Vector3.UP * 0.92 if did_hit else tip_position + aim_direction * 1.0
+		var end := impact_point + Vector3.UP * 0.92 if did_hit else tip_position + tip_forward * 1.0
 		for index in range(3):
 			_create_lightning_arc(start + Vector3.UP * (float(index) - 1.0) * 0.08, end + Vector3.UP * (float(index) - 1.0) * 0.08, Color("#67eaff") if index < 2 else Color("#d2fcff"), 0.05, 0.30)
-		_spawn_particle_burst(tip_position, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
+		_spawn_particle_burst(tip_position, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16, tip_forward, 42.0)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
 	elif step == 1:
 		var center := tip_position
-		var forward := aim_direction
+		var forward := tip_forward
 		var side := Vector3(-forward.z, 0.0, forward.x)
 		var reach := AXE_RANGE[1] if not did_hit else maxf(0.5, (impact_point - global_position).length())
 		_create_cleave_arc(center, forward, side, reach, 0.0, Color("#52e7ff"), 0.32)
 		_create_cleave_arc(center + Vector3.UP * 0.10, forward, side, reach * 0.92, 0.12, Color("#d5fcff"), 0.38)
-		_spawn_particle_burst(tip_position, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
+		_spawn_particle_burst(tip_position, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14, tip_forward, 70.0)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
 	else:
@@ -519,7 +533,7 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 	tween.tween_callback(spark.queue_free)
 
 
-func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false, tip_position: Vector3 = Vector3.ZERO) -> void:
+func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false, tip_position: Vector3 = Vector3.ZERO, tip_forward: Vector3 = Vector3.ZERO) -> void:
 	if SHOW_DEBUG_HITBOX:
 		var hitbox := MeshInstance3D.new()
 		hitbox.name = "AxeHitbox"
@@ -545,7 +559,9 @@ func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hi
 		impact_point = global_position + aim_direction * AXE_RANGE[step]
 	if tip_position == Vector3.ZERO:
 		tip_position = _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
-	_play_impact_fx(step, impact_point, did_hit, tip_position)
+	if tip_forward == Vector3.ZERO:
+		tip_forward = _get_axe_forward()
+	_play_impact_fx(step, impact_point, did_hit, tip_position, tip_forward)
 
 
 func _build_collision() -> void:
