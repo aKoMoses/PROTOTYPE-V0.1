@@ -7,6 +7,8 @@ extends Node3D
 var _target: Node3D
 var _camera: Camera3D
 var _smoothed_aim := Vector3.ZERO
+var _shake_time := 0.0
+var _shake_strength := 0.0
 
 
 func _ready() -> void:
@@ -33,7 +35,17 @@ func _process(delta: float) -> void:
 	var desired := _target.global_position + _smoothed_aim * look_ahead_distance
 	desired.y = 0.0
 	global_position = global_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
+	if _shake_time > 0.0:
+		_shake_time -= delta
+		var shake_offset := Vector3(randf_range(-1.0, 1.0), randf_range(-0.5, 0.5), randf_range(-1.0, 1.0)) * _shake_strength
+		global_position += shake_offset
+		_shake_strength = lerpf(_shake_strength, 0.0, 1.0 - exp(-18.0 * delta))
 	_aim_camera()
+
+
+func shake(duration: float, strength: float = 0.12) -> void:
+	_shake_time = maxf(_shake_time, duration)
+	_shake_strength = maxf(_shake_strength, strength)
 
 
 func _resolve_camera() -> void:

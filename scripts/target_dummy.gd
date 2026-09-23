@@ -10,6 +10,7 @@ var _status_label: Label3D
 var _slow_until := 0.0
 var _stun_until := 0.0
 var _body_mesh: MeshInstance3D
+var _impact_light: OmniLight3D
 
 
 func _ready() -> void:
@@ -49,6 +50,11 @@ func flash_impact(critical: bool = false) -> void:
 	_body_material.emission_enabled = true
 	_body_material.emission = Color("#fff0b0") if critical else Color("#ff684d")
 	_body_material.emission_energy_multiplier = 4.0 if critical else 2.5
+	if _impact_light != null:
+		_impact_light.light_color = Color("#fff2b2") if critical else Color("#ff5b43")
+		_impact_light.light_energy = 7.0 if critical else 4.0
+		var light_tween := create_tween()
+		light_tween.tween_property(_impact_light, "light_energy", 0.0, 0.20)
 	tween.tween_callback(_clear_impact_flash)
 
 
@@ -105,6 +111,11 @@ func _build_visuals() -> void:
 	_body_material.roughness = 0.62
 	_body_mesh.material_override = _body_material
 	add_child(_body_mesh)
+	_impact_light = OmniLight3D.new()
+	_impact_light.light_energy = 0.0
+	_impact_light.omni_range = 3.0
+	_impact_light.position = Vector3(0.0, 1.0, 0.0)
+	add_child(_impact_light)
 
 	var eye := MeshInstance3D.new()
 	var eye_mesh := SphereMesh.new()

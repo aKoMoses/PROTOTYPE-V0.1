@@ -22,6 +22,8 @@ var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
+var _robot_visuals: Node3D
+var _axe_light: OmniLight3D
 
 
 func _ready() -> void:
@@ -136,6 +138,19 @@ func _play_axe_animation(step: int) -> void:
 		tween.tween_interval(0.05)
 		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.10)
 		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.22)
+	if _robot_visuals != null:
+		var recoil := create_tween()
+		recoil.tween_property(_robot_visuals, "position", -aim_direction * (0.10 if step < 2 else 0.18), 0.06)
+		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.18 if step < 2 else 0.28)
+		recoil.tween_property(_robot_visuals, "rotation", Vector3(0.0, 0.0, deg_to_rad(-7.0 if step == 1 else 0.0)), 0.05)
+		recoil.tween_property(_robot_visuals, "rotation", Vector3.ZERO, 0.16)
+	if _axe_light != null:
+		_axe_light.light_energy = 8.0 if step == 2 else 5.0
+		var light_tween := create_tween()
+		light_tween.tween_property(_axe_light, "light_energy", 0.0, 0.24 if step < 2 else 0.42)
+	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
+	if rig != null and rig.has_method("shake"):
+		rig.call("shake", 0.05 if step < 2 else 0.13)
 
 
 func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D:
@@ -147,6 +162,33 @@ func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D
 	material.emission = color
 	material.emission_energy_multiplier = 5.0
 	return material
+
+
+func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float) -> void:
+	var particles := GPUParticles3D.new()
+	particles.amount = amount
+	particles.lifetime = lifetime
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3.UP
+	process_material.spread = 180.0
+	process_material.initial_velocity_min = speed * 0.55
+	process_material.initial_velocity_max = speed
+	process_material.gravity = Vector3(0.0, -10.0, 0.0)
+	process_material.scale_min = particle_scale * 0.55
+	process_material.scale_max = particle_scale
+	particles.process_material = process_material
+	var particle_mesh := SphereMesh.new()
+	particle_mesh.radius = 0.12
+	particle_mesh.height = 0.24
+	particle_mesh.material = _create_fx_material(color, 0.92)
+	particles.draw_pass_1 = particle_mesh
+	get_tree().current_scene.add_child(particles)
+	particles.global_position = origin
+	particles.emitting = true
+	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
 
 
 func _play_impact_fx(step: int) -> void:
@@ -162,6 +204,7 @@ func _play_impact_fx(step: int) -> void:
 		var tween := create_tween()
 		tween.tween_property(thrust, "scale", Vector3(1.8, 1.8, 0.2), 0.12)
 		tween.tween_callback(thrust.queue_free)
+		_spawn_particle_burst(global_position + Vector3.UP * 0.95 + aim_direction * AXE_RANGE[0], Color("#a9f5ff"), 10, 0.28, 5.0, 0.16)
 	elif step == 1:
 		var slash := _create_slash_fan(AXE_RANGE[1], deg_to_rad(58.0))
 		get_tree().current_scene.add_child(slash)
@@ -170,6 +213,15 @@ func _play_impact_fx(step: int) -> void:
 		var tween := create_tween()
 		tween.tween_property(slash, "scale", Vector3(1.25, 1.0, 1.25), 0.16)
 		tween.tween_callback(slash.queue_free)
+		var slash_echo := _create_slash_fan(AXE_RANGE[1] * 0.82, deg_to_rad(48.0))
+		get_tree().current_scene.add_child(slash_echo)
+		slash_echo.global_position = slash.global_position + Vector3.UP * 0.08
+		slash_echo.look_at(slash_echo.global_position + aim_direction, Vector3.UP)
+		slash_echo.material_override = _create_fx_material(Color("#e8fcff"), 0.55)
+		var echo_tween := create_tween()
+		echo_tween.tween_property(slash_echo, "scale", Vector3(1.7, 1.0, 1.7), 0.22)
+		echo_tween.tween_callback(slash_echo.queue_free)
+		_spawn_particle_burst(global_position + Vector3.UP * 0.9 + aim_direction * AXE_RANGE[1], Color("#55e9ff"), 14, 0.34, 4.0, 0.14)
 	else:
 		_create_shockwave_fx()
 
@@ -220,6 +272,8 @@ func _create_shockwave_fx() -> void:
 	tween.tween_callback(ring.queue_free)
 	for index in range(8):
 		_create_lightning_spark(impact_point, index)
+	_spawn_particle_burst(impact_point + Vector3.UP * 0.18, Color("#a8f8ff"), 34, 0.75, 7.0, 0.19)
+	_spawn_particle_burst(impact_point + Vector3.UP * 0.12, Color("#ffb13b"), 16, 0.52, 5.0, 0.14)
 
 
 func _create_lightning_spark(origin: Vector3, index: int) -> void:
@@ -277,6 +331,7 @@ func _build_robot() -> void:
 	var visuals := Node3D.new()
 	visuals.name = "Visuals"
 	visuals.scale = Vector3.ONE * 0.88
+	_robot_visuals = visuals
 	add_child(visuals)
 
 	_attack_label = Label3D.new()
@@ -352,6 +407,12 @@ func _build_robot() -> void:
 	axe_edge.position = Vector3(0.0, -0.11, -1.25)
 	axe_edge.material_override = _material(Color("#eaffff"), 0.1, Color("#9cf6ff"))
 	_axe_pivot.add_child(axe_edge)
+	_axe_light = OmniLight3D.new()
+	_axe_light.light_color = Color("#62eaff")
+	_axe_light.light_energy = 0.0
+	_axe_light.omni_range = 3.5
+	_axe_light.position = Vector3(0.0, 0.0, -1.2)
+	_axe_pivot.add_child(_axe_light)
 
 	var scarf := MeshInstance3D.new()
 	var scarf_mesh := BoxMesh.new()
