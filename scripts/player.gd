@@ -1,13 +1,13 @@
 extends CharacterBody3D
 
 @export var move_speed := 7.5
-@export var attack_interval := 0.34
+@export var attack_interval := 0.64
 
 # Electro Axe V0.1 — first playable combat lot. Damage values are deliberately
 # centralized so balancing after the human test does not touch hitbox code.
 const AXE_DAMAGE := [120.0, 145.0, 80.0]
 const AXE_RANGE := [4.4, 3.2, 2.8]
-const AXE_COMBO_WINDOW := 1.05
+const AXE_COMBO_WINDOW := 1.70
 const AXE_SLOW_DURATION := 0.25
 const AXE_SLOW_PERCENT := 30.0
 const AXE_SHOCKWAVE_DURATION := 0.50
@@ -92,18 +92,21 @@ func _perform_axe_attack() -> void:
 	_combo_expires_at = Time.get_ticks_msec() / 1000.0 + AXE_COMBO_WINDOW
 	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
 	_play_axe_animation(step)
-	_show_attack_hitbox(step)
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
-	if target == null:
-		return
-	var offset: Vector3 = target.global_position - global_position
-	var flat_offset := Vector3(offset.x, 0.0, offset.z)
-	var distance := flat_offset.length()
-	if distance > AXE_RANGE[step] or distance < 0.01:
-		return
-	var facing_dot := aim_direction.dot(flat_offset.normalized())
-	var cone_limit := 0.88 if step == 0 else (0.35 if step == 1 else -0.25)
-	if facing_dot < cone_limit:
+	var impact_point: Vector3 = global_position + aim_direction * AXE_RANGE[step]
+	var did_hit := false
+	var distance := 0.0
+	if target != null:
+		var offset: Vector3 = target.global_position - global_position
+		var flat_offset := Vector3(offset.x, 0.0, offset.z)
+		distance = flat_offset.length()
+		var facing_dot := aim_direction.dot(flat_offset.normalized()) if distance > 0.01 else -1.0
+		var cone_limit := 0.88 if step == 0 else (0.35 if step == 1 else -0.25)
+		did_hit = distance <= AXE_RANGE[step] and distance > 0.01 and facing_dot >= cone_limit
+		if did_hit:
+			impact_point = target.global_position
+	_show_attack_hitbox(step, impact_point, did_hit)
+	if not did_hit or target == null:
 		return
 	var damage: float = float(AXE_DAMAGE[step])
 	if step == 2 and distance <= 0.9:
@@ -114,6 +117,7 @@ func _perform_axe_attack() -> void:
 		target.call("apply_slow", AXE_SLOW_DURATION if step < 2 else AXE_SHOCKWAVE_DURATION, AXE_SLOW_PERCENT)
 		target.call("flash_impact", false)
 	target.call("take_damage", damage)
+	_create_target_hit_fx(impact_point, step == 2 and distance <= 0.9)
 
 
 func _play_axe_animation(step: int) -> void:
@@ -125,19 +129,20 @@ func _play_axe_animation(step: int) -> void:
 	tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.01)
 	if step == 0:
 		# A readable thrust: the weapon lunges toward the target and snaps back.
-		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.09)
-		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.16)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -0.20), 0.12)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.14)
+		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.28)
 	elif step == 1:
 		# A lateral sweep, with a brief anticipation in the opposite direction.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.07)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.12)
-		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.16)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.12)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.19)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.30)
 	else:
 		# Overhead slam: weapon rises, pauses, then drives down into the floor.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.12)
-		tween.tween_interval(0.05)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.10)
-		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.22)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.18)
+		tween.tween_interval(0.08)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.15)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.34)
 	if _robot_visuals != null:
 		var recoil := create_tween()
 		recoil.tween_property(_robot_visuals, "position", -aim_direction * (0.10 if step < 2 else 0.18), 0.06)
@@ -162,6 +167,14 @@ func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D
 	material.emission = color
 	material.emission_energy_multiplier = 5.0
 	return material
+
+
+func _set_material_alpha(alpha: float, material: StandardMaterial3D) -> void:
+	if material == null:
+		return
+	var color := material.albedo_color
+	color.a = alpha
+	material.albedo_color = color
 
 
 func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float) -> void:
@@ -191,7 +204,7 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
 
 
-func _play_impact_fx(step: int) -> void:
+func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool) -> void:
 	if step == 0:
 		var thrust := MeshInstance3D.new()
 		var thrust_mesh := BoxMesh.new()
@@ -204,7 +217,9 @@ func _play_impact_fx(step: int) -> void:
 		var tween := create_tween()
 		tween.tween_property(thrust, "scale", Vector3(1.8, 1.8, 0.2), 0.12)
 		tween.tween_callback(thrust.queue_free)
-		_spawn_particle_burst(global_position + Vector3.UP * 0.95 + aim_direction * AXE_RANGE[0], Color("#a9f5ff"), 10, 0.28, 5.0, 0.16)
+		_spawn_particle_burst(impact_point + Vector3.UP * 0.9, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
+		if did_hit:
+			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
 	elif step == 1:
 		var slash := _create_slash_fan(AXE_RANGE[1], deg_to_rad(58.0))
 		get_tree().current_scene.add_child(slash)
@@ -221,9 +236,57 @@ func _play_impact_fx(step: int) -> void:
 		var echo_tween := create_tween()
 		echo_tween.tween_property(slash_echo, "scale", Vector3(1.7, 1.0, 1.7), 0.22)
 		echo_tween.tween_callback(slash_echo.queue_free)
-		_spawn_particle_burst(global_position + Vector3.UP * 0.9 + aim_direction * AXE_RANGE[1], Color("#55e9ff"), 14, 0.34, 4.0, 0.14)
+		var slash_outline := _create_slash_outline(AXE_RANGE[1] * 1.02, deg_to_rad(58.0), Color("#d8fbff"))
+		get_tree().current_scene.add_child(slash_outline)
+		slash_outline.global_position = slash.global_position + Vector3.UP * 0.06
+		slash_outline.look_at(slash_outline.global_position + aim_direction, Vector3.UP)
+		var outline_tween := create_tween()
+		outline_tween.tween_property(slash_outline, "scale", Vector3(1.14, 1.0, 1.14), 0.25)
+		outline_tween.tween_callback(slash_outline.queue_free)
+		_spawn_particle_burst(impact_point + Vector3.UP * 0.8, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
+		if did_hit:
+			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
 	else:
-		_create_shockwave_fx()
+		_create_shockwave_fx(impact_point)
+
+
+func _create_hit_flash(origin: Vector3, color: Color, radius: float) -> void:
+	var flash := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.32
+	mesh.height = 0.64
+	flash.mesh = mesh
+	var material := _create_fx_material(color, 0.92)
+	flash.material_override = material
+	get_tree().current_scene.add_child(flash)
+	flash.global_position = origin + Vector3.UP * 0.9
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(flash, "scale", Vector3.ONE * radius * 3.0, 0.16)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.92, 0.0, 0.18)
+	tween.set_parallel(false)
+	tween.tween_callback(flash.queue_free)
+	_spawn_particle_burst(flash.global_position, color, 12, 0.30, 3.5, 0.12)
+
+
+func _create_target_hit_fx(origin: Vector3, critical: bool) -> void:
+	var color := Color("#fff0a1") if critical else Color("#ff795e")
+	var pulse := MeshInstance3D.new()
+	var pulse_mesh := TorusMesh.new()
+	pulse_mesh.inner_radius = 0.22 if critical else 0.16
+	pulse_mesh.outer_radius = 0.34 if critical else 0.26
+	pulse.mesh = pulse_mesh
+	var pulse_material := _create_fx_material(color, 0.92)
+	pulse.material_override = pulse_material
+	get_tree().current_scene.add_child(pulse)
+	pulse.global_position = origin + Vector3.UP * 0.16
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(pulse, "scale", Vector3.ONE * (3.2 if critical else 2.4), 0.28)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(pulse_material), 0.92, 0.0, 0.32)
+	tween.set_parallel(false)
+	tween.tween_callback(pulse.queue_free)
+	_spawn_particle_burst(origin + Vector3.UP * 0.75, color, 26 if critical else 16, 0.40 if critical else 0.28, 5.5, 0.16)
 
 
 func _create_slash_fan(radius: float, half_angle: float) -> MeshInstance3D:
@@ -243,37 +306,103 @@ func _create_slash_fan(radius: float, half_angle: float) -> MeshInstance3D:
 	return slash
 
 
-func _create_shockwave_fx() -> void:
-	var impact_point := global_position + aim_direction * 1.15
+func _create_slash_outline(radius: float, half_angle: float, color: Color) -> MeshInstance3D:
+	var outline := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _create_fx_material(color, 0.95)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	var segments := 14
+	for index in range(segments):
+		var a0 := -half_angle + (2.0 * half_angle) * float(index) / float(segments)
+		var a1 := -half_angle + (2.0 * half_angle) * float(index + 1) / float(segments)
+		mesh.surface_add_vertex(Vector3(sin(a0) * radius, 0.03, -cos(a0) * radius))
+		mesh.surface_add_vertex(Vector3(sin(a1) * radius, 0.03, -cos(a1) * radius))
+	mesh.surface_end()
+	outline.mesh = mesh
+	return outline
+
+
+func _create_shockwave_fx(impact_point: Vector3) -> void:
 	var crater := MeshInstance3D.new()
 	var crater_mesh := CylinderMesh.new()
 	crater_mesh.top_radius = 0.72
 	crater_mesh.bottom_radius = 0.9
 	crater_mesh.height = 0.10
 	crater.mesh = crater_mesh
-	crater.material_override = _create_fx_material(Color("#263e50"), 0.94)
+	var crater_material := _create_fx_material(Color("#263e50"), 0.94)
+	crater.material_override = crater_material
 	get_tree().current_scene.add_child(crater)
 	crater.global_position = impact_point + Vector3.UP * 0.05
+	var inner_crater := MeshInstance3D.new()
+	var inner_mesh := CylinderMesh.new()
+	inner_mesh.top_radius = 0.46
+	inner_mesh.bottom_radius = 0.64
+	inner_mesh.height = 0.13
+	inner_crater.mesh = inner_mesh
+	var inner_material := _create_fx_material(Color("#121c27"), 0.98)
+	inner_crater.material_override = inner_material
+	get_tree().current_scene.add_child(inner_crater)
+	inner_crater.global_position = impact_point + Vector3.UP * 0.12
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
 	ring_mesh.inner_radius = 0.35
 	ring_mesh.outer_radius = 0.52
 	ring.mesh = ring_mesh
-	ring.material_override = _create_fx_material(Color("#42e7ff"), 0.95)
+	var ring_material := _create_fx_material(Color("#42e7ff"), 0.95)
+	ring.material_override = ring_material
 	get_tree().current_scene.add_child(ring)
 	ring.global_position = impact_point + Vector3.UP * 0.12
+	var inner_ring := MeshInstance3D.new()
+	var inner_ring_mesh := TorusMesh.new()
+	inner_ring_mesh.inner_radius = 0.16
+	inner_ring_mesh.outer_radius = 0.25
+	inner_ring.mesh = inner_ring_mesh
+	var inner_ring_material := _create_fx_material(Color("#e9ffff"), 0.95)
+	inner_ring.material_override = inner_ring_material
+	get_tree().current_scene.add_child(inner_ring)
+	inner_ring.global_position = impact_point + Vector3.UP * 0.16
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(crater, "scale", Vector3(1.9, 1.0, 1.9), 0.65)
-	tween.tween_property(ring, "scale", Vector3(3.2, 1.0, 3.2), 0.48)
+	tween.tween_property(crater, "scale", Vector3(1.65, 1.0, 1.65), 0.55)
+	tween.tween_property(inner_crater, "scale", Vector3(1.35, 1.0, 1.35), 0.75)
+	tween.tween_property(ring, "scale", Vector3(3.8, 1.0, 3.8), 0.78)
+	tween.tween_property(inner_ring, "scale", Vector3(2.8, 1.0, 2.8), 0.50)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(crater_material), 0.94, 0.0, 1.55)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(inner_material), 0.98, 0.0, 1.65)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring_material), 0.95, 0.0, 1.10)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(inner_ring_material), 0.95, 0.0, 0.82)
 	tween.set_parallel(false)
-	tween.tween_interval(0.45)
+	tween.tween_interval(1.0)
 	tween.tween_callback(crater.queue_free)
+	tween.tween_callback(inner_crater.queue_free)
 	tween.tween_callback(ring.queue_free)
+	tween.tween_callback(inner_ring.queue_free)
 	for index in range(8):
 		_create_lightning_spark(impact_point, index)
+	_create_crater_fractures(impact_point)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.18, Color("#a8f8ff"), 34, 0.75, 7.0, 0.19)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.12, Color("#ffb13b"), 16, 0.52, 5.0, 0.14)
+
+
+func _create_crater_fractures(origin: Vector3) -> void:
+	for index in range(7):
+		var crack := MeshInstance3D.new()
+		var mesh := ImmediateMesh.new()
+		var material := _create_fx_material(Color("#8cf4ff"), 0.96)
+		mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
+		var angle := (TAU / 7.0) * float(index) + 0.18
+		var direction := Vector3(cos(angle), 0.0, sin(angle))
+		for point_index in range(5):
+			var distance := 0.28 + float(point_index) * 0.26
+			var jitter := Vector3(-direction.z, 0.0, direction.x) * (0.06 if point_index % 2 == 0 else -0.04)
+			mesh.surface_add_vertex(direction * distance + jitter + Vector3.UP * 0.17)
+		mesh.surface_end()
+		crack.mesh = mesh
+		get_tree().current_scene.add_child(crack)
+		crack.global_position = origin
+		var tween := create_tween()
+		tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.96, 0.0, 1.35)
+		tween.tween_callback(crack.queue_free)
 
 
 func _create_lightning_spark(origin: Vector3, index: int) -> void:
@@ -281,18 +410,22 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 	var spark_mesh := BoxMesh.new()
 	spark_mesh.size = Vector3(0.055, 0.08, 1.2 + float(index % 3) * 0.35)
 	spark.mesh = spark_mesh
-	spark.material_override = _create_fx_material(Color("#b7f8ff"), 0.95)
+	var spark_material := _create_fx_material(Color("#b7f8ff"), 0.95)
+	spark.material_override = spark_material
 	get_tree().current_scene.add_child(spark)
 	var angle := (TAU / 8.0) * float(index)
 	var direction := Vector3(cos(angle), 0.0, sin(angle))
 	spark.global_position = origin + direction * 0.45 + Vector3.UP * (0.10 + float(index % 2) * 0.08)
 	spark.look_at(spark.global_position + direction, Vector3.UP)
 	var tween := create_tween()
-	tween.tween_property(spark, "scale", Vector3(1.0, 1.0, 0.1), 0.38)
+	tween.set_parallel(true)
+	tween.tween_property(spark, "scale", Vector3(1.0, 1.0, 0.1), 0.48)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(spark_material), 0.95, 0.0, 0.52)
+	tween.set_parallel(false)
 	tween.tween_callback(spark.queue_free)
 
 
-func _show_attack_hitbox(step: int) -> void:
+func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false) -> void:
 	var hitbox := MeshInstance3D.new()
 	hitbox.name = "AxeHitbox"
 	var mesh := CylinderMesh.new()
@@ -314,7 +447,9 @@ func _show_attack_hitbox(step: int) -> void:
 	var tween := create_tween()
 	tween.tween_property(hitbox, "scale", Vector3(1.0, 1.0, 1.8), 0.12)
 	tween.tween_callback(hitbox.queue_free)
-	_play_impact_fx(step)
+	if impact_point == Vector3.ZERO:
+		impact_point = global_position + aim_direction * AXE_RANGE[step]
+	_play_impact_fx(step, impact_point, did_hit)
 
 
 func _build_collision() -> void:
