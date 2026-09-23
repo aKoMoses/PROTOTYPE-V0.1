@@ -47,6 +47,12 @@ func flash_impact(critical: bool = false) -> void:
 	var tween := create_tween()
 	tween.tween_property(_body_mesh, "scale", original_scale * (1.24 if critical else 1.12), 0.055)
 	tween.tween_property(_body_mesh, "scale", original_scale, 0.14)
+	var recoil := create_tween()
+	var kick_direction := Vector3(randf_range(-0.18, 0.18), 0.0, randf_range(-0.18, 0.18))
+	recoil.tween_property(_body_mesh, "position", Vector3(kick_direction.x, 0.96, kick_direction.z), 0.045)
+	recoil.tween_property(_body_mesh, "position", Vector3(0.0, 0.9, 0.0), 0.22)
+	recoil.tween_property(_body_mesh, "rotation", Vector3(0.0, 0.0, deg_to_rad(randf_range(-7.0, 7.0))), 0.04)
+	recoil.tween_property(_body_mesh, "rotation", Vector3.ZERO, 0.20)
 	_body_material.emission_enabled = true
 	_body_material.emission = Color("#fff0b0") if critical else Color("#ff684d")
 	_body_material.emission_energy_multiplier = 4.0 if critical else 2.5

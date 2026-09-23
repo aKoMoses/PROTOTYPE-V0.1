@@ -13,6 +13,9 @@ const AXE_SLOW_PERCENT := 30.0
 const AXE_SHOCKWAVE_DURATION := 0.50
 const AXE_STUN_DURATION := 0.50
 const CRIT_MULTIPLIER := 1.5
+const SHOW_DEBUG_HITBOX := false
+const HIT_STOP_NORMAL := 0.045
+const HIT_STOP_CRITICAL := 0.085
 
 var aim_direction := Vector3(0.0, 0.0, -1.0)
 var _last_attack_time := -10.0
@@ -118,6 +121,7 @@ func _perform_axe_attack() -> void:
 		target.call("flash_impact", false)
 	target.call("take_damage", damage)
 	_create_target_hit_fx(impact_point, step == 2 and distance <= 0.9)
+	_trigger_hit_stop(HIT_STOP_CRITICAL if step == 2 and distance <= 0.9 else HIT_STOP_NORMAL)
 
 
 func _play_axe_animation(step: int) -> void:
@@ -153,9 +157,20 @@ func _play_axe_animation(step: int) -> void:
 		_axe_light.light_energy = 8.0 if step == 2 else 5.0
 		var light_tween := create_tween()
 		light_tween.tween_property(_axe_light, "light_energy", 0.0, 0.24 if step < 2 else 0.42)
+	_create_axe_lightning(step)
 	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
 	if rig != null and rig.has_method("shake"):
 		rig.call("shake", 0.05 if step < 2 else 0.13)
+
+
+func _trigger_hit_stop(duration: float) -> void:
+	if Engine.time_scale < 1.0:
+		return
+	Engine.time_scale = 0.08
+	var timer := get_tree().create_timer(duration, true, false, true)
+	timer.timeout.connect(func() -> void:
+		Engine.time_scale = 1.0
+	)
 
 
 func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D:
@@ -175,6 +190,39 @@ func _set_material_alpha(alpha: float, material: StandardMaterial3D) -> void:
 	var color := material.albedo_color
 	color.a = alpha
 	material.albedo_color = color
+
+
+func _create_lightning_arc(start: Vector3, end: Vector3, color: Color, width: float = 0.045, lifetime: float = 0.24) -> void:
+	var arc := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _create_fx_material(color, 0.95)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
+	var delta := end - start
+	var perpendicular := Vector3(-delta.z, 0.0, delta.x).normalized()
+	for index in range(7):
+		var t := float(index) / 6.0
+		var jitter := 0.0
+		if index > 0 and index < 6:
+			jitter = randf_range(-0.18, 0.18)
+		mesh.surface_add_vertex(start.lerp(end, t) + perpendicular * jitter + Vector3.UP * (0.03 + width))
+	mesh.surface_end()
+	arc.mesh = mesh
+	get_tree().current_scene.add_child(arc)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(arc, "scale", Vector3.ONE * 1.22, lifetime * 0.35)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.95, 0.0, lifetime)
+	tween.set_parallel(false)
+	tween.tween_callback(arc.queue_free)
+
+
+func _create_axe_lightning(step: int) -> void:
+	var blade_origin := global_position + Vector3.UP * 0.95 + aim_direction * 0.8
+	var blade_end := global_position + Vector3.UP * 0.95 + aim_direction * (1.75 if step == 0 else 1.35)
+	var bolt_color := Color("#8ff7ff")
+	for index in range(3 if step < 2 else 6):
+		var side := Vector3.UP * randf_range(-0.20, 0.30) + Vector3(-aim_direction.z, 0.0, aim_direction.x) * randf_range(-0.45, 0.45)
+		_create_lightning_arc(blade_origin + side, blade_end + side * 0.3, bolt_color, 0.04, 0.26 if step < 2 else 0.42)
 
 
 func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float) -> void:
@@ -206,43 +254,21 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 
 func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool) -> void:
 	if step == 0:
-		var thrust := MeshInstance3D.new()
-		var thrust_mesh := BoxMesh.new()
-		thrust_mesh.size = Vector3(0.18, 0.18, AXE_RANGE[0])
-		thrust.mesh = thrust_mesh
-		thrust.material_override = _create_fx_material(Color("#8cefff"), 0.85)
-		get_tree().current_scene.add_child(thrust)
-		thrust.global_position = global_position + Vector3.UP * 0.95 + aim_direction * (AXE_RANGE[0] * 0.5)
-		thrust.look_at(thrust.global_position + aim_direction, Vector3.UP)
-		var tween := create_tween()
-		tween.tween_property(thrust, "scale", Vector3(1.8, 1.8, 0.2), 0.12)
-		tween.tween_callback(thrust.queue_free)
+		var start := global_position + Vector3.UP * 0.92 + aim_direction * 0.25
+		var end := global_position + Vector3.UP * 0.92 + aim_direction * (AXE_RANGE[0] if not did_hit else maxf(0.4, (impact_point - global_position).length()))
+		for index in range(3):
+			_create_lightning_arc(start + Vector3.UP * (float(index) - 1.0) * 0.08, end + Vector3.UP * (float(index) - 1.0) * 0.08, Color("#67eaff") if index < 2 else Color("#d2fcff"), 0.05, 0.30)
 		_spawn_particle_burst(impact_point + Vector3.UP * 0.9, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
 	elif step == 1:
-		var slash := _create_slash_fan(AXE_RANGE[1], deg_to_rad(58.0))
-		get_tree().current_scene.add_child(slash)
-		slash.global_position = global_position + Vector3.UP * 0.9
-		slash.look_at(slash.global_position + aim_direction, Vector3.UP)
-		var tween := create_tween()
-		tween.tween_property(slash, "scale", Vector3(1.25, 1.0, 1.25), 0.16)
-		tween.tween_callback(slash.queue_free)
-		var slash_echo := _create_slash_fan(AXE_RANGE[1] * 0.82, deg_to_rad(48.0))
-		get_tree().current_scene.add_child(slash_echo)
-		slash_echo.global_position = slash.global_position + Vector3.UP * 0.08
-		slash_echo.look_at(slash_echo.global_position + aim_direction, Vector3.UP)
-		slash_echo.material_override = _create_fx_material(Color("#e8fcff"), 0.55)
-		var echo_tween := create_tween()
-		echo_tween.tween_property(slash_echo, "scale", Vector3(1.7, 1.0, 1.7), 0.22)
-		echo_tween.tween_callback(slash_echo.queue_free)
-		var slash_outline := _create_slash_outline(AXE_RANGE[1] * 1.02, deg_to_rad(58.0), Color("#d8fbff"))
-		get_tree().current_scene.add_child(slash_outline)
-		slash_outline.global_position = slash.global_position + Vector3.UP * 0.06
-		slash_outline.look_at(slash_outline.global_position + aim_direction, Vector3.UP)
-		var outline_tween := create_tween()
-		outline_tween.tween_property(slash_outline, "scale", Vector3(1.14, 1.0, 1.14), 0.25)
-		outline_tween.tween_callback(slash_outline.queue_free)
+		var center := global_position + Vector3.UP * 0.82
+		var forward := aim_direction
+		var side := Vector3(-forward.z, 0.0, forward.x)
+		var reach := AXE_RANGE[1] if not did_hit else maxf(0.5, (impact_point - global_position).length())
+		for index in range(5):
+			var bend := side * (float(index) - 2.0) * 0.28
+			_create_lightning_arc(center + bend * 0.10, center + forward * reach + bend, Color("#52e7ff") if index % 2 == 0 else Color("#bafaff"), 0.05, 0.34 + float(index) * 0.025)
 		_spawn_particle_burst(impact_point + Vector3.UP * 0.8, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
@@ -324,64 +350,71 @@ func _create_slash_outline(radius: float, half_angle: float, color: Color) -> Me
 
 func _create_shockwave_fx(impact_point: Vector3) -> void:
 	var crater := MeshInstance3D.new()
-	var crater_mesh := CylinderMesh.new()
-	crater_mesh.top_radius = 0.72
-	crater_mesh.bottom_radius = 0.9
-	crater_mesh.height = 0.10
+	var crater_mesh := ImmediateMesh.new()
+	var crater_material := _create_fx_material(Color("#1d2730"), 0.96)
+	crater_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, crater_material)
+	var crater_points: Array[Vector3] = []
+	var core_points: Array[Vector3] = []
+	for index in range(12):
+		var angle := TAU * float(index) / 12.0
+		var outer_radius := 0.78 + randf_range(-0.12, 0.18)
+		var inner_radius := 0.30 + randf_range(-0.06, 0.06)
+		crater_points.append(Vector3(cos(angle) * outer_radius, 0.06, sin(angle) * outer_radius))
+		core_points.append(Vector3(cos(angle) * inner_radius, 0.09, sin(angle) * inner_radius))
+	for index in range(12):
+		var next_index := (index + 1) % 12
+		crater_mesh.surface_add_vertex(core_points[index])
+		crater_mesh.surface_add_vertex(crater_points[index])
+		crater_mesh.surface_add_vertex(crater_points[next_index])
+		crater_mesh.surface_add_vertex(core_points[index])
+		crater_mesh.surface_add_vertex(crater_points[next_index])
+		crater_mesh.surface_add_vertex(core_points[next_index])
+	crater_mesh.surface_end()
 	crater.mesh = crater_mesh
-	var crater_material := _create_fx_material(Color("#263e50"), 0.94)
 	crater.material_override = crater_material
 	get_tree().current_scene.add_child(crater)
-	crater.global_position = impact_point + Vector3.UP * 0.05
-	var inner_crater := MeshInstance3D.new()
-	var inner_mesh := CylinderMesh.new()
-	inner_mesh.top_radius = 0.46
-	inner_mesh.bottom_radius = 0.64
-	inner_mesh.height = 0.13
-	inner_crater.mesh = inner_mesh
-	var inner_material := _create_fx_material(Color("#121c27"), 0.98)
-	inner_crater.material_override = inner_material
-	get_tree().current_scene.add_child(inner_crater)
-	inner_crater.global_position = impact_point + Vector3.UP * 0.12
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.35
-	ring_mesh.outer_radius = 0.52
-	ring.mesh = ring_mesh
-	var ring_material := _create_fx_material(Color("#42e7ff"), 0.95)
-	ring.material_override = ring_material
-	get_tree().current_scene.add_child(ring)
-	ring.global_position = impact_point + Vector3.UP * 0.12
-	var inner_ring := MeshInstance3D.new()
-	var inner_ring_mesh := TorusMesh.new()
-	inner_ring_mesh.inner_radius = 0.16
-	inner_ring_mesh.outer_radius = 0.25
-	inner_ring.mesh = inner_ring_mesh
-	var inner_ring_material := _create_fx_material(Color("#e9ffff"), 0.95)
-	inner_ring.material_override = inner_ring_material
-	get_tree().current_scene.add_child(inner_ring)
-	inner_ring.global_position = impact_point + Vector3.UP * 0.16
+	crater.global_position = impact_point
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.28
+	core_mesh.height = 0.32
+	core.mesh = core_mesh
+	var core_material := _create_fx_material(Color("#07131e"), 0.98)
+	core.material_override = core_material
+	get_tree().current_scene.add_child(core)
+	core.global_position = impact_point + Vector3.UP * 0.08
+	var crust := MeshInstance3D.new()
+	var crust_mesh := ImmediateMesh.new()
+	var crust_material := _create_fx_material(Color("#65ecff"), 0.95)
+	crust_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, crust_material)
+	for point in crater_points:
+		crust_mesh.surface_add_vertex(point + Vector3.UP * 0.13)
+	crust_mesh.surface_end()
+	crust.mesh = crust_mesh
+	get_tree().current_scene.add_child(crust)
+	crust.global_position = impact_point
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(crater, "scale", Vector3(1.65, 1.0, 1.65), 0.55)
-	tween.tween_property(inner_crater, "scale", Vector3(1.35, 1.0, 1.35), 0.75)
-	tween.tween_property(ring, "scale", Vector3(3.8, 1.0, 3.8), 0.78)
-	tween.tween_property(inner_ring, "scale", Vector3(2.8, 1.0, 2.8), 0.50)
+	tween.tween_property(crater, "scale", Vector3(1.30, 1.0, 1.30), 0.70)
+	tween.tween_property(core, "scale", Vector3(1.15, 0.75, 1.15), 0.55)
+	tween.tween_property(crust, "scale", Vector3(1.55, 1.0, 1.55), 0.85)
 	tween.tween_method(Callable(self, "_set_material_alpha").bind(crater_material), 0.94, 0.0, 1.55)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(inner_material), 0.98, 0.0, 1.65)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring_material), 0.95, 0.0, 1.10)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(inner_ring_material), 0.95, 0.0, 0.82)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(core_material), 0.98, 0.0, 1.15)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(crust_material), 0.95, 0.0, 1.38)
 	tween.set_parallel(false)
-	tween.tween_interval(1.0)
+	tween.tween_interval(0.90)
 	tween.tween_callback(crater.queue_free)
-	tween.tween_callback(inner_crater.queue_free)
-	tween.tween_callback(ring.queue_free)
-	tween.tween_callback(inner_ring.queue_free)
+	tween.tween_callback(core.queue_free)
+	tween.tween_callback(crust.queue_free)
 	for index in range(8):
 		_create_lightning_spark(impact_point, index)
 	_create_crater_fractures(impact_point)
+	for index in range(6):
+		var direction := Vector3(cos(TAU * float(index) / 6.0), 0.0, sin(TAU * float(index) / 6.0))
+		_create_lightning_arc(impact_point + Vector3.UP * 0.16, impact_point + direction * randf_range(1.2, 1.9) + Vector3.UP * 0.16, Color("#3de6ff"), 0.05, 0.60)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.18, Color("#a8f8ff"), 34, 0.75, 7.0, 0.19)
 	_spawn_particle_burst(impact_point + Vector3.UP * 0.12, Color("#ffb13b"), 16, 0.52, 5.0, 0.14)
+	_spawn_particle_burst(impact_point + Vector3.UP * 0.2, Color("#d19b70"), 22, 0.80, 4.0, 0.18)
 
 
 func _create_crater_fractures(origin: Vector3) -> void:
@@ -426,27 +459,27 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 
 
 func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false) -> void:
-	var hitbox := MeshInstance3D.new()
-	hitbox.name = "AxeHitbox"
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = AXE_RANGE[step] * (0.10 if step == 0 else 0.55)
-	mesh.bottom_radius = mesh.top_radius
-	mesh.height = 0.06
-	hitbox.mesh = mesh
-	hitbox.position = global_position + aim_direction * (AXE_RANGE[step] * 0.5)
-	hitbox.position.y = 0.04
-	hitbox.rotation_degrees = Vector3.ZERO
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Color(0.25, 0.85, 1.0, 0.42)
-	material.emission_enabled = true
-	material.emission = Color("#2ad9ff")
-	material.emission_energy_multiplier = 2.0
-	hitbox.material_override = material
-	get_tree().current_scene.add_child(hitbox)
-	var tween := create_tween()
-	tween.tween_property(hitbox, "scale", Vector3(1.0, 1.0, 1.8), 0.12)
-	tween.tween_callback(hitbox.queue_free)
+	if SHOW_DEBUG_HITBOX:
+		var hitbox := MeshInstance3D.new()
+		hitbox.name = "AxeHitbox"
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = AXE_RANGE[step] * (0.10 if step == 0 else 0.55)
+		mesh.bottom_radius = mesh.top_radius
+		mesh.height = 0.06
+		hitbox.mesh = mesh
+		hitbox.position = global_position + aim_direction * (AXE_RANGE[step] * 0.5)
+		hitbox.position.y = 0.04
+		var material := StandardMaterial3D.new()
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color = Color(0.25, 0.85, 1.0, 0.42)
+		material.emission_enabled = true
+		material.emission = Color("#2ad9ff")
+		material.emission_energy_multiplier = 2.0
+		hitbox.material_override = material
+		get_tree().current_scene.add_child(hitbox)
+		var tween := create_tween()
+		tween.tween_property(hitbox, "scale", Vector3(1.0, 1.0, 1.8), 0.12)
+		tween.tween_callback(hitbox.queue_free)
 	if impact_point == Vector3.ZERO:
 		impact_point = global_position + aim_direction * AXE_RANGE[step]
 	_play_impact_fx(step, impact_point, did_hit)
