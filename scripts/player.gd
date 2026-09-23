@@ -1,12 +1,24 @@
 extends CharacterBody3D
 
-const PROJECTILE_SCRIPT := preload("res://scripts/projectile.gd")
-
 @export var move_speed := 7.5
-@export var fire_interval := 0.22
+@export var attack_interval := 0.34
+
+# Electro Axe V0.1 — first playable combat lot. Damage values are deliberately
+# centralized so balancing after the human test does not touch hitbox code.
+const AXE_DAMAGE := [120.0, 145.0, 80.0]
+const AXE_RANGE := [4.4, 3.2, 2.8]
+const AXE_COMBO_WINDOW := 1.05
+const AXE_SLOW_DURATION := 0.25
+const AXE_SLOW_PERCENT := 30.0
+const AXE_SHOCKWAVE_DURATION := 0.50
+const AXE_STUN_DURATION := 0.50
+const CRIT_MULTIPLIER := 1.5
 
 var aim_direction := Vector3(0.0, 0.0, -1.0)
-var _last_shot_time := -10.0
+var _last_attack_time := -10.0
+var _combo_step := 0
+var _combo_expires_at := -1.0
+var _attack_label: Label3D
 
 
 func _ready() -> void:
@@ -19,7 +31,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	_update_aim()
 	_update_movement()
-	_update_fire()
+	_update_attack()
 
 
 func _update_movement() -> void:
@@ -59,21 +71,65 @@ func _update_aim() -> void:
 		look_at(global_position + aim_direction, Vector3.UP)
 
 
-func _update_fire() -> void:
-	var wants_to_fire := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+func _update_attack() -> void:
+	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	var now := Time.get_ticks_msec() / 1000.0
-	if wants_to_fire and now - _last_shot_time >= fire_interval:
-		_last_shot_time = now
-		_fire_projectile()
+	if now > _combo_expires_at:
+		_combo_step = 0
+	if wants_to_attack and now - _last_attack_time >= attack_interval:
+		_last_attack_time = now
+		_perform_axe_attack()
 
 
-func _fire_projectile() -> void:
-	var projectile := CharacterBody3D.new()
-	projectile.name = "Projectile"
-	projectile.set_script(PROJECTILE_SCRIPT)
-	get_tree().current_scene.add_child(projectile)
-	projectile.global_position = global_position + Vector3.UP * 0.85 + aim_direction * 1.05
-	projectile.call("setup", aim_direction, 19.0, 25.0)
+func _perform_axe_attack() -> void:
+	var step := _combo_step
+	_combo_step = (_combo_step + 1) % 3
+	_combo_expires_at = Time.get_ticks_msec() / 1000.0 + AXE_COMBO_WINDOW
+	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
+	_show_attack_hitbox(step)
+	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
+	if target == null:
+		return
+	var offset: Vector3 = target.global_position - global_position
+	var flat_offset := Vector3(offset.x, 0.0, offset.z)
+	var distance := flat_offset.length()
+	if distance > AXE_RANGE[step] or distance < 0.01:
+		return
+	var facing_dot := aim_direction.dot(flat_offset.normalized())
+	var cone_limit := 0.88 if step == 0 else (0.35 if step == 1 else -0.25)
+	if facing_dot < cone_limit:
+		return
+	var damage: float = float(AXE_DAMAGE[step])
+	if step == 2 and distance <= 0.9:
+		damage *= CRIT_MULTIPLIER
+		target.call("apply_stun", AXE_STUN_DURATION)
+	else:
+		target.call("apply_slow", AXE_SLOW_DURATION if step < 2 else AXE_SHOCKWAVE_DURATION, AXE_SLOW_PERCENT)
+	target.call("take_damage", damage)
+
+
+func _show_attack_hitbox(step: int) -> void:
+	var hitbox := MeshInstance3D.new()
+	hitbox.name = "AxeHitbox"
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = AXE_RANGE[step] * (0.10 if step == 0 else 0.55)
+	mesh.bottom_radius = mesh.top_radius
+	mesh.height = 0.06
+	hitbox.mesh = mesh
+	hitbox.position = global_position + aim_direction * (AXE_RANGE[step] * 0.5)
+	hitbox.position.y = 0.04
+	hitbox.rotation_degrees = Vector3.ZERO
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(0.25, 0.85, 1.0, 0.42)
+	material.emission_enabled = true
+	material.emission = Color("#2ad9ff")
+	material.emission_energy_multiplier = 2.0
+	hitbox.material_override = material
+	get_tree().current_scene.add_child(hitbox)
+	var tween := create_tween()
+	tween.tween_property(hitbox, "scale", Vector3(1.0, 1.0, 1.8), 0.12)
+	tween.tween_callback(hitbox.queue_free)
 
 
 func _build_collision() -> void:
@@ -91,6 +147,14 @@ func _build_robot() -> void:
 	visuals.name = "Visuals"
 	visuals.scale = Vector3.ONE * 0.88
 	add_child(visuals)
+
+	_attack_label = Label3D.new()
+	_attack_label.position = Vector3(0.0, 2.55, 0.0)
+	_attack_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_attack_label.font_size = 26
+	_attack_label.outline_size = 6
+	_attack_label.modulate = Color("#8beaff")
+	add_child(_attack_label)
 
 	var selection_ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()

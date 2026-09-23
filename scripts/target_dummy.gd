@@ -1,11 +1,14 @@
 extends StaticBody3D
 
-const MAX_HEALTH := 100.0
+const MAX_HEALTH := 1000.0
 
 var _health := MAX_HEALTH
 var _resetting := false
 var _health_label: Label3D
 var _body_material: StandardMaterial3D
+var _status_label: Label3D
+var _slow_until := 0.0
+var _stun_until := 0.0
 
 
 func _ready() -> void:
@@ -25,6 +28,24 @@ func take_damage(amount: float) -> void:
 		_reset_target()
 
 
+func apply_slow(duration: float, percent: float) -> void:
+	_slow_until = maxf(_slow_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_update_status("RALENTI  %d%%  %.1fs" % [int(percent), duration])
+
+
+func apply_stun(duration: float) -> void:
+	_stun_until = maxf(_stun_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_update_status("ÉTOURDI  %.1fs" % duration)
+
+
+func _process(_delta: float) -> void:
+	if _resetting:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _stun_until and now >= _slow_until:
+		_update_status("")
+
+
 func _reset_target() -> void:
 	_resetting = true
 	_health_label.text = "CIBLE DÉTRUITE"
@@ -33,6 +54,7 @@ func _reset_target() -> void:
 	_health = MAX_HEALTH
 	_resetting = false
 	_body_material.albedo_color = Color("#8f302b")
+	_update_status("")
 	_update_label()
 
 
@@ -87,3 +109,15 @@ func _build_visuals() -> void:
 	_health_label.modulate = Color("#ff8b78")
 	add_child(_health_label)
 
+	_status_label = Label3D.new()
+	_status_label.position = Vector3(0.0, 2.75, 0.0)
+	_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_status_label.font_size = 28
+	_status_label.outline_size = 6
+	_status_label.modulate = Color("#ffe28a")
+	add_child(_status_label)
+
+
+func _update_status(text: String) -> void:
+	if _status_label != null:
+		_status_label.text = text

@@ -106,7 +106,7 @@ func _build_interface() -> void:
 
 	var help := Label.new()
 	help.position = Vector2(24.0, 54.0)
-	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : viser   •   Clic gauche ou Espace : tirer\nLes obstacles bloquent le robot et les projectiles."
+	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Clic gauche ou Espace : Electro Axe\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement."
 	help.add_theme_font_size_override("font_size", 17)
 	help.add_theme_color_override("font_color", Color.WHITE)
 	layer.add_child(help)
@@ -114,7 +114,7 @@ func _build_interface() -> void:
 	var status := Label.new()
 	status.name = "Status"
 	status.position = Vector2(24.0, 650.0)
-	status.text = "Objectif : détruire la cible rouge. Elle se réinitialise automatiquement."
+	status.text = "TEST LOT 1 — ELECTRO AXE : touche la cible pour vérifier portée, combo, dégâts, ralentissement et stun."
 	status.add_theme_font_size_override("font_size", 17)
 	status.add_theme_color_override("font_color", Color("#7de8ff"))
 	layer.add_child(status)
