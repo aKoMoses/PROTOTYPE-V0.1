@@ -88,6 +88,16 @@ func _build_arena() -> void:
 	_create_bush_cluster("BushEastSpine", Vector3(8.8, 0.0, 1.0), 0.9)
 	_create_bush_cluster("BushNorthWest", Vector3(-19.5, 0.0, -12.6), 0.8)
 	_create_bush_cluster("BushSouthEast", Vector3(19.5, 0.0, 12.6), 0.8)
+	_create_bush_cluster("BushNorthWestCover", Vector3(-14.0, 0.0, -8.0), 1.35)
+	_create_bush_cluster("BushNorthEastCover", Vector3(13.8, 0.0, -8.0), 1.35)
+	_create_bush_cluster("BushSouthWestCover", Vector3(-13.8, 0.0, 10.0), 1.35)
+	_create_bush_cluster("BushSouthEastCover", Vector3(14.0, 0.0, 10.0), 1.35)
+	_create_bush_cluster("BushWestPocket", Vector3(-18.5, 0.0, 5.4), 1.25)
+	_create_bush_cluster("BushEastPocket", Vector3(18.5, 0.0, -5.4), 1.25)
+	_create_bush_cluster("BushNorthPad", Vector3(-2.8, 0.0, -20.5), 1.0)
+	_create_bush_cluster("BushSouthPad", Vector3(2.8, 0.0, 20.5), 1.0)
+	_create_pipe_clutter("PipeClutterWest", Vector3(-20.5, 0.0, -6.0), 22.0)
+	_create_pipe_clutter("PipeClutterEast", Vector3(20.5, 0.0, 6.0), -22.0)
 
 	_create_tire_stack("TiresNorthWest", Vector3(-22.2, 0.0, -17.0), 3)
 	_create_tire_stack("TiresSouthEast", Vector3(22.2, 0.0, 17.0), 3)
@@ -472,6 +482,10 @@ func _build_scrap_perimeter() -> void:
 		[Vector3(24.45, 2.0, -15.0), 90.0], [Vector3(24.45, 2.0, 15.0), 90.0],
 	]:
 		_create_banner(banner_data[0], banner_data[1])
+	_create_perimeter_tower("TowerNorthWest", Vector3(-23.4, 0.0, -23.4), 0.0)
+	_create_perimeter_tower("TowerNorthEast", Vector3(23.4, 0.0, -23.4), 90.0)
+	_create_perimeter_tower("TowerSouthWest", Vector3(-23.4, 0.0, 23.4), -90.0)
+	_create_perimeter_tower("TowerSouthEast", Vector3(23.4, 0.0, 23.4), 180.0)
 
 
 func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: Vector3, rotation_y: float = 0.0) -> StaticBody3D:
@@ -525,7 +539,135 @@ func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: V
 		bolt.scale = Vector3(1.0, 0.45, 1.0)
 		bolt.material_override = _material(Color("#d69a5e"), 0.45, Color("#9f5731"))
 		body.add_child(bolt)
+	var facing_z := size.z * 0.5 + 0.035
+	for index in range(3):
+		var plate := MeshInstance3D.new()
+		var plate_mesh := BoxMesh.new()
+		var plate_width := clampf(size.x * (0.24 + float(index % 2) * 0.08), 0.30, 2.4)
+		var plate_height := clampf(size.y * (0.26 + float(index % 2) * 0.12), 0.25, 0.85)
+		plate_mesh.size = Vector3(plate_width, plate_height, 0.07)
+		plate.mesh = plate_mesh
+		plate.position = Vector3(-size.x * 0.30 + float(index) * size.x * 0.30, size.y * (-0.14 + float(index % 2) * 0.28), facing_z)
+		plate.rotation_degrees.z = -8.0 + float(index) * 11.0
+		plate.material_override = _material(Color("#b06b42") if index % 2 == 0 else Color("#69715c"), 0.9)
+		body.add_child(plate)
+	var brace := MeshInstance3D.new()
+	var brace_mesh := BoxMesh.new()
+	brace_mesh.size = Vector3(clampf(size.x * 0.8, 0.65, 3.8), 0.09, 0.09)
+	brace.mesh = brace_mesh
+	brace.position = Vector3(0.0, 0.18, facing_z + 0.06)
+	brace.rotation_degrees.z = -17.0 if size.x >= size.z else 17.0
+	brace.material_override = _material(Color("#403531"), 0.78)
+	body.add_child(brace)
+	var pipe := MeshInstance3D.new()
+	var pipe_mesh := CylinderMesh.new()
+	pipe_mesh.top_radius = 0.07
+	pipe_mesh.bottom_radius = 0.10
+	pipe_mesh.height = size.y + 0.6
+	pipe.mesh = pipe_mesh
+	pipe.position = Vector3(size.x * 0.42, 0.0, facing_z + 0.08)
+	pipe.material_override = _material(Color("#50382f"), 0.86)
+	body.add_child(pipe)
+	_create_barrier_cable(body, size, facing_z)
+	_create_barrier_rubble(body, size)
 	return body
+
+
+func _create_barrier_cable(parent: Node3D, size: Vector3, facing_z: float) -> void:
+	var cable := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _material(Color("#292b29"), 1.0)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
+	var cable_width := clampf(size.x * 0.75, 0.6, 4.0)
+	for index in range(9):
+		var t := float(index) / 8.0
+		var x := lerpf(-cable_width * 0.5, cable_width * 0.5, t)
+		var sag := -0.10 - sin(t * PI) * 0.18
+		mesh.surface_add_vertex(Vector3(x, size.y * 0.48 + sag, facing_z + 0.12))
+	mesh.surface_end()
+	cable.mesh = mesh
+	parent.add_child(cable)
+
+
+func _create_barrier_rubble(parent: Node3D, size: Vector3) -> void:
+	for index in range(4):
+		var rubble := MeshInstance3D.new()
+		var rubble_mesh := BoxMesh.new()
+		rubble_mesh.size = Vector3(0.16 + float(index % 2) * 0.14, 0.12 + float(index % 3) * 0.06, 0.18 + float(index % 2) * 0.12)
+		rubble.mesh = rubble_mesh
+		var x := -size.x * 0.42 + float(index) * size.x * 0.28
+		var z := size.z * 0.56 if index % 2 == 0 else -size.z * 0.56
+		rubble.position = Vector3(x, 0.10 + float(index % 2) * 0.08, z)
+		rubble.rotation_degrees = Vector3(float(index) * 17.0, float(index) * 33.0, float(index) * 11.0)
+		rubble.material_override = _material(Color("#655047") if index % 2 == 0 else Color("#9b683d"), 0.96)
+		parent.add_child(rubble)
+
+
+func _create_pipe_clutter(node_name: String, clutter_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = node_name
+	root.position = clutter_position
+	root.rotation_degrees.y = rotation_y
+	for index in range(4):
+		var pipe := MeshInstance3D.new()
+		var pipe_mesh := CylinderMesh.new()
+		pipe_mesh.top_radius = 0.12 + float(index % 2) * 0.04
+		pipe_mesh.bottom_radius = 0.15 + float(index % 2) * 0.05
+		pipe_mesh.height = 2.8 + float(index % 3) * 0.7
+		pipe.mesh = pipe_mesh
+		pipe.position = Vector3(-0.7 + float(index % 2) * 1.0, pipe_mesh.height * 0.5, -0.7 + float(index / 2) * 0.85)
+		pipe.rotation_degrees = Vector3(-10.0 + float(index) * 9.0, float(index) * 24.0, 6.0 - float(index) * 3.0)
+		pipe.material_override = _material(Color("#5e493d") if index % 2 == 0 else Color("#8d4d30"), 0.86)
+		root.add_child(pipe)
+		for ring_height in [0.55, 1.55]:
+			var ring := MeshInstance3D.new()
+			var ring_mesh := TorusMesh.new()
+			ring_mesh.inner_radius = pipe_mesh.bottom_radius * 0.92
+			ring_mesh.outer_radius = pipe_mesh.bottom_radius * 1.16
+			ring_mesh.rings = 7
+			ring_mesh.ring_segments = 10
+			ring.mesh = ring_mesh
+			ring.position = pipe.position + Vector3.UP * (ring_height - pipe_mesh.height * 0.5)
+			ring.material_override = _material(Color("#bd7740"), 0.75)
+			root.add_child(ring)
+	add_child(root)
+
+
+func _create_perimeter_tower(node_name: String, tower_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = node_name
+	root.position = tower_position
+	root.rotation_degrees.y = rotation_y
+	for x_offset in [-0.85, 0.85]:
+		var post := MeshInstance3D.new()
+		var post_mesh := BoxMesh.new()
+		post_mesh.size = Vector3(0.26, 4.2, 0.26)
+		post.mesh = post_mesh
+		post.position = Vector3(x_offset, 2.1, 0.0)
+		post.material_override = _material(Color("#4b3830"), 0.86)
+		root.add_child(post)
+	for y_offset in [1.3, 3.2]:
+		var beam := MeshInstance3D.new()
+		var beam_mesh := BoxMesh.new()
+		beam_mesh.size = Vector3(2.1, 0.20, 0.22)
+		beam.mesh = beam_mesh
+		beam.position.y = y_offset
+		beam.material_override = _material(Color("#815039"), 0.88)
+		root.add_child(beam)
+	var top_light := OmniLight3D.new()
+	top_light.position = Vector3(0.0, 3.55, 0.0)
+	top_light.light_color = Color("#ff9c4b")
+	top_light.light_energy = 0.7
+	top_light.omni_range = 3.5
+	root.add_child(top_light)
+	var flag := MeshInstance3D.new()
+	var flag_mesh := BoxMesh.new()
+	flag_mesh.size = Vector3(1.25, 0.72, 0.06)
+	flag.mesh = flag_mesh
+	flag.position = Vector3(0.18, 2.8, 0.0)
+	flag.material_override = _material(Color("#9c2e27"), 0.94)
+	root.add_child(flag)
+	add_child(root)
 
 
 func _create_invisible_limit(node_name: String, limit_position: Vector3, size: Vector3) -> void:
@@ -598,31 +740,40 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = bush_position
-	root.scale = Vector3.ONE * bush_scale
+	# Bushes are deliberately oversized landmarks for the future stealth system.
+	root.scale = Vector3.ONE * bush_scale * 1.45
 	root.add_to_group("bush_placeholder")
-	var colors := [Color("#53613b"), Color("#6c7041"), Color("#7d6539")]
-	var offsets := [Vector3(-0.65, 0.45, 0.1), Vector3(0.0, 0.58, -0.2), Vector3(0.62, 0.42, 0.15), Vector3(0.15, 0.38, 0.55)]
+	var colors := [Color("#405132"), Color("#53613b"), Color("#6c7041"), Color("#8a6a37")]
+	var offsets := [Vector3(-0.92, 0.55, 0.1), Vector3(-0.35, 0.82, -0.35), Vector3(0.35, 0.72, -0.15), Vector3(0.92, 0.48, 0.12), Vector3(-0.25, 0.48, 0.65), Vector3(0.38, 0.45, 0.62)]
 	for index in range(offsets.size()):
 		var tuft := MeshInstance3D.new()
 		var tuft_mesh := SphereMesh.new()
-		tuft_mesh.radius = 0.62
-		tuft_mesh.height = 0.9
+		tuft_mesh.radius = 0.72
+		tuft_mesh.height = 1.05
 		tuft_mesh.radial_segments = 7
 		tuft_mesh.rings = 4
 		tuft.mesh = tuft_mesh
 		tuft.position = offsets[index]
-		tuft.scale = Vector3(1.0, 0.8 + float(index % 2) * 0.25, 0.8)
+		tuft.scale = Vector3(1.0, 0.72 + float(index % 3) * 0.20, 0.85)
 		tuft.material_override = _material(colors[index % colors.size()], 1.0)
 		root.add_child(tuft)
 		var stem := MeshInstance3D.new()
 		var stem_mesh := CylinderMesh.new()
 		stem_mesh.top_radius = 0.035
 		stem_mesh.bottom_radius = 0.08
-		stem_mesh.height = 0.55
+		stem_mesh.height = 0.72
 		stem.mesh = stem_mesh
 		stem.position = offsets[index] - Vector3.UP * 0.28
 		stem.material_override = _material(Color("#51402c"), 1.0)
 		root.add_child(stem)
+		var blade := MeshInstance3D.new()
+		var blade_mesh := BoxMesh.new()
+		blade_mesh.size = Vector3(0.10, 0.68 + float(index % 3) * 0.16, 0.18)
+		blade.mesh = blade_mesh
+		blade.position = offsets[index] + Vector3(0.18, 0.36, -0.12)
+		blade.rotation_degrees = Vector3(0.0, float(index) * 31.0, -18.0 + float(index % 2) * 32.0)
+		blade.material_override = _material(Color("#8b743b"), 1.0)
+		root.add_child(blade)
 	add_child(root)
 
 
