@@ -1,5 +1,9 @@
 extends CharacterBody3D
 
+const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
+const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
+const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
+
 @export var move_speed := 7.5
 @export var attack_interval := 0.64
 
@@ -684,7 +688,7 @@ func _build_robot() -> void:
 	body_mesh.height = 1.25
 	body.mesh = body_mesh
 	body.position.y = 0.8
-	body.material_override = _material(Color("#e4d0ae"), 0.72)
+	body.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
 	visuals.add_child(body)
 
 	var head := MeshInstance3D.new()
@@ -693,7 +697,7 @@ func _build_robot() -> void:
 	head_mesh.height = 0.85
 	head.mesh = head_mesh
 	head.position = Vector3(0.0, 1.55, 0.0)
-	head.material_override = _material(Color("#efe1c4"), 0.65)
+	head.material_override = _robot_textured_material(Color.WHITE, 0.72, ROBOT_CREAM_TEXTURE)
 	visuals.add_child(head)
 
 	var eye := MeshInstance3D.new()
@@ -705,6 +709,29 @@ func _build_robot() -> void:
 	eye.scale = Vector3(1.2, 0.75, 0.45)
 	eye.material_override = _material(Color("#4ee8ff"), 0.25, Color("#21cfff"))
 	visuals.add_child(eye)
+
+	var chest_plate := MeshInstance3D.new()
+	var chest_mesh := BoxMesh.new()
+	chest_mesh.size = Vector3(0.72, 0.48, 0.14)
+	chest_plate.mesh = chest_mesh
+	chest_plate.position = Vector3(0.0, 0.88, -0.52)
+	chest_plate.rotation_degrees.x = -7.0
+	chest_plate.material_override = _robot_textured_material(Color.WHITE, 0.70, ROBOT_RUST_TEXTURE)
+	visuals.add_child(chest_plate)
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.19
+	core_mesh.height = 0.28
+	core.mesh = core_mesh
+	core.position = Vector3(0.0, 0.90, -0.61)
+	core.scale = Vector3(1.35, 0.72, 0.48)
+	core.material_override = _material(Color("#49e8f1"), 0.16, Color("#22d8e8"))
+	visuals.add_child(core)
+	_add_robot_arm(visuals, -1.0)
+	_add_robot_arm(visuals, 1.0)
+	_add_robot_leg(visuals, -1.0)
+	_add_robot_leg(visuals, 1.0)
+	_add_robot_backpack(visuals)
 
 	_axe_pivot = Node3D.new()
 	_axe_pivot.name = "ElectroAxePivot"
@@ -755,6 +782,90 @@ func _build_robot() -> void:
 	visuals.add_child(scarf)
 
 
+func _add_robot_arm(parent: Node3D, side: float) -> void:
+	var shoulder := MeshInstance3D.new()
+	var shoulder_mesh := SphereMesh.new()
+	shoulder_mesh.radius = 0.25
+	shoulder_mesh.height = 0.42
+	shoulder.mesh = shoulder_mesh
+	shoulder.position = Vector3(side * 0.68, 1.05, 0.0)
+	shoulder.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
+	parent.add_child(shoulder)
+	var upper := MeshInstance3D.new()
+	var upper_mesh := CylinderMesh.new()
+	upper_mesh.top_radius = 0.16
+	upper_mesh.bottom_radius = 0.20
+	upper_mesh.height = 0.58
+	upper.mesh = upper_mesh
+	upper.position = Vector3(side * 0.78, 0.78, 0.0)
+	upper.rotation_degrees.z = side * -11.0
+	upper.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_CREAM_TEXTURE)
+	parent.add_child(upper)
+	var forearm := MeshInstance3D.new()
+	var forearm_mesh := BoxMesh.new()
+	forearm_mesh.size = Vector3(0.30, 0.48, 0.34)
+	forearm.mesh = forearm_mesh
+	forearm.position = Vector3(side * 0.82, 0.43, -0.03)
+	forearm.rotation_degrees.z = side * -18.0
+	forearm.material_override = _robot_textured_material(Color.WHITE, 0.84, ROBOT_RUST_TEXTURE)
+	parent.add_child(forearm)
+	var hand := MeshInstance3D.new()
+	var hand_mesh := SphereMesh.new()
+	hand_mesh.radius = 0.17
+	hand_mesh.height = 0.25
+	hand.mesh = hand_mesh
+	hand.position = Vector3(side * 0.84, 0.16, -0.08)
+	hand.material_override = _robot_textured_material(Color.WHITE, 0.90, ROBOT_STEEL_TEXTURE)
+	parent.add_child(hand)
+
+
+func _add_robot_leg(parent: Node3D, side: float) -> void:
+	var thigh := MeshInstance3D.new()
+	var thigh_mesh := CapsuleMesh.new()
+	thigh_mesh.radius = 0.20
+	thigh_mesh.height = 0.62
+	thigh.mesh = thigh_mesh
+	thigh.position = Vector3(side * 0.31, 0.36, 0.02)
+	thigh.rotation_degrees.z = side * 7.0
+	thigh.material_override = _robot_textured_material(Color.WHITE, 0.84, ROBOT_STEEL_TEXTURE)
+	parent.add_child(thigh)
+	var shin := MeshInstance3D.new()
+	var shin_mesh := BoxMesh.new()
+	shin_mesh.size = Vector3(0.28, 0.48, 0.34)
+	shin.mesh = shin_mesh
+	shin.position = Vector3(side * 0.33, 0.05, -0.04)
+	shin.rotation_degrees.z = side * -4.0
+	shin.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
+	parent.add_child(shin)
+	var foot := MeshInstance3D.new()
+	var foot_mesh := BoxMesh.new()
+	foot_mesh.size = Vector3(0.40, 0.18, 0.62)
+	foot.mesh = foot_mesh
+	foot.position = Vector3(side * 0.33, -0.17, -0.17)
+	foot.material_override = _robot_textured_material(Color.WHITE, 0.90, ROBOT_RUST_TEXTURE)
+	parent.add_child(foot)
+
+
+func _add_robot_backpack(parent: Node3D) -> void:
+	var pack := MeshInstance3D.new()
+	var pack_mesh := BoxMesh.new()
+	pack_mesh.size = Vector3(0.66, 0.78, 0.34)
+	pack.mesh = pack_mesh
+	pack.position = Vector3(0.0, 1.02, 0.55)
+	pack.rotation_degrees.x = -8.0
+	pack.material_override = _robot_textured_material(Color.WHITE, 0.86, ROBOT_RUST_TEXTURE)
+	parent.add_child(pack)
+	var coil := MeshInstance3D.new()
+	var coil_mesh := TorusMesh.new()
+	coil_mesh.inner_radius = 0.14
+	coil_mesh.outer_radius = 0.20
+	coil.mesh = coil_mesh
+	coil.position = Vector3(0.0, 1.18, 0.76)
+	coil.rotation_degrees.x = 90.0
+	coil.material_override = _material(Color("#52e5ed"), 0.30, Color("#2bd4df"))
+	parent.add_child(coil)
+
+
 func _material(color: Color, roughness: float, emission: Color = Color.BLACK) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
@@ -763,4 +874,12 @@ func _material(color: Color, roughness: float, emission: Color = Color.BLACK) ->
 		material.emission_enabled = true
 		material.emission = emission
 		material.emission_energy_multiplier = 3.0
+	return material
+
+
+func _robot_textured_material(color: Color, roughness: float, texture: Texture2D) -> StandardMaterial3D:
+	var material := _material(color, roughness)
+	material.albedo_texture = texture
+	material.uv1_scale = Vector3(1.1, 1.1, 1.1)
+	material.metallic = 0.18 if texture == ROBOT_RUST_TEXTURE else (0.38 if texture == ROBOT_STEEL_TEXTURE else 0.04)
 	return material
