@@ -24,6 +24,10 @@ func _build_environment() -> void:
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#f2c08d")
 	environment.ambient_light_energy = 0.55
+	environment.fog_enabled = true
+	environment.fog_light_color = Color("#c6805b")
+	environment.fog_light_energy = 0.32
+	environment.fog_density = 0.006
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world_environment.environment = environment
 	add_child(world_environment)
@@ -44,6 +48,7 @@ func _build_arena() -> void:
 	ground.mesh = ground_mesh
 	ground.material_override = _material(Color("#a9663f"), 0.98)
 	add_child(ground)
+	_create_ground_details()
 
 	_build_scrap_perimeter()
 
@@ -88,6 +93,130 @@ func _build_arena() -> void:
 	_create_tire_stack("TiresSouthEast", Vector3(22.2, 0.0, 17.0), 3)
 	_create_tire_stack("TiresWest", Vector3(-23.0, 0.0, 7.0), 2)
 	_create_tire_stack("TiresEast", Vector3(23.0, 0.0, -7.0), 2)
+	_create_brazier("BrazierNorthWest", Vector3(-22.8, 0.0, -21.8))
+	_create_brazier("BrazierNorthEast", Vector3(22.8, 0.0, -21.8))
+	_create_brazier("BrazierSouthWest", Vector3(-22.8, 0.0, 21.8))
+	_create_brazier("BrazierSouthEast", Vector3(22.8, 0.0, 21.8))
+	_create_scrap_pile("ScrapPileNorth", Vector3(-19.0, 0.0, -21.2), 0.9)
+	_create_scrap_pile("ScrapPileSouth", Vector3(19.0, 0.0, 21.2), 0.9)
+	_create_scrap_pile("ScrapPileWest", Vector3(-21.2, 0.0, 18.0), 0.75)
+	_create_scrap_pile("ScrapPileEast", Vector3(21.2, 0.0, -18.0), 0.75)
+
+
+func _create_ground_details() -> void:
+	# Broad, low-contrast stains give the sand a hand-painted variation without
+	# needing external textures. They remain below the player and never collide.
+	var stains := [
+		[Vector3(-12.0, 0.012, -2.0), Vector2(7.5, 2.4), -18.0, Color("#995a3b")],
+		[Vector3(11.0, 0.012, 4.0), Vector2(8.0, 2.2), 24.0, Color("#b57447")],
+		[Vector3(-1.0, 0.012, 17.5), Vector2(10.0, 2.0), -8.0, Color("#8f553b")],
+		[Vector3(1.0, 0.012, -17.0), Vector2(9.0, 2.5), 13.0, Color("#b97749")],
+	]
+	for stain_data in stains:
+		var stain := MeshInstance3D.new()
+		var stain_mesh := PlaneMesh.new()
+		stain_mesh.size = stain_data[1]
+		stain.mesh = stain_mesh
+		stain.position = stain_data[0]
+		stain.rotation_degrees.y = stain_data[2]
+		stain.material_override = _material(stain_data[3], 1.0)
+		add_child(stain)
+	# Small low-poly rocks and metal fragments break up the open centre.
+	var rocks := [
+		Vector3(-13.5, 0.0, -2.7), Vector3(-10.4, 0.0, 5.7), Vector3(-3.2, 0.0, -16.0),
+		Vector3(3.8, 0.0, -5.6), Vector3(11.8, 0.0, 2.3), Vector3(14.0, 0.0, 7.5),
+		Vector3(-14.8, 0.0, 14.2), Vector3(4.4, 0.0, 14.7), Vector3(14.3, 0.0, -13.0),
+		Vector3(-4.0, 0.0, 6.0), Vector3(2.4, 0.0, 4.4), Vector3(-2.0, 0.0, -3.5),
+	]
+	for index in range(rocks.size()):
+		_create_ground_rock("GroundRock%d" % index, rocks[index], 0.16 + float(index % 3) * 0.08)
+	# Old vehicle tracks are painted on the ground as broken, irregular lines.
+	_create_ground_track(Vector3(-20.0, 0.0, 0.0), Vector3(20.0, 0.0, 0.0), 0.12)
+	_create_ground_track(Vector3(0.0, 0.0, -19.0), Vector3(0.0, 0.0, 18.0), 0.10)
+
+
+func _create_ground_rock(node_name: String, rock_position: Vector3, rock_scale: float) -> void:
+	var rock := MeshInstance3D.new()
+	rock.name = node_name
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.55
+	mesh.height = 0.6
+	mesh.radial_segments = 6
+	mesh.rings = 3
+	rock.mesh = mesh
+	rock.position = rock_position + Vector3.UP * (rock_scale * 0.22)
+	rock.scale = Vector3(1.4, 0.55, 0.9) * rock_scale
+	rock.rotation_degrees = Vector3(0.0, fmod(rock_position.x * 17.0 + rock_position.z * 9.0, 360.0), 7.0)
+	rock.material_override = _material(Color("#655047"), 0.96)
+	add_child(rock)
+
+
+func _create_ground_track(start: Vector3, end: Vector3, width: float) -> void:
+	var track := MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var material := _material(Color("#875039"), 1.0)
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	var direction := (end - start).normalized()
+	var side := Vector3(-direction.z, 0.0, direction.x)
+	for index in range(10):
+		var t0 := float(index) / 10.0
+		var t1 := t0 + 0.065
+		var centre0 := start.lerp(end, t0)
+		var centre1 := start.lerp(end, minf(t1, 1.0))
+		var offset := side * (0.38 if index % 2 == 0 else -0.38)
+		mesh.surface_add_vertex(centre0 + offset - side * width + Vector3.UP * 0.02)
+		mesh.surface_add_vertex(centre1 + offset + side * width + Vector3.UP * 0.02)
+	mesh.surface_end()
+	track.mesh = mesh
+	add_child(track)
+
+
+func _create_brazier(node_name: String, brazier_position: Vector3) -> void:
+	var root := Node3D.new()
+	root.name = node_name
+	root.position = brazier_position
+	var bowl := MeshInstance3D.new()
+	var bowl_mesh := CylinderMesh.new()
+	bowl_mesh.top_radius = 0.30
+	bowl_mesh.bottom_radius = 0.42
+	bowl_mesh.height = 0.42
+	bowl.mesh = bowl_mesh
+	bowl.position.y = 0.21
+	bowl.material_override = _material(Color("#4b3a32"), 0.78)
+	root.add_child(bowl)
+	var flame := MeshInstance3D.new()
+	var flame_mesh := SphereMesh.new()
+	flame_mesh.radius = 0.24
+	flame_mesh.height = 0.62
+	flame.mesh = flame_mesh
+	flame.position.y = 0.65
+	flame.scale = Vector3(0.75, 1.3, 0.75)
+	flame.material_override = _material(Color("#ff9e35"), 0.25, Color("#ff6b21"))
+	root.add_child(flame)
+	var light := OmniLight3D.new()
+	light.position.y = 1.1
+	light.light_color = Color("#ff9d4c")
+	light.light_energy = 1.3
+	light.omni_range = 5.0
+	root.add_child(light)
+	add_child(root)
+
+
+func _create_scrap_pile(node_name: String, pile_position: Vector3, pile_scale: float) -> void:
+	var root := Node3D.new()
+	root.name = node_name
+	root.position = pile_position
+	root.scale = Vector3.ONE * pile_scale
+	for index in range(5):
+		var piece := MeshInstance3D.new()
+		var piece_mesh := BoxMesh.new()
+		piece_mesh.size = Vector3(0.65 + float(index % 2) * 0.25, 0.18 + float(index % 3) * 0.12, 0.42)
+		piece.mesh = piece_mesh
+		piece.position = Vector3(-0.6 + float(index % 3) * 0.5, 0.12 + float(index / 3) * 0.25, -0.25 + float(index % 2) * 0.45)
+		piece.rotation_degrees = Vector3(float(index * 9), float(index * 31), float(index * 17))
+		piece.material_override = _material(Color("#704334") if index % 2 == 0 else Color("#6f6653"), 0.9)
+		root.add_child(piece)
+	add_child(root)
 
 
 func _build_scrap_perimeter() -> void:
@@ -132,6 +261,37 @@ func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: V
 	rust_strip.position.y = size.y * 0.34
 	rust_strip.material_override = _material(Color("#9b3f28"), 0.95)
 	body.add_child(rust_strip)
+	# Repeated beams, bolts and a raised cap sell the object as assembled scrap
+	# instead of a clean primitive while keeping one simple collision shape.
+	var cap := MeshInstance3D.new()
+	var cap_mesh := BoxMesh.new()
+	cap_mesh.size = Vector3(size.x + 0.24, 0.16, size.z + 0.24)
+	cap.mesh = cap_mesh
+	cap.position.y = size.y * 0.53
+	cap.material_override = _material(Color("#4b3a34"), 0.8)
+	body.add_child(cap)
+	var post_count := 2 if size.x >= size.z else 3
+	for index in range(post_count):
+		var post := MeshInstance3D.new()
+		var post_mesh := BoxMesh.new()
+		post_mesh.size = Vector3(0.14, size.y + 0.30, 0.18) if size.x >= size.z else Vector3(0.18, size.y + 0.30, 0.14)
+		post.mesh = post_mesh
+		if size.x >= size.z:
+			post.position = Vector3(lerpf(-size.x * 0.34, size.x * 0.34, float(index) / float(maxi(1, post_count - 1))), 0.0, size.z * 0.48)
+		else:
+			post.position = Vector3(size.x * 0.48, 0.0, lerpf(-size.z * 0.34, size.z * 0.34, float(index) / float(maxi(1, post_count - 1))))
+		post.material_override = _material(Color("#453832"), 0.82)
+		body.add_child(post)
+	for corner in [Vector3(-size.x * 0.40, size.y * 0.22, -size.z * 0.47), Vector3(size.x * 0.40, size.y * 0.22, -size.z * 0.47), Vector3(-size.x * 0.40, size.y * 0.22, size.z * 0.47), Vector3(size.x * 0.40, size.y * 0.22, size.z * 0.47)]:
+		var bolt := MeshInstance3D.new()
+		var bolt_mesh := SphereMesh.new()
+		bolt_mesh.radius = 0.11
+		bolt_mesh.height = 0.16
+		bolt.mesh = bolt_mesh
+		bolt.position = corner
+		bolt.scale = Vector3(1.0, 0.45, 1.0)
+		bolt.material_override = _material(Color("#d69a5e"), 0.45, Color("#9f5731"))
+		body.add_child(bolt)
 	return body
 
 
@@ -211,6 +371,15 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 		tuft.scale = Vector3(1.0, 0.8 + float(index % 2) * 0.25, 0.8)
 		tuft.material_override = _material(colors[index % colors.size()], 1.0)
 		root.add_child(tuft)
+		var stem := MeshInstance3D.new()
+		var stem_mesh := CylinderMesh.new()
+		stem_mesh.top_radius = 0.035
+		stem_mesh.bottom_radius = 0.08
+		stem_mesh.height = 0.55
+		stem.mesh = stem_mesh
+		stem.position = offsets[index] - Vector3.UP * 0.28
+		stem.material_override = _material(Color("#51402c"), 1.0)
+		root.add_child(stem)
 	add_child(root)
 
 
@@ -234,14 +403,40 @@ func _create_tire_stack(node_name: String, tire_position: Vector3, count: int) -
 
 
 func _create_banner(banner_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = "ScrapBanner"
+	root.position = banner_position
+	root.rotation_degrees.y = rotation_y
 	var banner := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(3.0, 1.8, 0.08)
 	banner.mesh = mesh
-	banner.position = banner_position
-	banner.rotation_degrees.y = rotation_y
 	banner.material_override = _material(Color("#9f3028"), 0.92)
-	add_child(banner)
+	root.add_child(banner)
+	var emblem_vertical := MeshInstance3D.new()
+	var vertical_mesh := BoxMesh.new()
+	vertical_mesh.size = Vector3(0.20, 0.96, 0.05)
+	emblem_vertical.mesh = vertical_mesh
+	emblem_vertical.position = Vector3(0.0, 0.0, -0.06)
+	emblem_vertical.material_override = _material(Color("#e3c28e"), 0.8)
+	root.add_child(emblem_vertical)
+	var emblem_horizontal := MeshInstance3D.new()
+	var horizontal_mesh := BoxMesh.new()
+	horizontal_mesh.size = Vector3(0.92, 0.20, 0.05)
+	emblem_horizontal.mesh = horizontal_mesh
+	emblem_horizontal.position = Vector3(0.0, 0.0, -0.065)
+	emblem_horizontal.material_override = emblem_vertical.material_override
+	root.add_child(emblem_horizontal)
+	var pole := MeshInstance3D.new()
+	var pole_mesh := CylinderMesh.new()
+	pole_mesh.top_radius = 0.035
+	pole_mesh.bottom_radius = 0.055
+	pole_mesh.height = 2.2
+	pole.mesh = pole_mesh
+	pole.position = Vector3(-1.62, 0.0, 0.0)
+	pole.material_override = _material(Color("#453831"), 0.85)
+	root.add_child(pole)
+	add_child(root)
 
 
 func _build_player() -> void:
