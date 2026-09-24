@@ -6,14 +6,21 @@ const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 var combat_state
 var _resetting := false
 var _health_label: Label3D
+var _health_bar_bg: MeshInstance3D
+var _health_bar_fill: MeshInstance3D
 var _body_material: StandardMaterial3D
 var _status_label: Label3D
 var _body_mesh: MeshInstance3D
 var _impact_light: OmniLight3D
 var _burn_fx: Node3D
+var _burn_light: OmniLight3D
 var _slow_fx: Node3D
+var _slow_ring: MeshInstance3D
+var _slow_light: OmniLight3D
 var _stun_fx: MeshInstance3D
 var _spotted_fx: Label3D
+var _spotted_emblem: MeshInstance3D
+var _spotted_light: OmniLight3D
 var _effect_clock := 0.0
 
 
@@ -147,6 +154,8 @@ func _on_state_died() -> void:
 	_resetting = true
 	if _health_label != null:
 		_health_label.text = "CIBLE DÉTRUITE"
+	if _health_bar_fill != null:
+		_health_bar_fill.visible = false
 	if _body_material != null:
 		_body_material.albedo_color = Color("#3b302e")
 	_update_status("")
@@ -162,6 +171,12 @@ func _reset_target() -> void:
 func _update_label() -> void:
 	if _health_label != null and combat_state != null and not _resetting:
 		_health_label.text = "CIBLE  %d / %d" % [int(round(combat_state.health)), int(round(combat_state.max_health))]
+	if _health_bar_fill != null and combat_state != null:
+		var fraction := clampf(combat_state.health / maxf(combat_state.max_health, 0.001), 0.0, 1.0)
+		var bar_width := 2.7 * fraction
+		_health_bar_fill.visible = not _resetting and fraction > 0.0
+		_health_bar_fill.scale = Vector3(bar_width, 1.0, 1.0)
+		_health_bar_fill.position.x = -1.35 + bar_width * 0.5
 
 
 func _build_collision() -> void:
@@ -208,19 +223,37 @@ func _build_visuals() -> void:
 	add_child(eye)
 
 	_health_label = Label3D.new()
-	_health_label.position = Vector3(0.0, 2.25, 0.0)
+	_health_label.position = Vector3(0.0, 2.72, 0.0)
 	_health_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_health_label.font_size = 38
-	_health_label.outline_size = 8
-	_health_label.modulate = Color("#ff8b78")
+	_health_label.font_size = 46
+	_health_label.outline_size = 10
+	_health_label.modulate = Color("#ffd0c5")
 	add_child(_health_label)
 
+	_health_bar_bg = MeshInstance3D.new()
+	_health_bar_bg.name = "HealthBarBackground"
+	var health_bar_bg_mesh := BoxMesh.new()
+	health_bar_bg_mesh.size = Vector3(2.7, 0.24, 0.08)
+	_health_bar_bg.mesh = health_bar_bg_mesh
+	_health_bar_bg.position = Vector3(0.0, 2.38, 0.0)
+	_health_bar_bg.material_override = _effect_material(Color("#251b1d"), Color("#080405"))
+	add_child(_health_bar_bg)
+
+	_health_bar_fill = MeshInstance3D.new()
+	_health_bar_fill.name = "HealthBarFill"
+	var health_bar_fill_mesh := BoxMesh.new()
+	health_bar_fill_mesh.size = Vector3(1.0, 0.17, 0.10)
+	_health_bar_fill.mesh = health_bar_fill_mesh
+	_health_bar_fill.position = Vector3(-1.35, 2.38, 0.06)
+	_health_bar_fill.material_override = _effect_material(Color("#62ef78"), Color("#25c954"))
+	add_child(_health_bar_fill)
+
 	_status_label = Label3D.new()
-	_status_label.position = Vector3(0.0, 2.75, 0.0)
+	_status_label.position = Vector3(1.35, 3.02, 0.0)
 	_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_status_label.font_size = 28
-	_status_label.outline_size = 6
-	_status_label.modulate = Color("#ffe28a")
+	_status_label.font_size = 32
+	_status_label.outline_size = 10
+	_status_label.modulate = Color("#fff1a8")
 	add_child(_status_label)
 	_build_effect_visuals()
 
@@ -231,27 +264,55 @@ func _build_effect_visuals() -> void:
 	for index in range(3):
 		var flame := MeshInstance3D.new()
 		var flame_mesh := SphereMesh.new()
-		flame_mesh.radius = 0.12
-		flame_mesh.height = 0.34
+		flame_mesh.radius = 0.21
+		flame_mesh.height = 0.60
 		flame.mesh = flame_mesh
-		flame.position = Vector3(-0.22 + float(index) * 0.22, 1.55 + float(index % 2) * 0.18, 0.0)
+		flame.position = Vector3(-0.30 + float(index) * 0.30, 1.48 + float(index % 2) * 0.28, 0.70)
 		flame.material_override = _effect_material(Color("#ff7b3e"), Color("#ff3d1e"))
 		_burn_fx.add_child(flame)
 	add_child(_burn_fx)
+	_burn_light = OmniLight3D.new()
+	_burn_light.name = "BurnLight"
+	_burn_light.light_color = Color("#ff733c")
+	_burn_light.omni_range = 3.0
+	_burn_light.shadow_enabled = false
+	_burn_light.position = Vector3(0.0, 1.35, 0.62)
+	_burn_light.light_energy = 0.0
+	add_child(_burn_light)
 
 	_slow_fx = Node3D.new()
 	_slow_fx.name = "SlowVisual"
 	for index in range(5):
 		var mote := MeshInstance3D.new()
 		var mote_mesh := SphereMesh.new()
-		mote_mesh.radius = 0.055
-		mote_mesh.height = 0.11
+		mote_mesh.radius = 0.10
+		mote_mesh.height = 0.20
 		mote.mesh = mote_mesh
 		var angle := TAU * float(index) / 5.0
-		mote.position = Vector3(cos(angle) * 0.48, 0.10, sin(angle) * 0.48)
+		mote.position = Vector3(cos(angle) * 0.76, 0.14, sin(angle) * 0.76)
 		mote.material_override = _effect_material(Color("#88dfff"), Color("#36b9ef"))
 		_slow_fx.add_child(mote)
 	add_child(_slow_fx)
+	_slow_ring = MeshInstance3D.new()
+	_slow_ring.name = "SlowRing"
+	var slow_ring_mesh := TorusMesh.new()
+	slow_ring_mesh.inner_radius = 0.66
+	slow_ring_mesh.outer_radius = 0.84
+	slow_ring_mesh.rings = 12
+	slow_ring_mesh.ring_segments = 24
+	_slow_ring.mesh = slow_ring_mesh
+	_slow_ring.position.y = 0.06
+	_slow_ring.rotation_degrees.x = 90.0
+	_slow_ring.material_override = _effect_material(Color("#63dcff"), Color("#20cfff"))
+	add_child(_slow_ring)
+	_slow_light = OmniLight3D.new()
+	_slow_light.name = "SlowLight"
+	_slow_light.light_color = Color("#38d5e6")
+	_slow_light.omni_range = 2.8
+	_slow_light.shadow_enabled = false
+	_slow_light.position = Vector3(0.0, 0.30, 0.0)
+	_slow_light.light_energy = 0.0
+	add_child(_slow_light)
 
 	_stun_fx = MeshInstance3D.new()
 	_stun_fx.name = "StunHalo"
@@ -269,12 +330,30 @@ func _build_effect_visuals() -> void:
 	_spotted_fx = Label3D.new()
 	_spotted_fx.name = "SpottedEye"
 	_spotted_fx.text = "◉"
-	_spotted_fx.position = Vector3(0.0, 3.22, 0.0)
+	_spotted_fx.position = Vector3(-0.10, 4.08, 0.0)
 	_spotted_fx.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_spotted_fx.font_size = 34
-	_spotted_fx.outline_size = 6
-	_spotted_fx.modulate = Color("#9ffaff")
+	_spotted_fx.font_size = 96
+	_spotted_fx.outline_size = 14
+	_spotted_fx.modulate = Color("#d8ffff")
 	add_child(_spotted_fx)
+	_spotted_emblem = MeshInstance3D.new()
+	_spotted_emblem.name = "SpottedEmblem"
+	var spotted_emblem_mesh := SphereMesh.new()
+	spotted_emblem_mesh.radius = 0.29
+	spotted_emblem_mesh.height = 0.14
+	_spotted_emblem.mesh = spotted_emblem_mesh
+	_spotted_emblem.position = Vector3(-0.10, 3.86, 0.0)
+	_spotted_emblem.scale = Vector3(2.0, 1.0, 1.0)
+	_spotted_emblem.material_override = _effect_material(Color("#9ffaff"), Color("#38d5e6"))
+	add_child(_spotted_emblem)
+	_spotted_light = OmniLight3D.new()
+	_spotted_light.name = "SpottedLight"
+	_spotted_light.light_color = Color("#38d5e6")
+	_spotted_light.omni_range = 3.2
+	_spotted_light.shadow_enabled = false
+	_spotted_light.position = Vector3(0.0, 3.20, 0.45)
+	_spotted_light.light_energy = 0.0
+	add_child(_spotted_light)
 
 
 func _effect_material(color: Color, emission: Color) -> StandardMaterial3D:
@@ -298,14 +377,45 @@ func _update_effect_presentation() -> void:
 		_burn_fx.visible = burning
 		_burn_fx.rotation.y = _effect_clock * 1.8
 		_burn_fx.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 8.0) * 0.08)
+		for index in range(_burn_fx.get_child_count()):
+			var flame := _burn_fx.get_child(index) as MeshInstance3D
+			if flame == null:
+				continue
+			var pulse := 0.92 + sin(_effect_clock * 12.0 + float(index) * 1.7) * 0.22
+			flame.scale = Vector3(pulse, 1.0 + sin(_effect_clock * 10.0 + float(index)) * 0.28, pulse)
+			flame.position.y = 1.48 + float(index % 2) * 0.28 + sin(_effect_clock * 7.0 + float(index) * 2.0) * 0.10
+			flame.position.z = 0.70 + sin(_effect_clock * 6.0 + float(index)) * 0.06
+			flame.rotation.z = sin(_effect_clock * 9.0 + float(index)) * 0.35
+	if _burn_light != null:
+		_burn_light.light_energy = (2.0 + sin(_effect_clock * 11.0) * 0.55) if burning else 0.0
 	if _slow_fx != null:
 		_slow_fx.visible = slowed
 		_slow_fx.rotation.y = -_effect_clock * 2.2
+		for index in range(_slow_fx.get_child_count()):
+			var mote := _slow_fx.get_child(index) as MeshInstance3D
+			if mote == null:
+				continue
+			var angle := _effect_clock * 2.6 + TAU * float(index) / 5.0
+			mote.position = Vector3(cos(angle) * 0.78, 0.14 + sin(_effect_clock * 5.0 + float(index)) * 0.12, sin(angle) * 0.78)
+			var mote_scale := 0.90 + sin(_effect_clock * 8.0 + float(index)) * 0.18
+			mote.scale = Vector3.ONE * mote_scale
+	if _slow_ring != null:
+		_slow_ring.visible = slowed
+		_slow_ring.rotation_degrees.y = fmod(_effect_clock * 165.0, 360.0)
+		_slow_ring.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 7.0) * 0.12)
+	if _slow_light != null:
+		_slow_light.light_energy = (1.25 + sin(_effect_clock * 8.0) * 0.35) if slowed else 0.0
 	if _stun_fx != null:
 		_stun_fx.visible = stunned
 		_stun_fx.rotation_degrees.y = fmod(_effect_clock * 180.0, 360.0)
 	if _spotted_fx != null:
 		_spotted_fx.visible = spotted
+		_spotted_fx.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 5.0) * 0.12)
+	if _spotted_emblem != null:
+		_spotted_emblem.visible = spotted
+		_spotted_emblem.scale = Vector3(2.0, 1.0, 1.0) * (1.0 + sin(_effect_clock * 5.0) * 0.10)
+	if _spotted_light != null:
+		_spotted_light.light_energy = (2.0 + sin(_effect_clock * 7.0) * 0.45) if spotted else 0.0
 	var lines: Array[String] = []
 	if burning:
 		lines.append("BURN  %.1fs" % combat_state.get_remaining(COMBAT_DATA.EFFECT_BURN))

@@ -11,6 +11,9 @@ func _initialize() -> void:
 		output_path = "user://prototype0_capture.png"
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	# Main builds the arena and its runtime children during _ready(). Wait one
+	# frame before looking up the player/target so capture options are reliable.
+	await process_frame
 	if arguments.size() >= 3:
 		var capture_player := scene.get_node_or_null("Player") as Node3D
 		if capture_player != null:

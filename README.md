@@ -39,7 +39,9 @@ restent des repères visuels sans collision supplémentaire.
   doublons d'attaque et reset indépendant par acteur.
 - **P0-102 — implémenté, à tester manuellement :** BURN, SLOW, STUN et SPOTTED sont
   appliqués par le même état et visibles sur le mannequin. F1/F2/F3/F4 les appliquent,
-  F5 réinitialise l'essai ; ce sont des raccourcis PC de validation temporaires.
+  F5 réinitialise l'essai ; ce sont des raccourcis PC de validation temporaires. La
+  lisibilité de la validation a été renforcée : barre de PV large, flammes et lumière
+  animées pour BURN, anneau et motes cyan pour SLOW, halo STUN et œil SPOTTED émissif.
 - **Tests automatisés :** `tools/test_combat_state.gd` et `tools/test_target_dummy.gd` PASS ;
   les valeurs testées incluent BURN isolé à 70 dégâts, non-cumul, slow maximal,
   expiration, STUN/SPOTTED, overkill, overheal, attaque dupliquée, BURN absorbé pendant
@@ -57,7 +59,7 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_detail.png` : lecture rapprochée d'un couvert et du sol ;
 - `prototype0_spectators.png` : cadrage de validation de la bordure extérieure ;
 - `prototype0_effects.png` : capture du mannequin avec les quatre états appliqués par le
-  harnais de validation.
+  harnais de validation (capture Mobile après attente de l'initialisation de la cible).
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette
