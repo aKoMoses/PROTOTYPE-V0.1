@@ -149,6 +149,9 @@ func _build_arena() -> void:
 	_create_arena_skull("SkullNorthEast", Vector3(22.8, 0.0, -14.0), 0.72)
 	_create_arena_skull("SkullSouthWest", Vector3(-22.8, 0.0, 14.0), 0.72)
 	_create_arena_skull("SkullSouthEast", Vector3(22.8, 0.0, 14.0), 0.85)
+	_create_fight_story_marks()
+	_create_spectator_stands()
+	_create_arena_scoreboard()
 
 
 func _create_wrecked_vehicle(node_name: String, vehicle_position: Vector3, rotation_y: float, with_crates: bool) -> void:
@@ -379,6 +382,299 @@ func _create_arena_skull(node_name: String, skull_position: Vector3, skull_scale
 		horn.rotation_degrees = Vector3(0.0, 0.0, side * -28.0)
 		horn.material_override = _material(Color("#554036"), 0.95)
 		root.add_child(horn)
+	add_child(root)
+
+
+func _create_fight_story_marks() -> void:
+	# Scars are deliberately placed away from the player spawn so they read as
+	# evidence of earlier matches instead of active gameplay indicators.
+	_create_blood_stain(Vector3(-7.8, 0.0, 3.8), 0.65, 0.23)
+	_create_blood_stain(Vector3(8.8, 0.0, -1.6), 0.55, 0.20)
+	_create_blood_stain(Vector3(1.8, 0.0, -2.0), 0.85, 0.24)
+	_create_blood_stain(Vector3(-4.0, 0.0, 12.8), 0.48, 0.22)
+	_create_scorch_mark(Vector3(-6.7, 0.0, 6.8), 0.72)
+	_create_scorch_mark(Vector3(6.6, 0.0, 6.4), 0.82)
+	_create_crater_story(Vector3(-10.0, 0.0, -11.8), 0.72)
+	_create_crater_story(Vector3(10.5, 0.0, 12.8), 0.56)
+	_create_shell_casings(Vector3(-4.6, 0.0, 15.5), 11)
+	_create_shell_casings(Vector3(4.8, 0.0, -14.5), 8)
+	_create_bullet_scar(Vector3(-21.9, 1.15, -4.0), 90.0)
+	_create_bullet_scar(Vector3(21.9, 1.0, 4.5), -90.0)
+	_create_broken_weapon(Vector3(-15.6, 0.0, 3.6), -22.0)
+	_create_broken_weapon(Vector3(15.5, 0.0, -4.0), 148.0)
+	_create_debris_field(Vector3(-3.8, 0.0, 7.0), 10, 2.2)
+	_create_debris_field(Vector3(4.4, 0.0, -6.5), 9, 1.9)
+	_create_debris_field(Vector3(-1.8, 0.0, -1.0), 7, 1.5)
+	_create_wall_graffiti(Vector3(-8.0, 1.15, -25.62), 0.0, Color("#d2b27d"))
+	_create_wall_graffiti(Vector3(8.5, 1.0, 25.62), 180.0, Color("#762e32"))
+	_create_wall_graffiti(Vector3(-25.62, 1.1, 7.0), 90.0, Color("#c5a06f"))
+	_create_wall_graffiti(Vector3(25.62, 1.1, -7.0), -90.0, Color("#762e32"))
+
+
+func _create_crater_story(crater_position: Vector3, radius: float) -> void:
+	var root := Node3D.new()
+	root.name = "OldFightCrater"
+	root.position = crater_position
+	var crater := MeshInstance3D.new()
+	var crater_mesh := CylinderMesh.new()
+	crater_mesh.top_radius = radius * 0.65
+	crater_mesh.bottom_radius = radius
+	crater_mesh.height = 0.08
+	crater.mesh = crater_mesh
+	crater.position.y = 0.05
+	crater.material_override = _create_transparent_material(Color("#30272a"), 0.58)
+	root.add_child(crater)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = radius * 0.72
+	ring_mesh.outer_radius = radius * 0.78
+	ring_mesh.rings = 10
+	ring_mesh.ring_segments = 18
+	ring.mesh = ring_mesh
+	ring.position.y = 0.11
+	ring.material_override = _material(Color("#713f39"), 0.94, Color("#2b2227"))
+	root.add_child(ring)
+	for index in range(5):
+		var rock := MeshInstance3D.new()
+		var rock_mesh := SphereMesh.new()
+		rock_mesh.radius = 0.13 + float(index % 2) * 0.08
+		rock_mesh.height = 0.22 + float(index % 2) * 0.12
+		rock.mesh = rock_mesh
+		var angle := TAU * float(index) / 5.0
+		rock.position = Vector3(cos(angle), 0.16, sin(angle)) * radius * 0.85
+		rock.scale = Vector3(1.2, 0.65, 0.9)
+		rock.material_override = _material(Color("#554645"), 0.96)
+		root.add_child(rock)
+	add_child(root)
+
+
+func _create_shell_casings(origin: Vector3, count: int) -> void:
+	var root := Node3D.new()
+	root.name = "SpentCasings"
+	root.position = origin
+	for index in range(count):
+		var casing := MeshInstance3D.new()
+		var casing_mesh := CylinderMesh.new()
+		casing_mesh.top_radius = 0.035
+		casing_mesh.bottom_radius = 0.055
+		casing_mesh.height = 0.18
+		casing.mesh = casing_mesh
+		var angle := float(index) * 2.37
+		casing.position = Vector3(cos(angle) * (0.5 + float(index % 4) * 0.22), 0.08, sin(angle) * (0.4 + float(index % 3) * 0.24))
+		casing.rotation_degrees = Vector3(70.0 + float(index % 3) * 15.0, float(index) * 37.0, 12.0)
+		casing.material_override = _material(Color("#d28a36"), 0.56, Color("#7a321f"))
+		root.add_child(casing)
+	add_child(root)
+
+
+func _create_bullet_scar(scar_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = "BulletScar"
+	root.position = scar_position
+	root.rotation_degrees.y = rotation_y
+	for index in range(5):
+		var mark := MeshInstance3D.new()
+		var mark_mesh := CylinderMesh.new()
+		mark_mesh.top_radius = 0.10 + float(index % 2) * 0.04
+		mark_mesh.bottom_radius = 0.12 + float(index % 2) * 0.05
+		mark_mesh.height = 0.025
+		mark.mesh = mark_mesh
+		mark.position = Vector3(-0.65 + float(index) * 0.30, 0.0, 0.0)
+		mark.rotation_degrees = Vector3(90.0, 0.0, float(index) * 13.0)
+		mark.material_override = _create_transparent_material(Color("#251f22"), 0.65)
+		root.add_child(mark)
+	add_child(root)
+
+
+func _create_broken_weapon(weapon_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = "BrokenWeapon"
+	root.position = weapon_position
+	root.rotation_degrees.y = rotation_y
+	var shaft := MeshInstance3D.new()
+	var shaft_mesh := CylinderMesh.new()
+	shaft_mesh.top_radius = 0.055
+	shaft_mesh.bottom_radius = 0.08
+	shaft_mesh.height = 1.35
+	shaft.mesh = shaft_mesh
+	shaft.rotation_degrees.z = 90.0
+	shaft.material_override = _material(Color("#51382f"), 0.9)
+	root.add_child(shaft)
+	var blade := MeshInstance3D.new()
+	var blade_mesh := BoxMesh.new()
+	blade_mesh.size = Vector3(0.45, 0.08, 0.22)
+	blade.mesh = blade_mesh
+	blade.position = Vector3(0.67, 0.0, 0.0)
+	blade.material_override = _material(Color("#9e4d36"), 0.82)
+	root.add_child(blade)
+	add_child(root)
+
+
+func _create_wall_graffiti(graffiti_position: Vector3, rotation_y: float, color: Color) -> void:
+	var root := Node3D.new()
+	root.name = "OldArenaGraffiti"
+	root.position = graffiti_position
+	root.rotation_degrees.y = rotation_y
+	var circle := MeshInstance3D.new()
+	var circle_mesh := TorusMesh.new()
+	circle_mesh.inner_radius = 0.35
+	circle_mesh.outer_radius = 0.44
+	circle_mesh.rings = 8
+	circle_mesh.ring_segments = 14
+	circle.mesh = circle_mesh
+	circle.position = Vector3(0.0, 0.0, 0.10)
+	circle.rotation_degrees.x = 90.0
+	circle.material_override = _material(color, 0.94)
+	root.add_child(circle)
+	var slash := MeshInstance3D.new()
+	var slash_mesh := BoxMesh.new()
+	slash_mesh.size = Vector3(0.12, 0.95, 0.07)
+	slash.mesh = slash_mesh
+	slash.position = Vector3(0.0, 0.0, 0.14)
+	slash.rotation_degrees.z = 28.0
+	slash.material_override = _material(color, 0.94)
+	root.add_child(slash)
+	for index in range(3):
+		var drip := MeshInstance3D.new()
+		var drip_mesh := BoxMesh.new()
+		drip_mesh.size = Vector3(0.06, 0.24 + float(index % 2) * 0.18, 0.05)
+		drip.mesh = drip_mesh
+		drip.position = Vector3(-0.5 + float(index) * 0.45, -0.30 - float(index % 2) * 0.10, 0.12)
+		drip.material_override = _material(color, 0.98)
+		root.add_child(drip)
+	add_child(root)
+
+
+func _create_debris_field(field_position: Vector3, count: int, radius: float) -> void:
+	var root := Node3D.new()
+	root.name = "LooseDebrisField"
+	root.position = field_position
+	var colors := [Color("#5b4942"), Color("#8c5535"), Color("#6d725f"), Color("#9a6b43")]
+	for index in range(count):
+		var piece := MeshInstance3D.new()
+		var piece_mesh := BoxMesh.new()
+		piece_mesh.size = Vector3(0.18 + float(index % 3) * 0.14, 0.10 + float(index % 2) * 0.11, 0.16 + float(index % 4) * 0.08)
+		piece.mesh = piece_mesh
+		var angle := float(index) * 2.11
+		var distance := radius * (0.25 + float((index * 3) % 7) / 7.0)
+		piece.position = Vector3(cos(angle) * distance, 0.10 + float(index % 2) * 0.08, sin(angle) * distance)
+		piece.rotation_degrees = Vector3(float(index) * 22.0, float(index) * 41.0, float(index) * 13.0)
+		piece.material_override = _material(colors[index % colors.size()], 0.95)
+		root.add_child(piece)
+	add_child(root)
+
+
+func _create_spectator_stands() -> void:
+	_create_spectator_side("SpectatorsNorth", Vector3(0.0, 0.0, -29.0), 0.0, Color("#a43832"))
+	_create_spectator_side("SpectatorsSouth", Vector3(0.0, 0.0, 29.0), 180.0, Color("#a43832"))
+	_create_spectator_side("SpectatorsWest", Vector3(-29.0, 0.0, 0.0), 90.0, Color("#3e6670"))
+	_create_spectator_side("SpectatorsEast", Vector3(29.0, 0.0, 0.0), -90.0, Color("#3e6670"))
+
+
+func _create_spectator_side(node_name: String, side_position: Vector3, rotation_y: float, banner_color: Color) -> void:
+	var root := Node3D.new()
+	root.name = node_name
+	root.position = side_position
+	root.rotation_degrees.y = rotation_y
+	for tier in range(3):
+		var stand := MeshInstance3D.new()
+		var stand_mesh := BoxMesh.new()
+		stand_mesh.size = Vector3(45.0, 0.75, 1.05)
+		stand.mesh = stand_mesh
+		stand.position = Vector3(0.0, 0.40 + float(tier) * 0.78, 0.42 + float(tier) * 0.85)
+		stand.material_override = _material(Color("#332c30") if tier == 0 else Color("#47363a"), 0.98)
+		root.add_child(stand)
+	for index in range(8):
+		var local_x := -19.0 + float(index) * 5.45
+		var audience := Node3D.new()
+		audience.position = Vector3(local_x, 1.25 + float(index % 2) * 0.72, 0.10 + float(index % 3) * 0.82)
+		var body := MeshInstance3D.new()
+		var body_mesh := CapsuleMesh.new()
+		body_mesh.radius = 0.20
+		body_mesh.height = 0.58
+		body.mesh = body_mesh
+		body.position.y = 0.35
+		body.material_override = _material(Color("#241f24") if index % 2 == 0 else Color("#3d3540"), 1.0)
+		audience.add_child(body)
+		var head := MeshInstance3D.new()
+		var head_mesh := SphereMesh.new()
+		head_mesh.radius = 0.22
+		head_mesh.height = 0.36
+		head.mesh = head_mesh
+		head.position.y = 0.83
+		head.material_override = _material(Color("#8c6450"), 0.95)
+		audience.add_child(head)
+		var eye := MeshInstance3D.new()
+		var eye_mesh := SphereMesh.new()
+		eye_mesh.radius = 0.045
+		eye_mesh.height = 0.07
+		eye.mesh = eye_mesh
+		eye.position = Vector3(0.10, 0.86, -0.18)
+		eye.material_override = _material(banner_color, 0.3, banner_color)
+		audience.add_child(eye)
+		root.add_child(audience)
+		var wave := create_tween().set_loops()
+		wave.tween_property(audience, "rotation_degrees", Vector3(0.0, 0.0, 4.0 if index % 2 == 0 else -4.0), 0.9 + float(index % 3) * 0.15).set_trans(Tween.TRANS_SINE)
+		wave.tween_property(audience, "rotation_degrees", Vector3.ZERO, 0.9 + float(index % 2) * 0.20).set_trans(Tween.TRANS_SINE)
+	for flag_index in range(4):
+		var flag := MeshInstance3D.new()
+		var flag_mesh := BoxMesh.new()
+		flag_mesh.size = Vector3(2.6, 1.0, 0.06)
+		flag.mesh = flag_mesh
+		flag.position = Vector3(-15.0 + float(flag_index) * 10.0, 2.65, 0.12)
+		flag.material_override = _material(banner_color, 0.96)
+		root.add_child(flag)
+		var flag_tween := create_tween().set_loops()
+		flag_tween.tween_property(flag, "rotation_degrees", Vector3(0.0, 0.0, 3.0), 1.2).set_trans(Tween.TRANS_SINE)
+		flag_tween.tween_property(flag, "rotation_degrees", Vector3(0.0, 0.0, -3.0), 1.0).set_trans(Tween.TRANS_SINE)
+	var spot := OmniLight3D.new()
+	spot.position = Vector3(0.0, 3.2, -0.15)
+	spot.light_color = banner_color
+	spot.light_energy = 0.75
+	spot.omni_range = 9.0
+	spot.set_meta("base_energy", 0.75)
+	_flicker_lights.append(spot)
+	root.add_child(spot)
+	add_child(root)
+
+
+func _create_arena_scoreboard() -> void:
+	var root := Node3D.new()
+	root.name = "ArenaScoreboard"
+	root.position = Vector3(0.0, 0.0, -28.1)
+	var frame := MeshInstance3D.new()
+	var frame_mesh := BoxMesh.new()
+	frame_mesh.size = Vector3(8.8, 3.1, 0.55)
+	frame.mesh = frame_mesh
+	frame.position.y = 2.8
+	frame.material_override = _material(Color("#29252b"), 0.88)
+	root.add_child(frame)
+	var screen := MeshInstance3D.new()
+	var screen_mesh := BoxMesh.new()
+	screen_mesh.size = Vector3(7.1, 1.75, 0.08)
+	screen.mesh = screen_mesh
+	screen.position = Vector3(0.0, 2.82, 0.32)
+	screen.material_override = _material(Color("#2c8790"), 0.22, Color("#28dce5"))
+	root.add_child(screen)
+	for index in range(4):
+		var bar := MeshInstance3D.new()
+		var bar_mesh := BoxMesh.new()
+		bar_mesh.size = Vector3(0.30 + float(index % 2) * 0.22, 0.16, 0.09)
+		bar.mesh = bar_mesh
+		bar.position = Vector3(-2.6 + float(index) * 1.72, 2.85 + float(index % 2) * 0.35, 0.40)
+		bar.material_override = _material(Color("#e2a34c") if index % 2 == 0 else Color("#e34e4c"), 0.28, Color("#ff6d4e"))
+		root.add_child(bar)
+	for side in [-1.0, 1.0]:
+		var cable := MeshInstance3D.new()
+		var cable_mesh := CylinderMesh.new()
+		cable_mesh.top_radius = 0.04
+		cable_mesh.bottom_radius = 0.04
+		cable_mesh.height = 2.6
+		cable.mesh = cable_mesh
+		cable.position = Vector3(side * 4.0, 1.4, 0.0)
+		cable.rotation_degrees.z = side * -8.0
+		cable.material_override = _material(Color("#211d22"), 0.96)
+		root.add_child(cable)
 	add_child(root)
 
 
@@ -667,6 +963,33 @@ func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: V
 	cap.position.y = size.y * 0.53
 	cap.material_override = _material(Color("#4b3a34"), 0.8)
 	body.add_child(cap)
+	# Break the perfectly straight silhouette with loose scrap jutting above the
+	# cover. These pieces are decorative; the single collision remains unchanged.
+	var top_debris_colors := [Color("#6b4538"), Color("#9b5d35"), Color("#5c6558"), Color("#3f3737")]
+	for index in range(5):
+		var chunk := MeshInstance3D.new()
+		var chunk_mesh := BoxMesh.new()
+		var chunk_width := clampf(maxf(size.x, size.z) * (0.10 + float(index % 3) * 0.04), 0.20, 1.0)
+		var chunk_height := 0.22 + float(index % 3) * 0.16
+		if size.x >= size.z:
+			chunk_mesh.size = Vector3(chunk_width, chunk_height, clampf(size.z * 0.70, 0.18, 0.65))
+			chunk.position = Vector3(-size.x * 0.42 + float(index) * size.x * 0.21, size.y * 0.58 + chunk_height * 0.35, 0.0)
+		else:
+			chunk_mesh.size = Vector3(clampf(size.x * 0.70, 0.18, 0.65), chunk_height, chunk_width)
+			chunk.position = Vector3(0.0, size.y * 0.58 + chunk_height * 0.35, -size.z * 0.42 + float(index) * size.z * 0.21)
+		chunk.mesh = chunk_mesh
+		chunk.rotation_degrees = Vector3(-4.0 + float(index) * 9.0, float(index) * 23.0, -11.0 + float(index % 2) * 19.0)
+		chunk.material_override = _material(top_debris_colors[index % top_debris_colors.size()], 0.9)
+		body.add_child(chunk)
+	if int(node_name.length()) % 3 != 0:
+		var torn_cloth := MeshInstance3D.new()
+		var cloth_mesh := BoxMesh.new()
+		cloth_mesh.size = Vector3(0.44, 1.15, 0.05)
+		torn_cloth.mesh = cloth_mesh
+		torn_cloth.position = Vector3(-size.x * 0.23, -0.20, size.z * 0.54)
+		torn_cloth.rotation_degrees.z = -8.0
+		torn_cloth.material_override = _material(Color("#762d2e"), 0.97)
+		body.add_child(torn_cloth)
 	var post_count := 2 if size.x >= size.z else 3
 	for index in range(post_count):
 		var post := MeshInstance3D.new()
