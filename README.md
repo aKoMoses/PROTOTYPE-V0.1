@@ -29,6 +29,24 @@ restent des repères visuels sans collision supplémentaire.
 - L'éclairage exécuté combine une direction chaude, un remplissage froid discret, des
   lampes locales, des écrans cyan et une brume simple compatible Mobile.
 
+## Suivi systèmes — 24 septembre 2026
+
+- **P0-100 — vérifié :** dépôt, scène d'entrée, version Godot 4.7.2, renderer Mobile,
+  commande de lancement, caméra, déplacements, attaque provisoire, collisions et cible
+  d'entraînement inspectés sans réécriture de la caméra.
+- **P0-101 — implémenté, à tester manuellement :** `combat_data.gd` centralise les
+  paramètres ; `combat_state.gd` gère PV décimaux, dégâts effectifs, soins plafonnés,
+  doublons d'attaque et reset indépendant par acteur.
+- **P0-102 — implémenté, à tester manuellement :** BURN, SLOW, STUN et SPOTTED sont
+  appliqués par le même état et visibles sur le mannequin. F1/F2/F3/F4 les appliquent,
+  F5 réinitialise l'essai ; ce sont des raccourcis PC de validation temporaires.
+- **Tests automatisés :** `tools/test_combat_state.gd` et `tools/test_target_dummy.gd` PASS ;
+  les valeurs testées incluent BURN isolé à 70 dégâts, non-cumul, slow maximal,
+  expiration, STUN/SPOTTED, overkill, overheal, attaque dupliquée, BURN absorbé pendant
+  la stase, activation des quatre effets sur le mannequin et reset visuel/HP.
+- **À vérifier ensuite :** test manuel des touches et intégration dans les armes/modules.
+  Prochaine tâche : **P0-103 — Electro Axe entièrement testable**.
+
 ## Captures de validation
 
 Les captures réellement rendues par Godot sont conservées dans `captures/` :
@@ -37,7 +55,9 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_after.png` : vue générale après la passe visuelle ;
 - `prototype0_gameplay.png` : cadrage au spawn jouable ;
 - `prototype0_detail.png` : lecture rapprochée d'un couvert et du sol ;
-- `prototype0_spectators.png` : cadrage de validation de la bordure extérieure.
+- `prototype0_spectators.png` : cadrage de validation de la bordure extérieure ;
+- `prototype0_effects.png` : capture du mannequin avec les quatre états appliqués par le
+  harnais de validation.
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette

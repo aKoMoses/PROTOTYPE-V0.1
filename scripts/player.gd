@@ -3,6 +3,8 @@ extends CharacterBody3D
 const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
+const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 
 @export var move_speed := 7.5
 @export var attack_interval := 0.64
@@ -39,18 +41,24 @@ var _trail_elapsed := 0.0
 var _trail_duration := 0.0
 var _trail_width := 0.1
 var _trail_active := false
+var combat_state
+var _debug_key_latches: Dictionary = {}
 
 
 func _ready() -> void:
 	collision_layer = 4
 	collision_mask = 1
+	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	_build_collision()
 	_build_robot()
 
 
 func _physics_process(delta: float) -> void:
+	if combat_state != null:
+		combat_state.update(delta)
 	_update_aim()
 	_update_movement()
+	_update_debug_effects()
 	_update_attack()
 	_update_axe_trail(delta)
 
@@ -67,7 +75,12 @@ func _update_movement() -> void:
 		input_vector.y += 1.0
 
 	input_vector = input_vector.normalized()
-	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed
+	if combat_state != null and combat_state.is_stunned():
+		input_vector = Vector2.ZERO
+	var slow_multiplier := 1.0
+	if combat_state != null:
+		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
+	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * slow_multiplier
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -93,6 +106,8 @@ func _update_aim() -> void:
 
 
 func _update_attack() -> void:
+	if combat_state != null and combat_state.is_stunned():
+		return
 	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	var now := Time.get_ticks_msec() / 1000.0
 	if now > _combo_expires_at:
@@ -100,6 +115,67 @@ func _update_attack() -> void:
 	if wants_to_attack and now - _last_attack_time >= attack_interval:
 		_last_attack_time = now
 		_perform_axe_attack()
+
+
+func _update_debug_effects() -> void:
+	# Temporary PC-only mannequin probes for P0-102. They do not replace the
+	# future module bindings and are intentionally explicit in the HUD/README.
+	var active_scene := get_tree().current_scene
+	if active_scene == null:
+		return
+	var target := active_scene.get_node_or_null("TargetDummy")
+	if target == null:
+		return
+	if _pressed_once(KEY_F1):
+		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "debug")
+	if _pressed_once(KEY_F2):
+		target.call("apply_slow", 1.5, 30.0, "debug")
+	if _pressed_once(KEY_F3):
+		target.call("apply_stun", 1.5, "debug")
+	if _pressed_once(KEY_F4):
+		target.call("apply_spotted", 5.0, "debug")
+	if _pressed_once(KEY_F5):
+		target.call("reset_combat_state")
+
+
+func _pressed_once(keycode: Key) -> bool:
+	var is_down := Input.is_key_pressed(keycode)
+	var was_down := bool(_debug_key_latches.get(keycode, false))
+	_debug_key_latches[keycode] = is_down
+	return is_down and not was_down
+
+
+func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
+	return combat_state.apply_damage(amount, source_id, attack_id) if combat_state != null else 0.0
+
+
+func heal(amount: float, source_id: String = "") -> float:
+	return combat_state.heal(amount, source_id) if combat_state != null else 0.0
+
+
+func apply_burn(duration: float = COMBAT_DATA.BURN_DURATION, damage_per_second: float = COMBAT_DATA.BURN_DAMAGE_PER_SECOND, source_id: String = "") -> void:
+	if combat_state != null:
+		combat_state.apply_burn(duration, damage_per_second, source_id)
+
+
+func apply_slow(duration: float, percent: float, source_id: String = "") -> void:
+	if combat_state != null:
+		combat_state.apply_slow(duration, percent, source_id)
+
+
+func apply_stun(duration: float, source_id: String = "") -> void:
+	if combat_state != null:
+		combat_state.apply_stun(duration, source_id)
+
+
+func apply_spotted(duration: float, source_id: String = "") -> void:
+	if combat_state != null:
+		combat_state.apply_spotted(duration, source_id)
+
+
+func reset_combat_state() -> void:
+	if combat_state != null:
+		combat_state.reset()
 
 
 func _perform_axe_attack() -> void:

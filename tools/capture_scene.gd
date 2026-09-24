@@ -15,6 +15,14 @@ func _initialize() -> void:
 		var capture_player := scene.get_node_or_null("Player") as Node3D
 		if capture_player != null:
 			capture_player.position = Vector3(float(arguments[1]), 0.0, float(arguments[2]))
+	if arguments.size() >= 4 and arguments[3] == "effects":
+		var capture_target := scene.get_node_or_null("TargetDummy")
+		if capture_target != null:
+			capture_target.call("apply_burn", 3.5, 20.0, "capture")
+			capture_target.call("apply_slow", 1.5, 30.0, "capture")
+			capture_target.call("apply_stun", 1.5, "capture")
+			capture_target.call("apply_spotted", 5.0, "capture")
+			print("CAPTURE EFFECTS: ", capture_target.call("get_active_effect_types"))
 	for _frame in range(30):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()
