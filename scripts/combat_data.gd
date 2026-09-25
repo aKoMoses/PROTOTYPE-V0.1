@@ -61,8 +61,30 @@ const WEAPON_DEFINITIONS := {
 }
 
 const MODULE_DEFINITIONS := {
-	"modulo_drone": {"category": "offensive", "cooldown": 10.0},
-	"javelin": {"category": "offensive", "cooldown": 12.0},
+	"modulo_drone": {
+		"category": "offensive",
+		"preparation": 0.18,
+		"max_range": 9.0,
+		"speed": 10.0,
+		"collision_radius": 0.15,
+		"damage": 100.0,
+		"burn_duration": BURN_DURATION,
+		"spotted_duration": 5.0,
+		"cone_half_angle": 20.0,
+		"max_turn_rate": 90.0,
+		"cooldown": 10.0,
+	},
+	"javelin": {
+		"category": "offensive",
+		"preparation": 0.12,
+		"max_range": 8.0,
+		"speed": 20.0,
+		"collision_radius": 0.12,
+		"damage": 140.0,
+		"mark_duration": 2.5,
+		"teleport_distance": 1.4,
+		"cooldown": 12.0,
+	},
 	"pyro_boots": {"category": "mobility", "cooldown": 6.0},
 	"bio_injector": {"category": "mobility", "cooldown": 18.0},
 	"magnetic_field": {"category": "defensive", "cooldown": 12.0},

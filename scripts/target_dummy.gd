@@ -21,6 +21,8 @@ var _stun_fx: MeshInstance3D
 var _spotted_fx: Label3D
 var _spotted_emblem: MeshInstance3D
 var _spotted_light: OmniLight3D
+var _javelin_mark_label: Label3D
+var _javelin_mark_until := -1.0
 var _effect_clock := 0.0
 
 
@@ -41,6 +43,8 @@ func _process(delta: float) -> void:
 	_effect_clock += delta
 	if combat_state != null and not _resetting:
 		combat_state.update(delta)
+	if _javelin_mark_until >= 0.0 and Time.get_ticks_msec() / 1000.0 >= _javelin_mark_until:
+		_javelin_mark_until = -1.0
 	_update_effect_presentation()
 
 
@@ -79,6 +83,7 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 func reset_combat_state() -> void:
 	_resetting = false
+	_javelin_mark_until = -1.0
 	if combat_state != null:
 		combat_state.reset()
 	if _body_material != null:
@@ -109,6 +114,18 @@ func get_slow_percent() -> float:
 
 func get_active_effect_types() -> Array[String]:
 	return combat_state.get_active_effect_types() if combat_state != null else []
+
+
+func apply_javelin_mark(duration: float, _source_id: String = "") -> void:
+	_javelin_mark_until = Time.get_ticks_msec() / 1000.0 + maxf(0.0, duration)
+
+
+func has_javelin_mark() -> bool:
+	return _javelin_mark_until > Time.get_ticks_msec() / 1000.0 and not _resetting and get_health() > 0.0
+
+
+func clear_javelin_mark() -> void:
+	_javelin_mark_until = -1.0
 
 
 func flash_impact(critical: bool = false) -> void:
@@ -355,6 +372,16 @@ func _build_effect_visuals() -> void:
 	_spotted_light.light_energy = 0.0
 	add_child(_spotted_light)
 
+	_javelin_mark_label = Label3D.new()
+	_javelin_mark_label.name = "JavelinMark"
+	_javelin_mark_label.text = "✦ JAVELIN"
+	_javelin_mark_label.position = Vector3(0.0, 3.62, 0.0)
+	_javelin_mark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_javelin_mark_label.font_size = 42
+	_javelin_mark_label.outline_size = 10
+	_javelin_mark_label.modulate = Color("#ffdb75")
+	add_child(_javelin_mark_label)
+
 
 func _effect_material(color: Color, emission: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -416,6 +443,10 @@ func _update_effect_presentation() -> void:
 		_spotted_emblem.scale = Vector3(2.0, 1.0, 1.0) * (1.0 + sin(_effect_clock * 5.0) * 0.10)
 	if _spotted_light != null:
 		_spotted_light.light_energy = (2.0 + sin(_effect_clock * 7.0) * 0.45) if spotted else 0.0
+	if _javelin_mark_label != null:
+		_javelin_mark_label.visible = has_javelin_mark()
+		if _javelin_mark_label.visible:
+			_javelin_mark_label.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 9.0) * 0.10)
 	var lines: Array[String] = []
 	if burning:
 		lines.append("BURN  %.1fs" % combat_state.get_remaining(COMBAT_DATA.EFFECT_BURN))
@@ -425,6 +456,8 @@ func _update_effect_presentation() -> void:
 		lines.append("STUN  %.1fs" % combat_state.get_remaining(COMBAT_DATA.EFFECT_STUN))
 	if spotted:
 		lines.append("SPOTTED  %.1fs" % combat_state.get_remaining(COMBAT_DATA.EFFECT_SPOTTED))
+	if has_javelin_mark():
+		lines.append("JAVELIN  %.1fs" % maxf(0.0, _javelin_mark_until - Time.get_ticks_msec() / 1000.0))
 	_update_status("\n".join(lines))
 
 

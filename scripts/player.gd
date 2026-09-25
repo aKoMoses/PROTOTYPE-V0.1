@@ -58,6 +58,26 @@ var _shotgun_attack_busy := false
 var _shotgun_attack_token := 0
 var _shotgun_attack_origin := Vector3.ZERO
 var _shotgun_attack_direction := Vector3.FORWARD
+var _module_cooldowns: Dictionary = {}
+var _module_token := 0
+var _drone_preparation := 0.18
+var _drone_max_range := 9.0
+var _drone_speed := 10.0
+var _drone_damage := 100.0
+var _drone_burn_duration := 3.5
+var _drone_spotted_duration := 5.0
+var _drone_cone_half_angle := 20.0
+var _drone_collision_radius := 0.15
+var _javelin_preparation := 0.12
+var _javelin_max_range := 8.0
+var _javelin_speed := 20.0
+var _javelin_damage := 140.0
+var _javelin_mark_duration := 2.5
+var _javelin_teleport_distance := 1.4
+var _javelin_collision_radius := 0.12
+var _javelin_mark_target: Node
+var _javelin_launch_token := 0
+var _module_busy := false
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -111,6 +131,23 @@ func _load_axe_definition() -> void:
 	_shotgun_magazine_size = int(shotgun_definition.get("magazine_size", _shotgun_magazine_size))
 	_shotgun_ammo = _shotgun_magazine_size
 	_shotgun_reload_duration = float(shotgun_definition.get("reload_duration", _shotgun_reload_duration))
+	var drone_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("modulo_drone", {})
+	_drone_preparation = float(drone_definition.get("preparation", _drone_preparation))
+	_drone_max_range = float(drone_definition.get("max_range", _drone_max_range))
+	_drone_speed = float(drone_definition.get("speed", _drone_speed))
+	_drone_damage = float(drone_definition.get("damage", _drone_damage))
+	_drone_burn_duration = float(drone_definition.get("burn_duration", _drone_burn_duration))
+	_drone_spotted_duration = float(drone_definition.get("spotted_duration", _drone_spotted_duration))
+	_drone_cone_half_angle = float(drone_definition.get("cone_half_angle", _drone_cone_half_angle))
+	_drone_collision_radius = float(drone_definition.get("collision_radius", _drone_collision_radius))
+	var javelin_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("javelin", {})
+	_javelin_preparation = float(javelin_definition.get("preparation", _javelin_preparation))
+	_javelin_max_range = float(javelin_definition.get("max_range", _javelin_max_range))
+	_javelin_speed = float(javelin_definition.get("speed", _javelin_speed))
+	_javelin_damage = float(javelin_definition.get("damage", _javelin_damage))
+	_javelin_mark_duration = float(javelin_definition.get("mark_duration", _javelin_mark_duration))
+	_javelin_teleport_distance = float(javelin_definition.get("teleport_distance", _javelin_teleport_distance))
+	_javelin_collision_radius = float(javelin_definition.get("collision_radius", _javelin_collision_radius))
 
 
 func _physics_process(delta: float) -> void:
@@ -119,10 +156,15 @@ func _physics_process(delta: float) -> void:
 	_update_aim()
 	_update_movement()
 	_update_debug_effects()
+	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
 		_cancel_axe_attack()
 	if combat_state != null and combat_state.is_stunned() and _shotgun_attack_busy:
 		_cancel_shotgun_attack()
+	if combat_state != null and combat_state.is_stunned() and _module_busy:
+		_module_token += 1
+		_module_busy = false
+		_attack_label.text = "MODULE  •  INTERROMPU"
 	_update_shotgun_reload_input()
 	_update_attack()
 	_update_axe_trail(delta)
@@ -209,6 +251,10 @@ func _update_debug_effects() -> void:
 		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
 	if _pressed_once(KEY_F7):
 		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
+	if _pressed_once(KEY_F8):
+		_perform_modulo_drone()
+	if _pressed_once(KEY_F9):
+		_perform_javelin()
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -251,6 +297,7 @@ func reset_combat_state() -> void:
 		combat_state.reset()
 	reset_axe_state()
 	reset_shotgun_state()
+	reset_module_state()
 
 
 func reset_axe_state() -> void:
@@ -296,6 +343,14 @@ func reset_shotgun_state() -> void:
 	_shotgun_attack_busy = false
 	_shotgun_reloading = false
 	_shotgun_ammo = _shotgun_magazine_size
+
+
+func reset_module_state() -> void:
+	_module_token += 1
+	_javelin_launch_token += 1
+	_module_cooldowns.clear()
+	_module_busy = false
+	_javelin_mark_target = null
 
 
 func _update_shotgun_reload_input() -> void:
@@ -486,6 +541,274 @@ func _start_shotgun_reload() -> void:
 		_shotgun_reloading = false
 		_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	)
+
+
+func _update_javelin_mark() -> void:
+	if _javelin_mark_target == null or not is_instance_valid(_javelin_mark_target):
+		_javelin_mark_target = null
+		return
+	if not bool(_javelin_mark_target.call("has_javelin_mark")):
+		_javelin_mark_target = null
+
+
+func get_module_cooldown(module_id: String) -> float:
+	return maxf(0.0, float(_module_cooldowns.get(module_id, 0.0)) - Time.get_ticks_msec() / 1000.0)
+
+
+func is_module_busy() -> bool:
+	return _module_busy
+
+
+func _module_ready(module_id: String) -> bool:
+	return get_module_cooldown(module_id) <= 0.0
+
+
+func _start_module_cooldown(module_id: String, duration: float) -> void:
+	_module_cooldowns[module_id] = Time.get_ticks_msec() / 1000.0 + duration
+
+
+func _module_target() -> Node:
+	var active_scene := get_tree().current_scene
+	return active_scene.get_node_or_null("TargetDummy") if active_scene != null else null
+
+
+func _module_visual_start(direction: Vector3) -> Vector3:
+	return _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.85 + direction * 0.45
+
+
+func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID] = []) -> Vector3:
+	var world := get_world_3d()
+	if world == null:
+		return end
+	var query := PhysicsRayQueryParameters3D.create(start + Vector3.UP * 0.72, end + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()] + excluded
+	var result := world.direct_space_state.intersect_ray(query)
+	return result["position"] if not result.is_empty() else end
+
+
+func _module_path_clear(from_position: Vector3, to_position: Vector3, excluded: Array[RID] = []) -> bool:
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()] + excluded
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _select_drone_target(origin: Vector3, direction: Vector3) -> Node:
+	var target := _module_target()
+	if target == null or not is_instance_valid(target) or float(target.call("get_health")) <= 0.0:
+		return null
+	var offset: Vector3 = target.global_position - origin
+	offset.y = 0.0
+	var distance: float = offset.length()
+	if distance <= 0.001 or distance > _drone_max_range:
+		return null
+	var angle := rad_to_deg(acos(clampf(direction.dot(offset.normalized()), -1.0, 1.0)))
+	if angle > _drone_cone_half_angle or not _module_path_clear(origin, target.global_position, [target.get_rid()]):
+		return null
+	return target
+
+
+func _perform_modulo_drone() -> void:
+	if _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
+		return
+	_module_busy = true
+	_module_token += 1
+	var token := _module_token
+	_start_module_cooldown("modulo_drone", float(COMBAT_DATA.MODULE_DEFINITIONS["modulo_drone"]["cooldown"]))
+	var origin := global_position
+	var direction := aim_direction.normalized()
+	_attack_label.text = "MODULO DRONE  •  CD 10s"
+	var timer := get_tree().create_timer(_drone_preparation, true, false, false)
+	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, origin, direction))
+
+
+func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void:
+	if token != _module_token or not _module_busy:
+		return
+	var target := _select_drone_target(origin, direction)
+	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _drone_max_range)
+	var did_hit := false
+	if target != null:
+		var target_endpoint: Vector3 = target.global_position
+		if _module_path_clear(origin, target_endpoint, [target.get_rid()]):
+			endpoint = target_endpoint
+			did_hit = true
+	var distance := origin.distance_to(endpoint)
+	var drone := MeshInstance3D.new()
+	drone.name = "ModuloDroneProjectile"
+	var drone_mesh := SphereMesh.new()
+	drone_mesh.radius = _drone_collision_radius
+	drone_mesh.height = _drone_collision_radius * 2.0
+	drone.mesh = drone_mesh
+	drone.material_override = _create_fx_material(Color("#45ddff"), 0.96)
+	get_tree().current_scene.add_child(drone)
+	drone.global_position = _module_visual_start(direction)
+	var travel := maxf(0.05, distance / _drone_speed)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(drone, "global_position", endpoint, travel)
+	tween.tween_callback(func() -> void:
+		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
+			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
+			if applied > 0.0:
+				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "modulo_drone")
+				target.call("apply_spotted", _drone_spotted_duration, "modulo_drone")
+				_create_target_hit_fx(target.global_position, false)
+				target.call("flash_impact", false)
+			_create_hit_flash(endpoint, Color("#8ff7ff"), 0.50)
+		drone.queue_free()
+		_module_busy = false
+	)
+
+
+func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
+	var target := _module_target()
+	if target == null or not is_instance_valid(target) or float(target.call("get_health")) <= 0.0:
+		return null
+	var offset: Vector3 = target.global_position - origin
+	offset.y = 0.0
+	var along := direction.dot(offset)
+	var closest := origin + direction * along
+	var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
+	if along <= 0.0 or along > _javelin_max_range or lateral > 0.70:
+		return null
+	if not _module_path_clear(origin, target.global_position, [target.get_rid()]):
+		return null
+	return target
+
+
+func _perform_javelin() -> void:
+	if combat_state != null and combat_state.is_stunned():
+		return
+	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
+		_recast_javelin()
+		return
+	_javelin_mark_target = null
+	if _module_busy or not _module_ready("javelin"):
+		return
+	_module_busy = true
+	_module_token += 1
+	_javelin_launch_token += 1
+	var token := _javelin_launch_token
+	_start_module_cooldown("javelin", float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["cooldown"]))
+	var origin := global_position
+	var direction := aim_direction.normalized()
+	_attack_label.text = "JAVELIN  •  CD 12s"
+	var timer := get_tree().create_timer(_javelin_preparation, true, false, false)
+	timer.timeout.connect(func() -> void: _emit_javelin(token, origin, direction))
+
+
+func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
+	if token != _javelin_launch_token or not _module_busy:
+		return
+	var target := _select_javelin_target(origin, direction)
+	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _javelin_max_range)
+	var did_hit := false
+	if target != null:
+		endpoint = target.global_position
+		did_hit = true
+	var distance := origin.distance_to(endpoint)
+	var spear := MeshInstance3D.new()
+	spear.name = "JavelinProjectile"
+	var spear_mesh := CylinderMesh.new()
+	spear_mesh.top_radius = 0.07
+	spear_mesh.bottom_radius = 0.07
+	spear_mesh.height = 0.58
+	spear.mesh = spear_mesh
+	spear.material_override = _create_fx_material(Color("#ffe48b"), 0.96)
+	get_tree().current_scene.add_child(spear)
+	spear.global_position = _module_visual_start(direction)
+	spear.look_at(endpoint, Vector3.UP)
+	var travel := maxf(0.04, distance / _javelin_speed)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(spear, "global_position", endpoint, travel)
+	tween.tween_callback(func() -> void:
+		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
+			var applied := float(target.call("take_damage", _javelin_damage, "player", "javelin:%d" % token))
+			if applied > 0.0:
+				target.call("apply_javelin_mark", _javelin_mark_duration, "javelin")
+				_javelin_mark_target = target
+				_create_target_hit_fx(target.global_position, true)
+				target.call("flash_impact", true)
+			_create_hit_flash(endpoint, Color("#fff0a1"), 0.65)
+		spear.queue_free()
+		_module_busy = false
+	)
+
+
+func _recast_javelin() -> void:
+	var target := _javelin_mark_target
+	if target == null or not is_instance_valid(target) or not bool(target.call("has_javelin_mark")):
+		_javelin_mark_target = null
+		return
+	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_max_range or not _module_path_clear(global_position, target.global_position, [target.get_rid()]):
+		_attack_label.text = "JAVELIN  •  REACTIVATION REFUSÉE"
+		return
+	var destination := _find_javelin_destination(target)
+	if destination == Vector3.INF:
+		_attack_label.text = "JAVELIN  •  DESTINATION BLOQUÉE"
+		return
+	if _axe_attack_busy:
+		_cancel_axe_attack()
+	if _shotgun_attack_busy:
+		_cancel_shotgun_attack()
+	global_position = destination
+	target.call("clear_javelin_mark")
+	_javelin_mark_target = null
+	_create_teleport_fx(destination)
+	_attack_label.text = "JAVELIN  •  TÉLÉPORTÉ"
+
+
+func _find_javelin_destination(target: Node) -> Vector3:
+	var behind: Vector3 = target.global_transform.basis.z
+	behind.y = 0.0
+	behind = behind.normalized() if behind.length_squared() > 0.001 else Vector3(0.0, 0.0, 1.0)
+	var base: Vector3 = target.global_position + behind * _javelin_teleport_distance
+	var candidates: Array[Vector3] = [base, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(30.0)) * _javelin_teleport_distance, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(-30.0)) * _javelin_teleport_distance]
+	for candidate in candidates:
+		candidate.y = 0.0
+		if absf(candidate.x) > 23.0 or absf(candidate.z) > 23.0:
+			continue
+		if not _module_path_clear(global_position, candidate):
+			continue
+		var world := get_world_3d()
+		if world != null:
+			var query := PhysicsPointQueryParameters3D.new()
+			query.position = candidate + Vector3.UP * 0.72
+			query.collision_mask = 1
+			query.collide_with_bodies = true
+			query.exclude = [get_rid(), target.get_rid()]
+			if not world.direct_space_state.intersect_point(query, 8).is_empty():
+				continue
+		return candidate
+	return Vector3.INF
+
+
+func _create_teleport_fx(origin: Vector3) -> void:
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.32
+	ring_mesh.outer_radius = 0.56
+	ring.mesh = ring_mesh
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = _create_fx_material(Color("#ffe48b"), 0.90)
+	get_tree().current_scene.add_child(ring)
+	ring.global_position = origin + Vector3.UP * 0.08
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.4, 0.32)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.90, 0.0, 0.32)
+	tween.set_parallel(false)
+	tween.tween_callback(ring.queue_free)
 
 
 func _perform_axe_attack() -> void:

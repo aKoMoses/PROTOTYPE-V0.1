@@ -50,7 +50,21 @@ func _initialize() -> void:
 			shotgun_target.call("reset_combat_state")
 			shotgun_player.call("_perform_shotgun_attack")
 			print("CAPTURE SHOTGUN: salvo started")
-	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else 30)
+	if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin"):
+		var module_player := scene.get_node_or_null("Player")
+		var module_target := scene.get_node_or_null("TargetDummy")
+		if module_player != null and module_target != null:
+			module_player.position = Vector3(-1.7, 0.0, 0.8)
+			module_target.position = Vector3(1.0, 0.0, -1.8)
+			module_player.set("aim_direction", Vector3(2.7, 0.0, -2.6).normalized())
+			module_player.call("reset_combat_state")
+			module_target.call("reset_combat_state")
+			if arguments[3] == "drone":
+				module_player.call("_perform_modulo_drone")
+			else:
+				module_player.call("_perform_javelin")
+			print("CAPTURE MODULE: ", arguments[3])
+	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else (32 if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin") else 30))
 	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()

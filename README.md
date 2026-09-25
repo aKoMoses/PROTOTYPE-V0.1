@@ -64,9 +64,21 @@ restent des repères visuels sans collision supplémentaire.
 - **Tests automatisés :** `tools/test_shotgun.gd` PASS : 6/6 critique + BURN, 5/6 sans
   BURN, absorption par obstacle, chargeur 3 salves et recharge 1,80 s. Les tests
   précédents P0-101/102 et P0-103 restent PASS.
+- **P0-105 — implémenté, à tester manuellement :** Modulo Drone (préparation 0,18 s,
+  portée 9 m, guidage initial dans un cône de 20°, 100 dégâts + BURN 3,5 s + SPOTTED
+  5 s, cooldown 10 s) et Javelin (préparation 0,12 s, portée 8 m, 140 dégâts, marque
+  2,5 s, cooldown 12 s). Les deux projectiles sont arrêtés par les obstacles. Le
+  second appui Javelin tente une téléportation à 1,4 m derrière la cible avec deux
+  variantes à ±30° ; une destination invalide conserve la marque. F8 lance le Drone,
+  F9 lance ou réactive le Javelin. Les marqueurs et cooldowns sont visibles sur le
+  mannequin et les identifiants empêchent les doubles impacts.
+- **Tests automatisés :** `tools/test_offensive_modules.gd` PASS : Drone (dégâts,
+  BURN/SPOTTED, absorption, cooldown), Javelin (140 dégâts, marque, recast sans
+  dégâts ni second cooldown, destination bloquée). Capture Mobile réelle inspectée
+  pour `prototype0_drone.png` et `prototype0_javelin.png`.
 - **À vérifier ensuite :** test manuel du Shotgun avec F7, R et les collisions en jeu,
-  puis intégration du prochain module selon le cahier des charges. Prochaine tâche :
-  **P0-105 — premier module offensif**.
+  puis test manuel des modules F8/F9 et intégration des modules de mobilité. Prochaine
+  tâche : **P0-106 — Pyro Boots et Bio Injector**.
 
 ## Captures de validation
 
@@ -81,6 +93,8 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   harnais de validation (capture Mobile après attente de l'initialisation de la cible).
 - `prototype0_axe.png` : capture Mobile du troisième coup Electro Axe et de ses éclairs.
 - `prototype0_shotgun.png` : capture Mobile d'une salve Shotgun et de l'impact critique.
+- `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
+  offensifs et de leurs impacts sur le mannequin.
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette
@@ -105,3 +119,4 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 - souris : orienter l'attaque ;
 - clic gauche ou espace : utiliser l'arme active ;
 - `F7` : basculer Electro Axe / Shotgun ; `R` : recharger le Shotgun.
+- `F8` : lancer le Modulo Drone ; `F9` : lancer ou réactiver le Javelin.
