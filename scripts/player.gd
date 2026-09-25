@@ -121,6 +121,7 @@ var _axe_tip: Node3D
 var _health_label: Label3D
 var _health_bar_bg: MeshInstance3D
 var _health_bar_fill: MeshInstance3D
+var _world_ui_anchor: Node3D
 var _trail_mesh: MeshInstance3D
 var _trail_material: StandardMaterial3D
 var _trail_points: Array[Vector3] = []
@@ -222,6 +223,7 @@ func _physics_process(delta: float) -> void:
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
 	_update_movement(delta)
+	_update_world_ui_anchor()
 	_update_bush_state(delta)
 	_update_debug_effects()
 	_update_javelin_mark()
@@ -471,6 +473,13 @@ func _update_baroud_presentation() -> void:
 	var width: float = 1.8 * fraction
 	_baroud_bar_fill.scale = Vector3(width, 1.0, 1.0)
 	_baroud_bar_fill.position.x = -0.9 + width * 0.5
+
+
+func _update_world_ui_anchor() -> void:
+	if _world_ui_anchor != null:
+		# Keep the world-space UI above the robot while ignoring the player's aim
+		# yaw, recoil and attack animation transforms.
+		_world_ui_anchor.global_position = global_position
 
 
 func set_passive(passive_id: String) -> void:
@@ -2075,6 +2084,11 @@ func _build_robot() -> void:
 	visuals.scale = Vector3.ONE * 0.88
 	_robot_visuals = visuals
 	add_child(visuals)
+	_world_ui_anchor = Node3D.new()
+	_world_ui_anchor.name = "WorldUIAnchor"
+	_world_ui_anchor.top_level = true
+	add_child(_world_ui_anchor)
+	_update_world_ui_anchor()
 
 	_attack_label = Label3D.new()
 	_attack_label.position = Vector3(0.0, 3.52, 0.0)
@@ -2082,7 +2096,7 @@ func _build_robot() -> void:
 	_attack_label.font_size = 26
 	_attack_label.outline_size = 6
 	_attack_label.modulate = Color("#8beaff")
-	add_child(_attack_label)
+	_world_ui_anchor.add_child(_attack_label)
 
 	_health_label = Label3D.new()
 	_health_label.name = "PlayerHealthLabel"
@@ -2091,7 +2105,7 @@ func _build_robot() -> void:
 	_health_label.font_size = 24
 	_health_label.outline_size = 7
 	_health_label.modulate = Color("#baffc7")
-	add_child(_health_label)
+	_world_ui_anchor.add_child(_health_label)
 	_health_bar_bg = MeshInstance3D.new()
 	_health_bar_bg.name = "PlayerHealthBarBackground"
 	var health_bg_mesh := BoxMesh.new()
@@ -2099,7 +2113,7 @@ func _build_robot() -> void:
 	_health_bar_bg.mesh = health_bg_mesh
 	_health_bar_bg.position = Vector3(0.0, 2.82, 0.0)
 	_health_bar_bg.material_override = _material(Color("#211f25"), 0.28, Color("#0c1712"))
-	add_child(_health_bar_bg)
+	_world_ui_anchor.add_child(_health_bar_bg)
 	_health_bar_fill = MeshInstance3D.new()
 	_health_bar_fill.name = "PlayerHealthBarFill"
 	var health_fill_mesh := BoxMesh.new()
@@ -2107,7 +2121,7 @@ func _build_robot() -> void:
 	_health_bar_fill.mesh = health_fill_mesh
 	_health_bar_fill.position = Vector3(0.0, 2.82, -0.01)
 	_health_bar_fill.material_override = _material(Color("#5ff28a"), 0.18, Color("#2de86f"))
-	add_child(_health_bar_fill)
+	_world_ui_anchor.add_child(_health_bar_fill)
 	_on_health_changed(get_health(), get_max_health())
 
 	_baroud_bar_bg = MeshInstance3D.new()
@@ -2116,14 +2130,14 @@ func _build_robot() -> void:
 	_baroud_bar_bg.mesh = baroud_bg_mesh
 	_baroud_bar_bg.position = Vector3(0.0, 2.52, 0.0)
 	_baroud_bar_bg.material_override = _material(Color("#2a1820"), 0.2, Color("#3a1824"))
-	add_child(_baroud_bar_bg)
+	_world_ui_anchor.add_child(_baroud_bar_bg)
 	_baroud_bar_fill = MeshInstance3D.new()
 	var baroud_fill_mesh := BoxMesh.new()
 	baroud_fill_mesh.size = Vector3(1.0, 0.10, 0.07)
 	_baroud_bar_fill.mesh = baroud_fill_mesh
 	_baroud_bar_fill.position = Vector3(-0.45, 2.52, -0.01)
 	_baroud_bar_fill.material_override = _material(Color("#ef5a6f"), 0.1, Color("#ff4e7a"))
-	add_child(_baroud_bar_fill)
+	_world_ui_anchor.add_child(_baroud_bar_fill)
 	_baroud_bar_bg.visible = false
 	_baroud_bar_fill.visible = false
 

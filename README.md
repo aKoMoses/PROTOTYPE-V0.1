@@ -140,6 +140,8 @@ visibilité, avant leur passe de carte jouable.
   visible. Il inflige uniquement des dégâts simples et n'applique volontairement aucun
   BURN/SLOW/STUN/SPOTTED automatique. Une barre de PV verte et son compteur sont
   maintenant affichés au-dessus du joueur et suivent dégâts, soins, reset et Baroud.
+  Leur ancrage monde est indépendant du yaw, du recul et des animations du robot, comme
+  pour l'interface du mannequin.
 - **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
   déplacement, télégraphe, dégâts reçus, synchronisation de la barre PV et absence
   d'effets de statut injectés par le bot.
