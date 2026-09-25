@@ -7,7 +7,7 @@ Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
 - arène 3D plus grande que l'écran ;
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
-- Electro Axe provisoire en combo de trois coups à la souris ou avec la barre d'espace ;
+- Electro Axe provisoire en combo de trois coups et Shotgun à six plombs à la souris ou avec la barre d'espace ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
@@ -53,8 +53,20 @@ restent des repères visuels sans collision supplémentaire.
   la stase, activation des quatre effets sur le mannequin et reset visuel/HP.
 - `tools/test_electro_axe.gd` PASS : combo centre = 320, combo onde = 215, estoc
   bloqué par un obstacle et préparation interrompue par STUN.
-- **À vérifier ensuite :** test manuel des touches et intégration dans les armes/modules.
-  Prochaine tâche : **P0-104 — Shotgun entièrement testable**.
+- **P0-104 — implémenté, à tester manuellement :** Shotgun avec six plombs indépendants à
+  angles fixes (-10/-6/-2/+2/+6/+10°), portée maximale 7 m, vitesse 22 m/s et dégâts
+  20 jusqu'à 3 m puis décroissance linéaire jusqu'à 8. Les obstacles absorbent chaque
+  plomb. Les six impacts sur la même cible ajoutent le multiplicateur critique 1,5 et
+  appliquent BURN ; cinq impacts n'appliquent pas BURN. Cadence 0,10 s de préparation
+  + 0,60 s de récupération, chargeur de 3 salves, recharge automatique ou R en 1,80 s.
+  F7 bascule Electro Axe/Shotgun. Les projectiles visuels partent du point d'arme et un
+  identifiant unique empêche tout double impact.
+- **Tests automatisés :** `tools/test_shotgun.gd` PASS : 6/6 critique + BURN, 5/6 sans
+  BURN, absorption par obstacle, chargeur 3 salves et recharge 1,80 s. Les tests
+  précédents P0-101/102 et P0-103 restent PASS.
+- **À vérifier ensuite :** test manuel du Shotgun avec F7, R et les collisions en jeu,
+  puis intégration du prochain module selon le cahier des charges. Prochaine tâche :
+  **P0-105 — premier module offensif**.
 
 ## Captures de validation
 
@@ -68,6 +80,7 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_effects.png` : capture du mannequin avec les quatre états appliqués par le
   harnais de validation (capture Mobile après attente de l'initialisation de la cible).
 - `prototype0_axe.png` : capture Mobile du troisième coup Electro Axe et de ses éclairs.
+- `prototype0_shotgun.png` : capture Mobile d'une salve Shotgun et de l'impact critique.
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette
@@ -90,4 +103,5 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 - `ZQSD`, `WASD` ou flèches : déplacement ;
 - souris : orienter l'attaque ;
-- clic gauche ou espace : enchaîner l'Electro Axe.
+- clic gauche ou espace : utiliser l'arme active ;
+- `F7` : basculer Electro Axe / Shotgun ; `R` : recharger le Shotgun.

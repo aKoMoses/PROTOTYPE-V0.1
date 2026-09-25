@@ -38,7 +38,19 @@ func _initialize() -> void:
 			axe_player.set("_combo_step", 2)
 			axe_player.call("_perform_axe_attack")
 			print("CAPTURE AXE: third strike started")
-	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else 30
+	if arguments.size() >= 4 and arguments[3] == "shotgun":
+		var shotgun_player := scene.get_node_or_null("Player")
+		var shotgun_target := scene.get_node_or_null("TargetDummy")
+		if shotgun_player != null and shotgun_target != null:
+			shotgun_player.position = Vector3(-1.7, 0.0, 0.8)
+			shotgun_target.position = Vector3(1.0, 0.0, -1.8)
+			shotgun_player.set("aim_direction", Vector3(2.7, 0.0, -2.6).normalized())
+			shotgun_player.call("set_weapon", "shotgun")
+			shotgun_player.call("reset_combat_state")
+			shotgun_target.call("reset_combat_state")
+			shotgun_player.call("_perform_shotgun_attack")
+			print("CAPTURE SHOTGUN: salvo started")
+	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else 30)
 	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()

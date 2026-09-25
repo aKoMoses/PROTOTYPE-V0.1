@@ -48,7 +48,15 @@ const WEAPON_DEFINITIONS := {
 		"display_name": "Shotgun",
 		"pellets_per_shot": 6,
 		"pellet_damage": 20.0,
+		"pellet_angles": [-10.0, -6.0, -2.0, 2.0, 6.0, 10.0],
+		"pellet_speed": 22.0,
+		"max_range": 7.0,
+		"falloff_start": 3.0,
+		"minimum_damage": 8.0,
+		"attack_preparation": 0.10,
+		"attack_recovery": 0.60,
 		"magazine_size": 3,
+		"reload_duration": 1.80,
 	},
 }
 

@@ -40,6 +40,24 @@ var _axe_sweep_half_angle := 50.0
 var _axe_wave_inner_radius := 1.2
 var _axe_wave_outer_radius := 3.5
 var _show_debug_hitbox := false
+var _weapon_id := "electro_axe"
+var _shotgun_pellet_angles: Array = [-10.0, -6.0, -2.0, 2.0, 6.0, 10.0]
+var _shotgun_pellet_speed := 22.0
+var _shotgun_max_range := 7.0
+var _shotgun_falloff_start := 3.0
+var _shotgun_pellet_damage := 20.0
+var _shotgun_minimum_damage := 8.0
+var _shotgun_preparation := 0.10
+var _shotgun_recovery := 0.60
+var _shotgun_magazine_size := 3
+var _shotgun_ammo := 3
+var _shotgun_reload_duration := 1.80
+var _shotgun_reloading := false
+var _shotgun_reload_token := 0
+var _shotgun_attack_busy := false
+var _shotgun_attack_token := 0
+var _shotgun_attack_origin := Vector3.ZERO
+var _shotgun_attack_direction := Vector3.FORWARD
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -81,6 +99,18 @@ func _load_axe_definition() -> void:
 	_axe_sweep_half_angle = float(definition.get("combo_sweep_half_angle", _axe_sweep_half_angle))
 	_axe_wave_inner_radius = float(definition.get("combo_wave_inner_radius", _axe_wave_inner_radius))
 	_axe_wave_outer_radius = float(definition.get("combo_wave_outer_radius", _axe_wave_outer_radius))
+	var shotgun_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("shotgun", {})
+	_shotgun_pellet_angles = shotgun_definition.get("pellet_angles", _shotgun_pellet_angles)
+	_shotgun_pellet_speed = float(shotgun_definition.get("pellet_speed", _shotgun_pellet_speed))
+	_shotgun_max_range = float(shotgun_definition.get("max_range", _shotgun_max_range))
+	_shotgun_falloff_start = float(shotgun_definition.get("falloff_start", _shotgun_falloff_start))
+	_shotgun_pellet_damage = float(shotgun_definition.get("pellet_damage", _shotgun_pellet_damage))
+	_shotgun_minimum_damage = float(shotgun_definition.get("minimum_damage", _shotgun_minimum_damage))
+	_shotgun_preparation = float(shotgun_definition.get("attack_preparation", _shotgun_preparation))
+	_shotgun_recovery = float(shotgun_definition.get("attack_recovery", _shotgun_recovery))
+	_shotgun_magazine_size = int(shotgun_definition.get("magazine_size", _shotgun_magazine_size))
+	_shotgun_ammo = _shotgun_magazine_size
+	_shotgun_reload_duration = float(shotgun_definition.get("reload_duration", _shotgun_reload_duration))
 
 
 func _physics_process(delta: float) -> void:
@@ -91,6 +121,9 @@ func _physics_process(delta: float) -> void:
 	_update_debug_effects()
 	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
 		_cancel_axe_attack()
+	if combat_state != null and combat_state.is_stunned() and _shotgun_attack_busy:
+		_cancel_shotgun_attack()
+	_update_shotgun_reload_input()
 	_update_attack()
 	_update_axe_trail(delta)
 
@@ -141,6 +174,9 @@ func _update_attack() -> void:
 	if combat_state != null and combat_state.is_stunned():
 		return
 	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+	if _weapon_id == "shotgun":
+		_update_shotgun_attack(wants_to_attack)
+		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if not _axe_attack_busy and now > _combo_expires_at:
 		_combo_step = 0
@@ -171,6 +207,8 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_F6):
 		_show_debug_hitbox = not _show_debug_hitbox
 		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
+	if _pressed_once(KEY_F7):
+		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -212,6 +250,7 @@ func reset_combat_state() -> void:
 	if combat_state != null:
 		combat_state.reset()
 	reset_axe_state()
+	reset_shotgun_state()
 
 
 func reset_axe_state() -> void:
@@ -225,6 +264,228 @@ func reset_axe_state() -> void:
 	if _axe_pivot != null:
 		_axe_pivot.position = _axe_pivot_home
 		_axe_pivot.rotation = _axe_pivot_home_rotation
+
+
+func set_weapon(weapon_id: String) -> void:
+	if weapon_id != "electro_axe" and weapon_id != "shotgun":
+		return
+	if _weapon_id == weapon_id:
+		return
+	reset_axe_state()
+	reset_shotgun_state()
+	_weapon_id = weapon_id
+	if _attack_label != null:
+		_attack_label.text = "ARME : %s" % ("ELECTRO AXE" if _weapon_id == "electro_axe" else "SHOTGUN")
+
+
+func get_weapon_id() -> String:
+	return _weapon_id
+
+
+func get_shotgun_ammo() -> int:
+	return _shotgun_ammo
+
+
+func is_shotgun_reloading() -> bool:
+	return _shotgun_reloading
+
+
+func reset_shotgun_state() -> void:
+	_shotgun_attack_token += 1
+	_shotgun_reload_token += 1
+	_shotgun_attack_busy = false
+	_shotgun_reloading = false
+	_shotgun_ammo = _shotgun_magazine_size
+
+
+func _update_shotgun_reload_input() -> void:
+	if _weapon_id == "shotgun" and _pressed_once(KEY_R):
+		_start_shotgun_reload()
+
+
+func _update_shotgun_attack(wants_to_attack: bool) -> void:
+	if _shotgun_reloading or _shotgun_attack_busy:
+		return
+	if _shotgun_ammo <= 0:
+		_start_shotgun_reload()
+		return
+	if wants_to_attack:
+		_perform_shotgun_attack()
+
+
+func _perform_shotgun_attack() -> void:
+	if _shotgun_reloading or _shotgun_attack_busy:
+		return
+	if _shotgun_ammo <= 0:
+		_start_shotgun_reload()
+		return
+	_shotgun_attack_token += 1
+	var token := _shotgun_attack_token
+	_shotgun_attack_busy = true
+	_shotgun_ammo -= 1
+	_shotgun_attack_origin = global_position
+	_shotgun_attack_direction = aim_direction.normalized()
+	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
+	var salvo := {
+		"id": token,
+		"valid_hits": 0,
+		"base_damage_sum": 0.0,
+		"critical_applied": false,
+		"credited": {},
+	}
+	var emission_timer := get_tree().create_timer(_shotgun_preparation, true, false, false)
+	emission_timer.timeout.connect(func() -> void: _emit_shotgun_salvo(token, salvo))
+	var finish_timer := get_tree().create_timer(_shotgun_preparation + _shotgun_recovery, true, false, false)
+	finish_timer.timeout.connect(func() -> void: _finish_shotgun_attack(token))
+
+
+func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
+	if token != _shotgun_attack_token or not _shotgun_attack_busy:
+		return
+	if combat_state != null and combat_state.is_stunned():
+		_cancel_shotgun_attack()
+		return
+	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
+	var visual_start := _axe_tip.global_position if _axe_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
+	for index in range(_shotgun_pellet_angles.size()):
+		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
+		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
+		var shot := _get_shotgun_pellet_result(target, direction)
+		var endpoint: Vector3 = shot["endpoint"]
+		var distance: float = float(shot["distance"])
+		var did_hit: bool = bool(shot["did_hit"])
+		if _show_debug_hitbox:
+			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e") if did_hit else Color("#6e9cab"), 0.025, 0.45)
+		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, target, salvo, index)
+
+
+func _get_shotgun_pellet_result(target: Node, direction: Vector3) -> Dictionary:
+	var start := _shotgun_attack_origin
+	var max_endpoint := start + direction * _shotgun_max_range
+	var endpoint := _shotgun_obstacle_endpoint(start, max_endpoint)
+	var travel_distance: float = start.distance_to(endpoint)
+	var did_hit := false
+	if target != null and is_instance_valid(target):
+		var target_offset: Vector3 = target.global_position - start
+		target_offset.y = 0.0
+		var along := direction.dot(target_offset)
+		var closest := start + direction * along
+		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
+		var target_distance := Vector3(target_offset.x, 0.0, target_offset.z).length()
+		if along > 0.0 and along <= _shotgun_max_range and lateral <= 0.70 and _shotgun_path_clear(target, start, target.global_position):
+			did_hit = true
+			endpoint = target.global_position
+			travel_distance = target_distance
+	return {"endpoint": endpoint, "distance": travel_distance, "did_hit": did_hit}
+
+
+func _shotgun_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
+	var world := get_world_3d()
+	if world == null:
+		return end
+	var query := PhysicsRayQueryParameters3D.create(start + Vector3.UP * 0.72, end + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()]
+	var result := world.direct_space_state.intersect_ray(query)
+	return result["position"] if not result.is_empty() else end
+
+
+func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vector3) -> bool:
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid(), target.get_rid()]
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
+	var projectile := MeshInstance3D.new()
+	projectile.name = "ShotgunPellet"
+	var pellet_mesh := SphereMesh.new()
+	pellet_mesh.radius = 0.075
+	pellet_mesh.height = 0.15
+	projectile.mesh = pellet_mesh
+	projectile.material_override = _create_fx_material(Color("#ffc56e"), 0.95)
+	get_tree().current_scene.add_child(projectile)
+	projectile.global_position = start
+	var travel_time := maxf(0.025, distance / _shotgun_pellet_speed)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(projectile, "global_position", endpoint, travel_time)
+	tween.tween_callback(func() -> void:
+		_resolve_shotgun_projectile(salvo, index, did_hit, target, distance)
+		projectile.queue_free()
+	)
+
+
+func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, target: Node, distance: float) -> void:
+	if not did_hit or target == null or not is_instance_valid(target):
+		return
+	var projectile_id := "shotgun:%d:%d" % [int(salvo["id"]), index]
+	var credited: Dictionary = salvo["credited"]
+	if credited.has(projectile_id):
+		return
+	credited[projectile_id] = true
+	var damage := _shotgun_damage_at_distance(distance)
+	var effective_damage := float(target.call("take_damage", damage, "player", projectile_id))
+	if effective_damage <= 0.0:
+		return
+	salvo["valid_hits"] = int(salvo["valid_hits"]) + 1
+	salvo["base_damage_sum"] = float(salvo["base_damage_sum"]) + damage
+	_create_target_hit_fx(target.global_position, false)
+	if int(salvo["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(salvo["critical_applied"]):
+		salvo["critical_applied"] = true
+		var bonus := float(salvo["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
+		var bonus_id := "shotgun:%d:critical" % int(salvo["id"])
+		target.call("take_damage", bonus, "player", bonus_id)
+		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "shotgun")
+		target.call("flash_impact", true)
+
+
+func _shotgun_damage_at_distance(distance: float) -> float:
+	if distance <= _shotgun_falloff_start:
+		return _shotgun_pellet_damage
+	var ratio := clampf((distance - _shotgun_falloff_start) / maxf(0.001, _shotgun_max_range - _shotgun_falloff_start), 0.0, 1.0)
+	return lerpf(_shotgun_pellet_damage, _shotgun_minimum_damage, ratio)
+
+
+func _finish_shotgun_attack(token: int) -> void:
+	if token != _shotgun_attack_token or not _shotgun_attack_busy:
+		return
+	_shotgun_attack_busy = false
+	if _shotgun_ammo <= 0:
+		_start_shotgun_reload()
+
+
+func _cancel_shotgun_attack() -> void:
+	if not _shotgun_attack_busy:
+		return
+	_shotgun_attack_token += 1
+	_shotgun_attack_busy = false
+	_attack_label.text = "SHOTGUN  •  INTERROMPU"
+
+
+func _start_shotgun_reload() -> void:
+	if _shotgun_reloading or _shotgun_ammo >= _shotgun_magazine_size:
+		return
+	_shotgun_reloading = true
+	_shotgun_reload_token += 1
+	var token := _shotgun_reload_token
+	_attack_label.text = "SHOTGUN  •  RECHARGE %.1fs" % _shotgun_reload_duration
+	var reload_timer := get_tree().create_timer(_shotgun_reload_duration, true, false, false)
+	reload_timer.timeout.connect(func() -> void:
+		if token != _shotgun_reload_token:
+			return
+		_shotgun_ammo = _shotgun_magazine_size
+		_shotgun_reloading = false
+		_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
+	)
 
 
 func _perform_axe_attack() -> void:
