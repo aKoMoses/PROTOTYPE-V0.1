@@ -14,6 +14,10 @@ func _initialize() -> void:
 		var initial_effects: Array = target.call("get_active_effect_types")
 		if not initial_effects.is_empty():
 			_failures.append("mannequin contaminé au démarrage: %s" % str(initial_effects))
+		for visual_name in ["BurnVisual", "SlowVisual", "SlowRing", "StunHalo", "SpottedEye", "SpottedEmblem"]:
+			var visual := target.get_node_or_null(visual_name)
+			if visual != null and visual.visible:
+				_failures.append("visuel d'effet actif au démarrage: " + visual_name)
 		target.call("apply_burn", 3.5, 20.0, "integration")
 		target.call("apply_slow", 1.0, 30.0, "integration")
 		target.call("apply_stun", 0.5, "integration")
@@ -22,6 +26,11 @@ func _initialize() -> void:
 		for effect_type in ["BURN", "SLOW", "STUN", "SPOTTED"]:
 			if not active.has(effect_type):
 				_failures.append("effet mannequin absent: " + effect_type)
+		await process_frame
+		for visual_name in ["BurnVisual", "SlowVisual", "SlowRing", "StunHalo", "SpottedEye", "SpottedEmblem"]:
+			var visual := target.get_node_or_null(visual_name)
+			if visual != null and not visual.visible:
+				_failures.append("visuel d'effet absent pendant l'effet: " + visual_name)
 		for _frame in range(3):
 			await process_frame
 		if float(target.call("get_health")) >= 1000.0:

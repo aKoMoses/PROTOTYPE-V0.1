@@ -173,9 +173,36 @@ func _line_of_sight_clear(observer: Node3D) -> bool:
 func _update_visibility_presentation() -> void:
 	var observer: Node3D = get_tree().current_scene.get_node_or_null("Player") as Node3D if get_tree().current_scene != null else null
 	var should_show := is_visible_to(observer)
-	for node in [_body_mesh, _health_label, _health_bar_bg, _health_bar_fill, _status_label, _impact_light, _burn_fx, _burn_light, _slow_fx, _slow_ring, _slow_light, _stun_fx, _spotted_fx, _spotted_emblem, _spotted_light, _javelin_mark_label]:
+	# Visibility must not turn status visuals on by itself. The previous broad
+	# loop overwrote _update_effect_presentation() every frame, making a fresh
+	# mannequin render BURN/SLOW/STUN/SPOTTED as if all four were active.
+	for node in [_body_mesh, _health_label, _health_bar_bg, _health_bar_fill, _status_label, _impact_light]:
 		if node != null:
 			node.visible = should_show
+	var burning: bool = combat_state != null and combat_state.has_effect(COMBAT_DATA.EFFECT_BURN)
+	var slowed: bool = combat_state != null and combat_state.has_effect(COMBAT_DATA.EFFECT_SLOW)
+	var stunned: bool = combat_state != null and combat_state.has_effect(COMBAT_DATA.EFFECT_STUN)
+	var spotted: bool = combat_state != null and combat_state.has_effect(COMBAT_DATA.EFFECT_SPOTTED)
+	if _burn_fx != null:
+		_burn_fx.visible = should_show and burning
+	if _burn_light != null:
+		_burn_light.visible = should_show and burning
+	if _slow_fx != null:
+		_slow_fx.visible = should_show and slowed
+	if _slow_ring != null:
+		_slow_ring.visible = should_show and slowed
+	if _slow_light != null:
+		_slow_light.visible = should_show and slowed
+	if _stun_fx != null:
+		_stun_fx.visible = should_show and stunned
+	if _spotted_fx != null:
+		_spotted_fx.visible = should_show and spotted
+	if _spotted_emblem != null:
+		_spotted_emblem.visible = should_show and spotted
+	if _spotted_light != null:
+		_spotted_light.visible = should_show and spotted
+	if _javelin_mark_label != null:
+		_javelin_mark_label.visible = should_show and has_javelin_mark()
 
 
 func apply_javelin_mark(duration: float, _source_id: String = "") -> void:

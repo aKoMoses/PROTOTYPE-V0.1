@@ -126,7 +126,9 @@ visibilité, avant leur passe de carte jouable.
   son entrée/sortie de hautes herbes (signal `bush_state_changed`, nom du volume actif,
   petite fenêtre de transition) et expose la même règle `is_visible_to` que le mannequin
   pour un futur bot. La détection se resynchronise immédiatement après un déplacement,
-  sans modifier les collisions, les attaques ou le suivi caméra.
+  sans modifier les collisions, les attaques ou le suivi caméra. La présentation de
+  visibilité ne réactive plus par erreur les visuels BURN/SLOW/STUN/SPOTTED : un mannequin
+  neuf reste visuellement neutre jusqu'à un effet réellement appliqué.
 - **Tests automatisés :** `tools/test_visibility.gd` PASS pour le joueur et le mannequin :
   entrée, sortie, nom du bush, transition, occultation et SPOTTED.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
