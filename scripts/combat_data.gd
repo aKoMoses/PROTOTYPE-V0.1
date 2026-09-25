@@ -99,8 +99,20 @@ const MODULE_DEFINITIONS := {
 		"other_cooldown_rate": 1.0 / 0.70,
 		"cooldown": 18.0,
 	},
-	"magnetic_field": {"category": "defensive", "cooldown": 12.0},
-	"static_shield": {"category": "defensive", "cooldown": 18.0},
+	"magnetic_field": {
+		"category": "defensive",
+		"preparation": 0.15,
+		"distance": 2.0,
+		"width": 4.0,
+		"height": 2.4,
+		"duration": 2.5,
+		"cooldown": 12.0,
+	},
+	"static_shield": {
+		"category": "defensive",
+		"duration": 1.5,
+		"cooldown": 18.0,
+	},
 	"baroud": {"category": "passive"},
 	"omnivamp": {"category": "passive"},
 }

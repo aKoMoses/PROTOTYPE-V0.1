@@ -53,6 +53,7 @@ var _shotgun_magazine_size := 3
 var _shotgun_ammo := 3
 var _shotgun_reload_duration := 1.80
 var _shotgun_reloading := false
+var _shotgun_reload_remaining := 0.0
 var _shotgun_reload_token := 0
 var _shotgun_attack_busy := false
 var _shotgun_attack_token := 0
@@ -79,6 +80,7 @@ var _javelin_mark_target: Node
 var _javelin_launch_token := 0
 var _module_busy := false
 var _offensive_module_id := "modulo_drone"
+var _defensive_module_id := "magnetic_field"
 var _mobility_module_id := "pyro_boots"
 var _dash_active := false
 var _dash_token := 0
@@ -89,6 +91,14 @@ var _bio_remaining := 0.0
 var _bio_speed_multiplier := 1.40
 var _bio_attack_speed_multiplier := 1.50
 var _bio_other_cooldown_rate := 1.428571
+var _magnetic_preparation := 0.15
+var _magnetic_distance := 2.0
+var _magnetic_width := 4.0
+var _magnetic_height := 2.4
+var _magnetic_duration := 2.5
+var _static_duration := 1.5
+var _stasis_remaining := 0.0
+var _magnetic_wall: Area3D
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -163,11 +173,22 @@ func _load_axe_definition() -> void:
 	_bio_speed_multiplier = float(bio_definition.get("speed_multiplier", _bio_speed_multiplier))
 	_bio_attack_speed_multiplier = float(bio_definition.get("attack_speed_multiplier", _bio_attack_speed_multiplier))
 	_bio_other_cooldown_rate = float(bio_definition.get("other_cooldown_rate", _bio_other_cooldown_rate))
+	var magnetic_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("magnetic_field", {})
+	_magnetic_preparation = float(magnetic_definition.get("preparation", _magnetic_preparation))
+	_magnetic_distance = float(magnetic_definition.get("distance", _magnetic_distance))
+	_magnetic_width = float(magnetic_definition.get("width", _magnetic_width))
+	_magnetic_height = float(magnetic_definition.get("height", _magnetic_height))
+	_magnetic_duration = float(magnetic_definition.get("duration", _magnetic_duration))
+	var static_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("static_shield", {})
+	_static_duration = float(static_definition.get("duration", _static_duration))
 
 
 func _physics_process(delta: float) -> void:
+	var stasis_active := _stasis_remaining > 0.0
+	if stasis_active:
+		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
 	if combat_state != null:
-		combat_state.update(delta)
+		combat_state.update(delta, stasis_active)
 	_update_module_cooldowns(delta)
 	_update_aim()
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
@@ -184,11 +205,15 @@ func _physics_process(delta: float) -> void:
 		_module_busy = false
 		_attack_label.text = "MODULE  •  INTERROMPU"
 	_update_shotgun_reload_input()
+	_update_shotgun_reload(delta)
 	_update_attack()
 	_update_axe_trail(delta)
 
 
 func _update_movement(delta: float) -> void:
+	if _stasis_remaining > 0.0:
+		velocity = Vector3.ZERO
+		return
 	if _dash_active:
 		_update_dash(delta)
 		return
@@ -237,7 +262,7 @@ func _update_aim() -> void:
 
 
 func _update_attack() -> void:
-	if combat_state != null and combat_state.is_stunned():
+	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return
 	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	if _weapon_id == "shotgun":
@@ -291,10 +316,22 @@ func _pressed_once(keycode: Key) -> bool:
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
+	if _stasis_remaining > 0.0:
+		return 0.0
 	return combat_state.apply_damage(amount, source_id, attack_id) if combat_state != null else 0.0
 
 
+func get_health() -> float:
+	return combat_state.health if combat_state != null else 0.0
+
+
+func get_max_health() -> float:
+	return combat_state.max_health if combat_state != null else COMBAT_DATA.MAX_HEALTH
+
+
 func heal(amount: float, source_id: String = "") -> float:
+	if _stasis_remaining > 0.0:
+		return 0.0
 	return combat_state.heal(amount, source_id) if combat_state != null else 0.0
 
 
@@ -369,8 +406,7 @@ func _perform_offensive_module() -> void:
 
 
 func _activate_defensive_module() -> void:
-	if _attack_label != null:
-		_attack_label.text = "DÉFENSIF : À VENIR"
+	_perform_defensive_module()
 
 
 func _activate_mobility_module() -> void:
@@ -394,6 +430,7 @@ func reset_shotgun_state() -> void:
 	_shotgun_reload_token += 1
 	_shotgun_attack_busy = false
 	_shotgun_reloading = false
+	_shotgun_reload_remaining = 0.0
 	_shotgun_ammo = _shotgun_magazine_size
 
 
@@ -408,6 +445,10 @@ func reset_module_state() -> void:
 	_dash_direction = Vector3.ZERO
 	_dash_elapsed = 0.0
 	_bio_remaining = 0.0
+	_stasis_remaining = 0.0
+	if _magnetic_wall != null and is_instance_valid(_magnetic_wall):
+		_magnetic_wall.queue_free()
+	_magnetic_wall = null
 
 
 func _update_shotgun_reload_input() -> void:
@@ -497,8 +538,8 @@ func _shotgun_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
 	if world == null:
 		return end
 	var query := PhysicsRayQueryParameters3D.create(start + Vector3.UP * 0.72, end + Vector3.UP * 0.72)
-	query.collision_mask = 1
-	query.collide_with_areas = false
+	query.collision_mask = 9
+	query.collide_with_areas = true
 	query.collide_with_bodies = true
 	query.exclude = [get_rid()]
 	var result := world.direct_space_state.intersect_ray(query)
@@ -510,8 +551,8 @@ func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vect
 	if world == null:
 		return true
 	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
-	query.collision_mask = 1
-	query.collide_with_areas = false
+	query.collision_mask = 9
+	query.collide_with_areas = true
 	query.collide_with_bodies = true
 	query.exclude = [get_rid(), target.get_rid()]
 	return world.direct_space_state.intersect_ray(query).is_empty()
@@ -589,16 +630,19 @@ func _start_shotgun_reload() -> void:
 		return
 	_shotgun_reloading = true
 	_shotgun_reload_token += 1
-	var token := _shotgun_reload_token
+	_shotgun_reload_remaining = _shotgun_reload_duration
 	_attack_label.text = "SHOTGUN  •  RECHARGE %.1fs" % _shotgun_reload_duration
-	var reload_timer := get_tree().create_timer(_shotgun_reload_duration, true, false, false)
-	reload_timer.timeout.connect(func() -> void:
-		if token != _shotgun_reload_token:
-			return
-		_shotgun_ammo = _shotgun_magazine_size
-		_shotgun_reloading = false
-		_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
-	)
+
+
+func _update_shotgun_reload(delta: float) -> void:
+	if not _shotgun_reloading or _stasis_remaining > 0.0:
+		return
+	_shotgun_reload_remaining = maxf(0.0, _shotgun_reload_remaining - delta)
+	if _shotgun_reload_remaining > 0.0:
+		return
+	_shotgun_ammo = _shotgun_magazine_size
+	_shotgun_reloading = false
+	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 
 
 func _update_javelin_mark() -> void:
@@ -638,6 +682,129 @@ func get_mobility_module_id() -> String:
 	return _mobility_module_id
 
 
+func get_defensive_module_id() -> String:
+	return _defensive_module_id
+
+
+func get_stasis_remaining() -> float:
+	return _stasis_remaining
+
+
+func _perform_defensive_module() -> void:
+	if _defensive_module_id == "static_shield":
+		_perform_static_shield()
+	else:
+		_perform_magnetic_field()
+
+
+func _perform_magnetic_field() -> void:
+	if _stasis_remaining > 0.0 or _module_busy or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
+		return
+	var direction := aim_direction.normalized()
+	var origin := global_position
+	var center := origin + direction * _magnetic_distance
+	if not _magnetic_placement_valid(origin, center):
+		if _attack_label != null:
+			_attack_label.text = "MAGNETIC FIELD  •  PLACEMENT REFUSÉ"
+		return
+	_module_busy = true
+	_module_token += 1
+	var token := _module_token
+	_start_module_cooldown("magnetic_field", float(COMBAT_DATA.MODULE_DEFINITIONS["magnetic_field"]["cooldown"]))
+	if _attack_label != null:
+		_attack_label.text = "MAGNETIC FIELD  •  PRÉPARATION"
+	var timer := get_tree().create_timer(_magnetic_preparation, true, false, false)
+	timer.timeout.connect(func() -> void: _create_magnetic_wall(token, center, direction))
+
+
+func _magnetic_placement_valid(origin: Vector3, center: Vector3) -> bool:
+	if absf(center.x) > 23.0 or absf(center.z) > 23.0:
+		return false
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(origin + Vector3.UP * 0.72, center + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()]
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> void:
+	if token != _module_token or not _module_busy:
+		return
+	var wall := Area3D.new()
+	wall.name = "MagneticField"
+	wall.collision_layer = 8
+	wall.collision_mask = 0
+	wall.monitoring = false
+	wall.monitorable = true
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(_magnetic_width, _magnetic_height, 0.14)
+	collision.shape = shape
+	collision.position.y = _magnetic_height * 0.5
+	wall.add_child(collision)
+	var visual := MeshInstance3D.new()
+	var visual_mesh := BoxMesh.new()
+	visual_mesh.size = Vector3(_magnetic_width, _magnetic_height, 0.10)
+	visual.mesh = visual_mesh
+	visual.position.y = _magnetic_height * 0.5
+	visual.material_override = _create_fx_material(Color("#53d9e5"), 0.38)
+	wall.add_child(visual)
+	get_tree().current_scene.add_child(wall)
+	wall.global_position = center
+	wall.rotation.y = atan2(direction.x, direction.z)
+	_magnetic_wall = wall
+	_module_busy = false
+	if _attack_label != null:
+		_attack_label.text = "MAGNETIC FIELD  •  2.5s"
+	var lifetime_timer := get_tree().create_timer(_magnetic_duration, true, false, false)
+	lifetime_timer.timeout.connect(func() -> void:
+		if is_instance_valid(wall):
+			wall.queue_free()
+		if _magnetic_wall == wall:
+			_magnetic_wall = null
+	)
+
+
+func _perform_static_shield() -> void:
+	if _stasis_remaining > 0.0 or not _module_ready("static_shield") or (combat_state != null and combat_state.is_stunned()):
+		return
+	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
+	_stasis_remaining = _static_duration
+	if _axe_attack_busy:
+		_cancel_axe_attack()
+	if _shotgun_attack_busy:
+		_cancel_shotgun_attack()
+	if _module_busy:
+		_module_token += 1
+		_module_busy = false
+	if _dash_active:
+		_cancel_dash()
+	if _attack_label != null:
+		_attack_label.text = "STATIC SHIELD  •  %.1fs" % _stasis_remaining
+	_create_stasis_fx()
+
+
+func _create_stasis_fx() -> void:
+	var shield := MeshInstance3D.new()
+	var shield_mesh := SphereMesh.new()
+	shield_mesh.radius = 1.12
+	shield_mesh.height = 2.05
+	shield.mesh = shield_mesh
+	shield.material_override = _create_fx_material(Color("#b18dff"), 0.22)
+	add_child(shield)
+	shield.position = Vector3(0.0, 0.95, 0.0)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(shield, "scale", Vector3.ONE * 1.12, 0.20)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(shield.material_override), 0.22, 0.0, _static_duration)
+	tween.set_parallel(false)
+	tween.tween_callback(shield.queue_free)
+
+
 func get_bio_remaining() -> float:
 	return _bio_remaining
 
@@ -665,7 +832,7 @@ func _perform_mobility_module() -> void:
 
 
 func _perform_pyro_boots() -> void:
-	if _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
 		return
 	var direction := _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
 	if direction.length_squared() <= 0.001:
@@ -681,7 +848,7 @@ func _perform_pyro_boots() -> void:
 
 
 func _perform_bio_injector() -> void:
-	if _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
 		return
 	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
 	_bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
@@ -770,8 +937,8 @@ func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID
 	if world == null:
 		return end
 	var query := PhysicsRayQueryParameters3D.create(start + Vector3.UP * 0.72, end + Vector3.UP * 0.72)
-	query.collision_mask = 1
-	query.collide_with_areas = false
+	query.collision_mask = 9
+	query.collide_with_areas = true
 	query.collide_with_bodies = true
 	query.exclude = [get_rid()] + excluded
 	var result := world.direct_space_state.intersect_ray(query)
@@ -779,6 +946,18 @@ func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID
 
 
 func _module_path_clear(from_position: Vector3, to_position: Vector3, excluded: Array[RID] = []) -> bool:
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
+	query.collision_mask = 9
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()] + excluded
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _solid_path_clear(from_position: Vector3, to_position: Vector3, excluded: Array[RID] = []) -> bool:
 	var world := get_world_3d()
 	if world == null:
 		return true
@@ -800,13 +979,13 @@ func _select_drone_target(origin: Vector3, direction: Vector3) -> Node:
 	if distance <= 0.001 or distance > _drone_max_range:
 		return null
 	var angle := rad_to_deg(acos(clampf(direction.dot(offset.normalized()), -1.0, 1.0)))
-	if angle > _drone_cone_half_angle or not _module_path_clear(origin, target.global_position, [target.get_rid()]):
+	if angle > _drone_cone_half_angle or not _solid_path_clear(origin, target.global_position, [target.get_rid()]):
 		return null
 	return target
 
 
 func _perform_modulo_drone() -> void:
-	if _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
 		return
 	_module_busy = true
 	_module_token += 1
@@ -869,13 +1048,13 @@ func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
 	var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
 	if along <= 0.0 or along > _javelin_max_range or lateral > 0.70:
 		return null
-	if not _module_path_clear(origin, target.global_position, [target.get_rid()]):
+	if not _solid_path_clear(origin, target.global_position, [target.get_rid()]):
 		return null
 	return target
 
 
 func _perform_javelin() -> void:
-	if combat_state != null and combat_state.is_stunned():
+	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return
 	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
 		_recast_javelin()
@@ -901,7 +1080,7 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 	var target := _select_javelin_target(origin, direction)
 	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _javelin_max_range)
 	var did_hit := false
-	if target != null:
+	if target != null and _module_path_clear(origin, target.global_position, [target.get_rid()]):
 		endpoint = target.global_position
 		did_hit = true
 	var distance := origin.distance_to(endpoint)
@@ -939,7 +1118,7 @@ func _recast_javelin() -> void:
 	if target == null or not is_instance_valid(target) or not bool(target.call("has_javelin_mark")):
 		_javelin_mark_target = null
 		return
-	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_max_range or not _module_path_clear(global_position, target.global_position, [target.get_rid()]):
+	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_max_range or not _solid_path_clear(global_position, target.global_position, [target.get_rid()]):
 		_attack_label.text = "JAVELIN  •  REACTIVATION REFUSÉE"
 		return
 	var destination := _find_javelin_destination(target)
@@ -967,7 +1146,7 @@ func _find_javelin_destination(target: Node) -> Vector3:
 		candidate.y = 0.0
 		if absf(candidate.x) > 23.0 or absf(candidate.z) > 23.0:
 			continue
-		if not _module_path_clear(global_position, candidate):
+		if not _solid_path_clear(global_position, candidate):
 			continue
 		var world := get_world_3d()
 		if world != null:

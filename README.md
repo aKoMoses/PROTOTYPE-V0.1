@@ -83,11 +83,24 @@ restent des repères visuels sans collision supplémentaire.
   démarrage ; la recharge Shotgun et les durées d'effets restent inchangées.
 - **Tests automatisés :** `tools/test_mobility_modules.gd` PASS : dash, obstacle, STUN,
   buff de vitesse, slow multiplicatif, cadence d'attaque et cooldowns accélérés.
+- **P0-107 — implémenté, à tester manuellement :** slot défensif E avec Magnetic Field
+  par défaut (préparation 0,15 s, mur perpendiculaire de 4 m centré à 2 m, durée 2,5 s,
+  cooldown 12 s). Le mur absorbe les projectiles qui le traversent sans bloquer les
+  robots, la mêlée, les ondes au sol ni la vision ; un placement obstrué ne consomme pas
+  le cooldown. Static Shield est également implémenté comme variante défensive : stase
+  immédiate 1,5 s, invulnérabilité, impossibilité d'attaquer/se déplacer/utiliser un
+  module ou se soigner, interruption des préparations et dash, et BURN suspendu pendant
+  la stase. Le choix se fait par la donnée `_defensive_module_id` en attendant le futur
+  écran de build.
+- **Tests automatisés :** `tools/test_defensive_modules.gd` PASS : mur et absorption
+  Shotgun, durée, placement invalide, déplacement non bloqué, stase, dégâts/soin/BURN
+  bloqués et refus d'activation sous STUN.
 - **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
-  E = emplacement défensif (prochain lot) ; R = module mobilité ; G = changement d'arme ;
+  E = module défensif équipé ; R = module mobilité ; G = changement d'arme ;
   T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
-  de la mobilité avec R. Prochaine tâche : **P0-107 — Magnetic Field et Static Shield**.
+  de la mobilité avec R, puis du défensif avec E. Prochaine tâche : **P0-108 — kits de vie,
+  bushs fonctionnels et règles de visibilité**.
 
 ## Captures de validation
 
