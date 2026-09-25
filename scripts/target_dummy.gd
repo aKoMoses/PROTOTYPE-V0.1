@@ -330,36 +330,109 @@ func _build_collision() -> void:
 
 func _build_visuals() -> void:
 	_body_mesh = MeshInstance3D.new()
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.72
-	body_mesh.height = 1.45
+	var body_mesh := BoxMesh.new()
+	body_mesh.size = Vector3(1.05, 1.10, 0.82)
 	_body_mesh.mesh = body_mesh
-	_body_mesh.position.y = 0.9
+	_body_mesh.position.y = 0.96
+	_body_mesh.rotation_degrees.z = -2.0
 	_body_material = StandardMaterial3D.new()
 	_body_material.albedo_color = Color("#8f302b")
 	_body_material.metallic = 0.35
 	_body_material.roughness = 0.62
 	_body_mesh.material_override = _body_material
 	add_child(_body_mesh)
+	var chest_plate := MeshInstance3D.new()
+	var chest_mesh := BoxMesh.new()
+	chest_mesh.size = Vector3(0.78, 0.48, 0.10)
+	chest_plate.mesh = chest_mesh
+	chest_plate.position = Vector3(0.0, 1.02, 0.47)
+	chest_plate.rotation_degrees.x = -5.0
+	chest_plate.material_override = _robot_material(Color("#c46c3f"), 0.42)
+	add_child(chest_plate)
+	var reactor := MeshInstance3D.new()
+	var reactor_mesh := CylinderMesh.new()
+	reactor_mesh.top_radius = 0.16
+	reactor_mesh.bottom_radius = 0.22
+	reactor_mesh.height = 0.10
+	reactor.mesh = reactor_mesh
+	reactor.position = Vector3(0.0, 1.03, 0.55)
+	reactor.rotation_degrees.x = 90.0
+	reactor.material_override = _effect_material(Color("#8cf6ff"), Color("#32dceb"))
+	add_child(reactor)
+	var neck := MeshInstance3D.new()
+	var neck_mesh := CylinderMesh.new()
+	neck_mesh.top_radius = 0.16
+	neck_mesh.bottom_radius = 0.20
+	neck_mesh.height = 0.20
+	neck.mesh = neck_mesh
+	neck.position.y = 1.60
+	neck.material_override = _robot_material(Color("#3f3536"), 0.72)
+	add_child(neck)
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.47
+	head_mesh.height = 0.62
+	head.mesh = head_mesh
+	head.position = Vector3(0.0, 1.93, 0.0)
+	head.scale = Vector3(1.0, 0.86, 0.92)
+	head.material_override = _robot_material(Color("#a34432"), 0.48)
+	add_child(head)
+	var visor := MeshInstance3D.new()
+	var visor_mesh := BoxMesh.new()
+	visor_mesh.size = Vector3(0.58, 0.14, 0.08)
+	visor.mesh = visor_mesh
+	visor.position = Vector3(0.0, 1.95, 0.42)
+	visor.material_override = _effect_material(Color("#ff8a65"), Color("#ff2d22"))
+	add_child(visor)
+	for side in [-1.0, 1.0]:
+		var shoulder := MeshInstance3D.new()
+		var shoulder_mesh := SphereMesh.new()
+		shoulder_mesh.radius = 0.27
+		shoulder_mesh.height = 0.40
+		shoulder.mesh = shoulder_mesh
+		shoulder.position = Vector3(side * 0.68, 1.24, 0.0)
+		shoulder.scale = Vector3(1.0, 0.85, 0.88)
+		shoulder.material_override = _robot_material(Color("#5a3837"), 0.72)
+		add_child(shoulder)
+		var upper_arm := MeshInstance3D.new()
+		var upper_mesh := CylinderMesh.new()
+		upper_mesh.top_radius = 0.13
+		upper_mesh.bottom_radius = 0.18
+		upper_mesh.height = 0.50
+		upper_arm.mesh = upper_mesh
+		upper_arm.position = Vector3(side * 0.76, 0.88, 0.0)
+		upper_arm.rotation_degrees.z = side * -12.0
+		upper_arm.material_override = _robot_material(Color("#b65a3e"), 0.60)
+		add_child(upper_arm)
+		var fist := MeshInstance3D.new()
+		var fist_mesh := BoxMesh.new()
+		fist_mesh.size = Vector3(0.28, 0.28, 0.30)
+		fist.mesh = fist_mesh
+		fist.position = Vector3(side * 0.81, 0.54, 0.03)
+		fist.rotation_degrees.z = side * -8.0
+		fist.material_override = _robot_material(Color("#43383b"), 0.86)
+		add_child(fist)
+	for side in [-1.0, 1.0]:
+		var leg := MeshInstance3D.new()
+		var leg_mesh := CapsuleMesh.new()
+		leg_mesh.radius = 0.18
+		leg_mesh.height = 0.55
+		leg.mesh = leg_mesh
+		leg.position = Vector3(side * 0.29, 0.32, 0.0)
+		leg.material_override = _robot_material(Color("#43383b"), 0.86)
+		add_child(leg)
+		var foot := MeshInstance3D.new()
+		var foot_mesh := BoxMesh.new()
+		foot_mesh.size = Vector3(0.34, 0.16, 0.52)
+		foot.mesh = foot_mesh
+		foot.position = Vector3(side * 0.29, 0.04, 0.13)
+		foot.material_override = _robot_material(Color("#8d4435"), 0.60)
+		add_child(foot)
 	_impact_light = OmniLight3D.new()
 	_impact_light.light_energy = 0.0
 	_impact_light.omni_range = 3.0
 	_impact_light.position = Vector3(0.0, 1.0, 0.0)
 	add_child(_impact_light)
-
-	var eye := MeshInstance3D.new()
-	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.2
-	eye_mesh.height = 0.3
-	eye.mesh = eye_mesh
-	eye.position = Vector3(0.0, 1.2, 0.66)
-	var eye_material := StandardMaterial3D.new()
-	eye_material.albedo_color = Color("#ff503f")
-	eye_material.emission_enabled = true
-	eye_material.emission = Color("#ff241d")
-	eye_material.emission_energy_multiplier = 3.5
-	eye.material_override = eye_material
-	add_child(eye)
 
 	_health_label = Label3D.new()
 	_health_label.position = Vector3(0.0, 2.72, 0.0)
@@ -512,6 +585,14 @@ func _effect_material(color: Color, emission: Color) -> StandardMaterial3D:
 	material.emission_enabled = true
 	material.emission = emission
 	material.emission_energy_multiplier = 2.2
+	return material
+
+
+func _robot_material(color: Color, metallic: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.metallic = metallic
+	material.roughness = 0.58
 	return material
 
 

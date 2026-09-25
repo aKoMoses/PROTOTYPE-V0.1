@@ -38,7 +38,7 @@ func _initialize() -> void:
 			axe_player.set("_combo_step", 2)
 			axe_player.call("_perform_axe_attack")
 			print("CAPTURE AXE: third strike started")
-	if arguments.size() >= 4 and arguments[3] == "shotgun":
+	if arguments.size() >= 4 and (arguments[3] == "shotgun" or arguments[3] == "shotgun_live"):
 		var shotgun_player := scene.get_node_or_null("Player")
 		var shotgun_target := scene.get_node_or_null("TargetDummy")
 		if shotgun_player != null and shotgun_target != null:
@@ -84,7 +84,15 @@ func _initialize() -> void:
 			passive_player.call("set_passive", "baroud")
 			passive_player.call("take_damage", 1000.0, "capture", "baroud_capture")
 			print("CAPTURE PASSIVE: baroud")
-	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else (32 if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin") else (18 if arguments.size() >= 4 and arguments[3] == "magnetic" else (12 if arguments.size() >= 4 and (arguments[3] == "stasis" or arguments[3] == "baroud") else 30))))
+	var settle_frames := 30
+	if arguments.size() >= 4:
+		match arguments[3]:
+			"axe": settle_frames = 50
+			"shotgun_live": settle_frames = 6
+			"shotgun": settle_frames = 22
+			"drone", "javelin": settle_frames = 32
+			"magnetic": settle_frames = 18
+			"stasis", "baroud": settle_frames = 12
 	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()

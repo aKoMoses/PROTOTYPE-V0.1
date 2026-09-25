@@ -19,6 +19,7 @@ const IDEAL_RANGE_MAX := 8.4
 const DODGE_DURATION := 0.34
 const DODGE_COOLDOWN := 3.5
 const DODGE_SPEED := 7.2
+const MOVE_ACCELERATION := 7.0
 
 var enabled := false
 var _elapsed := 0.0
@@ -32,6 +33,7 @@ var _telegraph_clock := 0.0
 var _dodge_remaining := 0.0
 var _dodge_cooldown_remaining := 0.0
 var _dodge_direction := Vector3.ZERO
+var _move_velocity := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -52,6 +54,7 @@ func set_enabled(value: bool) -> void:
 	_dodge_remaining = 0.0
 	_dodge_cooldown_remaining = 0.0
 	_dodge_direction = Vector3.ZERO
+	_move_velocity = Vector3.ZERO
 	_update_telegraph()
 	set_physics_process(enabled)
 	var owner_3d := get_parent() as Node3D
@@ -73,6 +76,7 @@ func reset_clock() -> void:
 	_dodge_remaining = 0.0
 	_dodge_cooldown_remaining = 0.0
 	_dodge_direction = Vector3.ZERO
+	_move_velocity = Vector3.ZERO
 	_update_telegraph()
 
 
@@ -110,8 +114,8 @@ func _physics_process(delta: float) -> void:
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if _dodge_remaining > 0.0:
 		_dodge_remaining = maxf(0.0, _dodge_remaining - delta)
-		bot_body.global_position += _dodge_direction * DODGE_SPEED * delta
-		bot_body.global_position.y = 0.0
+		_move_velocity = _move_velocity.move_toward(_dodge_direction * DODGE_SPEED, MOVE_ACCELERATION * delta)
+		_move_bot(bot_body, delta)
 	else:
 		_try_dodge(bot_body, player)
 		if _dodge_remaining <= 0.0:
@@ -152,8 +156,21 @@ func _update_patrol(bot_body: Node3D, player: Node3D, delta: float) -> void:
 		)
 	desired.x = clampf(desired.x, -27.0, 27.0)
 	desired.z = clampf(desired.z, -27.0, 27.0)
-	var blend := clampf(delta * MOVE_SPEED, 0.0, 1.0)
-	bot_body.global_position = bot_body.global_position.lerp(desired, blend)
+	var to_desired := desired - bot_body.global_position
+	to_desired.y = 0.0
+	var desired_velocity := Vector3.ZERO
+	if to_desired.length_squared() > 0.04:
+		desired_velocity = to_desired.normalized() * MOVE_SPEED
+	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
+	_move_bot(bot_body, delta)
+
+
+func _move_bot(bot_body: Node3D, delta: float) -> void:
+	if _move_velocity.length_squared() <= 0.04:
+		_move_velocity = Vector3.ZERO
+	bot_body.global_position += _move_velocity * delta
+	bot_body.global_position.x = clampf(bot_body.global_position.x, -27.0, 27.0)
+	bot_body.global_position.z = clampf(bot_body.global_position.z, -27.0, 27.0)
 	bot_body.global_position.y = 0.0
 
 
@@ -173,6 +190,7 @@ func _try_dodge(bot_body: Node3D, player: Node3D) -> void:
 		_dodge_direction = -_dodge_direction
 	_dodge_remaining = DODGE_DURATION
 	_dodge_cooldown_remaining = DODGE_COOLDOWN
+	_move_velocity = _dodge_direction * DODGE_SPEED
 
 
 func _can_attack(bot_body: Node3D, player: Node3D) -> bool:
@@ -222,26 +240,75 @@ func _spawn_attack_visual(player: Node3D) -> void:
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
-	var tracer := MeshInstance3D.new()
+	var tracer := Node3D.new()
 	tracer.name = "TrainingBotProjectile"
-	var projectile_mesh := SphereMesh.new()
-	projectile_mesh.radius = 0.12
-	projectile_mesh.height = 0.24
-	tracer.mesh = projectile_mesh
+	var start_position := bot_body.global_position + Vector3.UP * 1.30
+	var impact_position := player.global_position + Vector3.UP * 0.92
+	var direction := (impact_position - start_position).normalized()
+	scene.add_child(tracer)
+	tracer.global_position = start_position
+	tracer.look_at(start_position + direction, Vector3.UP)
+	var projectile_mesh := CylinderMesh.new()
+	projectile_mesh.top_radius = 0.035
+	projectile_mesh.bottom_radius = 0.16
+	projectile_mesh.height = 0.48
+	var slug := MeshInstance3D.new()
+	slug.mesh = projectile_mesh
+	slug.rotation_degrees.x = -90.0
+	slug.position = Vector3(0.0, 0.0, -0.10)
 	var projectile_material := StandardMaterial3D.new()
 	projectile_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	projectile_material.albedo_color = Color("#ff8b4b")
+	projectile_material.albedo_color = Color("#ffb85c")
 	projectile_material.emission_enabled = true
-	projectile_material.emission = Color("#ff3d20")
-	projectile_material.emission_energy_multiplier = 3.2
-	tracer.material_override = projectile_material
-	scene.add_child(tracer)
-	tracer.global_position = bot_body.global_position + Vector3.UP * 0.95
-	var impact_position := player.global_position + Vector3.UP * 0.72
+	projectile_material.emission = Color("#ff4b25")
+	projectile_material.emission_energy_multiplier = 4.0
+	slug.material_override = projectile_material
+	tracer.add_child(slug)
+	var core := MeshInstance3D.new()
+	var core_mesh := CylinderMesh.new()
+	core_mesh.top_radius = 0.018
+	core_mesh.bottom_radius = 0.065
+	core_mesh.height = 0.33
+	core.mesh = core_mesh
+	core.rotation_degrees.x = -90.0
+	core.position = Vector3(0.0, 0.0, -0.25)
+	core.material_override = _fx_material(Color("#fff1b2"), 0.98, Color("#ffb73d"))
+	tracer.add_child(core)
+	var trail := MeshInstance3D.new()
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = 0.015
+	trail_mesh.bottom_radius = 0.09
+	trail_mesh.height = 0.70
+	trail.mesh = trail_mesh
+	trail.rotation_degrees.x = -90.0
+	trail.position = Vector3(0.0, 0.0, 0.34)
+	trail.material_override = _fx_material(Color("#ff5d32"), 0.28, Color("#ff2a1b"))
+	tracer.add_child(trail)
+	var tracer_light := OmniLight3D.new()
+	tracer_light.light_color = Color("#ff6a32")
+	tracer_light.light_energy = 1.2
+	tracer_light.omni_range = 1.8
+	tracer.add_child(tracer_light)
+	var pulse := tracer.create_tween()
+	pulse.set_loops(8)
+	pulse.tween_property(slug, "scale", Vector3(1.18, 1.0, 1.18), 0.08).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(slug, "scale", Vector3.ONE, 0.08).set_trans(Tween.TRANS_SINE)
 	var travel := tracer.create_tween()
 	travel.tween_property(tracer, "global_position", impact_position, PROJECTILE_TRAVEL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	travel.tween_callback(Callable(self, "_spawn_impact_visual").bind(scene, impact_position))
 	travel.tween_callback(tracer.queue_free)
+
+
+func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.emission_enabled = true
+	material.emission = emission
+	material.emission_energy_multiplier = 3.5
+	if alpha < 0.99:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return material
 
 
 func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:

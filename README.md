@@ -147,11 +147,21 @@ visibilité, avant leur passe de carte jouable.
 - **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
   déplacement, maintien de portée, esquive, télégraphe, dégâts reçus, synchronisation de la
   barre PV et absence d'effets de statut injectés par le bot.
+- **P0-115 — passe lisibilité et présentation :** le déplacement du bot utilise maintenant
+  une vitesse amortie (accélération/décélération continues) au lieu de téléportations par
+  interpolation, son mannequin possède une silhouette robotique humanoïde (tête, visière,
+  torse, bras, jambes et noyau), et le shotgun dispose d'un modèle visible avec recul et
+  muzzle flash. Ses plombs sont des projectiles coniques lumineux avec cœur, traînée,
+  pulsation et impact ; le cône de tir est légèrement élargi (angles ±14°/±8°/±3°,
+  rayon de hitbox 0,78 m) pour rendre le shotgun plus menaçant. Le projectile du bot suit
+  la même grammaire visuelle. Les bushs
+  passent à des touffes de hautes herbes denses avec des lames larges, une zone de cachette
+  cohérente et davantage de variation de silhouette.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-115 —
-  ajouter une seconde télégraphie lisible (pression courte ou repli) et vérifier le
-  comportement du bot sur plusieurs obstacles sans toucher aux règles d'effets.
+  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-116 —
+  faire une vérification manuelle ciblée du shotgun en jeu et ajuster ses proportions
+  après retour visuel, puis ajouter une télégraphie secondaire au bot si nécessaire.
 
 ## Captures de validation
 
@@ -166,6 +176,10 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   harnais de validation (capture Mobile après attente de l'initialisation de la cible).
 - `prototype0_axe.png` : capture Mobile du troisième coup Electro Axe et de ses éclairs.
 - `prototype0_shotgun.png` : capture Mobile d'une salve Shotgun et de l'impact critique.
+- `prototype0_shotgun_new.png` : capture Godot de la nouvelle densité de végétation et du
+  mannequin robotique après la passe P0-115.
+- `prototype0_shotgun_live.png` : capture Godot pendant le déplacement des projectiles
+  coniques et du flash du shotgun (`shotgun_live` conserve la salve visible quelques frames).
 - `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
   offensifs et de leurs impacts sur le mannequin.
 - `prototype0_magnetic.png`, `prototype0_stasis.png` et `prototype0_baroud.png` :

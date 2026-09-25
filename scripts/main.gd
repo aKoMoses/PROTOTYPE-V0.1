@@ -1293,30 +1293,46 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	# These are tall-grass gameplay landmarks, not round bushes: broad, dense
 	# blades create a readable League-like silhouette while staying non-colliding.
 	# The slight X/Z asymmetry makes each patch feel like a wind-swept clump.
-	root.scale = Vector3(bush_scale * 1.65, bush_scale * 1.10, bush_scale * 1.55)
+	root.scale = Vector3(bush_scale * 1.95, bush_scale * 1.35, bush_scale * 1.85)
 	root.add_to_group("bush_placeholder")
-	root.set_meta("bush_radius", 1.35 * bush_scale)
-	root.set_meta("bush_height", 2.25 * bush_scale)
-	var colors := [Color("#3d4e2f"), Color("#53613b"), Color("#73703d"), Color("#9a7539")]
+	root.set_meta("bush_radius", 1.55 * bush_scale)
+	root.set_meta("bush_height", 2.70 * bush_scale)
+	var colors := [Color("#30442b"), Color("#435b31"), Color("#66703a"), Color("#92703b"), Color("#a17a3d")]
 	var blade_meshes: Array[Mesh] = []
 	for color in colors:
 		var mesh := CylinderMesh.new()
-		mesh.top_radius = 0.012
-		mesh.bottom_radius = 0.075
+		mesh.top_radius = 0.008
+		mesh.bottom_radius = 0.085
 		mesh.height = 1.0
 		mesh.radial_segments = 5
 		mesh.material = _material(color, 1.0)
 		blade_meshes.append(mesh)
-	for index in range(26):
+	for index in range(58):
 		var blade := MeshInstance3D.new()
 		blade.mesh = blade_meshes[index % blade_meshes.size()]
-		var angle := TAU * float(index) / 26.0
-		var radius := 0.20 + float(index % 7) * 0.14
-		var blade_height := 0.90 + float(index % 5) * 0.26
+		var angle := TAU * float(index) / 58.0 + float(index % 5) * 0.08
+		var radius := 0.14 + float((index * 7) % 13) * 0.105
+		var blade_height := 1.02 + float((index * 3) % 7) * 0.22
 		blade.position = Vector3(cos(angle) * radius, blade_height * 0.5, sin(angle) * radius)
-		blade.scale = Vector3(0.72 + float(index % 3) * 0.18, blade_height, 0.72 + float(index % 2) * 0.20)
-		blade.rotation_degrees = Vector3(float(index % 4) * 8.0, rad_to_deg(angle), -22.0 + float(index % 5) * 11.0)
+		blade.scale = Vector3(0.78 + float(index % 3) * 0.20, blade_height, 0.78 + float(index % 2) * 0.24)
+		blade.rotation_degrees = Vector3(float(index % 4) * 8.0, rad_to_deg(angle), -28.0 + float(index % 7) * 9.0)
 		root.add_child(blade)
+	# Broad leaf blades break up the individual stems and make the patch read as
+	# a hiding bush rather than a sparse ring of grass.
+	var leaf_colors := [Color("#3b512c"), Color("#58703a"), Color("#7b743b")]
+	for index in range(22):
+		var leaf := MeshInstance3D.new()
+		var leaf_mesh := BoxMesh.new()
+		leaf_mesh.size = Vector3(0.18 + float(index % 3) * 0.06, 1.0, 0.055)
+		leaf.mesh = leaf_mesh
+		var angle := TAU * float(index) / 22.0 + 0.18
+		var radius := 0.08 + float((index * 5) % 9) * 0.13
+		var leaf_height := 1.05 + float(index % 5) * 0.20
+		leaf.position = Vector3(cos(angle) * radius, leaf_height * 0.48, sin(angle) * radius)
+		leaf.scale = Vector3(1.0, leaf_height, 1.0)
+		leaf.rotation_degrees = Vector3(-18.0 + float(index % 4) * 10.0, rad_to_deg(angle), -24.0 + float(index % 5) * 12.0)
+		leaf.material_override = _material(leaf_colors[index % leaf_colors.size()], 1.0)
+		root.add_child(leaf)
 	# No circular ground decal/base: the grass should grow directly out of the
 	# arena floor, with the surrounding sand texture providing the grounding.
 	add_child(root)

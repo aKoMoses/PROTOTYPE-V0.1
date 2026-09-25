@@ -51,6 +51,7 @@ var _shotgun_max_range := 7.0
 var _shotgun_falloff_start := 3.0
 var _shotgun_pellet_damage := 20.0
 var _shotgun_minimum_damage := 8.0
+var _shotgun_hitbox_radius := 0.78
 var _shotgun_preparation := 0.10
 var _shotgun_recovery := 0.60
 var _shotgun_magazine_size := 3
@@ -115,6 +116,9 @@ var _baroud_bar_fill: MeshInstance3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
+var _shotgun_pivot: Node3D
+var _shotgun_tip: Node3D
+var _shotgun_light: OmniLight3D
 var _robot_visuals: Node3D
 var _axe_light: OmniLight3D
 var _axe_tip: Node3D
@@ -167,6 +171,7 @@ func _load_axe_definition() -> void:
 	_shotgun_falloff_start = float(shotgun_definition.get("falloff_start", _shotgun_falloff_start))
 	_shotgun_pellet_damage = float(shotgun_definition.get("pellet_damage", _shotgun_pellet_damage))
 	_shotgun_minimum_damage = float(shotgun_definition.get("minimum_damage", _shotgun_minimum_damage))
+	_shotgun_hitbox_radius = float(shotgun_definition.get("hitbox_radius", _shotgun_hitbox_radius))
 	_shotgun_preparation = float(shotgun_definition.get("attack_preparation", _shotgun_preparation))
 	_shotgun_recovery = float(shotgun_definition.get("attack_recovery", _shotgun_recovery))
 	_shotgun_magazine_size = int(shotgun_definition.get("magazine_size", _shotgun_magazine_size))
@@ -597,6 +602,7 @@ func set_weapon(weapon_id: String) -> void:
 	reset_axe_state()
 	reset_shotgun_state()
 	_weapon_id = weapon_id
+	_update_weapon_visuals()
 	if _attack_label != null:
 		_attack_label.text = "ARME : %s" % ("ELECTRO AXE" if _weapon_id == "electro_axe" else "SHOTGUN")
 
@@ -693,6 +699,7 @@ func _perform_shotgun_attack() -> void:
 	_shotgun_attack_origin = global_position
 	_shotgun_attack_direction = aim_direction.normalized()
 	var attack_speed := get_attack_speed_multiplier()
+	_play_shotgun_animation(attack_speed)
 	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	var salvo := {
 		"id": token,
@@ -707,6 +714,21 @@ func _perform_shotgun_attack() -> void:
 	finish_timer.timeout.connect(func() -> void: _finish_shotgun_attack(token))
 
 
+func _play_shotgun_animation(speed_scale: float) -> void:
+	if _shotgun_pivot == null:
+		return
+	var scale := maxf(0.5, speed_scale)
+	_shotgun_pivot.position = Vector3(0.58, 0.88, -0.36)
+	var tween := create_tween()
+	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.18), 0.06 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.47), 0.10 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.36), 0.22 / scale).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if _shotgun_light != null:
+		_shotgun_light.light_energy = 4.0
+		var light_tween := create_tween()
+		light_tween.tween_property(_shotgun_light, "light_energy", 0.0, 0.20 / scale)
+
+
 func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	if token != _shotgun_attack_token or not _shotgun_attack_busy:
 		return
@@ -715,6 +737,8 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 		return
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
 	var visual_start := _axe_tip.global_position if _axe_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
+	if _shotgun_tip != null:
+		visual_start = _shotgun_tip.global_position
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
 		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
@@ -740,7 +764,7 @@ func _get_shotgun_pellet_result(target: Node, direction: Vector3) -> Dictionary:
 		var closest := start + direction * along
 		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
 		var target_distance := Vector3(target_offset.x, 0.0, target_offset.z).length()
-		if along > 0.0 and along <= _shotgun_max_range and lateral <= 0.70 and _shotgun_path_clear(target, start, target.global_position):
+		if along > 0.0 and along <= _shotgun_max_range and lateral <= _shotgun_hitbox_radius and _shotgun_path_clear(target, start, target.global_position):
 			did_hit = true
 			endpoint = target.global_position
 			travel_distance = target_distance
@@ -773,20 +797,70 @@ func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vect
 
 
 func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
-	var projectile := MeshInstance3D.new()
+	var projectile := Node3D.new()
 	projectile.name = "ShotgunPellet"
-	var pellet_mesh := SphereMesh.new()
-	pellet_mesh.radius = 0.075
-	pellet_mesh.height = 0.15
-	projectile.mesh = pellet_mesh
-	projectile.material_override = _create_fx_material(Color("#ffc56e"), 0.95)
 	get_tree().current_scene.add_child(projectile)
 	projectile.global_position = start
+	var direction := endpoint - start
+	if direction.length_squared() < 0.001:
+		direction = _shotgun_attack_direction
+	else:
+		direction = direction.normalized()
+	projectile.look_at(start + direction, Vector3.UP)
+	var slug := MeshInstance3D.new()
+	var slug_mesh := CylinderMesh.new()
+	slug_mesh.top_radius = 0.035
+	slug_mesh.bottom_radius = 0.18
+	slug_mesh.height = 0.56
+	slug.mesh = slug_mesh
+	slug.rotation_degrees.x = -90.0
+	slug.position = Vector3(0.0, 0.0, -0.08)
+	slug.material_override = _create_fx_material(Color("#ffd98a"), 0.98)
+	projectile.add_child(slug)
+	var core := MeshInstance3D.new()
+	var core_mesh := CylinderMesh.new()
+	core_mesh.top_radius = 0.015
+	core_mesh.bottom_radius = 0.075
+	core_mesh.height = 0.42
+	core.mesh = core_mesh
+	core.rotation_degrees.x = -90.0
+	core.position = Vector3(0.0, 0.0, -0.23)
+	core.material_override = _create_fx_material(Color("#fff4c2"), 0.98)
+	projectile.add_child(core)
+	var trail := MeshInstance3D.new()
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = 0.018
+	trail_mesh.bottom_radius = 0.11
+	trail_mesh.height = 0.78
+	trail.mesh = trail_mesh
+	trail.rotation_degrees.x = -90.0
+	trail.position = Vector3(0.0, 0.0, 0.38)
+	trail.material_override = _create_fx_material(Color("#ff7137"), 0.30)
+	projectile.add_child(trail)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.09
+	ring_mesh.outer_radius = 0.16
+	ring_mesh.rings = 8
+	ring_mesh.ring_segments = 12
+	ring.mesh = ring_mesh
+	ring.rotation_degrees.x = 90.0
+	ring.position = Vector3(0.0, 0.0, 0.10)
+	ring.material_override = _create_fx_material(Color("#fff0ab"), 0.82)
+	projectile.add_child(ring)
+	var pulse := create_tween()
+	pulse.set_loops(8)
+	pulse.tween_property(slug, "scale", Vector3(1.14, 1.0, 1.14), 0.07).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(slug, "scale", Vector3.ONE, 0.07).set_trans(Tween.TRANS_SINE)
 	var travel_time := maxf(0.025, distance / _shotgun_pellet_speed)
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(projectile, "global_position", endpoint, travel_time)
 	tween.tween_callback(func() -> void:
+		if did_hit:
+			_create_hit_flash(endpoint, Color("#fff0a1"), 0.42)
+		else:
+			_spawn_particle_burst(endpoint + Vector3.UP * 0.08, Color("#ff8a43"), 5, 0.18, 2.4, 0.08, direction, 35.0)
 		_resolve_shotgun_projectile(salvo, index, did_hit, target, distance)
 		projectile.queue_free()
 	)
@@ -2244,6 +2318,70 @@ func _build_robot() -> void:
 	_axe_light.position = Vector3(0.0, 0.0, -1.2)
 	_axe_pivot.add_child(_axe_light)
 
+	_shotgun_pivot = Node3D.new()
+	_shotgun_pivot.name = "ShotgunPivot"
+	_shotgun_pivot.position = Vector3(0.58, 0.88, -0.36)
+	visuals.add_child(_shotgun_pivot)
+	var shotgun_stock := MeshInstance3D.new()
+	var stock_mesh := BoxMesh.new()
+	stock_mesh.size = Vector3(0.32, 0.30, 0.72)
+	shotgun_stock.mesh = stock_mesh
+	shotgun_stock.position = Vector3(0.0, 0.0, 0.32)
+	shotgun_stock.rotation_degrees = Vector3(0.0, 0.0, -7.0)
+	shotgun_stock.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
+	_shotgun_pivot.add_child(shotgun_stock)
+	var shotgun_receiver := MeshInstance3D.new()
+	var receiver_mesh := BoxMesh.new()
+	receiver_mesh.size = Vector3(0.46, 0.36, 0.60)
+	shotgun_receiver.mesh = receiver_mesh
+	shotgun_receiver.position = Vector3(0.0, 0.03, -0.14)
+	shotgun_receiver.rotation_degrees = Vector3(0.0, 0.0, -4.0)
+	shotgun_receiver.material_override = _robot_textured_material(Color.WHITE, 0.75, ROBOT_RUST_TEXTURE)
+	_shotgun_pivot.add_child(shotgun_receiver)
+	var shotgun_barrel := MeshInstance3D.new()
+	var barrel_mesh := CylinderMesh.new()
+	barrel_mesh.top_radius = 0.095
+	barrel_mesh.bottom_radius = 0.14
+	barrel_mesh.height = 1.38
+	shotgun_barrel.mesh = barrel_mesh
+	shotgun_barrel.rotation_degrees.x = -90.0
+	shotgun_barrel.position = Vector3(0.0, 0.06, -0.92)
+	shotgun_barrel.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_STEEL_TEXTURE)
+	_shotgun_pivot.add_child(shotgun_barrel)
+	var shotgun_muzzle := MeshInstance3D.new()
+	var muzzle_mesh := CylinderMesh.new()
+	muzzle_mesh.top_radius = 0.20
+	muzzle_mesh.bottom_radius = 0.10
+	muzzle_mesh.height = 0.42
+	shotgun_muzzle.mesh = muzzle_mesh
+	shotgun_muzzle.rotation_degrees.x = -90.0
+	shotgun_muzzle.position = Vector3(0.0, 0.06, -1.74)
+	shotgun_muzzle.material_override = _robot_textured_material(Color.WHITE, 0.70, ROBOT_RUST_TEXTURE)
+	_shotgun_pivot.add_child(shotgun_muzzle)
+	var muzzle_ring := MeshInstance3D.new()
+	var muzzle_ring_mesh := TorusMesh.new()
+	muzzle_ring_mesh.inner_radius = 0.12
+	muzzle_ring_mesh.outer_radius = 0.21
+	muzzle_ring_mesh.rings = 8
+	muzzle_ring_mesh.ring_segments = 16
+	muzzle_ring.mesh = muzzle_ring_mesh
+	muzzle_ring.rotation_degrees.x = 90.0
+	muzzle_ring.position = Vector3(0.0, 0.06, -1.95)
+	muzzle_ring.material_override = _material(Color("#ffc56e"), 0.20, Color("#ff7a31"))
+	_shotgun_pivot.add_child(muzzle_ring)
+	_shotgun_tip = Node3D.new()
+	_shotgun_tip.name = "ShotgunTip"
+	_shotgun_tip.position = Vector3(0.0, 0.06, -2.04)
+	_shotgun_pivot.add_child(_shotgun_tip)
+	_shotgun_light = OmniLight3D.new()
+	_shotgun_light.name = "ShotgunMuzzleLight"
+	_shotgun_light.light_color = Color("#ff9c4c")
+	_shotgun_light.light_energy = 0.0
+	_shotgun_light.omni_range = 3.0
+	_shotgun_light.position = Vector3(0.0, 0.06, -1.92)
+	_shotgun_pivot.add_child(_shotgun_light)
+	_update_weapon_visuals()
+
 	var scarf := MeshInstance3D.new()
 	var scarf_mesh := BoxMesh.new()
 	scarf_mesh.size = Vector3(0.6, 0.08, 1.15)
@@ -2252,6 +2390,13 @@ func _build_robot() -> void:
 	scarf.rotation_degrees.x = -18.0
 	scarf.material_override = _material(Color("#a62f25"), 0.9)
 	visuals.add_child(scarf)
+
+
+func _update_weapon_visuals() -> void:
+	if _axe_pivot != null:
+		_axe_pivot.visible = _weapon_id == "electro_axe"
+	if _shotgun_pivot != null:
+		_shotgun_pivot.visible = _weapon_id == "shotgun"
 
 
 func _add_robot_arm(parent: Node3D, side: float) -> void:
