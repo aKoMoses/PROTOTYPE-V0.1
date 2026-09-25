@@ -117,10 +117,16 @@ visibilité, avant leur passe de carte jouable.
 - **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
   E = module défensif équipé ; R = module mobilité ; G = changement d'arme ;
   T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
+- **P0-110 — passe carte engagée :** le carré jouable est élargi de 54 à 60 unités,
+  les bordures et limites sont repoussées sans déplacer les spawns ni les couverts
+  internes, et les bushs sont maintenant des touffes de hautes herbes plus larges,
+  plus longues et plus denses. Le disque sombre au pied des bushs a été supprimé :
+  aucune collision décorative n'a été ajoutée.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
   Le mannequin reste volontairement passif ; son déplacement/attaque relèvera du futur
-  bot local. Prochaine tâche : **P0-110 — carte symétrique et bushs jouables**.
+  bot local. Prochaine tâche : **P0-111 — visibilité locale du joueur et entrée/sortie
+  des bushs**, puis bot local pour tester les attaques adverses.
 
 ## Captures de validation
 

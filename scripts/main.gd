@@ -77,7 +77,9 @@ func _build_arena() -> void:
 	var ground := MeshInstance3D.new()
 	ground.name = "Ground"
 	var ground_mesh := PlaneMesh.new()
-	ground_mesh.size = Vector2(54.0, 54.0)
+	# Give the combat lanes a little more breathing room before the perimeter
+	# without changing the internal cover layout or spawn distances.
+	ground_mesh.size = Vector2(60.0, 60.0)
 	ground.mesh = ground_mesh
 	ground.material_override = _textured_material(Color.WHITE, 0.98, Color.BLACK, SAND_TEXTURE, Vector3(7.0, 7.0, 7.0))
 	add_child(ground)
@@ -935,27 +937,27 @@ func _create_scrap_pile(node_name: String, pile_position: Vector3, pile_scale: f
 func _build_scrap_perimeter() -> void:
 	# Invisible continuous limits guarantee containment while the visible wall is
 	# split into battered panels, leaving a more organic scrapyard silhouette.
-	_create_invisible_limit("NorthLimit", Vector3(0.0, 1.5, -26.0), Vector3(52.0, 3.0, 0.8))
-	_create_invisible_limit("SouthLimit", Vector3(0.0, 1.5, 26.0), Vector3(52.0, 3.0, 0.8))
-	_create_invisible_limit("WestLimit", Vector3(-26.0, 1.5, 0.0), Vector3(0.8, 3.0, 52.0))
-	_create_invisible_limit("EastLimit", Vector3(26.0, 1.5, 0.0), Vector3(0.8, 3.0, 52.0))
+	_create_invisible_limit("NorthLimit", Vector3(0.0, 1.5, -29.0), Vector3(58.0, 3.0, 0.8))
+	_create_invisible_limit("SouthLimit", Vector3(0.0, 1.5, 29.0), Vector3(58.0, 3.0, 0.8))
+	_create_invisible_limit("WestLimit", Vector3(-29.0, 1.5, 0.0), Vector3(0.8, 3.0, 58.0))
+	_create_invisible_limit("EastLimit", Vector3(29.0, 1.5, 0.0), Vector3(0.8, 3.0, 58.0))
 	for index in range(7):
-		var offset := -22.0 + float(index) * 7.3
-		_create_scrap_barrier("NorthPanel%d" % index, Vector3(offset, 1.05, -25.1), Vector3(6.6, 2.1 + float(index % 2) * 0.35, 0.86))
-		_create_scrap_barrier("SouthPanel%d" % index, Vector3(-offset, 1.05, 25.1), Vector3(6.6, 2.1 + float((index + 1) % 2) * 0.35, 0.86))
-		_create_scrap_barrier("WestPanel%d" % index, Vector3(-25.1, 1.05, -offset), Vector3(0.86, 2.1 + float(index % 2) * 0.35, 6.6))
-		_create_scrap_barrier("EastPanel%d" % index, Vector3(25.1, 1.05, offset), Vector3(0.86, 2.1 + float((index + 1) % 2) * 0.35, 6.6))
+		var offset := -24.8 + float(index) * 8.27
+		_create_scrap_barrier("NorthPanel%d" % index, Vector3(offset, 1.05, -28.1), Vector3(7.5, 2.1 + float(index % 2) * 0.35, 0.86))
+		_create_scrap_barrier("SouthPanel%d" % index, Vector3(-offset, 1.05, 28.1), Vector3(7.5, 2.1 + float((index + 1) % 2) * 0.35, 0.86))
+		_create_scrap_barrier("WestPanel%d" % index, Vector3(-28.1, 1.05, -offset), Vector3(0.86, 2.1 + float(index % 2) * 0.35, 7.5))
+		_create_scrap_barrier("EastPanel%d" % index, Vector3(28.1, 1.05, offset), Vector3(0.86, 2.1 + float((index + 1) % 2) * 0.35, 7.5))
 	for banner_data in [
-		[Vector3(-15.0, 2.0, -24.45), 0.0], [Vector3(15.0, 2.0, -24.45), 0.0],
-		[Vector3(-15.0, 2.0, 24.45), 0.0], [Vector3(15.0, 2.0, 24.45), 0.0],
-		[Vector3(-24.45, 2.0, -15.0), 90.0], [Vector3(-24.45, 2.0, 15.0), 90.0],
-		[Vector3(24.45, 2.0, -15.0), 90.0], [Vector3(24.45, 2.0, 15.0), 90.0],
+		[Vector3(-17.0, 2.0, -27.45), 0.0], [Vector3(17.0, 2.0, -27.45), 0.0],
+		[Vector3(-17.0, 2.0, 27.45), 0.0], [Vector3(17.0, 2.0, 27.45), 0.0],
+		[Vector3(-27.45, 2.0, -17.0), 90.0], [Vector3(-27.45, 2.0, 17.0), 90.0],
+		[Vector3(27.45, 2.0, -17.0), 90.0], [Vector3(27.45, 2.0, 17.0), 90.0],
 	]:
 		_create_banner(banner_data[0], banner_data[1])
-	_create_perimeter_tower("TowerNorthWest", Vector3(-23.4, 0.0, -23.4), 0.0)
-	_create_perimeter_tower("TowerNorthEast", Vector3(23.4, 0.0, -23.4), 90.0)
-	_create_perimeter_tower("TowerSouthWest", Vector3(-23.4, 0.0, 23.4), -90.0)
-	_create_perimeter_tower("TowerSouthEast", Vector3(23.4, 0.0, 23.4), 180.0)
+	_create_perimeter_tower("TowerNorthWest", Vector3(-26.4, 0.0, -26.4), 0.0)
+	_create_perimeter_tower("TowerNorthEast", Vector3(26.4, 0.0, -26.4), 90.0)
+	_create_perimeter_tower("TowerSouthWest", Vector3(-26.4, 0.0, 26.4), -90.0)
+	_create_perimeter_tower("TowerSouthEast", Vector3(26.4, 0.0, 26.4), 180.0)
 
 
 func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: Vector3, rotation_y: float = 0.0) -> StaticBody3D:
@@ -1288,12 +1290,13 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = bush_position
-	# These are tall-grass gameplay landmarks, not round bushes: dense blades
-	# create the readable League-like silhouette while staying fully non-colliding.
-	root.scale = Vector3.ONE * bush_scale * 1.35
+	# These are tall-grass gameplay landmarks, not round bushes: broad, dense
+	# blades create a readable League-like silhouette while staying non-colliding.
+	# The slight X/Z asymmetry makes each patch feel like a wind-swept clump.
+	root.scale = Vector3(bush_scale * 1.65, bush_scale * 1.10, bush_scale * 1.55)
 	root.add_to_group("bush_placeholder")
-	root.set_meta("bush_radius", 0.95 * bush_scale)
-	root.set_meta("bush_height", 1.9 * bush_scale)
+	root.set_meta("bush_radius", 1.35 * bush_scale)
+	root.set_meta("bush_height", 2.25 * bush_scale)
 	var colors := [Color("#3d4e2f"), Color("#53613b"), Color("#73703d"), Color("#9a7539")]
 	var blade_meshes: Array[Mesh] = []
 	for color in colors:
@@ -1304,26 +1307,18 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 		mesh.radial_segments = 5
 		mesh.material = _material(color, 1.0)
 		blade_meshes.append(mesh)
-	for index in range(18):
+	for index in range(26):
 		var blade := MeshInstance3D.new()
 		blade.mesh = blade_meshes[index % blade_meshes.size()]
-		var angle := TAU * float(index) / 18.0
-		var radius := 0.18 + float(index % 5) * 0.16
-		var blade_height := 0.85 + float(index % 4) * 0.28
+		var angle := TAU * float(index) / 26.0
+		var radius := 0.20 + float(index % 7) * 0.14
+		var blade_height := 0.90 + float(index % 5) * 0.26
 		blade.position = Vector3(cos(angle) * radius, blade_height * 0.5, sin(angle) * radius)
 		blade.scale = Vector3(0.72 + float(index % 3) * 0.18, blade_height, 0.72 + float(index % 2) * 0.20)
 		blade.rotation_degrees = Vector3(float(index % 4) * 8.0, rad_to_deg(angle), -22.0 + float(index % 5) * 11.0)
 		root.add_child(blade)
-	# A dark, broken base makes the grass read as one dense clump from the camera.
-	var base := MeshInstance3D.new()
-	var base_mesh := CylinderMesh.new()
-	base_mesh.top_radius = 0.48
-	base_mesh.bottom_radius = 0.70
-	base_mesh.height = 0.12
-	base.mesh = base_mesh
-	base.material_override = _material(Color("#4a3b2d"), 1.0)
-	base.position.y = 0.06
-	root.add_child(base)
+	# No circular ground decal/base: the grass should grow directly out of the
+	# arena floor, with the surrounding sand texture providing the grounding.
 	add_child(root)
 
 
