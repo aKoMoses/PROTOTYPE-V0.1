@@ -541,6 +541,7 @@ func _create_muzzle_burst(origin: Vector3, direction: Vector3, color: Color, sca
 	flash.mesh = flash_mesh
 	flash.material_override = _create_fx_material(color, 0.98)
 	get_tree().current_scene.add_child(flash)
+	_register_fx_budget(flash, "burst")
 	flash.global_position = origin
 	flash.look_at(origin + direction, Vector3.UP)
 	var flash_tween := create_tween()
@@ -558,6 +559,7 @@ func _create_muzzle_burst(origin: Vector3, direction: Vector3, color: Color, sca
 	ring.rotation_degrees.x = 90.0
 	ring.material_override = _create_fx_material(Color("#fff4c2"), 0.92)
 	get_tree().current_scene.add_child(ring)
+	_register_fx_budget(ring, "burst")
 	ring.global_position = origin
 	var ring_tween := create_tween()
 	ring_tween.set_parallel(true)
@@ -926,6 +928,7 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: floa
 	var projectile := Node3D.new()
 	projectile.name = "ShotgunPellet"
 	get_tree().current_scene.add_child(projectile)
+	_register_fx_budget(projectile, "projectile")
 	projectile.global_position = start
 	var direction := endpoint - start
 	if direction.length_squared() < 0.001:
@@ -1439,6 +1442,7 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	drone.mesh = drone_mesh
 	drone.material_override = _create_fx_material(Color("#45ddff"), 0.96)
 	get_tree().current_scene.add_child(drone)
+	_register_fx_budget(drone, "projectile")
 	var visual_start := _module_visual_start(direction)
 	drone.global_position = visual_start
 	drone.look_at(visual_start + direction, Vector3.UP)
@@ -1557,6 +1561,7 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 	spear.mesh = spear_mesh
 	spear.material_override = _create_fx_material(Color("#ffe48b"), 0.96)
 	get_tree().current_scene.add_child(spear)
+	_register_fx_budget(spear, "projectile")
 	var visual_start := _module_visual_start(direction)
 	spear.global_position = visual_start
 	spear.look_at(endpoint, Vector3.UP)
@@ -1956,6 +1961,12 @@ func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D
 	return material
 
 
+func _register_fx_budget(node: Node, category: String = "burst") -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null and scene.has_method("register_fx_node"):
+		scene.call("register_fx_node", node, category)
+
+
 func _set_material_alpha(alpha: float, material: StandardMaterial3D) -> void:
 	if material == null:
 		return
@@ -1980,6 +1991,7 @@ func _create_lightning_arc(start: Vector3, end: Vector3, color: Color, width: fl
 	mesh.surface_end()
 	arc.mesh = mesh
 	get_tree().current_scene.add_child(arc)
+	_register_fx_budget(arc, "burst")
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(arc, "scale", Vector3.ONE * 1.22, lifetime * 0.35)
@@ -2029,6 +2041,7 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	particle_mesh.material = _create_fx_material(color, 0.92)
 	particles.draw_pass_1 = particle_mesh
 	get_tree().current_scene.add_child(particles)
+	_register_fx_budget(particles, "particle")
 	particles.global_position = origin
 	if emission_direction != Vector3.UP and emission_direction.length_squared() > 0.001:
 		process_material.direction = Vector3.FORWARD
@@ -2078,6 +2091,7 @@ func _create_hit_flash(origin: Vector3, color: Color, radius: float) -> void:
 	var material := _create_fx_material(color, 0.92)
 	flash.material_override = material
 	get_tree().current_scene.add_child(flash)
+	_register_fx_budget(flash, "burst")
 	flash.global_position = origin + Vector3.UP * 0.9
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -2098,6 +2112,7 @@ func _create_target_hit_fx(origin: Vector3, critical: bool) -> void:
 	var pulse_material := _create_fx_material(color, 0.92)
 	pulse.material_override = pulse_material
 	get_tree().current_scene.add_child(pulse)
+	_register_fx_budget(pulse, "burst")
 	pulse.global_position = origin + Vector3.UP * 0.16
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -2156,6 +2171,7 @@ func _create_cleave_arc(center: Vector3, forward: Vector3, side: Vector3, reach:
 	mesh.surface_end()
 	arc.mesh = mesh
 	get_tree().current_scene.add_child(arc)
+	_register_fx_budget(arc, "burst")
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(arc, "scale", Vector3(1.18, 1.0, 1.18), lifetime * 0.45)
@@ -2191,6 +2207,7 @@ func _create_shockwave_fx(impact_point: Vector3) -> void:
 	crater.mesh = crater_mesh
 	crater.material_override = crater_material
 	get_tree().current_scene.add_child(crater)
+	_register_fx_budget(crater, "burst")
 	crater.global_position = impact_point
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()
@@ -2200,6 +2217,7 @@ func _create_shockwave_fx(impact_point: Vector3) -> void:
 	var core_material := _create_fx_material(Color("#07131e"), 0.98)
 	core.material_override = core_material
 	get_tree().current_scene.add_child(core)
+	_register_fx_budget(core, "burst")
 	core.global_position = impact_point + Vector3.UP * 0.08
 	var crust := MeshInstance3D.new()
 	var crust_mesh := ImmediateMesh.new()
@@ -2210,6 +2228,7 @@ func _create_shockwave_fx(impact_point: Vector3) -> void:
 	crust_mesh.surface_end()
 	crust.mesh = crust_mesh
 	get_tree().current_scene.add_child(crust)
+	_register_fx_budget(crust, "burst")
 	crust.global_position = impact_point
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -2248,6 +2267,7 @@ func _create_shockwave_wave(origin: Vector3, radius: float, color: Color, lifeti
 	mesh.surface_end()
 	wave.mesh = mesh
 	get_tree().current_scene.add_child(wave)
+	_register_fx_budget(wave, "burst")
 	wave.global_position = origin
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -2272,6 +2292,7 @@ func _create_crater_fractures(origin: Vector3) -> void:
 		mesh.surface_end()
 		crack.mesh = mesh
 		get_tree().current_scene.add_child(crack)
+		_register_fx_budget(crack, "burst")
 		crack.global_position = origin
 		var tween := create_tween()
 		tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.96, 0.0, 1.35)
@@ -2286,6 +2307,7 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 	var spark_material := _create_fx_material(Color("#b7f8ff"), 0.95)
 	spark.material_override = spark_material
 	get_tree().current_scene.add_child(spark)
+	_register_fx_budget(spark, "burst")
 	var angle := (TAU / 8.0) * float(index)
 	var direction := Vector3(cos(angle), 0.0, sin(angle))
 	spark.global_position = origin + direction * 0.45 + Vector3.UP * (0.10 + float(index % 2) * 0.08)

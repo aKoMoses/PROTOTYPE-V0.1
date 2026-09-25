@@ -250,6 +250,7 @@ func _spawn_attack_visual(player: Node3D, attack_id: String) -> void:
 	var impact_position := player.global_position + Vector3.UP * 0.92
 	var direction := (impact_position - start_position).normalized()
 	scene.add_child(tracer)
+	_register_fx_budget(tracer, "projectile")
 	tracer.global_position = start_position
 	tracer.look_at(start_position + direction, Vector3.UP)
 	_spawn_muzzle_visual(scene, start_position, direction)
@@ -318,6 +319,7 @@ func _spawn_muzzle_visual(scene: Node, origin: Vector3, direction: Vector3) -> v
 	flash.mesh = flash_mesh
 	flash.material_override = _fx_material(Color("#ffe0a1"), 0.98, Color("#ff4b25"))
 	scene.add_child(flash)
+	_register_fx_budget(flash, "burst")
 	flash.global_position = origin + direction * 0.22
 	var flash_tween := flash.create_tween()
 	flash_tween.set_parallel(true)
@@ -351,6 +353,7 @@ func _spawn_particle_burst(scene: Node, origin: Vector3, color: Color, amount: i
 	spark_mesh.material = _fx_material(color, 0.95, color)
 	particles.draw_pass_1 = spark_mesh
 	scene.add_child(particles)
+	_register_fx_budget(particles, "particle")
 	particles.global_position = origin
 	particles.emitting = true
 	scene.get_tree().create_timer(lifetime + 0.25).timeout.connect(particles.queue_free)
@@ -366,6 +369,12 @@ func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMateri
 	if alpha < 0.99:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	return material
+
+
+func _register_fx_budget(node: Node, category: String = "burst") -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null and scene.has_method("register_fx_node"):
+		scene.call("register_fx_node", node, category)
 
 
 func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
@@ -392,6 +401,7 @@ func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
 	impact_material.emission_energy_multiplier = 2.6
 	impact.material_override = impact_material
 	scene.add_child(impact)
+	_register_fx_budget(impact, "burst")
 	impact.global_position = impact_position
 	var pulse := impact.create_tween()
 	pulse.tween_property(impact, "scale", Vector3.ONE * 2.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -404,6 +414,7 @@ func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
 	ring.rotation_degrees.x = 90.0
 	ring.material_override = _fx_material(Color("#ffd38b"), 0.92, Color("#ff572f"))
 	scene.add_child(ring)
+	_register_fx_budget(ring, "burst")
 	ring.global_position = impact_position + Vector3.DOWN * 0.18
 	var ring_tween := ring.create_tween()
 	ring_tween.set_parallel(true)

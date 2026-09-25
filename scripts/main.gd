@@ -12,10 +12,19 @@ const BANNER_TEXTURE: Texture2D = preload("res://art/banner_red.svg")
 var player: CharacterBody3D
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
+var _fx_serial := 0
+var _fx_budget_clock := 0.0
+const FX_MAX_PARTICLES := 24
+const FX_MAX_BURSTS := 42
+const FX_MAX_PROJECTILES := 14
 
 
 func _process(delta: float) -> void:
 	_ambient_clock += delta
+	_fx_budget_clock += delta
+	if _fx_budget_clock >= 0.25:
+		_fx_budget_clock = 0.0
+		_trim_fx_budget()
 	for index in range(_flicker_lights.size()):
 		var light := _flicker_lights[index]
 		if not is_instance_valid(light):
@@ -23,6 +32,41 @@ func _process(delta: float) -> void:
 		var base_energy := float(light.get_meta("base_energy", 1.0))
 		var phase := float(index) * 1.71
 		light.light_energy = base_energy + sin(_ambient_clock * (5.0 + float(index % 3)) + phase) * 0.14 + sin(_ambient_clock * 11.0 + phase) * 0.06
+
+
+func register_fx_node(node: Node, category: String = "burst") -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	_fx_serial += 1
+	node.add_to_group("prototype0_fx_budget")
+	node.set_meta("prototype0_fx_category", category)
+	node.set_meta("prototype0_fx_serial", _fx_serial)
+
+
+func _trim_fx_budget() -> void:
+	var counts := {"particle": 0, "burst": 0, "projectile": 0}
+	var nodes_by_category := {"particle": [], "burst": [], "projectile": []}
+	for node in get_tree().get_nodes_in_group("prototype0_fx_budget"):
+		if node == null or not is_instance_valid(node):
+			continue
+		var category := str(node.get_meta("prototype0_fx_category", "burst"))
+		if not nodes_by_category.has(category):
+			category = "burst"
+		counts[category] = int(counts[category]) + 1
+		nodes_by_category[category].append(node)
+	var limits := {"particle": FX_MAX_PARTICLES, "burst": FX_MAX_BURSTS, "projectile": FX_MAX_PROJECTILES}
+	for category in limits.keys():
+		var excess := int(counts[category]) - int(limits[category])
+		if excess <= 0:
+			continue
+		var candidates: Array = nodes_by_category[category]
+		candidates.sort_custom(func(a: Node, b: Node) -> bool:
+			return int(a.get_meta("prototype0_fx_serial", 0)) < int(b.get_meta("prototype0_fx_serial", 0))
+		)
+		for index in range(mini(excess, candidates.size())):
+			var node: Node = candidates[index]
+			if is_instance_valid(node):
+				node.queue_free()
 
 
 func _ready() -> void:

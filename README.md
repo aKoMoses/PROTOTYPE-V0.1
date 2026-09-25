@@ -192,10 +192,16 @@ visibilité, avant leur passe de carte jouable.
   `prototype0_fx_pass_effects.png` et `prototype0_fx_pass_bot.png`. Elles servent à
   contrôler la composition, les projectiles, les trois coups de l'axe, les modules et la
   lisibilité des états ; le test de framerate Android reste à faire sur appareil réel.
+- **P0-119 — budget d'effets implémenté :** la scène suit les nœuds temporaires de type
+  `particle`, `burst` et `projectile`, avec plafonds respectifs de 24, 42 et 14 éléments.
+  Les plus anciens sont supprimés lorsque le plafond est dépassé ; les durées normales
+  et les collisions ne changent pas. Le budget est utilisé par les projectiles, flashs,
+  anneaux, arcs électriques, impacts et particules des armes, du mannequin et du bot.
+  `tools/test_fx_budget.gd` vérifie le plafonnement à 42 bursts actifs.
 - **À vérifier ensuite :** test manuel prolongé en mouvement (Espace, A, E, R, G/T),
-  observation du projectile du bot avec F7 dans une ligne de vue dégagée, et mesure des
-  allocations d'effets sur appareil mobile. Prochaine tâche : **P0-119 — budget d'effets,
-  regroupement des instances et validation de performance sur matériel cible.**
+  observation du projectile du bot avec F7 dans une ligne de vue dégagée, et mesure du
+  framerate sur appareil mobile réel. Prochaine tâche : **P0-120 — validation de build
+  Android et ajustements de lisibilité sur écran tactile.**
 
 ## Captures de validation
 

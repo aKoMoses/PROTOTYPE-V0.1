@@ -333,6 +333,7 @@ func _spawn_target_impact_fx(critical: bool) -> void:
 	spark_mesh.material = _effect_material(color, color)
 	particles.draw_pass_1 = spark_mesh
 	get_tree().current_scene.add_child(particles)
+	_register_fx_budget(particles, "particle")
 	particles.global_position = origin
 	particles.emitting = true
 	get_tree().create_timer(particles.lifetime + 0.30).timeout.connect(particles.queue_free)
@@ -702,6 +703,12 @@ func _effect_material(color: Color, emission: Color) -> StandardMaterial3D:
 	material.emission = emission
 	material.emission_energy_multiplier = 2.2
 	return material
+
+
+func _register_fx_budget(node: Node, category: String = "burst") -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null and scene.has_method("register_fx_node"):
+		scene.call("register_fx_node", node, category)
 
 
 func _robot_material(color: Color, metallic: float) -> StandardMaterial3D:
