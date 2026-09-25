@@ -52,6 +52,9 @@ func _test_magnetic_field(player: Node, target: Node, scene: Node) -> void:
 		_failures.append("Magnetic Field : un projectile traverse le mur")
 	if target.call("get_active_effect_types").has("burn"):
 		_failures.append("Magnetic Field : BURN appliqué à travers le mur")
+	var visible_target: Node = player.call("_select_drone_target", player.global_position, Vector3(0.0, 0.0, -1.0))
+	if visible_target == null:
+		_failures.append("Magnetic Field : la vision est bloquée par le mur")
 	await create_timer(2.45, true, false, false).timeout
 	if player.get("_magnetic_wall") != null and is_instance_valid(player.get("_magnetic_wall")):
 		_failures.append("Magnetic Field : mur non retiré après sa durée")
