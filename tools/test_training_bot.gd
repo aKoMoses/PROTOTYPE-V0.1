@@ -21,7 +21,16 @@ func _initialize() -> void:
 		target.call("set_training_bot_enabled", true)
 		if not bool(target.call("is_training_bot_enabled")):
 			_failures.append("activation du bot refusée")
-		await create_timer(1.35, true, false, false).timeout
+		var telegraph_seen := false
+		for _step in range(24):
+			await create_timer(0.10, true, false, false).timeout
+			if bool(target.get_node("TrainingBot").call("is_telegraph_active")):
+				telegraph_seen = true
+				break
+		if not telegraph_seen:
+			_failures.append("télégraphe absent avant l'attaque")
+		else:
+			await create_timer(0.70, true, false, false).timeout
 		var moved_distance := start_position.distance_to((target as Node3D).global_position)
 		if moved_distance < 0.03:
 			_failures.append("bot immobile après activation")
@@ -29,15 +38,17 @@ func _initialize() -> void:
 			_failures.append("bot n'inflige aucun dégât lisible")
 		if not (target.call("get_active_effect_types") as Array).is_empty():
 			_failures.append("bot applique un effet de statut automatiquement")
+		if bool(target.get_node("TrainingBot").call("is_telegraph_active")):
+			_failures.append("télégraphe encore actif après résolution")
 		target.call("set_training_bot_enabled", false)
 		player.call("reset_combat_state")
 		target.call("reset_combat_state")
 
 	if _failures.is_empty():
-		print("P0-112 TRAINING BOT TEST: PASS")
+		print("P0-113 TRAINING BOT TEST: PASS")
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error("FAIL: " + failure)
-		print("P0-112 TRAINING BOT TEST: FAIL (%d)" % _failures.size())
+		print("P0-113 TRAINING BOT TEST: FAIL (%d)" % _failures.size())
 		quit(1)
