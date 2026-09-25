@@ -3,6 +3,7 @@ extends StaticBody3D
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
+const TRAINING_BOT := preload("res://scripts/training_bot.gd")
 
 var combat_state
 var visibility_state
@@ -26,6 +27,7 @@ var _spotted_light: OmniLight3D
 var _javelin_mark_label: Label3D
 var _javelin_mark_until := -1.0
 var _effect_clock := 0.0
+var _training_bot: Node
 
 
 func _ready() -> void:
@@ -39,6 +41,10 @@ func _ready() -> void:
 	combat_state.died.connect(_on_state_died)
 	_build_collision()
 	_build_visuals()
+	_training_bot = TRAINING_BOT.new()
+	_training_bot.name = "TrainingBot"
+	add_child(_training_bot)
+	_training_bot.call("set_enabled", false)
 	_update_label()
 	_update_effect_presentation()
 
@@ -101,8 +107,25 @@ func reset_combat_state() -> void:
 		visibility_state.reset()
 	if _body_material != null:
 		_body_material.albedo_color = Color("#8f302b")
+	if _training_bot != null:
+		_training_bot.call("reset_clock")
 	_update_status("")
 	_update_label()
+
+
+func set_training_bot_enabled(value: bool) -> void:
+	if _training_bot != null:
+		_training_bot.call("set_enabled", value)
+
+
+func toggle_training_bot() -> bool:
+	if _training_bot == null:
+		return false
+	return bool(_training_bot.call("toggle"))
+
+
+func is_training_bot_enabled() -> bool:
+	return _training_bot != null and bool(_training_bot.call("is_enabled"))
 
 
 func get_health() -> float:

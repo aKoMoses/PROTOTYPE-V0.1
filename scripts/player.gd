@@ -323,6 +323,9 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_F6):
 		_show_debug_hitbox = not _show_debug_hitbox
 		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
+	if _pressed_once(KEY_F7):
+		var bot_enabled := bool(target.call("toggle_training_bot"))
+		_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 	if _pressed_once(KEY_G):
 		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
 	if _pressed_once(KEY_A):

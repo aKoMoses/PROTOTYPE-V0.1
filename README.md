@@ -116,7 +116,8 @@ visibilité, avant leur passe de carte jouable.
   occultation par obstacle et activation défensive refusée sans fuite d'information.
 - **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
   E = module défensif équipé ; R = module mobilité ; G = changement d'arme ;
-  T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
+  T = recharge manuelle du Shotgun. F1–F6 restent les diagnostics du mannequin ; F7
+  active/désactive le bot d'entraînement local.
 - **P0-110 — passe carte engagée :** le carré jouable est élargi de 54 à 60 unités,
   les bordures et limites sont repoussées sans déplacer les spawns ni les couverts
   internes, et les bushs sont maintenant des touffes de hautes herbes plus larges,
@@ -131,11 +132,16 @@ visibilité, avant leur passe de carte jouable.
   neuf reste visuellement neutre jusqu'à un effet réellement appliqué.
 - **Tests automatisés :** `tools/test_visibility.gd` PASS pour le joueur et le mannequin :
   entrée, sortie, nom du bush, transition, occultation et SPOTTED.
+- **P0-112 — bot d'entraînement local implémenté :** désactivé par défaut pour préserver
+  les tests et le mannequin neutre. F7 active un déplacement doux dans une zone bornée,
+  vérifie la ligne de vue et les bushs, puis inflige périodiquement des dégâts simples
+  au joueur. Il n'applique volontairement aucun BURN/SLOW/STUN/SPOTTED automatique.
+- **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
+  déplacement, dégâts reçus et absence d'effets de statut injectés par le bot.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste volontairement passif ; son déplacement/attaque relèvera du futur
-  bot local. Prochaine tâche : **P0-112 — bot d'entraînement local**, limité aux
-  déplacements, lignes de vue et attaques lisibles pour tester les règles adverses.
+  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-113 —
+  enrichir les patterns adverses et leurs télégraphes sans toucher aux règles d'effets**.
 
 ## Captures de validation
 
