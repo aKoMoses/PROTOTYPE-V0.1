@@ -2,8 +2,10 @@ extends StaticBody3D
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
+const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 
 var combat_state
+var visibility_state
 var _resetting := false
 var _health_label: Label3D
 var _health_bar_bg: MeshInstance3D
@@ -30,6 +32,7 @@ func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 0
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	visibility_state = VISIBILITY_STATE.new()
 	combat_state.health_changed.connect(_on_health_changed)
 	combat_state.damage_applied.connect(_on_damage_applied)
 	combat_state.effect_changed.connect(_on_effect_changed)
@@ -42,17 +45,22 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_effect_clock += delta
+	if visibility_state != null:
+		visibility_state.update(delta)
 	if combat_state != null and not _resetting:
 		combat_state.update(delta)
 	if _javelin_mark_until >= 0.0 and Time.get_ticks_msec() / 1000.0 >= _javelin_mark_until:
 		_javelin_mark_until = -1.0
 	_update_effect_presentation()
+	_update_visibility_presentation()
 
 
 ## Shared combat API used by the player, future bot and Training Lab.
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
 	if _resetting or combat_state == null:
 		return 0.0
+	if amount > 0.0 and visibility_state != null:
+		visibility_state.mark_combat_event()
 	return combat_state.apply_damage(amount, source_id, attack_id)
 
 
@@ -80,6 +88,8 @@ func apply_stun(duration: float, source_id: String = "") -> void:
 func apply_spotted(duration: float, source_id: String = "") -> void:
 	if combat_state != null:
 		combat_state.apply_spotted(duration, source_id)
+	if visibility_state != null:
+		visibility_state.mark_spotted(duration)
 
 
 func reset_combat_state() -> void:
@@ -87,6 +97,8 @@ func reset_combat_state() -> void:
 	_javelin_mark_until = -1.0
 	if combat_state != null:
 		combat_state.reset()
+	if visibility_state != null:
+		visibility_state.reset()
 	if _body_material != null:
 		_body_material.albedo_color = Color("#8f302b")
 	_update_status("")
@@ -115,6 +127,55 @@ func get_slow_percent() -> float:
 
 func get_active_effect_types() -> Array[String]:
 	return combat_state.get_active_effect_types() if combat_state != null else []
+
+
+func get_combat_reveal_remaining() -> float:
+	return visibility_state.combat_remaining if visibility_state != null else 0.0
+
+
+func get_spotted_reveal_remaining() -> float:
+	return visibility_state.spotted_remaining if visibility_state != null else 0.0
+
+
+func is_revealed() -> bool:
+	return visibility_state != null and visibility_state.is_revealed()
+
+
+func is_in_bush() -> bool:
+	for bush in get_tree().get_nodes_in_group("bush_placeholder"):
+		if not is_instance_valid(bush):
+			continue
+		var radius := float(bush.get_meta("bush_radius", 0.0))
+		if Vector2(global_position.x - bush.global_position.x, global_position.z - bush.global_position.z).length() <= radius:
+			return true
+	return false
+
+
+func is_visible_to(observer: Node3D) -> bool:
+	if observer == null or not is_instance_valid(observer):
+		return true
+	var line_of_sight := _line_of_sight_clear(observer)
+	return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), line_of_sight)
+
+
+func _line_of_sight_clear(observer: Node3D) -> bool:
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(observer.global_position + Vector3.UP * 0.72, global_position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [observer.get_rid(), get_rid()]
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _update_visibility_presentation() -> void:
+	var observer: Node3D = get_tree().current_scene.get_node_or_null("Player") as Node3D if get_tree().current_scene != null else null
+	var should_show := is_visible_to(observer)
+	for node in [_body_mesh, _health_label, _health_bar_bg, _health_bar_fill, _status_label, _impact_light, _burn_fx, _burn_light, _slow_fx, _slow_ring, _slow_light, _stun_fx, _spotted_fx, _spotted_emblem, _spotted_light, _javelin_mark_label]:
+		if node != null:
+			node.visible = should_show
 
 
 func apply_javelin_mark(duration: float, _source_id: String = "") -> void:

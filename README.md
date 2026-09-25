@@ -15,9 +15,9 @@ Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
   hautes herbes décoratives, poussière, lampes et gradins de spectateurs.
 
 Le lot Electro Axe sert à valider la perspective, la caméra, les déplacements, les hitboxes
-et les sensations de combat avant l'intégration du Shotgun et des modules. Les règles des
-bushs et des kits de vie ne sont pas encore activées : leurs emplacements et leur habillage
-restent des repères visuels sans collision supplémentaire.
+et les sensations de combat avant l'intégration du Shotgun et des modules. Les kits de vie
+ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
+visibilité, avant leur passe de carte jouable.
 
 ## Rendu et ressources visuelles
 
@@ -104,12 +104,23 @@ restent des repères visuels sans collision supplémentaire.
 - **Tests automatisés :** `tools/test_passives.gd` PASS : déclenchement/épuisement de
   Baroud, soin interdit et stase non prolongeante, Omnivamp 20 → 3 PV, BURN 70 → 10,5
   PV, et résolution déterministe d'une double mort en manche nulle.
+- **P0-109 — implémenté, à tester manuellement :** visibilité et perception partagent
+  désormais un état par acteur. Une attaque engagée, un module accepté ou des dégâts
+  reçus révèlent pendant 3 s ; une attaque ratée compte, une activation refusée non.
+  SPOTTED révèle indépendamment et n'allume pas artificiellement l'état de combat.
+  Les hautes herbes et les obstacles masquent les visuels/UI attachés sans supprimer
+  les collisions ni les règles physiques de tir. Les volumes d'herbe portent maintenant
+  leurs métadonnées de détection pour la prochaine passe de carte.
+- **Tests automatisés :** `tools/test_visibility.gd` PASS : délai individuel (t=0 puis
+  t=2, sortie à 5), bush hors combat, SPOTTED hors combat, révélation par dégâts,
+  occultation par obstacle et activation défensive refusée sans fuite d'information.
 - **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
   E = module défensif équipé ; R = module mobilité ; G = changement d'arme ;
   T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
-  de la mobilité avec R, puis du défensif avec E et du passif équipé. Prochaine tâche :
-  **P0-109 — relier combat, visibilité et perception**.
+  de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
+  Le mannequin reste volontairement passif ; son déplacement/attaque relèvera du futur
+  bot local. Prochaine tâche : **P0-110 — carte symétrique et bushs jouables**.
 
 ## Captures de validation
 

@@ -6,6 +6,7 @@ const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
+const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
@@ -85,6 +86,7 @@ var _defensive_module_id := "magnetic_field"
 var _mobility_module_id := "pyro_boots"
 var _passive_id := "baroud"
 var passive_state
+var visibility_state
 var _dash_active := false
 var _dash_token := 0
 var _dash_direction := Vector3.ZERO
@@ -128,6 +130,7 @@ func _ready() -> void:
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	passive_state = PASSIVE_STATE.new()
 	passive_state.configure(_passive_id)
+	visibility_state = VISIBILITY_STATE.new()
 	_load_axe_definition()
 	_build_collision()
 	_build_robot()
@@ -191,6 +194,8 @@ func _load_axe_definition() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if visibility_state != null:
+		visibility_state.update(delta)
 	var baroud_expired: bool = passive_state != null and bool(passive_state.process(delta))
 	if baroud_expired:
 		_finalize_passive_death()
@@ -329,11 +334,43 @@ func _pressed_once(keycode: Key) -> bool:
 	return is_down and not was_down
 
 
+func _mark_combat_event() -> void:
+	if visibility_state != null:
+		visibility_state.mark_combat_event()
+
+
+func get_combat_reveal_remaining() -> float:
+	return visibility_state.combat_remaining if visibility_state != null else 0.0
+
+
+func get_spotted_reveal_remaining() -> float:
+	return visibility_state.spotted_remaining if visibility_state != null else 0.0
+
+
+func is_revealed() -> bool:
+	return visibility_state != null and visibility_state.is_revealed()
+
+
+func is_in_bush() -> bool:
+	var space := get_tree()
+	if space == null:
+		return false
+	for bush in space.get_nodes_in_group("bush_placeholder"):
+		if not is_instance_valid(bush):
+			continue
+		var radius := float(bush.get_meta("bush_radius", 0.0))
+		if Vector2(global_position.x - bush.global_position.x, global_position.z - bush.global_position.z).length() <= radius:
+			return true
+	return false
+
+
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
 	if _stasis_remaining > 0.0:
 		return 0.0
 	if combat_state == null or passive_state == null:
 		return 0.0
+	if amount > 0.0 and visibility_state != null:
+		visibility_state.mark_combat_event()
 	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
 	if bool(result["triggered_baroud"]):
 		if _attack_label != null:
@@ -434,6 +471,8 @@ func apply_stun(duration: float, source_id: String = "") -> void:
 func apply_spotted(duration: float, source_id: String = "") -> void:
 	if combat_state != null:
 		combat_state.apply_spotted(duration, source_id)
+	if visibility_state != null:
+		visibility_state.mark_spotted(duration)
 
 
 func reset_combat_state() -> void:
@@ -442,6 +481,8 @@ func reset_combat_state() -> void:
 	if passive_state != null:
 		passive_state.configure(_passive_id)
 		passive_state.reset()
+	if visibility_state != null:
+		visibility_state.reset()
 	reset_axe_state()
 	reset_shotgun_state()
 	reset_module_state()
@@ -556,6 +597,7 @@ func _perform_shotgun_attack() -> void:
 	if _shotgun_ammo <= 0:
 		_start_shotgun_reload()
 		return
+	_mark_combat_event()
 	_shotgun_attack_token += 1
 	var token := _shotgun_attack_token
 	_shotgun_attack_busy = true
@@ -791,6 +833,7 @@ func _perform_magnetic_field() -> void:
 		if _attack_label != null:
 			_attack_label.text = "MAGNETIC FIELD  •  PLACEMENT REFUSÉ"
 		return
+	_mark_combat_event()
 	_module_busy = true
 	_module_token += 1
 	var token := _module_token
@@ -856,6 +899,7 @@ func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> v
 func _perform_static_shield() -> void:
 	if _stasis_remaining > 0.0 or not _module_ready("static_shield") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
 	_stasis_remaining = _static_duration
 	if _axe_attack_busy:
@@ -918,6 +962,7 @@ func _perform_mobility_module() -> void:
 func _perform_pyro_boots() -> void:
 	if _stasis_remaining > 0.0 or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_mark_combat_event()
 	var direction := _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
 	if direction.length_squared() <= 0.001:
 		return
@@ -934,6 +979,7 @@ func _perform_pyro_boots() -> void:
 func _perform_bio_injector() -> void:
 	if _stasis_remaining > 0.0 or _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_mark_combat_event()
 	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
 	_bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
 	if _attack_label != null:
@@ -1071,6 +1117,7 @@ func _select_drone_target(origin: Vector3, direction: Vector3) -> Node:
 func _perform_modulo_drone() -> void:
 	if _stasis_remaining > 0.0 or _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_mark_combat_event()
 	_module_busy = true
 	_module_token += 1
 	var token := _module_token
@@ -1141,11 +1188,13 @@ func _perform_javelin() -> void:
 	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return
 	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
+		_mark_combat_event()
 		_recast_javelin()
 		return
 	_javelin_mark_target = null
 	if _module_busy or not _module_ready("javelin"):
 		return
+	_mark_combat_event()
 	_module_busy = true
 	_module_token += 1
 	_javelin_launch_token += 1
@@ -1264,6 +1313,7 @@ func _create_teleport_fx(origin: Vector3) -> void:
 
 
 func _perform_axe_attack() -> void:
+	_mark_combat_event()
 	var step := _combo_step
 	_combo_step = (_combo_step + 1) % 3
 	_axe_attack_token += 1

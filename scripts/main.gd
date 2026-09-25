@@ -1292,6 +1292,8 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	# create the readable League-like silhouette while staying fully non-colliding.
 	root.scale = Vector3.ONE * bush_scale * 1.35
 	root.add_to_group("bush_placeholder")
+	root.set_meta("bush_radius", 0.95 * bush_scale)
+	root.set_meta("bush_height", 1.9 * bush_scale)
 	var colors := [Color("#3d4e2f"), Color("#53613b"), Color("#73703d"), Color("#9a7539")]
 	var blade_meshes: Array[Mesh] = []
 	for color in colors:
