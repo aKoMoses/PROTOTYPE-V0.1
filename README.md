@@ -132,11 +132,13 @@ visibilité, avant leur passe de carte jouable.
   neuf reste visuellement neutre jusqu'à un effet réellement appliqué.
 - **Tests automatisés :** `tools/test_visibility.gd` PASS pour le joueur et le mannequin :
   entrée, sortie, nom du bush, transition, occultation et SPOTTED.
-- **P0-112/P0-113 — bot d'entraînement local implémenté :** désactivé par défaut pour préserver
-  les tests et le mannequin neutre. F7 active un déplacement doux dans une zone bornée,
+- **P0-112/P0-113 — bot d'entraînement local implémenté :** activé automatiquement dans
+  une partie desktop, désactivé dans les tests headless pour préserver le mannequin neutre.
+  F7 active/désactive un déplacement doux dans une zone bornée,
   vérifie la ligne de vue et les bushs, puis annonce chaque frappe par un télégraphe au
-  sol avant de résoudre l'impact. Il inflige uniquement des dégâts simples et n'applique
-  volontairement aucun BURN/SLOW/STUN/SPOTTED automatique.
+  sol avant de résoudre l'impact. Un projectile orange et un flash rendent l'impact
+  visible. Il inflige uniquement des dégâts simples et n'applique volontairement aucun
+  BURN/SLOW/STUN/SPOTTED automatique.
 - **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
   déplacement, télégraphe, dégâts reçus et absence d'effets de statut injectés par le bot.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et

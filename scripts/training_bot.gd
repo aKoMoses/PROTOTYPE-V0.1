@@ -13,6 +13,7 @@ const WINDUP_DURATION := 0.55
 const MOVE_RADIUS_X := 2.8
 const MOVE_RADIUS_Z := 2.0
 const MOVE_SPEED := 1.8
+const PROJECTILE_TRAVEL_TIME := 0.16
 
 var enabled := false
 var _elapsed := 0.0
@@ -153,7 +154,68 @@ func _attack_player(player: Node3D) -> void:
 	if not player.has_method("take_damage"):
 		return
 	_attack_serial += 1
+	_spawn_attack_visual(player)
 	player.call("take_damage", ATTACK_DAMAGE, "training_bot", "training_bot:%d" % _attack_serial)
+
+
+func _spawn_attack_visual(player: Node3D) -> void:
+	var bot_body := get_parent() as Node3D
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if bot_body == null or scene == null:
+		return
+	var tracer := MeshInstance3D.new()
+	tracer.name = "TrainingBotProjectile"
+	var projectile_mesh := SphereMesh.new()
+	projectile_mesh.radius = 0.12
+	projectile_mesh.height = 0.24
+	tracer.mesh = projectile_mesh
+	var projectile_material := StandardMaterial3D.new()
+	projectile_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	projectile_material.albedo_color = Color("#ff8b4b")
+	projectile_material.emission_enabled = true
+	projectile_material.emission = Color("#ff3d20")
+	projectile_material.emission_energy_multiplier = 3.2
+	tracer.material_override = projectile_material
+	scene.add_child(tracer)
+	tracer.global_position = bot_body.global_position + Vector3.UP * 0.95
+	var impact_position := player.global_position + Vector3.UP * 0.72
+	var travel := tracer.create_tween()
+	travel.tween_property(tracer, "global_position", impact_position, PROJECTILE_TRAVEL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	travel.tween_callback(Callable(self, "_spawn_impact_visual").bind(scene, impact_position))
+	travel.tween_callback(tracer.queue_free)
+
+
+func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
+	if scene == null or not is_instance_valid(scene):
+		return
+	var flash := OmniLight3D.new()
+	flash.name = "TrainingBotImpactLight"
+	flash.position = impact_position
+	flash.light_color = Color("#ff754b")
+	flash.light_energy = 2.8
+	flash.omni_range = 2.2
+	scene.add_child(flash)
+	var impact := MeshInstance3D.new()
+	impact.name = "TrainingBotImpact"
+	var impact_mesh := SphereMesh.new()
+	impact_mesh.radius = 0.18
+	impact_mesh.height = 0.36
+	impact.mesh = impact_mesh
+	var impact_material := StandardMaterial3D.new()
+	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	impact_material.albedo_color = Color("#ffb15a")
+	impact_material.emission_enabled = true
+	impact_material.emission = Color("#ff4a26")
+	impact_material.emission_energy_multiplier = 2.6
+	impact.material_override = impact_material
+	scene.add_child(impact)
+	impact.global_position = impact_position
+	var pulse := impact.create_tween()
+	pulse.tween_property(impact, "scale", Vector3.ONE * 2.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pulse.tween_callback(impact.queue_free)
+	var fade := flash.create_tween()
+	fade.tween_property(flash, "light_energy", 0.0, 0.18)
+	fade.tween_callback(flash.queue_free)
 
 
 func _build_telegraph() -> void:

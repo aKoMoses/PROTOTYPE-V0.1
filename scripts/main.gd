@@ -1419,6 +1419,11 @@ func _build_target() -> void:
 	# gameplay scene from any editor/capture reuse and keeps diagnostic effects
 	# (F1-F4) opt-in instead of leaking into a new round.
 	target.call("reset_combat_state")
+	# In the playable desktop run the mannequin doubles as a local opponent.
+	# Headless tests keep it disabled for deterministic assertions; F7 still
+	# toggles it at any time during gameplay.
+	if DisplayServer.get_name() != "headless":
+		target.call("set_training_bot_enabled", true)
 
 
 func _build_interface() -> void:
@@ -1434,7 +1439,7 @@ func _build_interface() -> void:
 
 	var help := Label.new()
 	help.position = Vector2(24.0, 54.0)
-	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Espace : auto-attaque\nA : offensif   •   E : défensif   •   R : mobilité   •   G : changer d'arme\nT : recharger le Shotgun   •   F1–F7 : diagnostics / bot d'entraînement\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement.\nLab : F1 BURN • F2 SLOW • F3 STUN • F4 SPOTTED • F5 RESET • F6 HITBOX • F7 BOT"
+	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Espace : auto-attaque\nA : offensif   •   E : défensif   •   R : mobilité   •   G : changer d'arme\nT : recharger le Shotgun   •   F1–F7 : diagnostics / bot d'entraînement\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement.\nLab : F1 BURN • F2 SLOW • F3 STUN • F4 SPOTTED • F5 RESET • F6 HITBOX • F7 BOT ON/OFF"
 	help.add_theme_font_size_override("font_size", 17)
 	help.add_theme_color_override("font_color", Color.WHITE)
 	layer.add_child(help)
