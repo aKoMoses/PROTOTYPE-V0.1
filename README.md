@@ -170,14 +170,32 @@ visibilité, avant leur passe de carte jouable.
   caméra oblique. Ces éléments sont visuels uniquement : ils ne créent ni dégâts, ni
   collision, ni révélation à travers un obstacle ; ils disparaissent dès que la préparation
   se termine ou si la cible n'est plus visible.
-- **Vérifications :** `tools/test_shotgun.gd`, `tools/test_training_bot.gd`,
-  `tools/test_electro_axe.gd`, `tools/test_target_dummy.gd`, `tools/test_visibility.gd` et
-  `tools/test_offensive_modules.gd` PASS après cette passe.
-- **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
-  de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-118 —
-  vérification manuelle des timings d'armes et première passe de réaction visuelle du bot
-  à l'impact.
+- **P0-118 — passe projectiles, impacts et états :** les familles Electro Axe, Shotgun,
+  Modulo Drone, Javelin et projectile du bot disposent maintenant d'un départ visuel au
+  point d'arme, d'un cœur/traînée lisible, d'une pulsation légère et d'un impact distinct
+  sur cible ou obstacle. Les impacts hors cible déclenchent une gerbe directionnelle et
+  de poussière ; les impacts de cible déclenchent flash, étincelles, réaction de corps et
+  secousse caméra modérée. Le bot résout désormais son dégât à l'arrivée de son projectile,
+  au même moment que son flash et son anneau d'impact. Les états BURN/STUN gagnent des
+  braises et étincelles discrètes ; SPOTTED possède un œil cyan plus lisible avec anneau
+  et pupille animés. Les paramètres de dégâts, cadence, portée, munitions, durées et
+  collisions n'ont pas été modifiés.
+- **Vérifications automatisées après P0-118 :** en mode `--headless`,
+  `tools/test_electro_axe.gd`, `tools/test_shotgun.gd`, `tools/test_offensive_modules.gd`,
+  `tools/test_target_dummy.gd`, `tools/test_training_bot.gd` et `tools/test_visibility.gd`
+  PASS. Le test Electro Axe neutralise explicitement le bot mobile pendant ses assertions
+  à positions fixes ; la partie jouable conserve le bot desktop activable par F7.
+- **Validation Godot réelle :** captures exécutées avec Godot 4.7.2, renderer Mobile,
+  Vulkan Forward Mobile sur la GeForce RTX 3070 Laptop. Les captures P0-118 sont
+  `prototype0_fx_pass_shotgun_live.png`, `prototype0_fx_pass_shotgun.png`,
+  `prototype0_fx_pass_axe.png`, `prototype0_fx_pass_drone.png`,
+  `prototype0_fx_pass_effects.png` et `prototype0_fx_pass_bot.png`. Elles servent à
+  contrôler la composition, les projectiles, les trois coups de l'axe, les modules et la
+  lisibilité des états ; le test de framerate Android reste à faire sur appareil réel.
+- **À vérifier ensuite :** test manuel prolongé en mouvement (Espace, A, E, R, G/T),
+  observation du projectile du bot avec F7 dans une ligne de vue dégagée, et mesure des
+  allocations d'effets sur appareil mobile. Prochaine tâche : **P0-119 — budget d'effets,
+  regroupement des instances et validation de performance sur matériel cible.**
 
 ## Captures de validation
 
@@ -198,6 +216,14 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   coniques et du flash du shotgun (`shotgun_live` conserve la salve visible quelques frames).
 - `prototype0_bot_telegraph.png` : capture Godot pendant le wind-up du bot, avec sa ligne de
   danger, sa cible pulsante et son marqueur visuel.
+- `prototype0_fx_pass_bot.png` : capture Godot du bot et de son télégraphe après la passe
+  d'impact synchronisé.
+- `prototype0_fx_pass_shotgun_live.png` et `prototype0_fx_pass_shotgun.png` : captures
+  Godot de la bouche du shotgun, des plombs coniques, des impacts et de la réaction cible.
+- `prototype0_fx_pass_axe.png` : capture Godot du troisième coup Electro Axe et de sa zone
+  d'onde/éclairs.
+- `prototype0_fx_pass_drone.png` : capture Godot du projectile Drone et de sa traînée cyan.
+- `prototype0_fx_pass_effects.png` : capture Godot de BURN, SLOW, STUN et SPOTTED renforcés.
 - `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
   offensifs et de leurs impacts sur le mannequin.
 - `prototype0_magnetic.png`, `prototype0_stasis.png` et `prototype0_baroud.png` :

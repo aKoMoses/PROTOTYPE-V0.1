@@ -23,6 +23,7 @@ var _slow_light: OmniLight3D
 var _stun_fx: MeshInstance3D
 var _spotted_fx: Label3D
 var _spotted_emblem: MeshInstance3D
+var _spotted_pupil: MeshInstance3D
 var _spotted_light: OmniLight3D
 var _javelin_mark_label: Label3D
 var _javelin_mark_until := -1.0
@@ -303,7 +304,38 @@ func flash_impact(critical: bool = false) -> void:
 		_impact_light.light_energy = 7.0 if critical else 4.0
 		var light_tween := create_tween()
 		light_tween.tween_property(_impact_light, "light_energy", 0.0, 0.20)
+	_spawn_target_impact_fx(critical)
 	tween.tween_callback(_clear_impact_flash)
+
+
+func _spawn_target_impact_fx(critical: bool) -> void:
+	var origin := global_position + Vector3.UP * (0.92 if not critical else 1.05)
+	var color := Color("#fff0a1") if critical else Color("#ff7052")
+	var particles := GPUParticles3D.new()
+	particles.name = "TargetImpactSparks"
+	particles.amount = 20 if critical else 10
+	particles.lifetime = 0.32 if critical else 0.22
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.visibility_aabb = AABB(Vector3(-4.0, -4.0, -4.0), Vector3(8.0, 8.0, 8.0))
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3.UP
+	process_material.spread = 70.0
+	process_material.initial_velocity_min = 3.0 if not critical else 4.8
+	process_material.initial_velocity_max = 4.6 if not critical else 6.8
+	process_material.gravity = Vector3(0.0, -9.0, 0.0)
+	process_material.scale_min = 0.06
+	process_material.scale_max = 0.14 if critical else 0.10
+	particles.process_material = process_material
+	var spark_mesh := SphereMesh.new()
+	spark_mesh.radius = 0.08
+	spark_mesh.height = 0.16
+	spark_mesh.material = _effect_material(color, color)
+	particles.draw_pass_1 = spark_mesh
+	get_tree().current_scene.add_child(particles)
+	particles.global_position = origin
+	particles.emitting = true
+	get_tree().create_timer(particles.lifetime + 0.30).timeout.connect(particles.queue_free)
 
 
 func _clear_impact_flash() -> void:
@@ -535,6 +567,14 @@ func _build_effect_visuals() -> void:
 		flame.position = Vector3(-0.30 + float(index) * 0.30, 1.48 + float(index % 2) * 0.28, 0.70)
 		flame.material_override = _effect_material(Color("#ff7b3e"), Color("#ff3d1e"))
 		_burn_fx.add_child(flame)
+	for index in range(3):
+		var ember := MeshInstance3D.new()
+		var ember_mesh := BoxMesh.new()
+		ember_mesh.size = Vector3(0.06, 0.16, 0.06)
+		ember.mesh = ember_mesh
+		ember.position = Vector3(-0.36 + float(index) * 0.36, 1.68 + float(index % 2) * 0.22, 0.74)
+		ember.material_override = _effect_material(Color("#ffd37a"), Color("#ff5a25"))
+		_burn_fx.add_child(ember)
 	add_child(_burn_fx)
 	_burn_light = OmniLight3D.new()
 	_burn_light.name = "BurnLight"
@@ -591,26 +631,49 @@ func _build_effect_visuals() -> void:
 	_stun_fx.rotation_degrees.x = 90.0
 	_stun_fx.material_override = _effect_material(Color("#ffe16a"), Color("#ffb52e"))
 	add_child(_stun_fx)
+	for index in range(4):
+		var stun_spark := MeshInstance3D.new()
+		var stun_mesh := BoxMesh.new()
+		stun_mesh.size = Vector3(0.06, 0.30, 0.06)
+		stun_spark.mesh = stun_mesh
+		var angle := TAU * float(index) / 4.0
+		stun_spark.position = Vector3(cos(angle) * 0.50, 2.22, sin(angle) * 0.50)
+		stun_spark.rotation_degrees.z = -32.0 if index % 2 == 0 else 32.0
+		stun_spark.material_override = _effect_material(Color("#fff2a4"), Color("#ff9d2e"))
+		_stun_fx.add_child(stun_spark)
 
 	_spotted_fx = Label3D.new()
 	_spotted_fx.name = "SpottedEye"
-	_spotted_fx.text = "◉"
+	_spotted_fx.text = "◎"
 	_spotted_fx.position = Vector3(-0.10, 4.08, 0.0)
 	_spotted_fx.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_spotted_fx.font_size = 96
-	_spotted_fx.outline_size = 14
-	_spotted_fx.modulate = Color("#d8ffff")
+	_spotted_fx.font_size = 118
+	_spotted_fx.outline_size = 18
+	_spotted_fx.modulate = Color("#efffff")
 	add_child(_spotted_fx)
 	_spotted_emblem = MeshInstance3D.new()
 	_spotted_emblem.name = "SpottedEmblem"
-	var spotted_emblem_mesh := SphereMesh.new()
-	spotted_emblem_mesh.radius = 0.29
-	spotted_emblem_mesh.height = 0.14
+	var spotted_emblem_mesh := TorusMesh.new()
+	spotted_emblem_mesh.inner_radius = 0.20
+	spotted_emblem_mesh.outer_radius = 0.30
+	spotted_emblem_mesh.rings = 10
+	spotted_emblem_mesh.ring_segments = 20
 	_spotted_emblem.mesh = spotted_emblem_mesh
 	_spotted_emblem.position = Vector3(-0.10, 3.86, 0.0)
-	_spotted_emblem.scale = Vector3(2.0, 1.0, 1.0)
+	_spotted_emblem.rotation_degrees.x = 90.0
+	_spotted_emblem.scale = Vector3(1.15, 1.0, 1.15)
 	_spotted_emblem.material_override = _effect_material(Color("#9ffaff"), Color("#38d5e6"))
 	add_child(_spotted_emblem)
+	_spotted_pupil = MeshInstance3D.new()
+	_spotted_pupil.name = "SpottedPupil"
+	var pupil_mesh := SphereMesh.new()
+	pupil_mesh.radius = 0.12
+	pupil_mesh.height = 0.08
+	_spotted_pupil.mesh = pupil_mesh
+	_spotted_pupil.position = Vector3(-0.10, 3.86, -0.02)
+	_spotted_pupil.scale = Vector3(1.0, 0.55, 1.0)
+	_spotted_pupil.material_override = _effect_material(Color("#e8ffff"), Color("#ffffff"))
+	add_child(_spotted_pupil)
 	_spotted_light = OmniLight3D.new()
 	_spotted_light.name = "SpottedLight"
 	_spotted_light.light_color = Color("#38d5e6")
@@ -696,7 +759,10 @@ func _update_effect_presentation() -> void:
 		_spotted_fx.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 5.0) * 0.12)
 	if _spotted_emblem != null:
 		_spotted_emblem.visible = spotted
-		_spotted_emblem.scale = Vector3(2.0, 1.0, 1.0) * (1.0 + sin(_effect_clock * 5.0) * 0.10)
+		_spotted_emblem.scale = Vector3(1.15, 1.0, 1.15) * (1.0 + sin(_effect_clock * 5.0) * 0.10)
+	if _spotted_pupil != null:
+		_spotted_pupil.visible = spotted
+		_spotted_pupil.scale = Vector3.ONE * (1.0 + sin(_effect_clock * 6.0) * 0.08)
 	if _spotted_light != null:
 		_spotted_light.light_energy = (2.0 + sin(_effect_clock * 7.0) * 0.45) if spotted else 0.0
 	if _javelin_mark_label != null:

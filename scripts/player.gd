@@ -126,6 +126,8 @@ var _locomotion_amount := 0.0
 var _weapon_motion_clock := 0.0
 var _axe_light: OmniLight3D
 var _axe_tip: Node3D
+var _player_body_material: StandardMaterial3D
+var _player_core_material: StandardMaterial3D
 var _health_label: Label3D
 var _health_bar_bg: MeshInstance3D
 var _health_bar_fill: MeshInstance3D
@@ -502,7 +504,74 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 				_attack_label.text = "BAROUD  •  %d PV" % int(round(passive_state.baroud_health))
 		else:
 			combat_state.apply_damage(effective, source_id, attack_id)
+	flash_impact(bool(result["real_death"]))
 	return effective
+
+
+func flash_impact(critical: bool = false) -> void:
+	if _robot_visuals == null:
+		return
+	var color := Color("#fff0a1") if critical else Color("#ff8064")
+	var base_scale := _robot_visuals.scale
+	var tween := create_tween()
+	tween.tween_property(_robot_visuals, "scale", base_scale * Vector3(1.10, 0.92, 1.10), 0.045)
+	tween.tween_property(_robot_visuals, "scale", base_scale, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if _player_body_material != null:
+		_player_body_material.emission_enabled = true
+		_player_body_material.emission = color
+		_player_body_material.emission_energy_multiplier = 4.5 if critical else 2.8
+		var material_tween := create_tween()
+		material_tween.tween_method(Callable(self, "_clear_player_impact_material"), 0.0, 1.0, 0.16)
+	_spawn_particle_burst(global_position + Vector3.UP * 0.90, color, 16 if critical else 8, 0.30 if critical else 0.22, 4.8 if critical else 3.2, 0.13, -aim_direction, 70.0)
+	var rig := get_tree().current_scene.get_node_or_null("CameraRig") if get_tree().current_scene != null else null
+	if rig != null and rig.has_method("shake"):
+		rig.call("shake", 0.08 if critical else 0.035, 0.12 if critical else 0.05)
+
+
+func _clear_player_impact_material(_unused: float = 0.0) -> void:
+	if _player_body_material != null:
+		_player_body_material.emission_enabled = false
+
+
+func _create_muzzle_burst(origin: Vector3, direction: Vector3, color: Color, scale: float = 1.0) -> void:
+	var flash := MeshInstance3D.new()
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius = 0.16 * scale
+	flash_mesh.height = 0.30 * scale
+	flash.mesh = flash_mesh
+	flash.material_override = _create_fx_material(color, 0.98)
+	get_tree().current_scene.add_child(flash)
+	flash.global_position = origin
+	flash.look_at(origin + direction, Vector3.UP)
+	var flash_tween := create_tween()
+	flash_tween.set_parallel(true)
+	flash_tween.tween_property(flash, "scale", Vector3(2.8, 1.0, 1.6), 0.07)
+	flash_tween.tween_method(Callable(self, "_set_material_alpha").bind(flash.material_override), 0.98, 0.0, 0.10)
+	flash_tween.set_parallel(false)
+	flash_tween.tween_callback(flash.queue_free)
+	_spawn_particle_burst(origin, color, 12 if scale < 1.2 else 18, 0.22, 5.0 * scale, 0.10 * scale, direction, 38.0)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.12 * scale
+	ring_mesh.outer_radius = 0.19 * scale
+	ring.mesh = ring_mesh
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = _create_fx_material(Color("#fff4c2"), 0.92)
+	get_tree().current_scene.add_child(ring)
+	ring.global_position = origin
+	var ring_tween := create_tween()
+	ring_tween.set_parallel(true)
+	ring_tween.tween_property(ring, "scale", Vector3.ONE * 2.2, 0.13)
+	ring_tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.92, 0.0, 0.16)
+	ring_tween.set_parallel(false)
+	ring_tween.tween_callback(ring.queue_free)
+
+
+func _create_surface_impact_fx(origin: Vector3, direction: Vector3, color: Color = Color("#ff9c52")) -> void:
+	var normal := direction.normalized() if direction.length_squared() > 0.001 else Vector3.UP
+	_create_hit_flash(origin, color, 0.34)
+	_spawn_particle_burst(origin + Vector3.UP * 0.08, color, 10, 0.30, 3.5, 0.11, normal, 55.0)
+	_spawn_particle_burst(origin + Vector3.UP * 0.10, Color("#b78a63"), 8, 0.42, 2.4, 0.14, Vector3.UP, 80.0)
 
 
 func _finalize_passive_death() -> void:
@@ -795,6 +864,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	var visual_start := _axe_tip.global_position if _axe_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
 	if _shotgun_tip != null:
 		visual_start = _shotgun_tip.global_position
+	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35)
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
 		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
@@ -916,7 +986,7 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: floa
 		if did_hit:
 			_create_hit_flash(endpoint, Color("#fff0a1"), 0.42)
 		else:
-			_spawn_particle_burst(endpoint + Vector3.UP * 0.08, Color("#ff8a43"), 5, 0.18, 2.4, 0.08, direction, 35.0)
+			_create_surface_impact_fx(endpoint, -direction, Color("#ff8a43"))
 		_resolve_shotgun_projectile(salvo, index, did_hit, target, distance)
 		projectile.queue_free()
 	)
@@ -937,6 +1007,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 	salvo["valid_hits"] = int(salvo["valid_hits"]) + 1
 	salvo["base_damage_sum"] = float(salvo["base_damage_sum"]) + damage
 	_create_target_hit_fx(target.global_position, false)
+	target.call("flash_impact", false)
 	if int(salvo["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(salvo["critical_applied"]):
 		salvo["critical_applied"] = true
 		var bonus := float(salvo["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
@@ -944,6 +1015,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		target.call("take_damage", bonus, "player", bonus_id)
 		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:shotgun")
 		target.call("flash_impact", true)
+		_create_target_hit_fx(target.global_position, true)
 
 
 func _shotgun_damage_at_distance(distance: float) -> float:
@@ -1367,7 +1439,11 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	drone.mesh = drone_mesh
 	drone.material_override = _create_fx_material(Color("#45ddff"), 0.96)
 	get_tree().current_scene.add_child(drone)
-	drone.global_position = _module_visual_start(direction)
+	var visual_start := _module_visual_start(direction)
+	drone.global_position = visual_start
+	drone.look_at(visual_start + direction, Vector3.UP)
+	_decorate_drone_projectile(drone)
+	_create_muzzle_burst(visual_start, direction, Color("#45ddff"), 0.82)
 	var travel := maxf(0.05, distance / _drone_speed)
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
@@ -1381,9 +1457,46 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 				_create_target_hit_fx(target.global_position, false)
 				target.call("flash_impact", false)
 			_create_hit_flash(endpoint, Color("#8ff7ff"), 0.50)
+		else:
+			_create_surface_impact_fx(endpoint, -direction, Color("#45ddff"))
 		drone.queue_free()
 		_module_busy = false
 	)
+
+
+func _decorate_drone_projectile(drone: Node3D) -> void:
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = _drone_collision_radius * 0.55
+	core_mesh.height = _drone_collision_radius * 1.1
+	core.mesh = core_mesh
+	core.material_override = _create_fx_material(Color("#d8ffff"), 1.0)
+	drone.add_child(core)
+	var orbit := MeshInstance3D.new()
+	var orbit_mesh := TorusMesh.new()
+	orbit_mesh.inner_radius = 0.17
+	orbit_mesh.outer_radius = 0.22
+	orbit_mesh.rings = 8
+	orbit_mesh.ring_segments = 14
+	orbit.mesh = orbit_mesh
+	orbit.rotation_degrees.x = 90.0
+	orbit.material_override = _create_fx_material(Color("#7cf4ff"), 0.90)
+	drone.add_child(orbit)
+	var trail := MeshInstance3D.new()
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = 0.018
+	trail_mesh.bottom_radius = 0.09
+	trail_mesh.height = 0.65
+	trail.mesh = trail_mesh
+	trail.rotation_degrees.x = -90.0
+	trail.position.z = 0.34
+	trail.material_override = _create_fx_material(Color("#2fa6d8"), 0.34)
+	drone.add_child(trail)
+	var pulse := drone.create_tween().set_loops()
+	pulse.tween_property(orbit, "rotation_degrees", Vector3(90.0, 0.0, 180.0), 0.16).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(orbit, "rotation_degrees", Vector3(90.0, 0.0, 360.0), 0.16).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(drone, "scale", Vector3.ONE * 1.18, 0.10)
+	pulse.tween_property(drone, "scale", Vector3.ONE, 0.10)
 
 
 func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
@@ -1438,14 +1551,17 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 	var spear := MeshInstance3D.new()
 	spear.name = "JavelinProjectile"
 	var spear_mesh := CylinderMesh.new()
-	spear_mesh.top_radius = 0.07
-	spear_mesh.bottom_radius = 0.07
+	spear_mesh.top_radius = 0.025
+	spear_mesh.bottom_radius = 0.11
 	spear_mesh.height = 0.58
 	spear.mesh = spear_mesh
 	spear.material_override = _create_fx_material(Color("#ffe48b"), 0.96)
 	get_tree().current_scene.add_child(spear)
-	spear.global_position = _module_visual_start(direction)
+	var visual_start := _module_visual_start(direction)
+	spear.global_position = visual_start
 	spear.look_at(endpoint, Vector3.UP)
+	_decorate_javelin_projectile(spear)
+	_create_muzzle_burst(visual_start, direction, Color("#ffe48b"), 0.90)
 	var travel := maxf(0.04, distance / _javelin_speed)
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
@@ -1459,9 +1575,37 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 				_create_target_hit_fx(target.global_position, true)
 				target.call("flash_impact", true)
 			_create_hit_flash(endpoint, Color("#fff0a1"), 0.65)
+		else:
+			_create_surface_impact_fx(endpoint, -direction, Color("#ffcf6a"))
 		spear.queue_free()
 		_module_busy = false
 	)
+
+
+func _decorate_javelin_projectile(spear: Node3D) -> void:
+	var core := MeshInstance3D.new()
+	var core_mesh := CylinderMesh.new()
+	core_mesh.top_radius = 0.012
+	core_mesh.bottom_radius = 0.035
+	core_mesh.height = 0.48
+	core.mesh = core_mesh
+	core.rotation_degrees.x = -90.0
+	core.position.z = -0.03
+	core.material_override = _create_fx_material(Color("#fff4c2"), 1.0)
+	spear.add_child(core)
+	var trail := MeshInstance3D.new()
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = 0.012
+	trail_mesh.bottom_radius = 0.07
+	trail_mesh.height = 0.86
+	trail.mesh = trail_mesh
+	trail.rotation_degrees.x = -90.0
+	trail.position.z = 0.48
+	trail.material_override = _create_fx_material(Color("#ff9e45"), 0.30)
+	spear.add_child(trail)
+	var pulse := spear.create_tween().set_loops()
+	pulse.tween_property(spear, "scale", Vector3(1.14, 1.0, 1.14), 0.10)
+	pulse.tween_property(spear, "scale", Vector3.ONE, 0.14)
 
 
 func _recast_javelin() -> void:
@@ -1903,6 +2047,8 @@ func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_positi
 		_spawn_particle_burst(tip_position, Color("#a9f5ff"), 16 if did_hit else 8, 0.32, 5.0, 0.16, tip_forward, 42.0)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#a9f5ff"), 0.65)
+		else:
+			_create_surface_impact_fx(impact_point, -tip_forward, Color("#62e7ff"))
 	elif step == 1:
 		var center := tip_position
 		var forward := tip_forward
@@ -1913,6 +2059,8 @@ func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_positi
 		_spawn_particle_burst(tip_position, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14, tip_forward, 70.0)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
+		else:
+			_create_surface_impact_fx(impact_point, -forward, Color("#52d9ef"))
 	else:
 		if phase == "center":
 			_create_hit_flash(impact_point, Color("#fff0a1"), 0.90)
@@ -2301,6 +2449,7 @@ func _build_robot() -> void:
 	body.mesh = body_mesh
 	body.position.y = 0.8
 	body.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
+	_player_body_material = body.material_override as StandardMaterial3D
 	visuals.add_child(body)
 	_register_locomotion_node(body, "body")
 
@@ -2341,6 +2490,7 @@ func _build_robot() -> void:
 	core.position = Vector3(0.0, 0.90, -0.61)
 	core.scale = Vector3(1.35, 0.72, 0.48)
 	core.material_override = _material(Color("#49e8f1"), 0.16, Color("#22d8e8"))
+	_player_core_material = core.material_override as StandardMaterial3D
 	visuals.add_child(core)
 	_register_locomotion_node(core, "body")
 	_add_robot_arm(visuals, -1.0)

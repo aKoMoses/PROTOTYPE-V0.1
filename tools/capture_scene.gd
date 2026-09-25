@@ -20,8 +20,13 @@ func _initialize() -> void:
 		if capture_player != null:
 			capture_player.position = Vector3(float(arguments[1]), 0.0, float(arguments[2]))
 	if arguments.size() >= 4 and arguments[3] == "effects":
+		var capture_player := scene.get_node_or_null("Player") as Node3D
 		var capture_target := scene.get_node_or_null("TargetDummy")
-		if capture_target != null:
+		if capture_player != null and capture_target != null:
+			capture_player.position = Vector3.ZERO
+			capture_target.position = Vector3(0.0, 0.0, -2.6)
+			capture_target.call("set_training_bot_enabled", false)
+			capture_target.call("reset_combat_state")
 			capture_target.call("apply_burn", 3.5, 20.0, "capture")
 			capture_target.call("apply_slow", 1.5, 30.0, "capture")
 			capture_target.call("apply_stun", 1.5, "capture")
@@ -50,7 +55,7 @@ func _initialize() -> void:
 			shotgun_target.call("reset_combat_state")
 			shotgun_player.call("_perform_shotgun_attack")
 			print("CAPTURE SHOTGUN: salvo started")
-	if arguments.size() >= 4 and arguments[3] == "bot":
+	if arguments.size() >= 4 and (arguments[3] == "bot" or arguments[3] == "bot_impact"):
 		var bot_player := scene.get_node_or_null("Player")
 		var bot_target := scene.get_node_or_null("TargetDummy")
 		if bot_player != null and bot_target != null:
@@ -104,6 +109,7 @@ func _initialize() -> void:
 			"shotgun_live": settle_frames = 6
 			"shotgun": settle_frames = 22
 			"bot": settle_frames = 18
+			"bot_impact": settle_frames = 44
 			"drone", "javelin": settle_frames = 32
 			"magnetic": settle_frames = 18
 			"stasis", "baroud": settle_frames = 12

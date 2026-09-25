@@ -13,6 +13,9 @@ func _initialize() -> void:
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
+		# Le bot d'entraînement est actif dans la scène jouable ; cette suite
+		# vérifie les formes d'attaque à position fixe et doit donc le neutraliser.
+		target.call("set_training_bot_enabled", false)
 		await _test_combo_damage(player, target, 0.8, 320.0, "combo centre")
 		await _test_combo_damage(player, target, 2.0, 215.0, "combo onde")
 		await _test_obstacle_blocks(player, target, scene)

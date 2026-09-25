@@ -234,11 +234,12 @@ func _attack_player(player: Node3D) -> void:
 	if not player.has_method("take_damage"):
 		return
 	_attack_serial += 1
-	_spawn_attack_visual(player)
-	player.call("take_damage", ATTACK_DAMAGE, "training_bot", "training_bot:%d" % _attack_serial)
+	# Le dégât est résolu à l'arrivée du projectile : le flash, la secousse et
+	# l'impact visuel restent ainsi synchronisés avec le tir réellement affiché.
+	_spawn_attack_visual(player, "training_bot:%d" % _attack_serial)
 
 
-func _spawn_attack_visual(player: Node3D) -> void:
+func _spawn_attack_visual(player: Node3D, attack_id: String) -> void:
 	var bot_body := get_parent() as Node3D
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
@@ -251,6 +252,7 @@ func _spawn_attack_visual(player: Node3D) -> void:
 	scene.add_child(tracer)
 	tracer.global_position = start_position
 	tracer.look_at(start_position + direction, Vector3.UP)
+	_spawn_muzzle_visual(scene, start_position, direction)
 	var projectile_mesh := CylinderMesh.new()
 	projectile_mesh.top_radius = 0.035
 	projectile_mesh.bottom_radius = 0.16
@@ -298,8 +300,60 @@ func _spawn_attack_visual(player: Node3D) -> void:
 	pulse.tween_property(slug, "scale", Vector3.ONE, 0.08).set_trans(Tween.TRANS_SINE)
 	var travel := tracer.create_tween()
 	travel.tween_property(tracer, "global_position", impact_position, PROJECTILE_TRAVEL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	travel.tween_callback(Callable(self, "_spawn_impact_visual").bind(scene, impact_position))
+	travel.tween_callback(Callable(self, "_resolve_projectile").bind(player, scene, impact_position, attack_id))
 	travel.tween_callback(tracer.queue_free)
+
+
+func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, attack_id: String) -> void:
+	if player != null and is_instance_valid(player) and player.has_method("take_damage"):
+		player.call("take_damage", ATTACK_DAMAGE, "training_bot", attack_id)
+	_spawn_impact_visual(scene, impact_position)
+
+
+func _spawn_muzzle_visual(scene: Node, origin: Vector3, direction: Vector3) -> void:
+	var flash := MeshInstance3D.new()
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius = 0.16
+	flash_mesh.height = 0.30
+	flash.mesh = flash_mesh
+	flash.material_override = _fx_material(Color("#ffe0a1"), 0.98, Color("#ff4b25"))
+	scene.add_child(flash)
+	flash.global_position = origin + direction * 0.22
+	var flash_tween := flash.create_tween()
+	flash_tween.set_parallel(true)
+	flash_tween.tween_property(flash, "scale", Vector3(2.2, 1.0, 1.5), 0.08)
+	flash_tween.tween_property(flash.material_override, "albedo_color", Color(1.0, 0.55, 0.30, 0.0), 0.10)
+	flash_tween.set_parallel(false)
+	flash_tween.tween_callback(flash.queue_free)
+	_spawn_particle_burst(scene, origin, Color("#ff8b43"), 10, 3.6, 0.18, direction)
+
+
+func _spawn_particle_burst(scene: Node, origin: Vector3, color: Color, amount: int, speed: float, lifetime: float, direction: Vector3) -> void:
+	var particles := GPUParticles3D.new()
+	particles.name = "TrainingBotBurst"
+	particles.amount = amount
+	particles.lifetime = lifetime
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.visibility_aabb = AABB(Vector3(-4.0, -4.0, -4.0), Vector3(8.0, 8.0, 8.0))
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = direction.normalized()
+	process_material.spread = 40.0
+	process_material.initial_velocity_min = speed * 0.55
+	process_material.initial_velocity_max = speed
+	process_material.gravity = Vector3(0.0, -4.0, 0.0)
+	process_material.scale_min = 0.045
+	process_material.scale_max = 0.09
+	particles.process_material = process_material
+	var spark_mesh := SphereMesh.new()
+	spark_mesh.radius = 0.055
+	spark_mesh.height = 0.11
+	spark_mesh.material = _fx_material(color, 0.95, color)
+	particles.draw_pass_1 = spark_mesh
+	scene.add_child(particles)
+	particles.global_position = origin
+	particles.emitting = true
+	scene.get_tree().create_timer(lifetime + 0.25).timeout.connect(particles.queue_free)
 
 
 func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMaterial3D:
@@ -342,6 +396,22 @@ func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
 	var pulse := impact.create_tween()
 	pulse.tween_property(impact, "scale", Vector3.ONE * 2.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	pulse.tween_callback(impact.queue_free)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.22
+	ring_mesh.outer_radius = 0.30
+	ring.mesh = ring_mesh
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = _fx_material(Color("#ffd38b"), 0.92, Color("#ff572f"))
+	scene.add_child(ring)
+	ring.global_position = impact_position + Vector3.DOWN * 0.18
+	var ring_tween := ring.create_tween()
+	ring_tween.set_parallel(true)
+	ring_tween.tween_property(ring, "scale", Vector3.ONE * 2.0, 0.24)
+	ring_tween.tween_property(ring.material_override, "albedo_color", Color(1.0, 0.45, 0.22, 0.0), 0.24)
+	ring_tween.set_parallel(false)
+	ring_tween.tween_callback(ring.queue_free)
+	_spawn_particle_burst(scene, impact_position, Color("#ff7440"), 18, 4.8, 0.28, Vector3.UP)
 	var fade := flash.create_tween()
 	fade.tween_property(flash, "light_energy", 0.0, 0.18)
 	fade.tween_callback(flash.queue_free)
