@@ -1293,10 +1293,10 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	# These are tall-grass gameplay landmarks, not round bushes: broad, dense
 	# blades create a readable League-like silhouette while staying non-colliding.
 	# The slight X/Z asymmetry makes each patch feel like a wind-swept clump.
-	root.scale = Vector3(bush_scale * 1.95, bush_scale * 1.35, bush_scale * 1.85)
+	root.scale = Vector3(bush_scale * 1.60, bush_scale * 1.12, bush_scale * 1.50)
 	root.add_to_group("bush_placeholder")
-	root.set_meta("bush_radius", 1.55 * bush_scale)
-	root.set_meta("bush_height", 2.70 * bush_scale)
+	root.set_meta("bush_radius", 1.28 * bush_scale)
+	root.set_meta("bush_height", 2.35 * bush_scale)
 	var colors := [Color("#30442b"), Color("#435b31"), Color("#66703a"), Color("#92703b"), Color("#a17a3d")]
 	var blade_meshes: Array[Mesh] = []
 	for color in colors:
@@ -1307,10 +1307,10 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 		mesh.radial_segments = 5
 		mesh.material = _material(color, 1.0)
 		blade_meshes.append(mesh)
-	for index in range(58):
+	for index in range(44):
 		var blade := MeshInstance3D.new()
 		blade.mesh = blade_meshes[index % blade_meshes.size()]
-		var angle := TAU * float(index) / 58.0 + float(index % 5) * 0.08
+		var angle := TAU * float(index) / 44.0 + float(index % 5) * 0.08
 		var radius := 0.14 + float((index * 7) % 13) * 0.105
 		var blade_height := 1.02 + float((index * 3) % 7) * 0.22
 		blade.position = Vector3(cos(angle) * radius, blade_height * 0.5, sin(angle) * radius)
@@ -1320,7 +1320,7 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	# Broad leaf blades break up the individual stems and make the patch read as
 	# a hiding bush rather than a sparse ring of grass.
 	var leaf_colors := [Color("#3b512c"), Color("#58703a"), Color("#7b743b")]
-	for index in range(22):
+	for index in range(14):
 		var leaf := MeshInstance3D.new()
 		var leaf_mesh := BoxMesh.new()
 		leaf_mesh.size = Vector3(0.18 + float(index % 3) * 0.06, 1.0, 0.055)

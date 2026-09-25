@@ -157,11 +157,21 @@ visibilité, avant leur passe de carte jouable.
   la même grammaire visuelle. Les bushs
   passent à des touffes de hautes herbes denses avec des lames larges, une zone de cachette
   cohérente et davantage de variation de silhouette.
+- **P0-116 — passe animation :** les deux robots disposent maintenant d'une locomotion
+  mécanique légère (balancement du corps, tête et membres alternés) pilotée par leur vitesse
+  réelle, sans modifier leurs collisions. Les armes ont une respiration en attente ; le
+  shotgun ajoute recul du robot, recul du canon, rotation de pompage, flash et secousse
+  caméra, tandis que l'Electro Axe conserve ses poses d'estoc, de cleave et de slam avec un
+  mouvement d'attente cohérent. Les bushs ont été réduits en volume pour rouvrir les lignes
+  de combat tout en gardant une couverture visuelle dense.
+- **Vérifications :** `tools/test_shotgun.gd`, `tools/test_training_bot.gd`,
+  `tools/test_electro_axe.gd`, `tools/test_target_dummy.gd`, `tools/test_visibility.gd` et
+  `tools/test_offensive_modules.gd` PASS après cette passe.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-116 —
-  faire une vérification manuelle ciblée du shotgun en jeu et ajuster ses proportions
-  après retour visuel, puis ajouter une télégraphie secondaire au bot si nécessaire.
+  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-117 —
+  vérification manuelle des poses de locomotion et ajustement fin des timings d'armes si
+  nécessaire, puis télégraphie secondaire du bot.
 
 ## Captures de validation
 

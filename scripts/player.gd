@@ -120,6 +120,10 @@ var _shotgun_pivot: Node3D
 var _shotgun_tip: Node3D
 var _shotgun_light: OmniLight3D
 var _robot_visuals: Node3D
+var _locomotion_nodes: Array[Node3D] = []
+var _locomotion_clock := 0.0
+var _locomotion_amount := 0.0
+var _weapon_motion_clock := 0.0
 var _axe_light: OmniLight3D
 var _axe_tip: Node3D
 var _health_label: Label3D
@@ -228,6 +232,7 @@ func _physics_process(delta: float) -> void:
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
 	_update_movement(delta)
+	_update_robot_motion(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
 	_update_debug_effects()
@@ -243,6 +248,7 @@ func _physics_process(delta: float) -> void:
 	_update_shotgun_reload_input()
 	_update_shotgun_reload(delta)
 	_update_attack()
+	_update_weapon_ambient_motion(delta)
 	_update_axe_trail(delta)
 
 
@@ -275,6 +281,43 @@ func _update_movement(delta: float) -> void:
 	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * bio_multiplier * slow_multiplier
 	move_and_slide()
 	global_position.y = 0.0
+
+
+func _update_robot_motion(delta: float) -> void:
+	if _robot_visuals == null:
+		return
+	_locomotion_clock += delta
+	var desired_amount := clampf(velocity.length() / maxf(move_speed, 0.01), 0.0, 1.0)
+	_locomotion_amount = move_toward(_locomotion_amount, desired_amount, delta * 8.0)
+	for node in _locomotion_nodes:
+		if node == null or not is_instance_valid(node):
+			continue
+		var base_position: Vector3 = node.get_meta("locomotion_base_position", node.position)
+		var base_rotation: Vector3 = node.get_meta("locomotion_base_rotation", node.rotation)
+		var phase := float(node.get_meta("locomotion_phase", 0.0))
+		var role := str(node.get_meta("locomotion_role", "body"))
+		var stride := sin(_locomotion_clock * 9.5 + phase) * _locomotion_amount
+		if role == "limb":
+			node.position = base_position + Vector3(0.0, absf(stride) * 0.035, 0.0)
+			node.rotation = base_rotation + Vector3(stride * 0.18, 0.0, 0.0)
+		elif role == "head":
+			node.position = base_position + Vector3(0.0, sin(_locomotion_clock * 9.5 + phase) * 0.035 * _locomotion_amount, 0.0)
+			node.rotation = base_rotation + Vector3(0.0, sin(_locomotion_clock * 4.7 + phase) * 0.025 * _locomotion_amount, 0.0)
+		else:
+			node.position = base_position + Vector3(0.0, sin(_locomotion_clock * 9.5 + phase) * 0.045 * _locomotion_amount, 0.0)
+			node.rotation = base_rotation
+
+
+func _update_weapon_ambient_motion(delta: float) -> void:
+	_weapon_motion_clock += delta
+	if _weapon_id == "electro_axe" and _axe_pivot != null and not _axe_attack_busy:
+		var axe_sway := sin(_weapon_motion_clock * 2.4) * 0.018
+		_axe_pivot.position = _axe_pivot_home + Vector3(0.0, axe_sway, sin(_weapon_motion_clock * 1.7) * 0.014)
+		_axe_pivot.rotation = _axe_pivot_home_rotation + Vector3(0.0, sin(_weapon_motion_clock * 1.9) * 0.025, sin(_weapon_motion_clock * 2.2) * 0.018)
+	if _weapon_id == "shotgun" and _shotgun_pivot != null and not _shotgun_attack_busy and not _shotgun_reloading:
+		var shotgun_sway := sin(_weapon_motion_clock * 2.0 + 0.8) * 0.014
+		_shotgun_pivot.position = Vector3(0.58, 0.88 + shotgun_sway, -0.36 + sin(_weapon_motion_clock * 1.4) * 0.018)
+		_shotgun_pivot.rotation = Vector3(0.0, sin(_weapon_motion_clock * 1.8) * 0.018, sin(_weapon_motion_clock * 2.1) * 0.014)
 
 
 func _update_aim() -> void:
@@ -723,10 +766,23 @@ func _play_shotgun_animation(speed_scale: float) -> void:
 	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.18), 0.06 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.47), 0.10 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.36), 0.22 / scale).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	var kick_rotation := create_tween()
+	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(-7.0)), 0.06 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(2.0)), 0.12 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3.ZERO, 0.20 / scale).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if _robot_visuals != null:
+		var recoil := create_tween()
+		recoil.tween_property(_robot_visuals, "position", -aim_direction * 0.16, 0.055 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.24 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		recoil.tween_property(_robot_visuals, "rotation", Vector3(0.0, 0.0, deg_to_rad(-3.5)), 0.05 / scale)
+		recoil.tween_property(_robot_visuals, "rotation", Vector3.ZERO, 0.18 / scale)
 	if _shotgun_light != null:
 		_shotgun_light.light_energy = 4.0
 		var light_tween := create_tween()
 		light_tween.tween_property(_shotgun_light, "light_energy", 0.0, 0.20 / scale)
+	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
+	if rig != null and rig.has_method("shake"):
+		rig.call("shake", 0.10)
 
 
 func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
@@ -2156,6 +2212,16 @@ func _build_collision() -> void:
 	add_child(collision)
 
 
+func _register_locomotion_node(node: Node3D, role: String, phase: float = 0.0) -> void:
+	if node == null:
+		return
+	node.set_meta("locomotion_role", role)
+	node.set_meta("locomotion_phase", phase)
+	node.set_meta("locomotion_base_position", node.position)
+	node.set_meta("locomotion_base_rotation", node.rotation)
+	_locomotion_nodes.append(node)
+
+
 func _build_robot() -> void:
 	var visuals := Node3D.new()
 	visuals.name = "Visuals"
@@ -2236,6 +2302,7 @@ func _build_robot() -> void:
 	body.position.y = 0.8
 	body.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
 	visuals.add_child(body)
+	_register_locomotion_node(body, "body")
 
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
@@ -2245,6 +2312,7 @@ func _build_robot() -> void:
 	head.position = Vector3(0.0, 1.55, 0.0)
 	head.material_override = _robot_textured_material(Color.WHITE, 0.72, ROBOT_CREAM_TEXTURE)
 	visuals.add_child(head)
+	_register_locomotion_node(head, "head")
 
 	var eye := MeshInstance3D.new()
 	var eye_mesh := SphereMesh.new()
@@ -2264,6 +2332,7 @@ func _build_robot() -> void:
 	chest_plate.rotation_degrees.x = -7.0
 	chest_plate.material_override = _robot_textured_material(Color.WHITE, 0.70, ROBOT_RUST_TEXTURE)
 	visuals.add_child(chest_plate)
+	_register_locomotion_node(chest_plate, "body")
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()
 	core_mesh.radius = 0.19
@@ -2273,6 +2342,7 @@ func _build_robot() -> void:
 	core.scale = Vector3(1.35, 0.72, 0.48)
 	core.material_override = _material(Color("#49e8f1"), 0.16, Color("#22d8e8"))
 	visuals.add_child(core)
+	_register_locomotion_node(core, "body")
 	_add_robot_arm(visuals, -1.0)
 	_add_robot_arm(visuals, 1.0)
 	_add_robot_leg(visuals, -1.0)
@@ -2408,6 +2478,7 @@ func _add_robot_arm(parent: Node3D, side: float) -> void:
 	shoulder.position = Vector3(side * 0.68, 1.05, 0.0)
 	shoulder.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
 	parent.add_child(shoulder)
+	_register_locomotion_node(shoulder, "body", 0.0 if side < 0.0 else PI)
 	var upper := MeshInstance3D.new()
 	var upper_mesh := CylinderMesh.new()
 	upper_mesh.top_radius = 0.16
@@ -2418,6 +2489,7 @@ func _add_robot_arm(parent: Node3D, side: float) -> void:
 	upper.rotation_degrees.z = side * -11.0
 	upper.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_CREAM_TEXTURE)
 	parent.add_child(upper)
+	_register_locomotion_node(upper, "limb", 0.0 if side < 0.0 else PI)
 	var forearm := MeshInstance3D.new()
 	var forearm_mesh := BoxMesh.new()
 	forearm_mesh.size = Vector3(0.30, 0.48, 0.34)
@@ -2426,6 +2498,7 @@ func _add_robot_arm(parent: Node3D, side: float) -> void:
 	forearm.rotation_degrees.z = side * -18.0
 	forearm.material_override = _robot_textured_material(Color.WHITE, 0.84, ROBOT_RUST_TEXTURE)
 	parent.add_child(forearm)
+	_register_locomotion_node(forearm, "limb", 0.0 if side < 0.0 else PI)
 	var hand := MeshInstance3D.new()
 	var hand_mesh := SphereMesh.new()
 	hand_mesh.radius = 0.17
@@ -2434,6 +2507,7 @@ func _add_robot_arm(parent: Node3D, side: float) -> void:
 	hand.position = Vector3(side * 0.84, 0.16, -0.08)
 	hand.material_override = _robot_textured_material(Color.WHITE, 0.90, ROBOT_STEEL_TEXTURE)
 	parent.add_child(hand)
+	_register_locomotion_node(hand, "limb", 0.0 if side < 0.0 else PI)
 
 
 func _add_robot_leg(parent: Node3D, side: float) -> void:
@@ -2446,6 +2520,7 @@ func _add_robot_leg(parent: Node3D, side: float) -> void:
 	thigh.rotation_degrees.z = side * 7.0
 	thigh.material_override = _robot_textured_material(Color.WHITE, 0.84, ROBOT_STEEL_TEXTURE)
 	parent.add_child(thigh)
+	_register_locomotion_node(thigh, "limb", 0.0 if side < 0.0 else PI)
 	var shin := MeshInstance3D.new()
 	var shin_mesh := BoxMesh.new()
 	shin_mesh.size = Vector3(0.28, 0.48, 0.34)
@@ -2454,6 +2529,7 @@ func _add_robot_leg(parent: Node3D, side: float) -> void:
 	shin.rotation_degrees.z = side * -4.0
 	shin.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
 	parent.add_child(shin)
+	_register_locomotion_node(shin, "limb", 0.0 if side < 0.0 else PI)
 	var foot := MeshInstance3D.new()
 	var foot_mesh := BoxMesh.new()
 	foot_mesh.size = Vector3(0.40, 0.18, 0.62)
@@ -2461,6 +2537,7 @@ func _add_robot_leg(parent: Node3D, side: float) -> void:
 	foot.position = Vector3(side * 0.33, -0.17, -0.17)
 	foot.material_override = _robot_textured_material(Color.WHITE, 0.90, ROBOT_RUST_TEXTURE)
 	parent.add_child(foot)
+	_register_locomotion_node(foot, "limb", 0.0 if side < 0.0 else PI)
 
 
 func _add_robot_backpack(parent: Node3D) -> void:

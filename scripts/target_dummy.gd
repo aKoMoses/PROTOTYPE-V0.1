@@ -28,6 +28,10 @@ var _javelin_mark_label: Label3D
 var _javelin_mark_until := -1.0
 var _effect_clock := 0.0
 var _training_bot: Node
+var _locomotion_nodes: Array[Node3D] = []
+var _locomotion_clock := 0.0
+var _locomotion_amount := 0.0
+var _last_visual_position := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -45,12 +49,17 @@ func _ready() -> void:
 	_training_bot.name = "TrainingBot"
 	add_child(_training_bot)
 	_training_bot.call("set_enabled", false)
+	_last_visual_position = global_position
 	_update_label()
 	_update_effect_presentation()
 
 
 func _process(delta: float) -> void:
 	_effect_clock += delta
+	var displacement := global_position.distance_to(_last_visual_position)
+	_last_visual_position = global_position
+	var moving := displacement > 0.0005
+	_update_robot_motion(delta, moving)
 	if visibility_state != null:
 		visibility_state.update(delta)
 	if combat_state != null and not _resetting:
@@ -59,6 +68,39 @@ func _process(delta: float) -> void:
 		_javelin_mark_until = -1.0
 	_update_effect_presentation()
 	_update_visibility_presentation()
+
+
+func _register_locomotion_node(node: Node3D, role: String, phase: float = 0.0) -> void:
+	if node == null:
+		return
+	node.set_meta("locomotion_role", role)
+	node.set_meta("locomotion_phase", phase)
+	node.set_meta("locomotion_base_position", node.position)
+	node.set_meta("locomotion_base_rotation", node.rotation)
+	_locomotion_nodes.append(node)
+
+
+func _update_robot_motion(delta: float, moving: bool) -> void:
+	_locomotion_clock += delta
+	var target_amount := 1.0 if moving else 0.0
+	_locomotion_amount = move_toward(_locomotion_amount, target_amount, delta * 7.0)
+	for node in _locomotion_nodes:
+		if node == null or not is_instance_valid(node):
+			continue
+		var base_position: Vector3 = node.get_meta("locomotion_base_position", node.position)
+		var base_rotation: Vector3 = node.get_meta("locomotion_base_rotation", node.rotation)
+		var phase := float(node.get_meta("locomotion_phase", 0.0))
+		var role := str(node.get_meta("locomotion_role", "body"))
+		var stride := sin(_locomotion_clock * 9.0 + phase) * _locomotion_amount
+		if role == "limb":
+			node.position = base_position + Vector3(0.0, absf(stride) * 0.03, 0.0)
+			node.rotation = base_rotation + Vector3(stride * 0.16, 0.0, 0.0)
+		elif role == "head":
+			node.position = base_position + Vector3(0.0, sin(_locomotion_clock * 9.0 + phase) * 0.03 * _locomotion_amount, 0.0)
+			node.rotation = base_rotation + Vector3(0.0, sin(_locomotion_clock * 4.4 + phase) * 0.022 * _locomotion_amount, 0.0)
+		else:
+			node.position = base_position + Vector3(0.0, sin(_locomotion_clock * 9.0 + phase) * 0.04 * _locomotion_amount, 0.0)
+			node.rotation = base_rotation
 
 
 ## Shared combat API used by the player, future bot and Training Lab.
@@ -341,6 +383,7 @@ func _build_visuals() -> void:
 	_body_material.roughness = 0.62
 	_body_mesh.material_override = _body_material
 	add_child(_body_mesh)
+	_register_locomotion_node(_body_mesh, "body")
 	var chest_plate := MeshInstance3D.new()
 	var chest_mesh := BoxMesh.new()
 	chest_mesh.size = Vector3(0.78, 0.48, 0.10)
@@ -349,6 +392,7 @@ func _build_visuals() -> void:
 	chest_plate.rotation_degrees.x = -5.0
 	chest_plate.material_override = _robot_material(Color("#c46c3f"), 0.42)
 	add_child(chest_plate)
+	_register_locomotion_node(chest_plate, "body")
 	var reactor := MeshInstance3D.new()
 	var reactor_mesh := CylinderMesh.new()
 	reactor_mesh.top_radius = 0.16
@@ -359,6 +403,7 @@ func _build_visuals() -> void:
 	reactor.rotation_degrees.x = 90.0
 	reactor.material_override = _effect_material(Color("#8cf6ff"), Color("#32dceb"))
 	add_child(reactor)
+	_register_locomotion_node(reactor, "body")
 	var neck := MeshInstance3D.new()
 	var neck_mesh := CylinderMesh.new()
 	neck_mesh.top_radius = 0.16
@@ -368,6 +413,7 @@ func _build_visuals() -> void:
 	neck.position.y = 1.60
 	neck.material_override = _robot_material(Color("#3f3536"), 0.72)
 	add_child(neck)
+	_register_locomotion_node(neck, "body")
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.47
@@ -377,6 +423,7 @@ func _build_visuals() -> void:
 	head.scale = Vector3(1.0, 0.86, 0.92)
 	head.material_override = _robot_material(Color("#a34432"), 0.48)
 	add_child(head)
+	_register_locomotion_node(head, "head")
 	var visor := MeshInstance3D.new()
 	var visor_mesh := BoxMesh.new()
 	visor_mesh.size = Vector3(0.58, 0.14, 0.08)
@@ -384,6 +431,7 @@ func _build_visuals() -> void:
 	visor.position = Vector3(0.0, 1.95, 0.42)
 	visor.material_override = _effect_material(Color("#ff8a65"), Color("#ff2d22"))
 	add_child(visor)
+	_register_locomotion_node(visor, "head")
 	for side in [-1.0, 1.0]:
 		var shoulder := MeshInstance3D.new()
 		var shoulder_mesh := SphereMesh.new()
@@ -394,6 +442,7 @@ func _build_visuals() -> void:
 		shoulder.scale = Vector3(1.0, 0.85, 0.88)
 		shoulder.material_override = _robot_material(Color("#5a3837"), 0.72)
 		add_child(shoulder)
+		_register_locomotion_node(shoulder, "body", 0.0 if side < 0.0 else PI)
 		var upper_arm := MeshInstance3D.new()
 		var upper_mesh := CylinderMesh.new()
 		upper_mesh.top_radius = 0.13
@@ -404,6 +453,7 @@ func _build_visuals() -> void:
 		upper_arm.rotation_degrees.z = side * -12.0
 		upper_arm.material_override = _robot_material(Color("#b65a3e"), 0.60)
 		add_child(upper_arm)
+		_register_locomotion_node(upper_arm, "limb", 0.0 if side < 0.0 else PI)
 		var fist := MeshInstance3D.new()
 		var fist_mesh := BoxMesh.new()
 		fist_mesh.size = Vector3(0.28, 0.28, 0.30)
@@ -412,6 +462,7 @@ func _build_visuals() -> void:
 		fist.rotation_degrees.z = side * -8.0
 		fist.material_override = _robot_material(Color("#43383b"), 0.86)
 		add_child(fist)
+		_register_locomotion_node(fist, "limb", 0.0 if side < 0.0 else PI)
 	for side in [-1.0, 1.0]:
 		var leg := MeshInstance3D.new()
 		var leg_mesh := CapsuleMesh.new()
@@ -421,6 +472,7 @@ func _build_visuals() -> void:
 		leg.position = Vector3(side * 0.29, 0.32, 0.0)
 		leg.material_override = _robot_material(Color("#43383b"), 0.86)
 		add_child(leg)
+		_register_locomotion_node(leg, "limb", 0.0 if side < 0.0 else PI)
 		var foot := MeshInstance3D.new()
 		var foot_mesh := BoxMesh.new()
 		foot_mesh.size = Vector3(0.34, 0.16, 0.52)
@@ -428,6 +480,7 @@ func _build_visuals() -> void:
 		foot.position = Vector3(side * 0.29, 0.04, 0.13)
 		foot.material_override = _robot_material(Color("#8d4435"), 0.60)
 		add_child(foot)
+		_register_locomotion_node(foot, "limb", 0.0 if side < 0.0 else PI)
 	_impact_light = OmniLight3D.new()
 	_impact_light.light_energy = 0.0
 	_impact_light.omni_range = 3.0
