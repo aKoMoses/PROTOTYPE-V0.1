@@ -7,19 +7,12 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 
 @export var move_speed := 7.5
-@export var attack_interval := 0.64
+@export var attack_interval := 0.55
 
-# Electro Axe V0.1 — first playable combat lot. Damage values are deliberately
-# centralized so balancing after the human test does not touch hitbox code.
-const AXE_DAMAGE := [120.0, 145.0, 80.0]
-const AXE_RANGE := [4.4, 3.2, 2.8]
-const AXE_COMBO_WINDOW := 1.70
-const AXE_SLOW_DURATION := 0.25
-const AXE_SLOW_PERCENT := 30.0
-const AXE_SHOCKWAVE_DURATION := 0.50
-const AXE_STUN_DURATION := 0.50
+# Electro Axe V0.1 — values are loaded from CombatData so the weapon sheet,
+# future HUD and hitbox code share one source of truth.
+const AXE_COMBO_WINDOW := 1.20
 const CRIT_MULTIPLIER := 1.5
-const SHOW_DEBUG_HITBOX := false
 const HIT_STOP_NORMAL := 0.045
 const HIT_STOP_CRITICAL := 0.085
 
@@ -27,6 +20,26 @@ var aim_direction := Vector3(0.0, 0.0, -1.0)
 var _last_attack_time := -10.0
 var _combo_step := 0
 var _combo_expires_at := -1.0
+var _next_attack_ready_at := -10.0
+var _axe_attack_busy := false
+var _axe_attack_token := 0
+var _axe_attack_step := -1
+var _axe_attack_origin := Vector3.ZERO
+var _axe_attack_direction := Vector3.FORWARD
+var _axe_attack_impact_point := Vector3.ZERO
+var _axe_damage: Array = [80.0, 90.0, 150.0]
+var _axe_range: Array = [3.0, 2.2, 1.2]
+var _axe_preparation: Array = [0.20, 0.20, 0.35]
+var _axe_active: Array = [0.10, 0.10, 0.25]
+var _axe_recovery: Array = [0.25, 0.30, 0.25]
+var _axe_slow_duration: Array = [0.25, 0.25, 0.50]
+var _axe_slow_percent := 30.0
+var _axe_stun_duration := 0.50
+var _axe_estoc_width := 0.65
+var _axe_sweep_half_angle := 50.0
+var _axe_wave_inner_radius := 1.2
+var _axe_wave_outer_radius := 3.5
+var _show_debug_hitbox := false
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -49,8 +62,25 @@ func _ready() -> void:
 	collision_layer = 4
 	collision_mask = 1
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	_load_axe_definition()
 	_build_collision()
 	_build_robot()
+
+
+func _load_axe_definition() -> void:
+	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("electro_axe", {})
+	_axe_damage = definition.get("combo_damage", _axe_damage)
+	_axe_range = definition.get("combo_ranges", _axe_range)
+	_axe_preparation = definition.get("combo_preparation", _axe_preparation)
+	_axe_active = definition.get("combo_active", _axe_active)
+	_axe_recovery = definition.get("combo_recovery", _axe_recovery)
+	_axe_slow_duration = definition.get("combo_slow_duration", _axe_slow_duration)
+	_axe_slow_percent = float(definition.get("combo_slow_percent", _axe_slow_percent))
+	_axe_stun_duration = float(definition.get("combo_stun_duration", _axe_stun_duration))
+	_axe_estoc_width = float(definition.get("combo_estoc_width", _axe_estoc_width))
+	_axe_sweep_half_angle = float(definition.get("combo_sweep_half_angle", _axe_sweep_half_angle))
+	_axe_wave_inner_radius = float(definition.get("combo_wave_inner_radius", _axe_wave_inner_radius))
+	_axe_wave_outer_radius = float(definition.get("combo_wave_outer_radius", _axe_wave_outer_radius))
 
 
 func _physics_process(delta: float) -> void:
@@ -59,6 +89,8 @@ func _physics_process(delta: float) -> void:
 	_update_aim()
 	_update_movement()
 	_update_debug_effects()
+	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
+		_cancel_axe_attack()
 	_update_attack()
 	_update_axe_trail(delta)
 
@@ -110,9 +142,9 @@ func _update_attack() -> void:
 		return
 	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	var now := Time.get_ticks_msec() / 1000.0
-	if now > _combo_expires_at:
+	if not _axe_attack_busy and now > _combo_expires_at:
 		_combo_step = 0
-	if wants_to_attack and now - _last_attack_time >= attack_interval:
+	if wants_to_attack and not _axe_attack_busy and now >= _next_attack_ready_at:
 		_last_attack_time = now
 		_perform_axe_attack()
 
@@ -136,6 +168,9 @@ func _update_debug_effects() -> void:
 		target.call("apply_spotted", 5.0, "debug")
 	if _pressed_once(KEY_F5):
 		target.call("reset_combat_state")
+	if _pressed_once(KEY_F6):
+		_show_debug_hitbox = not _show_debug_hitbox
+		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -176,57 +211,170 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 func reset_combat_state() -> void:
 	if combat_state != null:
 		combat_state.reset()
+	reset_axe_state()
+
+
+func reset_axe_state() -> void:
+	_axe_attack_token += 1
+	_axe_attack_busy = false
+	_axe_attack_step = -1
+	_combo_step = 0
+	_combo_expires_at = -1.0
+	_next_attack_ready_at = -10.0
+	_finish_axe_trail(0.0)
+	if _axe_pivot != null:
+		_axe_pivot.position = _axe_pivot_home
+		_axe_pivot.rotation = _axe_pivot_home_rotation
 
 
 func _perform_axe_attack() -> void:
 	var step := _combo_step
 	_combo_step = (_combo_step + 1) % 3
-	_combo_expires_at = Time.get_ticks_msec() / 1000.0 + AXE_COMBO_WINDOW
+	_axe_attack_token += 1
+	var token := _axe_attack_token
+	_axe_attack_busy = true
+	_axe_attack_step = step
+	_axe_attack_origin = global_position
+	_axe_attack_direction = aim_direction.normalized()
+	_axe_attack_impact_point = _axe_attack_origin + _axe_attack_direction * float(_axe_wave_outer_radius)
+	_combo_expires_at = -1.0
 	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
 	_play_axe_animation(step)
 	_begin_axe_trail(step)
+	var total := float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])
+	if step < 2:
+		var strike_timer := get_tree().create_timer(float(_axe_preparation[step]) + float(_axe_active[step]) * 0.5, true, false, false)
+		strike_timer.timeout.connect(func() -> void: _resolve_axe_strike(token, step))
+	else:
+		var center_timer := get_tree().create_timer(float(_axe_preparation[step]), true, false, false)
+		center_timer.timeout.connect(func() -> void: _resolve_axe_center(token))
+		var wave_timer := get_tree().create_timer(float(_axe_preparation[step]) + float(_axe_active[step]), true, false, false)
+		wave_timer.timeout.connect(func() -> void: _resolve_axe_wave(token))
+	var finish_timer := get_tree().create_timer(total, true, false, false)
+	finish_timer.timeout.connect(func() -> void: _finish_axe_attack(token))
+
+
+func _attack_token_valid(token: int) -> bool:
+	return is_inside_tree() and _axe_attack_busy and token == _axe_attack_token and not (combat_state != null and combat_state.is_stunned())
+
+
+func _resolve_axe_strike(token: int, step: int) -> void:
+	if not _attack_token_valid(token):
+		return
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
-	var impact_point: Vector3 = global_position + aim_direction * AXE_RANGE[step]
-	var did_hit := false
-	var distance := 0.0
-	if target != null:
-		var offset: Vector3 = target.global_position - global_position
-		var flat_offset := Vector3(offset.x, 0.0, offset.z)
-		distance = flat_offset.length()
-		var facing_dot := aim_direction.dot(flat_offset.normalized()) if distance > 0.01 else -1.0
-		var cone_limit := 0.88 if step == 0 else (0.35 if step == 1 else -0.25)
-		did_hit = distance <= AXE_RANGE[step] and distance > 0.01 and facing_dot >= cone_limit
-		if did_hit:
-			impact_point = target.global_position
-	var critical_hit := did_hit and step == 2 and distance <= 0.9
-	var damage: float = float(AXE_DAMAGE[step]) * (CRIT_MULTIPLIER if critical_hit else 1.0)
-	_queue_attack_impact(step, target, did_hit, impact_point, damage, critical_hit)
+	var did_hit := target != null and _axe_target_in_shape(target, step)
+	var impact_point: Vector3 = target.global_position if did_hit else _axe_attack_origin + _axe_attack_direction * float(_axe_range[step])
+	var tip_position := _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + _axe_attack_direction * 1.68
+	_show_attack_hitbox(step, impact_point, did_hit, tip_position, _get_axe_forward())
+	if not did_hit:
+		return
+	_apply_axe_hit(target, impact_point, float(_axe_damage[step]), _axe_slow_duration[step], false, token, step)
 
 
-func _queue_attack_impact(step: int, target: Node, did_hit: bool, impact_point: Vector3, damage: float, critical_hit: bool) -> void:
-	var impact_delays := [0.26, 0.31, 0.41]
-	var timer := get_tree().create_timer(impact_delays[step], true, false, false)
-	timer.timeout.connect(func() -> void:
-		if not is_inside_tree():
-			return
-		var tip_position := _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
-		var tip_forward := _get_axe_forward()
-		var effect_point := impact_point
-		if step == 2:
-			effect_point = Vector3(tip_position.x, 0.0, tip_position.z)
-		_show_attack_hitbox(step, effect_point, did_hit, tip_position, tip_forward)
-		if not did_hit or target == null or not is_instance_valid(target):
-			return
-		if step == 2 and critical_hit:
-			target.call("apply_stun", AXE_STUN_DURATION)
-			target.call("flash_impact", true)
-		else:
-			target.call("apply_slow", AXE_SLOW_DURATION if step < 2 else AXE_SHOCKWAVE_DURATION, AXE_SLOW_PERCENT)
-			target.call("flash_impact", false)
-		target.call("take_damage", damage)
-		_create_target_hit_fx(impact_point, critical_hit)
+func _resolve_axe_center(token: int) -> void:
+	if not _attack_token_valid(token):
+		return
+	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
+	var did_hit := target != null and _axe_target_in_radius(target, _axe_wave_inner_radius)
+	var impact_point := _axe_attack_origin
+	_show_attack_hitbox(2, impact_point, did_hit, _axe_tip.global_position if _axe_tip != null else impact_point, _get_axe_forward(), "center")
+	if not did_hit:
+		return
+	_apply_axe_hit(target, impact_point, float(_axe_damage[2]), 0.0, true, token, 20)
+
+
+func _resolve_axe_wave(token: int) -> void:
+	if not _attack_token_valid(token):
+		return
+	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
+	var did_hit := target != null and _axe_target_in_wave(target)
+	var impact_point := _axe_attack_origin
+	_show_attack_hitbox(2, impact_point, did_hit, _axe_tip.global_position if _axe_tip != null else impact_point, _get_axe_forward(), "wave")
+	if not did_hit:
+		return
+	_apply_axe_hit(target, impact_point, 45.0, _axe_slow_duration[2], false, token, 21)
+
+
+func _apply_axe_hit(target: Node, impact_point: Vector3, damage: float, slow_duration: float, critical_hit: bool, token: int, phase: int) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	var attack_id := "electro_axe:%d:%d" % [token, phase]
+	var effective_damage := float(target.call("take_damage", damage, "player", attack_id))
+	if critical_hit:
+		target.call("apply_stun", _axe_stun_duration, "electro_axe")
+	elif slow_duration > 0.0:
+		target.call("apply_slow", slow_duration, _axe_slow_percent, "electro_axe")
+	target.call("flash_impact", critical_hit)
+	_create_target_hit_fx(impact_point, critical_hit)
+	if effective_damage > 0.0:
 		_trigger_hit_stop(HIT_STOP_CRITICAL if critical_hit else HIT_STOP_NORMAL)
-	)
+
+
+func _finish_axe_attack(token: int) -> void:
+	if token != _axe_attack_token or not _axe_attack_busy:
+		return
+	_axe_attack_busy = false
+	_axe_attack_step = -1
+	var now := Time.get_ticks_msec() / 1000.0
+	_combo_expires_at = now + AXE_COMBO_WINDOW
+	_next_attack_ready_at = now
+
+
+func _cancel_axe_attack() -> void:
+	if not _axe_attack_busy:
+		return
+	_axe_attack_token += 1
+	_axe_attack_busy = false
+	_axe_attack_step = -1
+	_combo_step = 0
+	var now := Time.get_ticks_msec() / 1000.0
+	_combo_expires_at = now + AXE_COMBO_WINDOW
+	_next_attack_ready_at = now
+	_finish_axe_trail(0.10)
+	_attack_label.text = "ELECTRO AXE  •  INTERROMPU"
+	if _axe_pivot != null:
+		var tween := create_tween()
+		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.12)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.12)
+
+
+func _axe_target_in_shape(target: Node, step: int) -> bool:
+	var flat_offset: Vector3 = target.global_position - _axe_attack_origin
+	flat_offset.y = 0.0
+	var distance: float = flat_offset.length()
+	if distance <= 0.01 or not _axe_path_clear(target, _axe_attack_origin, target.global_position):
+		return false
+	var along := _axe_attack_direction.dot(flat_offset)
+	if step == 0:
+		var lateral := absf(_axe_attack_direction.cross(flat_offset).y)
+		return along > 0.0 and along <= float(_axe_range[0]) and lateral <= _axe_estoc_width * 0.5
+	var facing_dot := _axe_attack_direction.dot(flat_offset.normalized())
+	return distance <= float(_axe_range[1]) and facing_dot >= cos(deg_to_rad(_axe_sweep_half_angle))
+
+
+func _axe_target_in_radius(target: Node, radius: float) -> bool:
+	var flat_offset: Vector3 = target.global_position - _axe_attack_origin
+	flat_offset.y = 0.0
+	return flat_offset.length() > 0.01 and flat_offset.length() <= radius and _axe_path_clear(target, _axe_attack_origin, target.global_position)
+
+
+func _axe_target_in_wave(target: Node) -> bool:
+	var flat_offset: Vector3 = target.global_position - _axe_attack_origin
+	flat_offset.y = 0.0
+	var distance: float = flat_offset.length()
+	return distance > _axe_wave_inner_radius and distance <= _axe_wave_outer_radius and _axe_path_clear(target, _axe_attack_origin, target.global_position)
+
+
+func _axe_path_clear(target: Node, from_position: Vector3, to_position: Vector3) -> bool:
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid(), target.get_rid()]
+	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
 func _play_axe_animation(step: int) -> void:
@@ -238,20 +386,19 @@ func _play_axe_animation(step: int) -> void:
 	tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.01)
 	if step == 0:
 		# A readable thrust: the weapon lunges toward the target and snaps back.
-		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -0.20), 0.12)
-		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.14)
-		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.28)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -0.20), 0.20)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.10)
+		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.25)
 	elif step == 1:
 		# A lateral sweep, with a brief anticipation in the opposite direction.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.12)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.19)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.20)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.10)
 		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.30)
 	else:
 		# Overhead slam: weapon rises, pauses, then drives down into the floor.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.18)
-		tween.tween_interval(0.08)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.15)
-		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.34)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.35)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.25)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.25)
 	if _robot_visuals != null:
 		var recoil := create_tween()
 		recoil.tween_property(_robot_visuals, "position", -aim_direction * (0.10 if step < 2 else 0.18), 0.06)
@@ -271,7 +418,7 @@ func _begin_axe_trail(step: int) -> void:
 	_finish_axe_trail(0.08)
 	_trail_points.clear()
 	_trail_elapsed = 0.0
-	_trail_duration = [0.56, 0.64, 0.70][step]
+	_trail_duration = float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])
 	_trail_width = [0.07, 0.24, 0.13][step]
 	_trail_active = true
 	_trail_mesh = MeshInstance3D.new()
@@ -440,7 +587,7 @@ func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime:
 	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
 
 
-func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3, tip_forward: Vector3) -> void:
+func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3, tip_forward: Vector3, phase: String = "") -> void:
 	_create_axe_lightning(step, tip_position)
 	if step == 0:
 		var start := tip_position
@@ -454,13 +601,17 @@ func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_positi
 		var center := tip_position
 		var forward := tip_forward
 		var side := Vector3(-forward.z, 0.0, forward.x)
-		var reach := AXE_RANGE[1] if not did_hit else maxf(0.5, (impact_point - global_position).length())
+		var reach := float(_axe_range[1]) if not did_hit else maxf(0.5, (impact_point - _axe_attack_origin).length())
 		_create_cleave_arc(center, forward, side, reach, 0.0, Color("#52e7ff"), 0.32)
 		_create_cleave_arc(center + Vector3.UP * 0.10, forward, side, reach * 0.92, 0.12, Color("#d5fcff"), 0.38)
 		_spawn_particle_burst(tip_position, Color("#55e9ff"), 22 if did_hit else 12, 0.42, 4.0, 0.14, tip_forward, 70.0)
 		if did_hit:
 			_create_hit_flash(impact_point, Color("#72edff"), 0.8)
 	else:
+		if phase == "center":
+			_create_hit_flash(impact_point, Color("#fff0a1"), 0.90)
+			_spawn_particle_burst(impact_point + Vector3.UP * 0.72, Color("#eaffff"), 22, 0.42, 5.0, 0.14)
+			return
 		_create_shockwave_fx(impact_point)
 
 
@@ -693,35 +844,56 @@ func _create_lightning_spark(origin: Vector3, index: int) -> void:
 	tween.tween_callback(spark.queue_free)
 
 
-func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false, tip_position: Vector3 = Vector3.ZERO, tip_forward: Vector3 = Vector3.ZERO) -> void:
-	if SHOW_DEBUG_HITBOX:
+func _show_attack_hitbox(step: int, impact_point: Vector3 = Vector3.ZERO, did_hit: bool = false, tip_position: Vector3 = Vector3.ZERO, tip_forward: Vector3 = Vector3.ZERO, phase: String = "") -> void:
+	if _show_debug_hitbox:
 		var hitbox := MeshInstance3D.new()
 		hitbox.name = "AxeHitbox"
-		var mesh := CylinderMesh.new()
-		mesh.top_radius = AXE_RANGE[step] * (0.10 if step == 0 else 0.55)
-		mesh.bottom_radius = mesh.top_radius
-		mesh.height = 0.06
-		hitbox.mesh = mesh
-		hitbox.position = tip_position if tip_position != Vector3.ZERO else global_position + aim_direction * (AXE_RANGE[step] * 0.5)
-		hitbox.position.y = 0.04
 		var material := StandardMaterial3D.new()
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		material.albedo_color = Color(0.25, 0.85, 1.0, 0.42)
 		material.emission_enabled = true
 		material.emission = Color("#2ad9ff")
 		material.emission_energy_multiplier = 2.0
+		if step == 0:
+			var estoc_mesh := BoxMesh.new()
+			estoc_mesh.size = Vector3(_axe_estoc_width, 0.06, float(_axe_range[0]))
+			hitbox.mesh = estoc_mesh
+			hitbox.position = _axe_attack_origin + _axe_attack_direction * float(_axe_range[0]) * 0.5
+			hitbox.position.y = 0.04
+			hitbox.look_at(hitbox.global_position + _axe_attack_direction, Vector3.UP)
+		elif step == 1:
+			hitbox = _create_slash_fan(float(_axe_range[1]), deg_to_rad(_axe_sweep_half_angle))
+			hitbox.name = "AxeHitbox"
+			hitbox.global_position = _axe_attack_origin + Vector3.UP * 0.05
+			hitbox.look_at(hitbox.global_position + _axe_attack_direction, Vector3.UP)
+		else:
+			var ring_mesh := TorusMesh.new()
+			if phase == "center":
+				ring_mesh.inner_radius = 0.02
+				ring_mesh.outer_radius = _axe_wave_inner_radius
+			else:
+				ring_mesh.inner_radius = _axe_wave_inner_radius
+				ring_mesh.outer_radius = _axe_wave_outer_radius
+			ring_mesh.rings = 16
+			ring_mesh.ring_segments = 32
+			hitbox.mesh = ring_mesh
+			hitbox.position = _axe_attack_origin + Vector3.UP * 0.06
+			hitbox.rotation_degrees.x = 90.0
 		hitbox.material_override = material
 		get_tree().current_scene.add_child(hitbox)
+		if hitbox.material_override == null:
+			hitbox.material_override = material
 		var tween := create_tween()
-		tween.tween_property(hitbox, "scale", Vector3(1.0, 1.0, 1.8), 0.12)
+		tween.tween_property(hitbox, "scale", Vector3.ONE * 1.12, 0.12)
 		tween.tween_callback(hitbox.queue_free)
 	if impact_point == Vector3.ZERO:
-		impact_point = global_position + aim_direction * AXE_RANGE[step]
+		impact_point = global_position + aim_direction * float(_axe_range[step])
 	if tip_position == Vector3.ZERO:
 		tip_position = _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.96 + aim_direction * 1.68
 	if tip_forward == Vector3.ZERO:
 		tip_forward = _get_axe_forward()
-	_play_impact_fx(step, impact_point, did_hit, tip_position, tip_forward)
+	_play_impact_fx(step, impact_point, did_hit, tip_position, tip_forward, phase)
 
 
 func _build_collision() -> void:

@@ -11,6 +11,7 @@ func _initialize() -> void:
 		output_path = "user://prototype0_capture.png"
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	current_scene = scene
 	# Main builds the arena and its runtime children during _ready(). Wait one
 	# frame before looking up the player/target so capture options are reliable.
 	await process_frame
@@ -26,7 +27,19 @@ func _initialize() -> void:
 			capture_target.call("apply_stun", 1.5, "capture")
 			capture_target.call("apply_spotted", 5.0, "capture")
 			print("CAPTURE EFFECTS: ", capture_target.call("get_active_effect_types"))
-	for _frame in range(30):
+	if arguments.size() >= 4 and arguments[3] == "axe":
+		var axe_player := scene.get_node_or_null("Player")
+		var axe_target := scene.get_node_or_null("TargetDummy")
+		if axe_player != null and axe_target != null:
+			axe_player.position = Vector3(0.0, 0.0, 0.0)
+			axe_target.position = Vector3(0.0, 0.0, -2.0)
+			axe_player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
+			axe_player.call("reset_axe_state")
+			axe_player.set("_combo_step", 2)
+			axe_player.call("_perform_axe_attack")
+			print("CAPTURE AXE: third strike started")
+	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else 30
+	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()
 	image.save_png(output_path)

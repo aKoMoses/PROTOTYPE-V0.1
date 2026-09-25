@@ -42,12 +42,19 @@ restent des repères visuels sans collision supplémentaire.
   F5 réinitialise l'essai ; ce sont des raccourcis PC de validation temporaires. La
   lisibilité de la validation a été renforcée : barre de PV large, flammes et lumière
   animées pour BURN, anneau et motes cyan pour SLOW, halo STUN et œil SPOTTED émissif.
+- **P0-103 — implémenté, à tester manuellement :** l'Electro Axe utilise les géométries
+  et fenêtres V0.1 (80/90/150 au centre, 80/90/45 avec l'onde), déduplication par
+  identifiant, ralentissements et stun distincts, interruptions par STUN, et rayon de
+  visibilité physique qui bloque les coups derrière les obstacles. F6 active les volumes
+  de diagnostic temporaires.
 - **Tests automatisés :** `tools/test_combat_state.gd` et `tools/test_target_dummy.gd` PASS ;
   les valeurs testées incluent BURN isolé à 70 dégâts, non-cumul, slow maximal,
   expiration, STUN/SPOTTED, overkill, overheal, attaque dupliquée, BURN absorbé pendant
   la stase, activation des quatre effets sur le mannequin et reset visuel/HP.
+- `tools/test_electro_axe.gd` PASS : combo centre = 320, combo onde = 215, estoc
+  bloqué par un obstacle et préparation interrompue par STUN.
 - **À vérifier ensuite :** test manuel des touches et intégration dans les armes/modules.
-  Prochaine tâche : **P0-103 — Electro Axe entièrement testable**.
+  Prochaine tâche : **P0-104 — Shotgun entièrement testable**.
 
 ## Captures de validation
 
@@ -60,6 +67,7 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_spectators.png` : cadrage de validation de la bordure extérieure ;
 - `prototype0_effects.png` : capture du mannequin avec les quatre états appliqués par le
   harnais de validation (capture Mobile après attente de l'initialisation de la cible).
+- `prototype0_axe.png` : capture Mobile du troisième coup Electro Axe et de ses éclairs.
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette

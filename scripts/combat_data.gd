@@ -31,6 +31,17 @@ const WEAPON_DEFINITIONS := {
 	"electro_axe": {
 		"display_name": "Electro Axe",
 		"combo_damage": [80.0, 90.0, 150.0],
+		"combo_ranges": [3.0, 2.2, 1.2],
+		"combo_preparation": [0.20, 0.20, 0.35],
+		"combo_active": [0.10, 0.10, 0.25],
+		"combo_recovery": [0.25, 0.30, 0.25],
+		"combo_slow_duration": [0.25, 0.25, 0.50],
+		"combo_slow_percent": 30.0,
+		"combo_stun_duration": 0.50,
+		"combo_estoc_width": 0.65,
+		"combo_sweep_half_angle": 50.0,
+		"combo_wave_inner_radius": 1.2,
+		"combo_wave_outer_radius": 3.5,
 		"combo_cycle": 2.0,
 	},
 	"shotgun": {
