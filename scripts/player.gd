@@ -5,6 +5,7 @@ const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
+const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
@@ -82,6 +83,8 @@ var _module_busy := false
 var _offensive_module_id := "modulo_drone"
 var _defensive_module_id := "magnetic_field"
 var _mobility_module_id := "pyro_boots"
+var _passive_id := "baroud"
+var passive_state
 var _dash_active := false
 var _dash_token := 0
 var _dash_direction := Vector3.ZERO
@@ -100,6 +103,8 @@ var _static_duration := 1.5
 var _stasis_remaining := 0.0
 var _magnetic_wall: Area3D
 var _attack_label: Label3D
+var _baroud_bar_bg: MeshInstance3D
+var _baroud_bar_fill: MeshInstance3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
@@ -121,6 +126,8 @@ func _ready() -> void:
 	collision_layer = 4
 	collision_mask = 1
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	passive_state = PASSIVE_STATE.new()
+	passive_state.configure(_passive_id)
 	_load_axe_definition()
 	_build_collision()
 	_build_robot()
@@ -184,6 +191,13 @@ func _load_axe_definition() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var baroud_expired: bool = passive_state != null and bool(passive_state.process(delta))
+	if baroud_expired:
+		_finalize_passive_death()
+	_update_baroud_presentation()
+	if passive_state != null and passive_state.real_dead:
+		velocity = Vector3.ZERO
+		return
 	var stasis_active := _stasis_remaining > 0.0
 	if stasis_active:
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
@@ -318,7 +332,74 @@ func _pressed_once(keycode: Key) -> bool:
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
 	if _stasis_remaining > 0.0:
 		return 0.0
-	return combat_state.apply_damage(amount, source_id, attack_id) if combat_state != null else 0.0
+	if combat_state == null or passive_state == null:
+		return 0.0
+	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
+	if bool(result["triggered_baroud"]):
+		if _attack_label != null:
+			_attack_label.text = "BAROUD D'HONNEUR  •  2.5s"
+		return 0.0
+	var effective := float(result["effective"])
+	if effective <= 0.0:
+		return 0.0
+	if bool(result["real_death"]):
+		combat_state.apply_damage(combat_state.health, source_id, attack_id)
+	else:
+		# Baroud damage is kept on its temporary gauge, not normal PV.
+		if passive_state.baroud_active:
+			if _attack_label != null:
+				_attack_label.text = "BAROUD  •  %d PV" % int(round(passive_state.baroud_health))
+		else:
+			combat_state.apply_damage(effective, source_id, attack_id)
+	return effective
+
+
+func _finalize_passive_death() -> void:
+	if combat_state == null or combat_state.is_dead():
+		return
+	combat_state.apply_damage(combat_state.health, "baroud", "baroud:expiry")
+	if _attack_label != null:
+		_attack_label.text = "ÉLIMINÉ"
+
+
+func _update_baroud_presentation() -> void:
+	if _baroud_bar_bg == null or _baroud_bar_fill == null or passive_state == null:
+		return
+	var visible: bool = bool(passive_state.baroud_active)
+	_baroud_bar_bg.visible = visible
+	_baroud_bar_fill.visible = visible
+	if not visible:
+		return
+	var fraction: float = clampf(float(passive_state.baroud_health) / PASSIVE_STATE.BAROUD_MAX_HEALTH, 0.0, 1.0)
+	var width: float = 1.8 * fraction
+	_baroud_bar_fill.scale = Vector3(width, 1.0, 1.0)
+	_baroud_bar_fill.position.x = -0.9 + width * 0.5
+
+
+func set_passive(passive_id: String) -> void:
+	_passive_id = "omnivamp" if passive_id == "omnivamp" else "baroud"
+	if passive_state != null:
+		passive_state.configure(_passive_id)
+
+
+func get_passive_id() -> String:
+	return _passive_id
+
+
+func get_baroud_remaining() -> float:
+	return passive_state.baroud_remaining if passive_state != null else 0.0
+
+
+func get_baroud_health() -> float:
+	return passive_state.baroud_health if passive_state != null else 0.0
+
+
+func _on_damage_dealt(effective_damage: float) -> void:
+	if passive_state == null:
+		return
+	var amount: float = float(passive_state.omnivamp_heal_for(effective_damage))
+	if amount > 0.0:
+		heal(amount, "omnivamp")
 
 
 func get_health() -> float:
@@ -330,7 +411,7 @@ func get_max_health() -> float:
 
 
 func heal(amount: float, source_id: String = "") -> float:
-	if _stasis_remaining > 0.0:
+	if _stasis_remaining > 0.0 or passive_state == null or not passive_state.can_heal():
 		return 0.0
 	return combat_state.heal(amount, source_id) if combat_state != null else 0.0
 
@@ -358,6 +439,9 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 func reset_combat_state() -> void:
 	if combat_state != null:
 		combat_state.reset()
+	if passive_state != null:
+		passive_state.configure(_passive_id)
+		passive_state.reset()
 	reset_axe_state()
 	reset_shotgun_state()
 	reset_module_state()
@@ -598,7 +682,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		var bonus := float(salvo["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
 		var bonus_id := "shotgun:%d:critical" % int(salvo["id"])
 		target.call("take_damage", bonus, "player", bonus_id)
-		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "shotgun")
+		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:shotgun")
 		target.call("flash_impact", true)
 
 
@@ -1027,7 +1111,7 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
 			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
 			if applied > 0.0:
-				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "modulo_drone")
+				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:modulo_drone")
 				target.call("apply_spotted", _drone_spotted_duration, "modulo_drone")
 				_create_target_hit_fx(target.global_position, false)
 				target.call("flash_impact", false)
@@ -1874,6 +1958,23 @@ func _build_robot() -> void:
 	_attack_label.outline_size = 6
 	_attack_label.modulate = Color("#8beaff")
 	add_child(_attack_label)
+
+	_baroud_bar_bg = MeshInstance3D.new()
+	var baroud_bg_mesh := BoxMesh.new()
+	baroud_bg_mesh.size = Vector3(1.8, 0.14, 0.06)
+	_baroud_bar_bg.mesh = baroud_bg_mesh
+	_baroud_bar_bg.position = Vector3(0.0, 2.30, 0.0)
+	_baroud_bar_bg.material_override = _material(Color("#2a1820"), 0.2, Color("#3a1824"))
+	add_child(_baroud_bar_bg)
+	_baroud_bar_fill = MeshInstance3D.new()
+	var baroud_fill_mesh := BoxMesh.new()
+	baroud_fill_mesh.size = Vector3(1.0, 0.10, 0.07)
+	_baroud_bar_fill.mesh = baroud_fill_mesh
+	_baroud_bar_fill.position = Vector3(-0.45, 2.30, -0.01)
+	_baroud_bar_fill.material_override = _material(Color("#ef5a6f"), 0.1, Color("#ff4e7a"))
+	add_child(_baroud_bar_fill)
+	_baroud_bar_bg.visible = false
+	_baroud_bar_fill.visible = false
 
 	var selection_ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()

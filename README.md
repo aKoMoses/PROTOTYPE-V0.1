@@ -95,12 +95,21 @@ restent des repères visuels sans collision supplémentaire.
 - **Tests automatisés :** `tools/test_defensive_modules.gd` PASS : mur et absorption
   Shotgun, durée, placement invalide, déplacement non bloqué, stase, dégâts/soin/BURN
   bloqués et refus d'activation sous STUN.
+- **P0-108 — implémenté, à tester manuellement :** les passifs exclusifs Baroud
+  d'honneur et Omnivamp sont branchés sur l'état du joueur. Baroud se déclenche une
+  seule fois sur le premier coup létal, crée une jauge temporaire de 1 000 PV pendant
+  2,5 s, perd 400 PV/s, refuse les soins et reste inchangé par la stase ; sa fin résout
+  la mort réelle. Omnivamp rend 15 % des dégâts effectivement retirés, y compris les
+  coups critiques et les ticks BURN, avec plafond de soin et sans overkill.
+- **Tests automatisés :** `tools/test_passives.gd` PASS : déclenchement/épuisement de
+  Baroud, soin interdit et stase non prolongeante, Omnivamp 20 → 3 PV, BURN 70 → 10,5
+  PV, et résolution déterministe d'une double mort en manche nulle.
 - **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
   E = module défensif équipé ; R = module mobilité ; G = changement d'arme ;
   T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
-  de la mobilité avec R, puis du défensif avec E. Prochaine tâche : **P0-108 — kits de vie,
-  bushs fonctionnels et règles de visibilité**.
+  de la mobilité avec R, puis du défensif avec E et du passif équipé. Prochaine tâche :
+  **P0-109 — relier combat, visibilité et perception**.
 
 ## Captures de validation
 
@@ -117,6 +126,8 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_shotgun.png` : capture Mobile d'une salve Shotgun et de l'impact critique.
 - `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
   offensifs et de leurs impacts sur le mannequin.
+- `prototype0_magnetic.png`, `prototype0_stasis.png` et `prototype0_baroud.png` :
+  captures Mobile des défenses et de la jauge de dernière chance, générées par Godot.
 
 Elles ont été produites avec le renderer Mobile via le pilote D3D12 sur le GPU disponible
 (NVIDIA GeForce RTX 3070 Laptop GPU). Aucun nombre de FPS Android n'est déduit de cette

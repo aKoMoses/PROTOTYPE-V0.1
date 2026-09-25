@@ -76,7 +76,15 @@ func _initialize() -> void:
 			defensive_player.set("_defensive_module_id", "static_shield" if arguments[3] == "stasis" else "magnetic_field")
 			defensive_player.call("_perform_defensive_module")
 			print("CAPTURE DEFENSIVE: ", arguments[3])
-	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else (32 if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin") else (18 if arguments.size() >= 4 and arguments[3] == "magnetic" else (12 if arguments.size() >= 4 and arguments[3] == "stasis" else 30))))
+	if arguments.size() >= 4 and arguments[3] == "baroud":
+		var passive_player := scene.get_node_or_null("Player")
+		if passive_player != null:
+			passive_player.position = Vector3(0.0, 0.0, 0.0)
+			passive_player.call("reset_combat_state")
+			passive_player.call("set_passive", "baroud")
+			passive_player.call("take_damage", 1000.0, "capture", "baroud_capture")
+			print("CAPTURE PASSIVE: baroud")
+	var settle_frames := 50 if arguments.size() >= 4 and arguments[3] == "axe" else (22 if arguments.size() >= 4 and arguments[3] == "shotgun" else (32 if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin") else (18 if arguments.size() >= 4 and arguments[3] == "magnetic" else (12 if arguments.size() >= 4 and (arguments[3] == "stasis" or arguments[3] == "baroud") else 30))))
 	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()

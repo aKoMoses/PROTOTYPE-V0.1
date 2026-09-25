@@ -31,6 +31,7 @@ func _ready() -> void:
 	collision_mask = 0
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	combat_state.health_changed.connect(_on_health_changed)
+	combat_state.damage_applied.connect(_on_damage_applied)
 	combat_state.effect_changed.connect(_on_effect_changed)
 	combat_state.died.connect(_on_state_died)
 	_build_collision()
@@ -159,6 +160,16 @@ func _clear_impact_flash() -> void:
 
 func _on_health_changed(_current: float, _maximum: float) -> void:
 	_update_label()
+
+
+func _on_damage_applied(amount: float, source_id: String, _attack_id: String) -> void:
+	# The prototype has one player attacker. Keep attribution on effective PV
+	# removed so Omnivamp also sees criticals and BURN ticks, never overkill.
+	if not (source_id == "player" or source_id.begins_with("player:")):
+		return
+	var attacker := get_tree().current_scene.get_node_or_null("Player") if get_tree().current_scene != null else null
+	if attacker != null and is_instance_valid(attacker):
+		attacker.call("_on_damage_dealt", amount)
 
 
 func _on_effect_changed(_effect_type: String, _active: bool) -> void:
