@@ -23,6 +23,15 @@ func _initialize() -> void:
 		target.call("set_training_bot_enabled", true)
 		if not bool(target.call("is_training_bot_enabled")):
 			_failures.append("activation du bot refusée")
+		player.call("_perform_axe_attack")
+		var dodge_seen := false
+		for _dodge_step in range(8):
+			await physics_frame
+			if bool(target.get_node("TrainingBot").call("is_dodging")):
+				dodge_seen = true
+				break
+		if not dodge_seen:
+			_failures.append("bot n'esquive pas une attaque engagée")
 		var telegraph_seen := false
 		for _step in range(24):
 			await create_timer(0.10, true, false, false).timeout
@@ -50,10 +59,10 @@ func _initialize() -> void:
 		target.call("reset_combat_state")
 
 	if _failures.is_empty():
-		print("P0-113 TRAINING BOT TEST: PASS")
+		print("P0-114 TRAINING BOT TEST: PASS")
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error("FAIL: " + failure)
-		print("P0-113 TRAINING BOT TEST: FAIL (%d)" % _failures.size())
+		print("P0-114 TRAINING BOT TEST: FAIL (%d)" % _failures.size())
 		quit(1)

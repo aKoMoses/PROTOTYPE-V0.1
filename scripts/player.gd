@@ -366,6 +366,10 @@ func is_revealed() -> bool:
 	return visibility_state != null and visibility_state.is_revealed()
 
 
+func is_attack_committed() -> bool:
+	return _axe_attack_busy or _shotgun_attack_busy or _module_busy
+
+
 func is_in_bush() -> bool:
 	_sync_bush_state()
 	return _current_bush != null and is_instance_valid(_current_bush)

@@ -14,6 +14,11 @@ const MOVE_RADIUS_X := 2.8
 const MOVE_RADIUS_Z := 2.0
 const MOVE_SPEED := 1.8
 const PROJECTILE_TRAVEL_TIME := 0.16
+const IDEAL_RANGE_MIN := 5.6
+const IDEAL_RANGE_MAX := 8.4
+const DODGE_DURATION := 0.34
+const DODGE_COOLDOWN := 3.5
+const DODGE_SPEED := 7.2
 
 var enabled := false
 var _elapsed := 0.0
@@ -24,6 +29,9 @@ var _windup_remaining := 0.0
 var _windup_player: Node3D
 var _telegraph_ring: MeshInstance3D
 var _telegraph_clock := 0.0
+var _dodge_remaining := 0.0
+var _dodge_cooldown_remaining := 0.0
+var _dodge_direction := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -41,6 +49,9 @@ func set_enabled(value: bool) -> void:
 	_attack_serial = 0
 	_windup_remaining = 0.0
 	_windup_player = null
+	_dodge_remaining = 0.0
+	_dodge_cooldown_remaining = 0.0
+	_dodge_direction = Vector3.ZERO
 	_update_telegraph()
 	set_physics_process(enabled)
 	var owner_3d := get_parent() as Node3D
@@ -59,6 +70,9 @@ func reset_clock() -> void:
 	_attack_serial = 0
 	_windup_remaining = 0.0
 	_windup_player = null
+	_dodge_remaining = 0.0
+	_dodge_cooldown_remaining = 0.0
+	_dodge_direction = Vector3.ZERO
 	_update_telegraph()
 
 
@@ -68,6 +82,14 @@ func is_enabled() -> bool:
 
 func is_telegraph_active() -> bool:
 	return enabled and _windup_remaining > 0.0
+
+
+func is_dodging() -> bool:
+	return enabled and _dodge_remaining > 0.0
+
+
+func get_dodge_cooldown_remaining() -> float:
+	return maxf(0.0, _dodge_cooldown_remaining)
 
 
 func get_attack_phase() -> String:
@@ -85,7 +107,15 @@ func _physics_process(delta: float) -> void:
 	if bot_body == null or player == null or not is_instance_valid(player):
 		return
 	_elapsed += delta
-	_update_patrol(bot_body, delta)
+	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
+	if _dodge_remaining > 0.0:
+		_dodge_remaining = maxf(0.0, _dodge_remaining - delta)
+		bot_body.global_position += _dodge_direction * DODGE_SPEED * delta
+		bot_body.global_position.y = 0.0
+	else:
+		_try_dodge(bot_body, player)
+		if _dodge_remaining <= 0.0:
+			_update_patrol(bot_body, player, delta)
 	_telegraph_clock += delta
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -105,15 +135,44 @@ func _physics_process(delta: float) -> void:
 		_next_attack_at = _elapsed + 0.35
 
 
-func _update_patrol(bot_body: Node3D, delta: float) -> void:
-	var desired := _spawn_position + Vector3(
-		sin(_elapsed * 0.72) * MOVE_RADIUS_X,
-		0.0,
-		cos(_elapsed * 0.53) * MOVE_RADIUS_Z
-	)
+func _update_patrol(bot_body: Node3D, player: Node3D, delta: float) -> void:
+	var to_player := player.global_position - bot_body.global_position
+	to_player.y = 0.0
+	var distance := to_player.length()
+	var desired: Vector3
+	if distance < IDEAL_RANGE_MIN and distance > 0.05:
+		desired = bot_body.global_position - to_player.normalized() * 2.2
+	elif distance > IDEAL_RANGE_MAX and distance > 0.05:
+		desired = bot_body.global_position + to_player.normalized() * 2.0
+	else:
+		desired = _spawn_position + Vector3(
+			sin(_elapsed * 0.72) * MOVE_RADIUS_X,
+			0.0,
+			cos(_elapsed * 0.53) * MOVE_RADIUS_Z
+		)
+	desired.x = clampf(desired.x, -27.0, 27.0)
+	desired.z = clampf(desired.z, -27.0, 27.0)
 	var blend := clampf(delta * MOVE_SPEED, 0.0, 1.0)
 	bot_body.global_position = bot_body.global_position.lerp(desired, blend)
 	bot_body.global_position.y = 0.0
+
+
+func _try_dodge(bot_body: Node3D, player: Node3D) -> void:
+	if _dodge_cooldown_remaining > 0.0 or not player.has_method("is_attack_committed"):
+		return
+	if not bool(player.call("is_attack_committed")):
+		return
+	var away := bot_body.global_position - player.global_position
+	away.y = 0.0
+	if away.length_squared() < 0.01:
+		away = Vector3.RIGHT
+	else:
+		away = away.normalized()
+	_dodge_direction = Vector3(-away.z, 0.0, away.x).normalized()
+	if int(_attack_serial + int(_elapsed * 10.0)) % 2 == 0:
+		_dodge_direction = -_dodge_direction
+	_dodge_remaining = DODGE_DURATION
+	_dodge_cooldown_remaining = DODGE_COOLDOWN
 
 
 func _can_attack(bot_body: Node3D, player: Node3D) -> bool:

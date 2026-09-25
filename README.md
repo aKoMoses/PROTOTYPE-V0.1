@@ -132,7 +132,7 @@ visibilité, avant leur passe de carte jouable.
   neuf reste visuellement neutre jusqu'à un effet réellement appliqué.
 - **Tests automatisés :** `tools/test_visibility.gd` PASS pour le joueur et le mannequin :
   entrée, sortie, nom du bush, transition, occultation et SPOTTED.
-- **P0-112/P0-113 — bot d'entraînement local implémenté :** activé automatiquement dans
+- **P0-112/P0-114 — bot d'entraînement local implémenté :** activé automatiquement dans
   une partie desktop, désactivé dans les tests headless pour préserver le mannequin neutre.
   F7 active/désactive un déplacement doux dans une zone bornée,
   vérifie la ligne de vue et les bushs, puis annonce chaque frappe par un télégraphe au
@@ -141,15 +141,17 @@ visibilité, avant leur passe de carte jouable.
   BURN/SLOW/STUN/SPOTTED automatique. Une barre de PV verte et son compteur sont
   maintenant affichés au-dessus du joueur et suivent dégâts, soins, reset et Baroud.
   Leur ancrage monde est indépendant du yaw, du recul et des animations du robot, comme
-  pour l'interface du mannequin.
+  pour l'interface du mannequin. Le bot conserve une portée de combat lisible, se replace
+  vers une distance idéale et esquive une attaque engagée avec une direction latérale et
+  un cooldown visible par l'API de test, sans modifier les règles de dégâts ou d'effets.
 - **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
-  déplacement, télégraphe, dégâts reçus, synchronisation de la barre PV et absence
-  d'effets de statut injectés par le bot.
+  déplacement, maintien de portée, esquive, télégraphe, dégâts reçus, synchronisation de la
+  barre PV et absence d'effets de statut injectés par le bot.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-114 —
-  enrichir les patterns adverses (esquive, portée, cooldowns) sans toucher aux règles
-  d'effets.
+  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-115 —
+  ajouter une seconde télégraphie lisible (pression courte ou repli) et vérifier le
+  comportement du bot sur plusieurs obstacles sans toucher aux règles d'effets.
 
 ## Captures de validation
 
