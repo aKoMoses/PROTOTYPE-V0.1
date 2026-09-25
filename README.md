@@ -7,7 +7,7 @@ Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
 - arène 3D plus grande que l'écran ;
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
-- Electro Axe provisoire en combo de trois coups et Shotgun à six plombs à la souris ou avec la barre d'espace ;
+- Electro Axe provisoire en combo de trois coups et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
@@ -76,9 +76,13 @@ restent des repères visuels sans collision supplémentaire.
   BURN/SPOTTED, absorption, cooldown), Javelin (140 dégâts, marque, recast sans
   dégâts ni second cooldown, destination bloquée). Capture Mobile réelle inspectée
   pour `prototype0_drone.png` et `prototype0_javelin.png`.
-- **À vérifier ensuite :** test manuel du Shotgun avec F7, R et les collisions en jeu,
-  puis test manuel des modules F8/F9 et intégration des modules de mobilité. Prochaine
-  tâche : **P0-106 — Pyro Boots et Bio Injector**.
+- **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif sélectionné
+  (F8 alterne Modulo Drone/Javelin) ; E = emplacement défensif (présentation « à venir ») ;
+  R = emplacement mobilité (présentation « à venir ») ; G = changement d'arme ; T =
+  recharge manuelle du Shotgun. F9 conserve le lancement direct du Javelin pour les tests.
+- **À vérifier ensuite :** test manuel du Shotgun avec G, T et les collisions en jeu,
+  puis test manuel des modules avec A/F8/F9. Prochaine tâche : **P0-106 — Pyro Boots
+  et Bio Injector**.
 
 ## Captures de validation
 
@@ -118,5 +122,6 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 - `ZQSD`, `WASD` ou flèches : déplacement ;
 - souris : orienter l'attaque ;
 - clic gauche ou espace : utiliser l'arme active ;
-- `F7` : basculer Electro Axe / Shotgun ; `R` : recharger le Shotgun.
-- `F8` : lancer le Modulo Drone ; `F9` : lancer ou réactiver le Javelin.
+- `Espace` : auto-attaque (clic souris conservé sur PC) ; `G` : basculer Electro Axe / Shotgun ;
+- `A` : module offensif sélectionné ; `F8` : alterner Drone/Javelin ; `F9` : Javelin direct ;
+- `E` : emplacement défensif ; `R` : emplacement mobilité ; `T` : recharger le Shotgun.

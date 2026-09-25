@@ -78,6 +78,7 @@ var _javelin_collision_radius := 0.12
 var _javelin_mark_target: Node
 var _javelin_launch_token := 0
 var _module_busy := false
+var _offensive_module_id := "modulo_drone"
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -172,7 +173,7 @@ func _physics_process(delta: float) -> void:
 
 func _update_movement() -> void:
 	var input_vector := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
+	if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
 		input_vector.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 		input_vector.x += 1.0
@@ -252,9 +253,17 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_F7):
 		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
 	if _pressed_once(KEY_F8):
-		_perform_modulo_drone()
+		_cycle_offensive_module()
 	if _pressed_once(KEY_F9):
 		_perform_javelin()
+	if _pressed_once(KEY_G):
+		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
+	if _pressed_once(KEY_A):
+		_perform_offensive_module()
+	if _pressed_once(KEY_E):
+		_activate_defensive_module()
+	if _pressed_once(KEY_R):
+		_activate_mobility_module()
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -325,6 +334,33 @@ func set_weapon(weapon_id: String) -> void:
 		_attack_label.text = "ARME : %s" % ("ELECTRO AXE" if _weapon_id == "electro_axe" else "SHOTGUN")
 
 
+func get_offensive_module_id() -> String:
+	return _offensive_module_id
+
+
+func _cycle_offensive_module() -> void:
+	_offensive_module_id = "javelin" if _offensive_module_id == "modulo_drone" else "modulo_drone"
+	if _attack_label != null:
+		_attack_label.text = "OFFENSIF : %s" % ("JAVELIN" if _offensive_module_id == "javelin" else "MODULO DRONE")
+
+
+func _perform_offensive_module() -> void:
+	if _offensive_module_id == "javelin":
+		_perform_javelin()
+	else:
+		_perform_modulo_drone()
+
+
+func _activate_defensive_module() -> void:
+	if _attack_label != null:
+		_attack_label.text = "DÉFENSIF : À VENIR"
+
+
+func _activate_mobility_module() -> void:
+	if _attack_label != null:
+		_attack_label.text = "MOBILITÉ : À VENIR"
+
+
 func get_weapon_id() -> String:
 	return _weapon_id
 
@@ -354,7 +390,7 @@ func reset_module_state() -> void:
 
 
 func _update_shotgun_reload_input() -> void:
-	if _weapon_id == "shotgun" and _pressed_once(KEY_R):
+	if _weapon_id == "shotgun" and _pressed_once(KEY_T):
 		_start_shotgun_reload()
 
 
