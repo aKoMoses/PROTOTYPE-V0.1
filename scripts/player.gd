@@ -6,7 +6,7 @@ const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 
-@export var move_speed := 7.5
+@export var move_speed := 5.0
 @export var attack_interval := 0.55
 
 # Electro Axe V0.1 — values are loaded from CombatData so the weapon sheet,
@@ -79,6 +79,16 @@ var _javelin_mark_target: Node
 var _javelin_launch_token := 0
 var _module_busy := false
 var _offensive_module_id := "modulo_drone"
+var _mobility_module_id := "pyro_boots"
+var _dash_active := false
+var _dash_token := 0
+var _dash_direction := Vector3.ZERO
+var _dash_elapsed := 0.0
+var _last_move_direction := Vector3.ZERO
+var _bio_remaining := 0.0
+var _bio_speed_multiplier := 1.40
+var _bio_attack_speed_multiplier := 1.50
+var _bio_other_cooldown_rate := 1.428571
 var _attack_label: Label3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
@@ -149,13 +159,20 @@ func _load_axe_definition() -> void:
 	_javelin_mark_duration = float(javelin_definition.get("mark_duration", _javelin_mark_duration))
 	_javelin_teleport_distance = float(javelin_definition.get("teleport_distance", _javelin_teleport_distance))
 	_javelin_collision_radius = float(javelin_definition.get("collision_radius", _javelin_collision_radius))
+	var bio_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("bio_injector", {})
+	_bio_speed_multiplier = float(bio_definition.get("speed_multiplier", _bio_speed_multiplier))
+	_bio_attack_speed_multiplier = float(bio_definition.get("attack_speed_multiplier", _bio_attack_speed_multiplier))
+	_bio_other_cooldown_rate = float(bio_definition.get("other_cooldown_rate", _bio_other_cooldown_rate))
 
 
 func _physics_process(delta: float) -> void:
 	if combat_state != null:
 		combat_state.update(delta)
+	_update_module_cooldowns(delta)
 	_update_aim()
-	_update_movement()
+	if combat_state != null and combat_state.is_stunned() and _dash_active:
+		_cancel_dash()
+	_update_movement(delta)
 	_update_debug_effects()
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
@@ -171,7 +188,10 @@ func _physics_process(delta: float) -> void:
 	_update_axe_trail(delta)
 
 
-func _update_movement() -> void:
+func _update_movement(delta: float) -> void:
+	if _dash_active:
+		_update_dash(delta)
+		return
 	var input_vector := Vector2.ZERO
 	if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
 		input_vector.x -= 1.0
@@ -183,12 +203,15 @@ func _update_movement() -> void:
 		input_vector.y += 1.0
 
 	input_vector = input_vector.normalized()
+	if input_vector.length_squared() > 0.001:
+		_last_move_direction = Vector3(input_vector.x, 0.0, input_vector.y).normalized()
 	if combat_state != null and combat_state.is_stunned():
 		input_vector = Vector2.ZERO
 	var slow_multiplier := 1.0
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
-	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * slow_multiplier
+	var bio_multiplier := _bio_speed_multiplier if _bio_remaining > 0.0 else 1.0
+	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * bio_multiplier * slow_multiplier
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -250,12 +273,6 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_F6):
 		_show_debug_hitbox = not _show_debug_hitbox
 		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
-	if _pressed_once(KEY_F7):
-		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
-	if _pressed_once(KEY_F8):
-		_cycle_offensive_module()
-	if _pressed_once(KEY_F9):
-		_perform_javelin()
 	if _pressed_once(KEY_G):
 		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
 	if _pressed_once(KEY_A):
@@ -357,8 +374,7 @@ func _activate_defensive_module() -> void:
 
 
 func _activate_mobility_module() -> void:
-	if _attack_label != null:
-		_attack_label.text = "MOBILITÉ : À VENIR"
+	_perform_mobility_module()
 
 
 func get_weapon_id() -> String:
@@ -387,6 +403,11 @@ func reset_module_state() -> void:
 	_module_cooldowns.clear()
 	_module_busy = false
 	_javelin_mark_target = null
+	_dash_token += 1
+	_dash_active = false
+	_dash_direction = Vector3.ZERO
+	_dash_elapsed = 0.0
+	_bio_remaining = 0.0
 
 
 func _update_shotgun_reload_input() -> void:
@@ -416,6 +437,7 @@ func _perform_shotgun_attack() -> void:
 	_shotgun_ammo -= 1
 	_shotgun_attack_origin = global_position
 	_shotgun_attack_direction = aim_direction.normalized()
+	var attack_speed := get_attack_speed_multiplier()
 	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	var salvo := {
 		"id": token,
@@ -424,9 +446,9 @@ func _perform_shotgun_attack() -> void:
 		"critical_applied": false,
 		"credited": {},
 	}
-	var emission_timer := get_tree().create_timer(_shotgun_preparation, true, false, false)
+	var emission_timer := get_tree().create_timer(_shotgun_preparation / attack_speed, true, false, false)
 	emission_timer.timeout.connect(func() -> void: _emit_shotgun_salvo(token, salvo))
-	var finish_timer := get_tree().create_timer(_shotgun_preparation + _shotgun_recovery, true, false, false)
+	var finish_timer := get_tree().create_timer((_shotgun_preparation + _shotgun_recovery) / attack_speed, true, false, false)
 	finish_timer.timeout.connect(func() -> void: _finish_shotgun_attack(token))
 
 
@@ -587,8 +609,17 @@ func _update_javelin_mark() -> void:
 		_javelin_mark_target = null
 
 
+func _update_module_cooldowns(delta: float) -> void:
+	var bio_active := _bio_remaining > 0.0
+	if bio_active:
+		_bio_remaining = maxf(0.0, _bio_remaining - delta)
+	for module_id in _module_cooldowns.keys():
+		var rate := _bio_other_cooldown_rate if bio_active and module_id != "bio_injector" else 1.0
+		_module_cooldowns[module_id] = maxf(0.0, float(_module_cooldowns[module_id]) - delta * rate)
+
+
 func get_module_cooldown(module_id: String) -> float:
-	return maxf(0.0, float(_module_cooldowns.get(module_id, 0.0)) - Time.get_ticks_msec() / 1000.0)
+	return maxf(0.0, float(_module_cooldowns.get(module_id, 0.0)))
 
 
 func is_module_busy() -> bool:
@@ -600,7 +631,129 @@ func _module_ready(module_id: String) -> bool:
 
 
 func _start_module_cooldown(module_id: String, duration: float) -> void:
-	_module_cooldowns[module_id] = Time.get_ticks_msec() / 1000.0 + duration
+	_module_cooldowns[module_id] = maxf(0.0, duration)
+
+
+func get_mobility_module_id() -> String:
+	return _mobility_module_id
+
+
+func get_bio_remaining() -> float:
+	return _bio_remaining
+
+
+func get_current_move_speed() -> float:
+	var slow_multiplier := 1.0
+	if combat_state != null:
+		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
+	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier
+
+
+func get_attack_speed_multiplier() -> float:
+	return _bio_attack_speed_multiplier if _bio_remaining > 0.0 else 1.0
+
+
+func is_dash_active() -> bool:
+	return _dash_active
+
+
+func _perform_mobility_module() -> void:
+	if _mobility_module_id == "bio_injector":
+		_perform_bio_injector()
+	else:
+		_perform_pyro_boots()
+
+
+func _perform_pyro_boots() -> void:
+	if _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
+		return
+	var direction := _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
+	if direction.length_squared() <= 0.001:
+		return
+	_dash_token += 1
+	_dash_active = true
+	_dash_direction = direction.normalized()
+	_dash_elapsed = 0.0
+	_start_module_cooldown("pyro_boots", float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["cooldown"]))
+	if _attack_label != null:
+		_attack_label.text = "PYRO BOOTS  •  DASH"
+	_create_dash_fx(global_position)
+
+
+func _perform_bio_injector() -> void:
+	if _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
+		return
+	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
+	_bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+	if _attack_label != null:
+		_attack_label.text = "BIO INJECTOR  •  %.1fs" % _bio_remaining
+	_create_bio_fx()
+
+
+func _update_dash(delta: float) -> void:
+	if not _dash_active:
+		return
+	_dash_elapsed += delta
+	var dash_distance := float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_distance"])
+	var dash_duration := float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_duration"])
+	var step := dash_distance * delta / maxf(0.001, dash_duration)
+	var collision := move_and_collide(_dash_direction * step)
+	global_position.y = 0.0
+	if collision != null or _dash_elapsed >= dash_duration:
+		_finish_dash()
+
+
+func _finish_dash() -> void:
+	_dash_active = false
+	_dash_direction = Vector3.ZERO
+	if _attack_label != null:
+		_attack_label.text = "MOBILITÉ : PYRO BOOTS"
+
+
+func _cancel_dash() -> void:
+	if not _dash_active:
+		return
+	_dash_token += 1
+	_dash_active = false
+	_dash_direction = Vector3.ZERO
+	if _attack_label != null:
+		_attack_label.text = "DASH  •  INTERROMPU"
+
+
+func _create_dash_fx(origin: Vector3) -> void:
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.28
+	ring_mesh.outer_radius = 0.48
+	ring.mesh = ring_mesh
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = _create_fx_material(Color("#ff9a53"), 0.84)
+	get_tree().current_scene.add_child(ring)
+	ring.global_position = origin + Vector3.UP * 0.07
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.0, 0.18)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.84, 0.0, 0.18)
+	tween.set_parallel(false)
+	tween.tween_callback(ring.queue_free)
+
+
+func _create_bio_fx() -> void:
+	var pulse := MeshInstance3D.new()
+	var pulse_mesh := TorusMesh.new()
+	pulse_mesh.inner_radius = 0.48
+	pulse_mesh.outer_radius = 0.66
+	pulse.mesh = pulse_mesh
+	pulse.rotation_degrees.x = 90.0
+	pulse.material_override = _create_fx_material(Color("#73f0bb"), 0.80)
+	add_child(pulse)
+	pulse.position = Vector3(0.0, 0.08, 0.0)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(pulse, "scale", Vector3.ONE * 1.35, 0.35)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(pulse.material_override), 0.80, 0.0, 0.35)
+	tween.set_parallel(false)
+	tween.tween_callback(pulse.queue_free)
 
 
 func _module_target() -> Node:
@@ -859,16 +1012,17 @@ func _perform_axe_attack() -> void:
 	_axe_attack_impact_point = _axe_attack_origin + _axe_attack_direction * float(_axe_wave_outer_radius)
 	_combo_expires_at = -1.0
 	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
-	_play_axe_animation(step)
-	_begin_axe_trail(step)
-	var total := float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])
+	var attack_speed := get_attack_speed_multiplier()
+	_play_axe_animation(step, attack_speed)
+	_begin_axe_trail(step, attack_speed)
+	var total := (float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])) / attack_speed
 	if step < 2:
-		var strike_timer := get_tree().create_timer(float(_axe_preparation[step]) + float(_axe_active[step]) * 0.5, true, false, false)
+		var strike_timer := get_tree().create_timer((float(_axe_preparation[step]) + float(_axe_active[step]) * 0.5) / attack_speed, true, false, false)
 		strike_timer.timeout.connect(func() -> void: _resolve_axe_strike(token, step))
 	else:
-		var center_timer := get_tree().create_timer(float(_axe_preparation[step]), true, false, false)
+		var center_timer := get_tree().create_timer(float(_axe_preparation[step]) / attack_speed, true, false, false)
 		center_timer.timeout.connect(func() -> void: _resolve_axe_center(token))
-		var wave_timer := get_tree().create_timer(float(_axe_preparation[step]) + float(_axe_active[step]), true, false, false)
+		var wave_timer := get_tree().create_timer((float(_axe_preparation[step]) + float(_axe_active[step])) / attack_speed, true, false, false)
 		wave_timer.timeout.connect(func() -> void: _resolve_axe_wave(token))
 	var finish_timer := get_tree().create_timer(total, true, false, false)
 	finish_timer.timeout.connect(func() -> void: _finish_axe_attack(token))
@@ -997,28 +1151,29 @@ func _axe_path_clear(target: Node, from_position: Vector3, to_position: Vector3)
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
-func _play_axe_animation(step: int) -> void:
+func _play_axe_animation(step: int, speed_multiplier: float = 1.0) -> void:
 	if _axe_pivot == null:
 		return
+	var speed_scale := 1.0 / maxf(0.01, speed_multiplier)
 	var tween := create_tween()
 	tween.set_parallel(false)
-	tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.01)
-	tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.01)
+	tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.01 * speed_scale)
+	tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.01 * speed_scale)
 	if step == 0:
 		# A readable thrust: the weapon lunges toward the target and snaps back.
-		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -0.20), 0.20)
-		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.10)
-		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.25)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -0.20), 0.20 * speed_scale)
+		tween.tween_property(_axe_pivot, "position", Vector3(0.5, 1.0, -1.65), 0.10 * speed_scale)
+		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.25 * speed_scale)
 	elif step == 1:
 		# A lateral sweep, with a brief anticipation in the opposite direction.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.20)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.10)
-		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.30)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(-65.0), deg_to_rad(-12.0)), 0.20 * speed_scale)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(0.0, deg_to_rad(78.0), deg_to_rad(14.0)), 0.10 * speed_scale)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.30 * speed_scale)
 	else:
 		# Overhead slam: weapon rises, pauses, then drives down into the floor.
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.35)
-		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.25)
-		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.25)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(-72.0), 0.0, 0.0), 0.35 * speed_scale)
+		tween.tween_property(_axe_pivot, "rotation", Vector3(deg_to_rad(78.0), 0.0, 0.0), 0.25 * speed_scale)
+		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.25 * speed_scale)
 	if _robot_visuals != null:
 		var recoil := create_tween()
 		recoil.tween_property(_robot_visuals, "position", -aim_direction * (0.10 if step < 2 else 0.18), 0.06)
@@ -1034,11 +1189,11 @@ func _play_axe_animation(step: int) -> void:
 		rig.call("shake", 0.05 if step < 2 else 0.13)
 
 
-func _begin_axe_trail(step: int) -> void:
+func _begin_axe_trail(step: int, speed_multiplier: float = 1.0) -> void:
 	_finish_axe_trail(0.08)
 	_trail_points.clear()
 	_trail_elapsed = 0.0
-	_trail_duration = float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])
+	_trail_duration = (float(_axe_preparation[step]) + float(_axe_active[step]) + float(_axe_recovery[step])) / maxf(0.01, speed_multiplier)
 	_trail_width = [0.07, 0.24, 0.13][step]
 	_trail_active = true
 	_trail_mesh = MeshInstance3D.new()

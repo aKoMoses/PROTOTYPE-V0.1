@@ -58,8 +58,8 @@ restent des repères visuels sans collision supplémentaire.
   20 jusqu'à 3 m puis décroissance linéaire jusqu'à 8. Les obstacles absorbent chaque
   plomb. Les six impacts sur la même cible ajoutent le multiplicateur critique 1,5 et
   appliquent BURN ; cinq impacts n'appliquent pas BURN. Cadence 0,10 s de préparation
-  + 0,60 s de récupération, chargeur de 3 salves, recharge automatique ou R en 1,80 s.
-  F7 bascule Electro Axe/Shotgun. Les projectiles visuels partent du point d'arme et un
+  + 0,60 s de récupération, chargeur de 3 salves, recharge automatique ou T en 1,80 s.
+  G bascule Electro Axe/Shotgun. Les projectiles visuels partent du point d'arme et un
   identifiant unique empêche tout double impact.
 - **Tests automatisés :** `tools/test_shotgun.gd` PASS : 6/6 critique + BURN, 5/6 sans
   BURN, absorption par obstacle, chargeur 3 salves et recharge 1,80 s. Les tests
@@ -69,20 +69,25 @@ restent des repères visuels sans collision supplémentaire.
   5 s, cooldown 10 s) et Javelin (préparation 0,12 s, portée 8 m, 140 dégâts, marque
   2,5 s, cooldown 12 s). Les deux projectiles sont arrêtés par les obstacles. Le
   second appui Javelin tente une téléportation à 1,4 m derrière la cible avec deux
-  variantes à ±30° ; une destination invalide conserve la marque. F8 lance le Drone,
-  F9 lance ou réactive le Javelin. Les marqueurs et cooldowns sont visibles sur le
-  mannequin et les identifiants empêchent les doubles impacts.
+  variantes à ±30° ; une destination invalide conserve la marque. Le slot offensif A
+  lance le module équipé (Drone par défaut dans ce prototype). Les marqueurs et
+  cooldowns sont visibles sur le mannequin et les identifiants empêchent les doubles impacts.
 - **Tests automatisés :** `tools/test_offensive_modules.gd` PASS : Drone (dégâts,
   BURN/SPOTTED, absorption, cooldown), Javelin (140 dégâts, marque, recast sans
   dégâts ni second cooldown, destination bloquée). Capture Mobile réelle inspectée
   pour `prototype0_drone.png` et `prototype0_javelin.png`.
-- **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif sélectionné
-  (F8 alterne Modulo Drone/Javelin) ; E = emplacement défensif (présentation « à venir ») ;
-  R = emplacement mobilité (présentation « à venir ») ; G = changement d'arme ; T =
-  recharge manuelle du Shotgun. F9 conserve le lancement direct du Javelin pour les tests.
-- **À vérifier ensuite :** test manuel du Shotgun avec G, T et les collisions en jeu,
-  puis test manuel des modules avec A/F8/F9. Prochaine tâche : **P0-106 — Pyro Boots
-  et Bio Injector**.
+- **P0-106 — implémenté, à tester manuellement :** slot mobilité R avec Pyro Boots
+  (dash 3 m en 0,18 s, arrêt aux obstacles, cooldown 6 s, interruption par STUN) et
+  Bio Injector (buff 3 s, +40 % déplacement, +50 % vitesse d'attaque, accélération des
+  cooldowns externes, cooldown 18 s). Les attaques mémorisent leur multiplicateur au
+  démarrage ; la recharge Shotgun et les durées d'effets restent inchangées.
+- **Tests automatisés :** `tools/test_mobility_modules.gd` PASS : dash, obstacle, STUN,
+  buff de vitesse, slow multiplicatif, cadence d'attaque et cooldowns accélérés.
+- **Raccourcis de test actuels :** Espace = auto-attaque ; A = module offensif équipé ;
+  E = emplacement défensif (prochain lot) ; R = module mobilité ; G = changement d'arme ;
+  T = recharge manuelle du Shotgun. F1–F6 restent uniquement les diagnostics du mannequin.
+- **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
+  de la mobilité avec R. Prochaine tâche : **P0-107 — Magnetic Field et Static Shield**.
 
 ## Captures de validation
 
@@ -123,5 +128,5 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 - souris : orienter l'attaque ;
 - clic gauche ou espace : utiliser l'arme active ;
 - `Espace` : auto-attaque (clic souris conservé sur PC) ; `G` : basculer Electro Axe / Shotgun ;
-- `A` : module offensif sélectionné ; `F8` : alterner Drone/Javelin ; `F9` : Javelin direct ;
-- `E` : emplacement défensif ; `R` : emplacement mobilité ; `T` : recharger le Shotgun.
+- `A` : module offensif équipé ; `E` : module défensif ; `R` : module mobilité ;
+- `T` : recharger le Shotgun.

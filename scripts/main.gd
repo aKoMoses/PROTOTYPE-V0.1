@@ -1432,7 +1432,7 @@ func _build_interface() -> void:
 
 	var help := Label.new()
 	help.position = Vector2(24.0, 54.0)
-	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Espace : auto-attaque\nA : offensif   •   E : défensif   •   R : mobilité   •   G : changer d'arme\nT : recharger le Shotgun   •   F8 : choisir Drone/Javelin   •   F9 : Javelin direct\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement.\nLab mannequin : F1 BURN • F2 SLOW • F3 STUN • F4 SPOTTED • F5 RESET • F6 HITBOX"
+	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Espace : auto-attaque\nA : offensif   •   E : défensif   •   R : mobilité   •   G : changer d'arme\nT : recharger le Shotgun   •   F1–F6 : diagnostic du mannequin uniquement\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement.\nLab mannequin : F1 BURN • F2 SLOW • F3 STUN • F4 SPOTTED • F5 RESET • F6 HITBOX"
 	help.add_theme_font_size_override("font_size", 17)
 	help.add_theme_color_override("font_color", Color.WHITE)
 	layer.add_child(help)
