@@ -1419,6 +1419,11 @@ func _build_target() -> void:
 	target.set_script(TARGET_SCRIPT)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	add_child(target)
+	# Match start is always clean. This is intentionally explicit even though
+	# TargetDummy creates a fresh CombatState in _ready(): it protects the
+	# gameplay scene from any editor/capture reuse and keeps diagnostic effects
+	# (F1-F4) opt-in instead of leaking into a new round.
+	target.call("reset_combat_state")
 
 
 func _build_interface() -> void:

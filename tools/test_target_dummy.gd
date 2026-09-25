@@ -11,6 +11,9 @@ func _initialize() -> void:
 	if target == null:
 		_failures.append("TargetDummy introuvable")
 	else:
+		var initial_effects: Array = target.call("get_active_effect_types")
+		if not initial_effects.is_empty():
+			_failures.append("mannequin contaminé au démarrage: %s" % str(initial_effects))
 		target.call("apply_burn", 3.5, 20.0, "integration")
 		target.call("apply_slow", 1.0, 30.0, "integration")
 		target.call("apply_stun", 0.5, "integration")
