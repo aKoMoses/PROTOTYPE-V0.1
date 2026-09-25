@@ -138,9 +138,11 @@ visibilité, avant leur passe de carte jouable.
   vérifie la ligne de vue et les bushs, puis annonce chaque frappe par un télégraphe au
   sol avant de résoudre l'impact. Un projectile orange et un flash rendent l'impact
   visible. Il inflige uniquement des dégâts simples et n'applique volontairement aucun
-  BURN/SLOW/STUN/SPOTTED automatique.
+  BURN/SLOW/STUN/SPOTTED automatique. Une barre de PV verte et son compteur sont
+  maintenant affichés au-dessus du joueur et suivent dégâts, soins, reset et Baroud.
 - **Test automatisé :** `tools/test_training_bot.gd` PASS : état initial propre, activation,
-  déplacement, télégraphe, dégâts reçus et absence d'effets de statut injectés par le bot.
+  déplacement, télégraphe, dégâts reçus, synchronisation de la barre PV et absence
+  d'effets de statut injectés par le bot.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
   Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-114 —
