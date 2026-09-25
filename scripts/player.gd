@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+signal bush_state_changed(in_bush: bool, bush_name: String)
+
 const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
@@ -87,6 +89,9 @@ var _mobility_module_id := "pyro_boots"
 var _passive_id := "baroud"
 var passive_state
 var visibility_state
+var _current_bush: Node3D
+var _current_bush_name := ""
+var _bush_transition_clock := 0.0
 var _dash_active := false
 var _dash_token := 0
 var _dash_direction := Vector3.ZERO
@@ -213,6 +218,7 @@ func _physics_process(delta: float) -> void:
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
 	_update_movement(delta)
+	_update_bush_state(delta)
 	_update_debug_effects()
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
@@ -352,16 +358,63 @@ func is_revealed() -> bool:
 
 
 func is_in_bush() -> bool:
+	_sync_bush_state()
+	return _current_bush != null and is_instance_valid(_current_bush)
+
+
+func get_current_bush_name() -> String:
+	return _current_bush_name if is_in_bush() else ""
+
+
+func get_bush_transition_clock() -> float:
+	return _bush_transition_clock
+
+
+func is_visible_to(observer: Node3D) -> bool:
+	if observer == null or not is_instance_valid(observer):
+		return true
+	if observer == self:
+		return true
+	var world := get_world_3d()
+	if world == null:
+		return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), true)
+	var query := PhysicsRayQueryParameters3D.create(observer.global_position + Vector3.UP * 0.72, global_position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [observer.get_rid(), get_rid()]
+	var line_of_sight := world.direct_space_state.intersect_ray(query).is_empty()
+	return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), line_of_sight)
+
+
+func _update_bush_state(delta: float) -> void:
+	_sync_bush_state()
+	_bush_transition_clock = maxf(0.0, _bush_transition_clock - delta)
+
+
+func _sync_bush_state() -> void:
+	var next_bush := _find_bush_at_position()
+	var changed := next_bush != _current_bush
+	_current_bush = next_bush
+	_current_bush_name = str(next_bush.name) if next_bush != null else ""
+	if changed:
+		_bush_transition_clock = 0.22
+		bush_state_changed.emit(_current_bush != null, _current_bush_name)
+
+
+func _find_bush_at_position() -> Node3D:
 	var space := get_tree()
 	if space == null:
-		return false
+		return null
 	for bush in space.get_nodes_in_group("bush_placeholder"):
 		if not is_instance_valid(bush):
 			continue
 		var radius := float(bush.get_meta("bush_radius", 0.0))
+		if radius <= 0.0:
+			continue
 		if Vector2(global_position.x - bush.global_position.x, global_position.z - bush.global_position.z).length() <= radius:
-			return true
-	return false
+			return bush as Node3D
+	return null
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
@@ -483,6 +536,9 @@ func reset_combat_state() -> void:
 		passive_state.reset()
 	if visibility_state != null:
 		visibility_state.reset()
+	_current_bush = _find_bush_at_position()
+	_current_bush_name = str(_current_bush.name) if _current_bush != null else ""
+	_bush_transition_clock = 0.0
 	reset_axe_state()
 	reset_shotgun_state()
 	reset_module_state()

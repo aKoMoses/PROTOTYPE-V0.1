@@ -122,11 +122,18 @@ visibilité, avant leur passe de carte jouable.
   internes, et les bushs sont maintenant des touffes de hautes herbes plus larges,
   plus longues et plus denses. Le disque sombre au pied des bushs a été supprimé :
   aucune collision décorative n'a été ajoutée.
+- **P0-111 — implémenté, à tester manuellement :** le joueur synchronise maintenant
+  son entrée/sortie de hautes herbes (signal `bush_state_changed`, nom du volume actif,
+  petite fenêtre de transition) et expose la même règle `is_visible_to` que le mannequin
+  pour un futur bot. La détection se resynchronise immédiatement après un déplacement,
+  sans modifier les collisions, les attaques ou le suivi caméra.
+- **Tests automatisés :** `tools/test_visibility.gd` PASS pour le joueur et le mannequin :
+  entrée, sortie, nom du bush, transition, occultation et SPOTTED.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
   Le mannequin reste volontairement passif ; son déplacement/attaque relèvera du futur
-  bot local. Prochaine tâche : **P0-111 — visibilité locale du joueur et entrée/sortie
-  des bushs**, puis bot local pour tester les attaques adverses.
+  bot local. Prochaine tâche : **P0-112 — bot d'entraînement local**, limité aux
+  déplacements, lignes de vue et attaques lisibles pour tester les règles adverses.
 
 ## Captures de validation
 

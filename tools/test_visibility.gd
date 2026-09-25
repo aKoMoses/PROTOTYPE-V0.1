@@ -18,7 +18,7 @@ func _initialize() -> void:
 		await _test_obstacle_reveal(player, target, scene)
 		await _test_refused_activation(player, scene)
 	if _failures.is_empty():
-		print("P0-109 VISIBILITY TEST: PASS")
+		print("P0-111 VISIBILITY TEST: PASS")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -49,6 +49,18 @@ func _test_bush_and_spotted(player: Node, target: Node) -> void:
 		_failures.append("Bush : aucun volume de test présent")
 		return
 	var bush: Node3D = bushes[0] as Node3D
+	player.global_position = bush.global_position
+	await physics_frame
+	if not bool(player.call("is_in_bush")):
+		_failures.append("Bush joueur : entrée dans les hautes herbes non détectée")
+	if str(player.call("get_current_bush_name")) != str(bush.name):
+		_failures.append("Bush joueur : nom du volume actif incorrect")
+	if float(player.call("get_bush_transition_clock")) <= 0.0:
+		_failures.append("Bush joueur : transition d'entrée absente")
+	player.global_position = bush.global_position + Vector3(4.0, 0.0, 0.0)
+	await physics_frame
+	if bool(player.call("is_in_bush")) or str(player.call("get_current_bush_name")) != "":
+		_failures.append("Bush joueur : sortie des hautes herbes non détectée")
 	target.global_position = bush.global_position
 	await process_frame
 	if not bool(target.call("is_in_bush")) or bool(target.call("is_visible_to", player)):
