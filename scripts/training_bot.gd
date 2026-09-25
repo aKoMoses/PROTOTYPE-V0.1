@@ -29,6 +29,9 @@ var _spawn_position := Vector3.ZERO
 var _windup_remaining := 0.0
 var _windup_player: Node3D
 var _telegraph_ring: MeshInstance3D
+var _telegraph_line: MeshInstance3D
+var _telegraph_target: MeshInstance3D
+var _telegraph_beacon: MeshInstance3D
 var _telegraph_clock := 0.0
 var _dodge_remaining := 0.0
 var _dodge_cooldown_remaining := 0.0
@@ -363,11 +366,60 @@ func _build_telegraph() -> void:
 	material.emission_energy_multiplier = 2.4
 	_telegraph_ring.material_override = material
 	_telegraph_ring.visible = false
-	add_child(_telegraph_ring)
+	_add_telegraph_node(_telegraph_ring)
+
+	# Secondary floor telegraph: a readable lane and destination marker. These
+	# are visual-only and deliberately do not participate in physics or damage.
+	_telegraph_line = MeshInstance3D.new()
+	_telegraph_line.name = "AttackTelegraphLine"
+	var line_mesh := BoxMesh.new()
+	line_mesh.size = Vector3(0.18, 0.035, 1.0)
+	_telegraph_line.mesh = line_mesh
+	_telegraph_line.top_level = true
+	_telegraph_line.position.y = 0.10
+	_telegraph_line.material_override = _fx_material(Color("#ffb25c"), 1.0, Color("#ff4d2f"))
+	_telegraph_line.visible = false
+	_add_telegraph_node(_telegraph_line)
+
+	_telegraph_target = MeshInstance3D.new()
+	_telegraph_target.name = "AttackTelegraphTarget"
+	var target_mesh := TorusMesh.new()
+	target_mesh.inner_radius = 0.52
+	target_mesh.outer_radius = 0.68
+	target_mesh.rings = 10
+	target_mesh.ring_segments = 24
+	_telegraph_target.mesh = target_mesh
+	_telegraph_target.top_level = true
+	_telegraph_target.position.y = 0.11
+	_telegraph_target.rotation_degrees.x = 90.0
+	_telegraph_target.material_override = _fx_material(Color("#ffd17a"), 1.0, Color("#ff4b25"))
+	_telegraph_target.visible = false
+	_add_telegraph_node(_telegraph_target)
+
+	_telegraph_beacon = MeshInstance3D.new()
+	_telegraph_beacon.name = "AttackTelegraphBeacon"
+	var beacon_mesh := CylinderMesh.new()
+	beacon_mesh.top_radius = 0.05
+	beacon_mesh.bottom_radius = 0.18
+	beacon_mesh.height = 0.42
+	beacon_mesh.radial_segments = 8
+	_telegraph_beacon.mesh = beacon_mesh
+	_telegraph_beacon.top_level = true
+	_telegraph_beacon.material_override = _fx_material(Color("#ffe0a2"), 1.0, Color("#ff5a2d"))
+	_telegraph_beacon.visible = false
+	_add_telegraph_node(_telegraph_beacon)
+
+
+func _add_telegraph_node(node: Node) -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null:
+		scene.add_child(node)
+	else:
+		add_child(node)
 
 
 func _update_telegraph() -> void:
-	if _telegraph_ring == null:
+	if _telegraph_ring == null or _telegraph_line == null or _telegraph_target == null or _telegraph_beacon == null:
 		return
 	var bot_body := get_parent() as Node3D
 	var scene := get_tree().current_scene if get_tree() != null else null
@@ -375,7 +427,25 @@ func _update_telegraph() -> void:
 	var visible_to_player := true
 	if bot_body != null and player != null and bot_body.has_method("is_visible_to"):
 		visible_to_player = bool(bot_body.call("is_visible_to", player))
-	_telegraph_ring.visible = enabled and _windup_remaining > 0.0 and visible_to_player
-	if _telegraph_ring.visible:
-		var pulse := 1.0 + sin(_telegraph_clock * 18.0) * 0.12
-		_telegraph_ring.scale = Vector3.ONE * pulse
+	var active := enabled and _windup_remaining > 0.0 and visible_to_player and _windup_player != null and is_instance_valid(_windup_player)
+	_telegraph_ring.visible = active
+	_telegraph_line.visible = active
+	_telegraph_target.visible = active
+	_telegraph_beacon.visible = active
+	if not active:
+		return
+	var target_position := _windup_player.global_position
+	var bot_position := bot_body.global_position if bot_body != null else Vector3.ZERO
+	var flat_delta := target_position - bot_position
+	flat_delta.y = 0.0
+	var distance := maxf(flat_delta.length(), 0.05)
+	var pulse := 1.0 + sin(_telegraph_clock * 18.0) * 0.12
+	_telegraph_ring.global_position = bot_position + Vector3.UP * 0.08
+	_telegraph_ring.scale = Vector3.ONE * pulse
+	_telegraph_target.global_position = target_position + Vector3.UP * 0.11
+	_telegraph_target.scale = Vector3.ONE * (0.92 + sin(_telegraph_clock * 16.0) * 0.10)
+	_telegraph_beacon.global_position = target_position + Vector3.UP * (2.55 + sin(_telegraph_clock * 14.0) * 0.08)
+	_telegraph_beacon.scale = Vector3.ONE * (0.92 + sin(_telegraph_clock * 18.0) * 0.13)
+	_telegraph_line.global_position = bot_position + flat_delta * 0.5 + Vector3.UP * 0.10
+	_telegraph_line.look_at(target_position + Vector3.UP * 0.10, Vector3.UP)
+	_telegraph_line.scale = Vector3(1.0, 1.0, distance)

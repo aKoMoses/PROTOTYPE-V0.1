@@ -164,14 +164,20 @@ visibilité, avant leur passe de carte jouable.
   caméra, tandis que l'Electro Axe conserve ses poses d'estoc, de cleave et de slam avec un
   mouvement d'attente cohérent. Les bushs ont été réduits en volume pour rouvrir les lignes
   de combat tout en gardant une couverture visuelle dense.
+- **P0-117 — télégraphie secondaire du bot :** pendant son wind-up, le bot affiche désormais
+  son anneau de préparation, une ligne de trajectoire au sol et une cible pulsante qui suit
+  le joueur. Un marqueur vertical émissif renforce la lecture de la zone visée depuis la
+  caméra oblique. Ces éléments sont visuels uniquement : ils ne créent ni dégâts, ni
+  collision, ni révélation à travers un obstacle ; ils disparaissent dès que la préparation
+  se termine ou si la cible n'est plus visible.
 - **Vérifications :** `tools/test_shotgun.gd`, `tools/test_training_bot.gd`,
   `tools/test_electro_axe.gd`, `tools/test_target_dummy.gd`, `tools/test_visibility.gd` et
   `tools/test_offensive_modules.gd` PASS après cette passe.
 - **À vérifier ensuite :** test manuel du Shotgun avec G/T, du module offensif avec A et
   de la mobilité avec R, puis du défensif avec E, du passif équipé et des hautes herbes.
-  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-117 —
-  vérification manuelle des poses de locomotion et ajustement fin des timings d'armes si
-  nécessaire, puis télégraphie secondaire du bot.
+  Le mannequin reste passif tant que F7 est désactivé. Prochaine tâche : **P0-118 —
+  vérification manuelle des timings d'armes et première passe de réaction visuelle du bot
+  à l'impact.
 
 ## Captures de validation
 
@@ -190,6 +196,8 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   mannequin robotique après la passe P0-115.
 - `prototype0_shotgun_live.png` : capture Godot pendant le déplacement des projectiles
   coniques et du flash du shotgun (`shotgun_live` conserve la salve visible quelques frames).
+- `prototype0_bot_telegraph.png` : capture Godot pendant le wind-up du bot, avec sa ligne de
+  danger, sa cible pulsante et son marqueur visuel.
 - `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
   offensifs et de leurs impacts sur le mannequin.
 - `prototype0_magnetic.png`, `prototype0_stasis.png` et `prototype0_baroud.png` :

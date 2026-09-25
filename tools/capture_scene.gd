@@ -50,6 +50,19 @@ func _initialize() -> void:
 			shotgun_target.call("reset_combat_state")
 			shotgun_player.call("_perform_shotgun_attack")
 			print("CAPTURE SHOTGUN: salvo started")
+	if arguments.size() >= 4 and arguments[3] == "bot":
+		var bot_player := scene.get_node_or_null("Player")
+		var bot_target := scene.get_node_or_null("TargetDummy")
+		if bot_player != null and bot_target != null:
+			bot_player.position = Vector3(-5.0, 0.0, 3.0)
+			bot_target.position = Vector3(-5.0, 0.0, -3.0)
+			bot_target.call("reset_combat_state")
+			bot_target.call("apply_spotted", 5.0, "capture")
+			bot_target.call("set_training_bot_enabled", true)
+			var training_bot := bot_target.get_node_or_null("TrainingBot")
+			if training_bot != null:
+				training_bot.set("_next_attack_at", 0.12)
+			print("CAPTURE BOT: telegraph started")
 	if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin"):
 		var module_player := scene.get_node_or_null("Player")
 		var module_target := scene.get_node_or_null("TargetDummy")
@@ -90,6 +103,7 @@ func _initialize() -> void:
 			"axe": settle_frames = 50
 			"shotgun_live": settle_frames = 6
 			"shotgun": settle_frames = 22
+			"bot": settle_frames = 18
 			"drone", "javelin": settle_frames = 32
 			"magnetic": settle_frames = 18
 			"stasis", "baroud": settle_frames = 12
