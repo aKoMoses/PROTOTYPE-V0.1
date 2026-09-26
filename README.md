@@ -209,8 +209,15 @@ visibilité, avant leur passe de carte jouable.
   cooldowns, hitboxes, collisions et effets existants. Le build Android et le framerate
   sur appareil réel restent à valider dès qu'un environnement d'export et un téléphone
   seront disponibles.
-- **Prochaine tâche :** P0-121 — écran tactile réel, safe areas/notch et validation de
-  lisibilité sur plusieurs ratios mobiles.
+- **Prochaine tâche :** P0-122 — export Android et validation tactile réelle sur un
+  téléphone, avec mesure du framerate et ajustements finaux de lisibilité.
+- **P0-121 — layout tactile responsive :** les zones de contrôle utilisent maintenant la
+  safe area renvoyée par Godot, une échelle dérivée du plus petit côté de l'écran et des
+  marges adaptées aux formats portrait/paysage. Les joysticks, boutons et libellés restent
+  dans la zone sûre ; la disposition desktop et le rendu de jeu PC ne changent pas.
+  `tools/test_touch_controls.gd` confirme l'initialisation et le câblage des actions.
+- **Limite de validation :** aucune capture tactile réelle ni export Android n'a été
+  exécuté dans cet environnement ; la validation finale sur téléphone reste nécessaire.
 
 ## Captures de validation
 
