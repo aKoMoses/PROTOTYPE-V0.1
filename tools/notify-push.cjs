@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
 
 const SITE_URL = 'https://prototype-zero-site.vercel.app';
 const AUTHORS = { morepudding: 'BotteroRomain', BotteroRomain: 'BotteroRomain', aKoMoses: 'aKoMoses' };
@@ -7,8 +8,8 @@ function clean(value, limit = 120) {
   return String(value || '').split('\n')[0].replace(/[.!?*_`~|<>@\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
 
-function fileAreas(commits) {
-  const paths = commits.flatMap(commit => [...(commit.added || []), ...(commit.modified || []), ...(commit.removed || [])]);
+function fileAreas(commits, fallbackPaths = []) {
+  const paths = [...fallbackPaths, ...commits.flatMap(commit => [...(commit.added || []), ...(commit.modified || []), ...(commit.removed || [])])];
   const areas = new Set();
   for (const path of paths) {
     if (path.startsWith('scenes/')) areas.add('les scènes');
@@ -22,7 +23,7 @@ function fileAreas(commits) {
   return [...areas].slice(0, 3).join(', ') || 'le projet';
 }
 
-function buildPush(event) {
+function buildPush(event, fallbackPaths = []) {
   const author = AUTHORS[event.sender?.login] || AUTHORS[event.pusher?.name];
   if (!author) throw new Error('Unknown game contributor');
   const commits = event.commits || [];
@@ -31,7 +32,7 @@ function buildPush(event) {
   const summary = [
     `${author} a publié ${count} commit${count > 1 ? 's' : ''} sur la branche principale.`,
     titles.length ? `Les changements annoncés sont « ${titles.slice(0, 3).join(' », « ')} »${titles.length > 3 ? ' et d’autres' : ''}.` : 'Le détail des commits n’est pas disponible.',
-    `Les fichiers touchés concernent ${fileAreas(commits)}.`
+    `Les fichiers touchés concernent ${fileAreas(commits, fallbackPaths)}.`
   ].join(' ');
   const commit = event.after;
   const record = {
@@ -51,7 +52,11 @@ async function main() {
   const secret = process.env.GAME_PUSH_SECRET;
   if (!webhook || !secret) throw new Error('Discord or site push secret is not configured');
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-  const { record, content } = buildPush(event);
+  let changedPaths = [];
+  try {
+    changedPaths = execFileSync('git', ['diff', '--name-only', event.before, event.after], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
+  } catch (_) { /* Commit metadata remains usable if this diff is unavailable. */ }
+  const { record, content } = buildPush(event, changedPaths);
   const saved = await fetch(`${SITE_URL}/api/game-pushes`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
     body: JSON.stringify(record)

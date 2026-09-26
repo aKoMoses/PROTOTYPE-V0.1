@@ -15,3 +15,11 @@ test('summarizes a push in three sentences and links to its pull confirmation', 
   assert.match(result.content, new RegExp(`patchs\\.html#push-${sha}`));
   assert.match(result.record.summary, /les scènes, le gameplay/);
 });
+
+test('uses Git diff paths when the push event omits file lists', () => {
+  const result = buildPush({
+    after: 'b'.repeat(40), sender: { login: 'aKoMoses' },
+    commits: [{ message: 'Tune combat', added: [], modified: [], removed: [] }]
+  }, ['scripts/combat_state.gd']);
+  assert.match(result.record.summary, /le gameplay/);
+});
