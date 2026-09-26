@@ -10,7 +10,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var fallback: Dictionary = loadout_script.sanitize({"weapon": "unknown", "passive": "bad"})
-	if fallback.weapon != "electro_axe" or fallback.passive != "baroud":
+	if fallback.weapon != "blaster" or fallback.passive != "baroud":
 		push_error("FAIL: fallback équipement invalide")
 		quit(1)
 		return

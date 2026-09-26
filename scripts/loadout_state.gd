@@ -7,7 +7,7 @@ extends RefCounted
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const SAVE_PATH := "user://prototype0_loadout.cfg"
 
-const WEAPONS := ["electro_axe", "shotgun"]
+const WEAPONS := ["blaster", "shotgun"]
 const OFFENSIVE := ["modulo_drone", "javelin"]
 const DEFENSIVE := ["magnetic_field", "static_shield"]
 const MOBILITY := ["pyro_boots", "bio_injector"]
@@ -15,7 +15,7 @@ const PASSIVES := ["baroud", "omnivamp"]
 
 static func defaults() -> Dictionary:
 	return {
-		"weapon": "electro_axe",
+		"weapon": "blaster",
 		"offensive": "modulo_drone",
 		"defensive": "magnetic_field",
 		"mobility": "pyro_boots",
@@ -48,7 +48,7 @@ static func load_local() -> Dictionary:
 	if config.load(SAVE_PATH) != OK:
 		return defaults()
 	var raw := {
-		"weapon": config.get_value("loadout", "weapon", "electro_axe"),
+		"weapon": config.get_value("loadout", "weapon", "blaster"),
 		"offensive": config.get_value("loadout", "offensive", "modulo_drone"),
 		"defensive": config.get_value("loadout", "defensive", "magnetic_field"),
 		"mobility": config.get_value("loadout", "mobility", "pyro_boots"),
@@ -66,7 +66,7 @@ static func save_local(value: Dictionary) -> bool:
 
 static func display_name(identifier: String) -> String:
 	var names := {
-		"electro_axe": "ELECTRO AXE",
+		"blaster": "BLASTER",
 		"shotgun": "SHOTGUN",
 		"modulo_drone": "MODULO DRONE",
 		"javelin": "JAVELIN",
@@ -81,7 +81,7 @@ static func display_name(identifier: String) -> String:
 
 static func category_description(identifier: String) -> String:
 	var descriptions := {
-		"electro_axe": "Combo 3 coups : estoc, cleave puis onde de choc.",
+		"blaster": "Tir précis ou tir chargé jusqu’à 50 dégâts.",
 		"shotgun": "6 plombs coniques, 3 salves, recharge automatique.",
 		"modulo_drone": "Projectile guidé : dégâts, BURN et SPOTTED.",
 		"javelin": "Lance un javelot puis permet un recast de téléportation.",
@@ -98,8 +98,8 @@ static func stat_line(identifier: String) -> String:
 	var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get(identifier, {})
 	var module: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	if not weapon.is_empty():
-		if identifier == "electro_axe":
-			return "DÉGÂTS 80 / 90 / 150   •   PORTÉE 3 m"
+		if identifier == "blaster":
+			return "20–50 dégâts   •   PORTÉE 14 m   •   CHARGE 1 s"
 		return "6×20 dégâts • 3 salves"
 	if not module.is_empty():
 		if module.has("cooldown"):

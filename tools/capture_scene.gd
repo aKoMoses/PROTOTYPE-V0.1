@@ -47,17 +47,18 @@ func _initialize() -> void:
 			capture_target.call("apply_stun", 1.5, "capture")
 			capture_target.call("apply_spotted", 5.0, "capture")
 			print("CAPTURE EFFECTS: ", capture_target.call("get_active_effect_types"))
-	if arguments.size() >= 4 and arguments[3] == "axe":
-		var axe_player := scene.get_node_or_null("Player")
-		var axe_target := scene.get_node_or_null("TargetDummy")
-		if axe_player != null and axe_target != null:
-			axe_player.position = Vector3(0.0, 0.0, 0.0)
-			axe_target.position = Vector3(0.0, 0.0, -2.0)
-			axe_player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
-			axe_player.call("reset_axe_state")
-			axe_player.set("_combo_step", 2)
-			axe_player.call("_perform_axe_attack")
-			print("CAPTURE AXE: third strike started")
+	if arguments.size() >= 4 and arguments[3] == "blaster":
+		var blaster_player := scene.get_node_or_null("Player")
+		var blaster_target := scene.get_node_or_null("TargetDummy")
+		if blaster_player != null and blaster_target != null:
+			blaster_player.position = Vector3(0.0, 0.0, 0.0)
+			blaster_target.position = Vector3(0.0, 0.0, -4.0)
+			blaster_player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
+			blaster_player.call("set_weapon", "blaster")
+			blaster_player.call("reset_combat_state")
+			blaster_target.call("reset_combat_state")
+			blaster_player.call("_fire_blaster_projectile", 50.0, 1.0, Vector3(0.0, 0.0, -1.0))
+			print("CAPTURE BLASTER: charged shot started")
 	if arguments.size() >= 4 and (arguments[3] == "shotgun" or arguments[3] == "shotgun_live"):
 		var shotgun_player := scene.get_node_or_null("Player")
 		var shotgun_target := scene.get_node_or_null("TargetDummy")
@@ -120,7 +121,7 @@ func _initialize() -> void:
 	var settle_frames := 30
 	if arguments.size() >= 4:
 		match arguments[3]:
-			"axe": settle_frames = 50
+			"blaster": settle_frames = 30
 			"shotgun_live": settle_frames = 6
 			"shotgun": settle_frames = 22
 			"bot": settle_frames = 18

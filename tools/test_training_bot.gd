@@ -23,7 +23,7 @@ func _initialize() -> void:
 		target.call("set_training_bot_enabled", true)
 		if not bool(target.call("is_training_bot_enabled")):
 			_failures.append("activation du bot refusée")
-		player.call("_perform_axe_attack")
+		player.call("_begin_blaster_charge")
 		var dodge_seen := false
 		for _dodge_step in range(8):
 			await physics_frame
@@ -32,6 +32,7 @@ func _initialize() -> void:
 				break
 		if not dodge_seen:
 			_failures.append("bot n'esquive pas une attaque engagée")
+		player.call("_cancel_blaster_charge")
 		var telegraph_seen := false
 		for _step in range(24):
 			await create_timer(0.10, true, false, false).timeout

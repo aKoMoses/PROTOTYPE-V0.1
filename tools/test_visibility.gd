@@ -29,7 +29,8 @@ func _initialize() -> void:
 
 func _test_reveal_timers(player: Node) -> void:
 	player.call("reset_combat_state")
-	player.call("_perform_axe_attack")
+	player.call("_begin_blaster_charge")
+	player.call("_cancel_blaster_charge")
 	if float(player.call("get_combat_reveal_remaining")) < 2.9:
 		_failures.append("Combat : attaque engagée ne révèle pas pendant 3 s")
 	player.call("reset_combat_state")

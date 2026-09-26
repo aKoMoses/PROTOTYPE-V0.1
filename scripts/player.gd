@@ -14,18 +14,35 @@ const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
 
-# Electro Axe V0.1 — values are loaded from CombatData so the weapon sheet,
-# future HUD and hitbox code share one source of truth.
-const AXE_COMBO_WINDOW := 1.20
+# Blaster values are loaded from CombatData so future modules can override them
+# without changing the controller.
 const CRIT_MULTIPLIER := 1.5
 const HIT_STOP_NORMAL := 0.045
 const HIT_STOP_CRITICAL := 0.085
+const LEGACY_COMBO_WINDOW := 1.20
+var _blaster_damage := 20.0
+var _blaster_max_damage := 50.0
+var _blaster_cooldown := 0.45
+var _blaster_charge_time := 1.0
+var _blaster_max_range := 14.0
+var _blaster_projectile_speed := 24.0
+var _blaster_charge_slow_multiplier := 0.80
+var _blaster_projectile_radius := 0.16
+var _blaster_charge_ratio := 0.0
+var _blaster_charge_started_at := -1.0
+var _blaster_charge_active := false
+var _blaster_attack_busy := false
+var _blaster_attack_token := 0
+var _blaster_next_attack_ready_at := -10.0
+var _attack_hold_last := false
 
 var aim_direction := Vector3(0.0, 0.0, -1.0)
 var _last_attack_time := -10.0
 var _combo_step := 0
 var _combo_expires_at := -1.0
 var _next_attack_ready_at := -10.0
+# Legacy fields remain unused by V0.1 and are kept only for old capture files.
+# The active weapon path below is exclusively Blaster or Shotgun.
 var _axe_attack_busy := false
 var _axe_attack_token := 0
 var _axe_attack_step := -1
@@ -45,7 +62,7 @@ var _axe_sweep_half_angle := 50.0
 var _axe_wave_inner_radius := 1.2
 var _axe_wave_outer_radius := 3.5
 var _show_debug_hitbox := false
-var _weapon_id := "electro_axe"
+var _weapon_id := "blaster"
 var _shotgun_pellet_angles: Array = [-10.0, -6.0, -2.0, 2.0, 6.0, 10.0]
 var _shotgun_pellet_speed := 22.0
 var _shotgun_max_range := 7.0
@@ -117,6 +134,11 @@ var _baroud_bar_fill: MeshInstance3D
 var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
+var _blaster_pivot: Node3D
+var _blaster_tip: Node3D
+var _blaster_light: OmniLight3D
+var _blaster_charge_visual: MeshInstance3D
+var _blaster_charge_material: StandardMaterial3D
 var _shotgun_pivot: Node3D
 var _shotgun_tip: Node3D
 var _shotgun_light: OmniLight3D
@@ -158,25 +180,21 @@ func _ready() -> void:
 	passive_state = PASSIVE_STATE.new()
 	passive_state.configure(_passive_id)
 	visibility_state = VISIBILITY_STATE.new()
-	_load_axe_definition()
+	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
 
 
-func _load_axe_definition() -> void:
-	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("electro_axe", {})
-	_axe_damage = definition.get("combo_damage", _axe_damage)
-	_axe_range = definition.get("combo_ranges", _axe_range)
-	_axe_preparation = definition.get("combo_preparation", _axe_preparation)
-	_axe_active = definition.get("combo_active", _axe_active)
-	_axe_recovery = definition.get("combo_recovery", _axe_recovery)
-	_axe_slow_duration = definition.get("combo_slow_duration", _axe_slow_duration)
-	_axe_slow_percent = float(definition.get("combo_slow_percent", _axe_slow_percent))
-	_axe_stun_duration = float(definition.get("combo_stun_duration", _axe_stun_duration))
-	_axe_estoc_width = float(definition.get("combo_estoc_width", _axe_estoc_width))
-	_axe_sweep_half_angle = float(definition.get("combo_sweep_half_angle", _axe_sweep_half_angle))
-	_axe_wave_inner_radius = float(definition.get("combo_wave_inner_radius", _axe_wave_inner_radius))
-	_axe_wave_outer_radius = float(definition.get("combo_wave_outer_radius", _axe_wave_outer_radius))
+func _load_weapon_definitions() -> void:
+	var blaster_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("blaster", {})
+	_blaster_damage = float(blaster_definition.get("damage", _blaster_damage))
+	_blaster_max_damage = float(blaster_definition.get("max_damage", _blaster_max_damage))
+	_blaster_cooldown = float(blaster_definition.get("cooldown", _blaster_cooldown))
+	_blaster_charge_time = float(blaster_definition.get("charge_time", _blaster_charge_time))
+	_blaster_max_range = float(blaster_definition.get("max_range", _blaster_max_range))
+	_blaster_projectile_speed = float(blaster_definition.get("projectile_speed", _blaster_projectile_speed))
+	_blaster_charge_slow_multiplier = float(blaster_definition.get("charge_slow_multiplier", _blaster_charge_slow_multiplier))
+	_blaster_projectile_radius = float(blaster_definition.get("projectile_radius", _blaster_projectile_radius))
 	var shotgun_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("shotgun", {})
 	_shotgun_pellet_angles = shotgun_definition.get("pellet_angles", _shotgun_pellet_angles)
 	_shotgun_pellet_speed = float(shotgun_definition.get("pellet_speed", _shotgun_pellet_speed))
@@ -250,8 +268,8 @@ func _physics_process(delta: float) -> void:
 	_update_bush_state(delta)
 	_update_debug_effects()
 	_update_javelin_mark()
-	if combat_state != null and combat_state.is_stunned() and _axe_attack_busy:
-		_cancel_axe_attack()
+	if combat_state != null and combat_state.is_stunned() and _blaster_charge_active:
+		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
 	if combat_state != null and combat_state.is_stunned() and _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	if combat_state != null and combat_state.is_stunned() and _module_busy:
@@ -262,7 +280,7 @@ func _physics_process(delta: float) -> void:
 	_update_shotgun_reload(delta)
 	_update_attack()
 	_update_weapon_ambient_motion(delta)
-	_update_axe_trail(delta)
+	_update_blaster_charge_visual(delta)
 
 
 func _update_movement(delta: float) -> void:
@@ -293,7 +311,8 @@ func _update_movement(delta: float) -> void:
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var bio_multiplier := _bio_speed_multiplier if _bio_remaining > 0.0 else 1.0
-	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * bio_multiplier * slow_multiplier
+	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
+	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * bio_multiplier * slow_multiplier * charge_multiplier
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -325,10 +344,10 @@ func _update_robot_motion(delta: float) -> void:
 
 func _update_weapon_ambient_motion(delta: float) -> void:
 	_weapon_motion_clock += delta
-	if _weapon_id == "electro_axe" and _axe_pivot != null and not _axe_attack_busy:
-		var axe_sway := sin(_weapon_motion_clock * 2.4) * 0.018
-		_axe_pivot.position = _axe_pivot_home + Vector3(0.0, axe_sway, sin(_weapon_motion_clock * 1.7) * 0.014)
-		_axe_pivot.rotation = _axe_pivot_home_rotation + Vector3(0.0, sin(_weapon_motion_clock * 1.9) * 0.025, sin(_weapon_motion_clock * 2.2) * 0.018)
+	if _weapon_id == "blaster" and _blaster_pivot != null and not _blaster_attack_busy and not _blaster_charge_active:
+		var blaster_sway := sin(_weapon_motion_clock * 2.4) * 0.018
+		_blaster_pivot.position = Vector3(0.58, 0.93 + blaster_sway, -0.42 + sin(_weapon_motion_clock * 1.7) * 0.014)
+		_blaster_pivot.rotation = Vector3(0.0, sin(_weapon_motion_clock * 1.9) * 0.025, sin(_weapon_motion_clock * 2.2) * 0.018)
 	if _weapon_id == "shotgun" and _shotgun_pivot != null and not _shotgun_attack_busy and not _shotgun_reloading:
 		var shotgun_sway := sin(_weapon_motion_clock * 2.0 + 0.8) * 0.014
 		_shotgun_pivot.position = Vector3(0.58, 0.88 + shotgun_sway, -0.36 + sin(_weapon_motion_clock * 1.4) * 0.018)
@@ -365,13 +384,18 @@ func _update_attack() -> void:
 	var wants_to_attack := _touch_attack_held or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	if _weapon_id == "shotgun":
 		_update_shotgun_attack(wants_to_attack)
+		_attack_hold_last = wants_to_attack
 		return
 	var now := Time.get_ticks_msec() / 1000.0
-	if not _axe_attack_busy and now > _combo_expires_at:
-		_combo_step = 0
-	if wants_to_attack and not _axe_attack_busy and now >= _next_attack_ready_at:
-		_last_attack_time = now
-		_perform_axe_attack()
+	var just_pressed := wants_to_attack and not _attack_hold_last
+	var just_released := not wants_to_attack and _attack_hold_last
+	if just_pressed:
+		_begin_blaster_charge(now)
+	if _blaster_charge_active:
+		_blaster_charge_ratio = clampf((now - _blaster_charge_started_at) / maxf(0.001, _blaster_charge_time), 0.0, 1.0)
+	if just_released and _blaster_charge_active:
+		_release_blaster_charge()
+	_attack_hold_last = wants_to_attack
 
 
 func _update_debug_effects() -> void:
@@ -400,7 +424,7 @@ func _update_debug_effects() -> void:
 		var bot_enabled := bool(target.call("toggle_training_bot"))
 		_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 	if _pressed_once(KEY_G):
-		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
+		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
 	if _pressed_once(KEY_A):
 		_perform_offensive_module()
 	if _pressed_once(KEY_E):
@@ -408,7 +432,7 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_R):
 		_activate_mobility_module()
 	if _consume_touch_action("weapon"):
-		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
+		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
 	if _consume_touch_action("offensive"):
 		_perform_offensive_module()
 	if _consume_touch_action("defensive"):
@@ -483,7 +507,7 @@ func is_revealed() -> bool:
 
 
 func is_attack_committed() -> bool:
-	return _axe_attack_busy or _shotgun_attack_busy or _module_busy
+	return _blaster_charge_active or _blaster_attack_busy or _shotgun_attack_busy or _module_busy
 
 
 func is_in_bush() -> bool:
@@ -655,6 +679,7 @@ func _on_state_died() -> void:
 		return
 	_gameplay_enabled = false
 	clear_touch_inputs()
+	_cancel_blaster_charge()
 	died.emit()
 
 
@@ -663,7 +688,7 @@ func is_real_dead() -> bool:
 
 
 func apply_loadout(next_loadout: Dictionary) -> void:
-	var weapon_id := str(next_loadout.get("weapon", "electro_axe"))
+	var weapon_id := str(next_loadout.get("weapon", "blaster"))
 	var offensive_id := str(next_loadout.get("offensive", "modulo_drone"))
 	var defensive_id := str(next_loadout.get("defensive", "magnetic_field"))
 	var mobility_id := str(next_loadout.get("mobility", "pyro_boots"))
@@ -672,7 +697,8 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield"] else "magnetic_field"
 	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector"] else "pyro_boots"
 	set_passive(passive_id)
-	_weapon_id = "shotgun" if weapon_id == "shotgun" else "electro_axe"
+	_weapon_id = "shotgun" if weapon_id == "shotgun" else "blaster"
+	_cancel_blaster_charge()
 	_update_weapon_visuals()
 
 
@@ -680,6 +706,7 @@ func shift_pause_timers(seconds: float) -> void:
 	if seconds <= 0.0:
 		return
 	_last_attack_time += seconds
+	_blaster_next_attack_ready_at += seconds
 	if _combo_expires_at > 0.0:
 		_combo_expires_at += seconds
 	if _next_attack_ready_at > 0.0:
@@ -798,36 +825,31 @@ func reset_combat_state() -> void:
 	_current_bush = _find_bush_at_position()
 	_current_bush_name = str(_current_bush.name) if _current_bush != null else ""
 	_bush_transition_clock = 0.0
-	reset_axe_state()
+	reset_blaster_state()
 	reset_shotgun_state()
 	reset_module_state()
 	_on_health_changed(get_health(), get_max_health())
 
 
-func reset_axe_state() -> void:
-	_axe_attack_token += 1
-	_axe_attack_busy = false
-	_axe_attack_step = -1
-	_combo_step = 0
-	_combo_expires_at = -1.0
-	_next_attack_ready_at = -10.0
-	_finish_axe_trail(0.0)
-	if _axe_pivot != null:
-		_axe_pivot.position = _axe_pivot_home
-		_axe_pivot.rotation = _axe_pivot_home_rotation
+func reset_blaster_state() -> void:
+	_blaster_attack_token += 1
+	_blaster_attack_busy = false
+	_blaster_next_attack_ready_at = -10.0
+	_attack_hold_last = false
+	_cancel_blaster_charge()
 
 
 func set_weapon(weapon_id: String) -> void:
-	if weapon_id != "electro_axe" and weapon_id != "shotgun":
+	if weapon_id != "blaster" and weapon_id != "shotgun":
 		return
 	if _weapon_id == weapon_id:
 		return
-	reset_axe_state()
+	reset_blaster_state()
 	reset_shotgun_state()
 	_weapon_id = weapon_id
 	_update_weapon_visuals()
 	if _attack_label != null:
-		_attack_label.text = "ARME : %s" % ("ELECTRO AXE" if _weapon_id == "electro_axe" else "SHOTGUN")
+		_attack_label.text = "ARME : %s" % ("BLASTER" if _weapon_id == "blaster" else "SHOTGUN")
 
 
 func get_offensive_module_id() -> String:
@@ -972,7 +994,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 		_cancel_shotgun_attack()
 		return
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
-	var visual_start := _axe_tip.global_position if _axe_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
+	var visual_start := _blaster_tip.global_position if _blaster_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
 	if _shotgun_tip != null:
 		visual_start = _shotgun_tip.global_position
 	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35)
@@ -1304,8 +1326,8 @@ func _perform_static_shield() -> void:
 	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
 	_stasis_remaining = _static_duration
-	if _axe_attack_busy:
-		_cancel_axe_attack()
+	if _blaster_charge_active:
+		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	if _module_busy:
@@ -1343,7 +1365,8 @@ func get_current_move_speed() -> float:
 	var slow_multiplier := 1.0
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
-	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier
+	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
+	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier * charge_multiplier
 
 
 func get_attack_speed_multiplier() -> float:
@@ -1461,7 +1484,7 @@ func _module_target() -> Node:
 
 
 func _module_visual_start(direction: Vector3) -> Vector3:
-	return _axe_tip.global_position if _axe_tip != null else global_position + Vector3.UP * 0.85 + direction * 0.45
+	return _blaster_tip.global_position if _blaster_tip != null else global_position + Vector3.UP * 0.85 + direction * 0.45
 
 
 func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID] = []) -> Vector3:
@@ -1734,8 +1757,8 @@ func _recast_javelin() -> void:
 	if destination == Vector3.INF:
 		_attack_label.text = "JAVELIN  •  DESTINATION BLOQUÉE"
 		return
-	if _axe_attack_busy:
-		_cancel_axe_attack()
+	if _blaster_charge_active:
+		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	global_position = destination
@@ -1770,6 +1793,188 @@ func _find_javelin_destination(target: Node) -> Vector3:
 	return Vector3.INF
 
 
+func _begin_blaster_charge(now: float = -1.0) -> void:
+	if _weapon_id != "blaster" or _blaster_charge_active or _blaster_attack_busy:
+		return
+	if now < 0.0:
+		now = Time.get_ticks_msec() / 1000.0
+	if now < _blaster_next_attack_ready_at:
+		return
+	_blaster_charge_active = true
+	_blaster_charge_started_at = now
+	_blaster_charge_ratio = 0.0
+	_mark_combat_event()
+	if _attack_label != null:
+		_attack_label.text = "BLASTER  •  CHARGE 0%"
+	_update_blaster_charge_visual(0.0)
+
+
+func _cancel_blaster_charge(reason: String = "") -> void:
+	_blaster_charge_active = false
+	_blaster_charge_started_at = -1.0
+	_blaster_charge_ratio = 0.0
+	if _blaster_charge_visual != null:
+		_blaster_charge_visual.visible = false
+	if _blaster_light != null:
+		_blaster_light.light_energy = 0.0
+	if reason != "" and _attack_label != null:
+		_attack_label.text = reason
+
+
+func _release_blaster_charge() -> void:
+	if not _blaster_charge_active:
+		return
+	var ratio := clampf(_blaster_charge_ratio, 0.0, 1.0)
+	var damage := lerpf(_blaster_damage, _blaster_max_damage, ratio)
+	var direction := aim_direction.normalized()
+	_cancel_blaster_charge()
+	_fire_blaster_projectile(damage, ratio, direction)
+
+
+func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vector3) -> void:
+	if _weapon_id != "blaster" or _blaster_attack_busy:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _blaster_next_attack_ready_at:
+		return
+	_mark_combat_event()
+	look_at(global_position + direction, Vector3.UP)
+	_blaster_attack_token += 1
+	var token := _blaster_attack_token
+	_blaster_attack_busy = true
+	_blaster_next_attack_ready_at = now + _blaster_cooldown
+	var origin := _blaster_tip.global_position if _blaster_tip != null else global_position + Vector3.UP * 0.90 + direction * 0.62
+	var target := _module_target()
+	var endpoint := _blaster_obstacle_endpoint(origin, origin + direction * _blaster_max_range)
+	var did_hit := false
+	if target != null and is_instance_valid(target) and float(target.call("get_health")) > 0.0:
+		var collision_origin := global_position + Vector3.UP * 0.82
+		var offset: Vector3 = target.global_position - collision_origin
+		offset.y = 0.0
+		var along := direction.dot(offset)
+		var closest := collision_origin + direction * along
+		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
+		var path_clear := _blaster_path_clear(target, origin, target.global_position)
+		if along > 0.0 and along <= _blaster_max_range and lateral <= 0.95 and path_clear:
+			endpoint = target.global_position + Vector3.UP * 0.82
+			did_hit = true
+	var distance := origin.distance_to(endpoint)
+	_create_muzzle_burst(origin, direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65)
+	_spawn_blaster_projectile(origin, endpoint, distance, did_hit, target, damage, charge_ratio, token)
+	# The fire lock is governed solely by the 0.45 s cooldown. Projectile travel
+	# may continue visually beyond that window without blocking the next shot.
+	_blaster_attack_busy = false
+	if _attack_label != null:
+		_attack_label.text = "BLASTER  •  TIR %d DÉGÂTS" % roundi(damage)
+	if _blaster_light != null:
+		_blaster_light.light_energy = 5.0 + 5.0 * charge_ratio
+		var light_tween := create_tween()
+		light_tween.tween_property(_blaster_light, "light_energy", 0.0, 0.18)
+	if _robot_visuals != null:
+		var recoil := create_tween()
+		recoil.tween_property(_robot_visuals, "position", -direction * (0.05 + charge_ratio * 0.10), 0.045)
+		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.16).set_trans(Tween.TRANS_BACK)
+	if get_tree().current_scene != null and get_tree().current_scene.has_method("shake"):
+		get_tree().current_scene.call("shake", 0.035 + charge_ratio * 0.055)
+
+
+func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, damage: float, charge_ratio: float, token: int) -> void:
+	var projectile := Node3D.new()
+	projectile.name = "BlasterProjectile"
+	get_tree().current_scene.add_child(projectile)
+	_register_fx_budget(projectile, "projectile")
+	projectile.global_position = start
+	var direction := (endpoint - start).normalized()
+	projectile.look_at(start + direction, Vector3.UP)
+	var radius := _blaster_projectile_radius * (1.0 + charge_ratio * 1.8)
+	var shell := MeshInstance3D.new()
+	var shell_mesh := SphereMesh.new()
+	shell_mesh.radius = radius
+	shell_mesh.height = radius * 2.0
+	shell.mesh = shell_mesh
+	shell.material_override = _create_fx_material(Color("#49dfff"), 0.86)
+	projectile.add_child(shell)
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = radius * 0.46
+	core_mesh.height = radius * 0.92
+	core.mesh = core_mesh
+	core.material_override = _create_fx_material(Color("#eaffff"), 0.98)
+	projectile.add_child(core)
+	var trail := MeshInstance3D.new()
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = radius * 0.12
+	trail_mesh.bottom_radius = radius * 0.52
+	trail_mesh.height = 0.75 + charge_ratio * 0.95
+	trail.mesh = trail_mesh
+	trail.rotation_degrees.x = -90.0
+	trail.position.z = 0.36 + charge_ratio * 0.14
+	trail.material_override = _create_fx_material(Color("#2aa9db"), 0.28 + charge_ratio * 0.16)
+	projectile.add_child(trail)
+	var pulse := projectile.create_tween().set_loops()
+	pulse.tween_property(shell, "scale", Vector3.ONE * (1.16 + charge_ratio * 0.10), 0.08)
+	pulse.tween_property(shell, "scale", Vector3.ONE, 0.08)
+	var travel_time := maxf(0.025, distance / _blaster_projectile_speed)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(projectile, "global_position", endpoint, travel_time)
+	tween.tween_callback(func() -> void:
+		if did_hit and target != null and is_instance_valid(target) and _blaster_path_clear(target, start, target.global_position):
+			var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
+			if applied > 0.0:
+				target.call("flash_impact", charge_ratio >= 0.99)
+				_create_target_hit_fx(target.global_position, charge_ratio >= 0.99)
+			_create_hit_flash(endpoint, Color("#b9f8ff"), 0.42 + charge_ratio * 0.25)
+		else:
+			_create_surface_impact_fx(endpoint, -direction, Color("#55dcff"))
+		_blaster_attack_busy = false
+		projectile.queue_free()
+	)
+
+
+func _blaster_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
+	var world := get_world_3d()
+	if world == null:
+		return end
+	var query := PhysicsRayQueryParameters3D.create(start, end)
+	query.collision_mask = 9
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()]
+	var result := world.direct_space_state.intersect_ray(query)
+	return result["position"] if not result.is_empty() else end
+
+
+func _blaster_path_clear(target: Node, from_position: Vector3, to_position: Vector3) -> bool:
+	return _module_path_clear(from_position, to_position, [target.get_rid()]) if target != null and is_instance_valid(target) else true
+
+
+func _update_blaster_charge_visual(_delta: float) -> void:
+	if _blaster_charge_visual == null:
+		return
+	if not _blaster_charge_active:
+		_blaster_charge_visual.visible = false
+		return
+	_blaster_charge_visual.visible = true
+	var ratio := clampf(_blaster_charge_ratio, 0.0, 1.0)
+	_blaster_charge_visual.scale = Vector3.ONE * (0.65 + ratio * 0.85)
+	if _blaster_charge_material != null:
+		_blaster_charge_material.emission_energy_multiplier = 2.5 + ratio * 8.0
+		_blaster_charge_material.albedo_color = Color(0.18 + ratio * 0.28, 0.78 + ratio * 0.18, 1.0, 0.34 + ratio * 0.42)
+	if _blaster_light != null:
+		_blaster_light.light_energy = 0.4 + ratio * 2.6
+	if _attack_label != null:
+		_attack_label.text = "BLASTER  •  CHARGE %d%%" % roundi(ratio * 100.0)
+
+
+func get_blaster_charge_ratio() -> float:
+	return _blaster_charge_ratio if _blaster_charge_active else 0.0
+
+
+func is_blaster_charging() -> bool:
+	return _blaster_charge_active
+
+
 func _create_teleport_fx(origin: Vector3) -> void:
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -1800,7 +2005,7 @@ func _perform_axe_attack() -> void:
 	_axe_attack_direction = aim_direction.normalized()
 	_axe_attack_impact_point = _axe_attack_origin + _axe_attack_direction * float(_axe_wave_outer_radius)
 	_combo_expires_at = -1.0
-	_attack_label.text = "ELECTRO AXE  •  COUP %d/3" % (step + 1)
+	_attack_label.text = "LEGACY ATTACK  •  COUP %d/3" % (step + 1)
 	var attack_speed := get_attack_speed_multiplier()
 	_play_axe_animation(step, attack_speed)
 	_begin_axe_trail(step, attack_speed)
@@ -1861,12 +2066,12 @@ func _resolve_axe_wave(token: int) -> void:
 func _apply_axe_hit(target: Node, impact_point: Vector3, damage: float, slow_duration: float, critical_hit: bool, token: int, phase: int) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	var attack_id := "electro_axe:%d:%d" % [token, phase]
+	var attack_id := "legacy_attack:%d:%d" % [token, phase]
 	var effective_damage := float(target.call("take_damage", damage, "player", attack_id))
 	if critical_hit:
-		target.call("apply_stun", _axe_stun_duration, "electro_axe")
+		target.call("apply_stun", _axe_stun_duration, "legacy_attack")
 	elif slow_duration > 0.0:
-		target.call("apply_slow", slow_duration, _axe_slow_percent, "electro_axe")
+		target.call("apply_slow", slow_duration, _axe_slow_percent, "legacy_attack")
 	target.call("flash_impact", critical_hit)
 	_create_target_hit_fx(impact_point, critical_hit)
 	if effective_damage > 0.0:
@@ -1879,7 +2084,7 @@ func _finish_axe_attack(token: int) -> void:
 	_axe_attack_busy = false
 	_axe_attack_step = -1
 	var now := Time.get_ticks_msec() / 1000.0
-	_combo_expires_at = now + AXE_COMBO_WINDOW
+	_combo_expires_at = now + LEGACY_COMBO_WINDOW
 	_next_attack_ready_at = now
 
 
@@ -1891,10 +2096,10 @@ func _cancel_axe_attack() -> void:
 	_axe_attack_step = -1
 	_combo_step = 0
 	var now := Time.get_ticks_msec() / 1000.0
-	_combo_expires_at = now + AXE_COMBO_WINDOW
+	_combo_expires_at = now + LEGACY_COMBO_WINDOW
 	_next_attack_ready_at = now
 	_finish_axe_trail(0.10)
-	_attack_label.text = "ELECTRO AXE  •  INTERROMPU"
+	_attack_label.text = "LEGACY ATTACK  •  INTERROMPU"
 	if _axe_pivot != null:
 		var tween := create_tween()
 		tween.tween_property(_axe_pivot, "position", _axe_pivot_home, 0.12)
@@ -2630,44 +2835,76 @@ func _build_robot() -> void:
 	_add_robot_leg(visuals, 1.0)
 	_add_robot_backpack(visuals)
 
-	_axe_pivot = Node3D.new()
-	_axe_pivot.name = "ElectroAxePivot"
-	_axe_pivot.position = _axe_pivot_home
-	visuals.add_child(_axe_pivot)
-	var axe_handle := MeshInstance3D.new()
-	var handle_mesh := CylinderMesh.new()
-	handle_mesh.top_radius = 0.09
-	handle_mesh.bottom_radius = 0.12
-	handle_mesh.height = 1.5
-	axe_handle.mesh = handle_mesh
-	axe_handle.rotation_degrees.x = -90.0
-	axe_handle.position = Vector3(0.0, 0.0, -0.55)
-	axe_handle.material_override = _material(Color("#4b342b"), 0.72)
-	_axe_pivot.add_child(axe_handle)
-	var axe_blade := MeshInstance3D.new()
-	var blade_mesh := BoxMesh.new()
-	blade_mesh.size = Vector3(0.78, 0.18, 0.52)
-	axe_blade.mesh = blade_mesh
-	axe_blade.position = Vector3(0.0, 0.0, -1.25)
-	axe_blade.material_override = _material(Color("#bfefff"), 0.22, Color("#28dfff"))
-	_axe_pivot.add_child(axe_blade)
-	var axe_edge := MeshInstance3D.new()
-	var edge_mesh := BoxMesh.new()
-	edge_mesh.size = Vector3(0.9, 0.06, 0.08)
-	axe_edge.mesh = edge_mesh
-	axe_edge.position = Vector3(0.0, -0.11, -1.25)
-	axe_edge.material_override = _material(Color("#eaffff"), 0.1, Color("#9cf6ff"))
-	_axe_pivot.add_child(axe_edge)
-	_axe_tip = Node3D.new()
-	_axe_tip.name = "AxeTip"
-	_axe_tip.position = Vector3(0.0, 0.0, -1.58)
-	_axe_pivot.add_child(_axe_tip)
-	_axe_light = OmniLight3D.new()
-	_axe_light.light_color = Color("#62eaff")
-	_axe_light.light_energy = 0.0
-	_axe_light.omni_range = 3.5
-	_axe_light.position = Vector3(0.0, 0.0, -1.2)
-	_axe_pivot.add_child(_axe_light)
+	_blaster_pivot = Node3D.new()
+	_blaster_pivot.name = "BlasterPivot"
+	_blaster_pivot.position = Vector3(0.58, 0.93, -0.42)
+	visuals.add_child(_blaster_pivot)
+	var blaster_grip := MeshInstance3D.new()
+	var blaster_grip_mesh := BoxMesh.new()
+	blaster_grip_mesh.size = Vector3(0.30, 0.34, 0.55)
+	blaster_grip.mesh = blaster_grip_mesh
+	blaster_grip.position = Vector3(0.0, -0.12, 0.22)
+	blaster_grip.rotation_degrees.x = -12.0
+	blaster_grip.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
+	_blaster_pivot.add_child(blaster_grip)
+	var blaster_receiver := MeshInstance3D.new()
+	var blaster_receiver_mesh := BoxMesh.new()
+	blaster_receiver_mesh.size = Vector3(0.52, 0.42, 0.72)
+	blaster_receiver.mesh = blaster_receiver_mesh
+	blaster_receiver.position = Vector3(0.0, 0.06, -0.16)
+	blaster_receiver.material_override = _robot_textured_material(Color.WHITE, 0.74, ROBOT_RUST_TEXTURE)
+	_blaster_pivot.add_child(blaster_receiver)
+	var blaster_barrel := MeshInstance3D.new()
+	var blaster_barrel_mesh := CylinderMesh.new()
+	blaster_barrel_mesh.top_radius = 0.10
+	blaster_barrel_mesh.bottom_radius = 0.14
+	blaster_barrel_mesh.height = 1.15
+	blaster_barrel.mesh = blaster_barrel_mesh
+	blaster_barrel.rotation_degrees.x = -90.0
+	blaster_barrel.position = Vector3(0.0, 0.09, -0.92)
+	blaster_barrel.material_override = _robot_textured_material(Color.WHITE, 0.68, ROBOT_STEEL_TEXTURE)
+	_blaster_pivot.add_child(blaster_barrel)
+	var blaster_muzzle := MeshInstance3D.new()
+	var blaster_muzzle_mesh := CylinderMesh.new()
+	blaster_muzzle_mesh.top_radius = 0.18
+	blaster_muzzle_mesh.bottom_radius = 0.11
+	blaster_muzzle_mesh.height = 0.34
+	blaster_muzzle.mesh = blaster_muzzle_mesh
+	blaster_muzzle.rotation_degrees.x = -90.0
+	blaster_muzzle.position = Vector3(0.0, 0.09, -1.58)
+	blaster_muzzle.material_override = _material(Color("#2f3a45"), 0.52, Color("#2ad9ff"))
+	_blaster_pivot.add_child(blaster_muzzle)
+	var blaster_muzzle_ring := MeshInstance3D.new()
+	var blaster_muzzle_ring_mesh := TorusMesh.new()
+	blaster_muzzle_ring_mesh.inner_radius = 0.12
+	blaster_muzzle_ring_mesh.outer_radius = 0.19
+	blaster_muzzle_ring.mesh = blaster_muzzle_ring_mesh
+	blaster_muzzle_ring.rotation_degrees.x = 90.0
+	blaster_muzzle_ring.position = Vector3(0.0, 0.09, -1.78)
+	blaster_muzzle_ring.material_override = _material(Color("#7cf0ff"), 0.22, Color("#2fe1ff"))
+	_blaster_pivot.add_child(blaster_muzzle_ring)
+	_blaster_tip = Node3D.new()
+	_blaster_tip.name = "BlasterTip"
+	_blaster_tip.position = Vector3(0.0, 0.09, -1.86)
+	_blaster_pivot.add_child(_blaster_tip)
+	_blaster_charge_visual = MeshInstance3D.new()
+	_blaster_charge_visual.name = "BlasterChargeGlow"
+	var blaster_charge_mesh := SphereMesh.new()
+	blaster_charge_mesh.radius = 0.22
+	blaster_charge_mesh.height = 0.44
+	_blaster_charge_visual.mesh = blaster_charge_mesh
+	_blaster_charge_material = _create_fx_material(Color("#49dfff"), 0.30)
+	_blaster_charge_visual.material_override = _blaster_charge_material
+	_blaster_charge_visual.position = Vector3(0.0, 0.09, -1.42)
+	_blaster_charge_visual.visible = false
+	_blaster_pivot.add_child(_blaster_charge_visual)
+	_blaster_light = OmniLight3D.new()
+	_blaster_light.name = "BlasterMuzzleLight"
+	_blaster_light.light_color = Color("#55eaff")
+	_blaster_light.light_energy = 0.0
+	_blaster_light.omni_range = 3.5
+	_blaster_light.position = Vector3(0.0, 0.09, -1.62)
+	_blaster_pivot.add_child(_blaster_light)
 
 	_shotgun_pivot = Node3D.new()
 	_shotgun_pivot.name = "ShotgunPivot"
@@ -2745,7 +2982,9 @@ func _build_robot() -> void:
 
 func _update_weapon_visuals() -> void:
 	if _axe_pivot != null:
-		_axe_pivot.visible = _weapon_id == "electro_axe"
+		_axe_pivot.visible = false
+	if _blaster_pivot != null:
+		_blaster_pivot.visible = _weapon_id == "blaster"
 	if _shotgun_pivot != null:
 		_shotgun_pivot.visible = _weapon_id == "shotgun"
 

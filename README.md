@@ -7,15 +7,15 @@ Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
 - arène 3D plus grande que l'écran ;
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
-- Electro Axe provisoire en combo de trois coups et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
+- Blaster (tir normal ou chargé) et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
   plaques crème/rouille, acier sombre, pneus, caisses, barils, bannières rouges,
   hautes herbes décoratives, poussière, lampes et gradins de spectateurs.
 
-Le lot Electro Axe sert à valider la perspective, la caméra, les déplacements, les hitboxes
-et les sensations de combat avant l'intégration du Shotgun et des modules. Les kits de vie
+Le lot Blaster sert à valider la perspective, la caméra, les déplacements, les hitboxes
+et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
 
@@ -42,24 +42,21 @@ visibilité, avant leur passe de carte jouable.
   F5 réinitialise l'essai ; ce sont des raccourcis PC de validation temporaires. La
   lisibilité de la validation a été renforcée : barre de PV large, flammes et lumière
   animées pour BURN, anneau et motes cyan pour SLOW, halo STUN et œil SPOTTED émissif.
-- **P0-103 — implémenté, à tester manuellement :** l'Electro Axe utilise les géométries
-  et fenêtres V0.1 (80/90/150 au centre, 80/90/45 avec l'onde), déduplication par
-  identifiant, ralentissements et stun distincts, interruptions par STUN, et rayon de
-  visibilité physique qui bloque les coups derrière les obstacles. F6 active les volumes
-  de diagnostic temporaires.
+- **P0-103 — historique archivé :** l'ancienne arme de mêlée n'est plus chargée par la
+  V0.1 jouable. Les effets génériques et leurs diagnostics restent disponibles.
 - **Tests automatisés :** `tools/test_combat_state.gd` et `tools/test_target_dummy.gd` PASS ;
   les valeurs testées incluent BURN isolé à 70 dégâts, non-cumul, slow maximal,
   expiration, STUN/SPOTTED, overkill, overheal, attaque dupliquée, BURN absorbé pendant
   la stase, activation des quatre effets sur le mannequin et reset visuel/HP.
-- `tools/test_electro_axe.gd` PASS : combo centre = 320, combo onde = 215, estoc
-  bloqué par un obstacle et préparation interrompue par STUN.
+- `tools/test_blaster.gd` PASS : tir normal, cooldown, charge 50 %, charge maximale,
+  plafond de charge, ralentissement pendant charge, changement d'arme et mort.
 - **P0-104 — implémenté, à tester manuellement :** Shotgun avec six plombs indépendants à
   angles fixes (-10/-6/-2/+2/+6/+10°), portée maximale 7 m, vitesse 22 m/s et dégâts
   20 jusqu'à 3 m puis décroissance linéaire jusqu'à 8. Les obstacles absorbent chaque
   plomb. Les six impacts sur la même cible ajoutent le multiplicateur critique 1,5 et
   appliquent BURN ; cinq impacts n'appliquent pas BURN. Cadence 0,10 s de préparation
   + 0,60 s de récupération, chargeur de 3 salves, recharge automatique ou T en 1,80 s.
-  G bascule Electro Axe/Shotgun. Les projectiles visuels partent du point d'arme et un
+  G bascule Blaster/Shotgun. Les projectiles visuels partent du point d'arme et un
   identifiant unique empêche tout double impact.
 - **Tests automatisés :** `tools/test_shotgun.gd` PASS : 6/6 critique + BURN, 5/6 sans
   BURN, absorption par obstacle, chargeur 3 salves et recharge 1,80 s. Les tests
@@ -161,7 +158,7 @@ visibilité, avant leur passe de carte jouable.
   mécanique légère (balancement du corps, tête et membres alternés) pilotée par leur vitesse
   réelle, sans modifier leurs collisions. Les armes ont une respiration en attente ; le
   shotgun ajoute recul du robot, recul du canon, rotation de pompage, flash et secousse
-  caméra, tandis que l'Electro Axe conserve ses poses d'estoc, de cleave et de slam avec un
+  caméra, tandis que le Blaster conserve un feedback de charge et de recul avec un
   mouvement d'attente cohérent. Les bushs ont été réduits en volume pour rouvrir les lignes
   de combat tout en gardant une couverture visuelle dense.
 - **P0-117 — télégraphie secondaire du bot :** pendant son wind-up, le bot affiche désormais
@@ -170,7 +167,7 @@ visibilité, avant leur passe de carte jouable.
   caméra oblique. Ces éléments sont visuels uniquement : ils ne créent ni dégâts, ni
   collision, ni révélation à travers un obstacle ; ils disparaissent dès que la préparation
   se termine ou si la cible n'est plus visible.
-- **P0-118 — passe projectiles, impacts et états :** les familles Electro Axe, Shotgun,
+- **P0-118 — passe projectiles, impacts et états :** les familles Blaster, Shotgun,
   Modulo Drone, Javelin et projectile du bot disposent maintenant d'un départ visuel au
   point d'arme, d'un cœur/traînée lisible, d'une pulsation légère et d'un impact distinct
   sur cible ou obstacle. Les impacts hors cible déclenchent une gerbe directionnelle et
@@ -181,9 +178,9 @@ visibilité, avant leur passe de carte jouable.
   et pupille animés. Les paramètres de dégâts, cadence, portée, munitions, durées et
   collisions n'ont pas été modifiés.
 - **Vérifications automatisées après P0-118 :** en mode `--headless`,
-  `tools/test_electro_axe.gd`, `tools/test_shotgun.gd`, `tools/test_offensive_modules.gd`,
+  `tools/test_blaster.gd`, `tools/test_shotgun.gd`, `tools/test_offensive_modules.gd`,
   `tools/test_target_dummy.gd`, `tools/test_training_bot.gd` et `tools/test_visibility.gd`
-  PASS. Le test Electro Axe neutralise explicitement le bot mobile pendant ses assertions
+  PASS. Le test Blaster neutralise explicitement le bot mobile pendant ses assertions
   à positions fixes ; la partie jouable conserve le bot desktop activable par F7.
 - **Validation Godot réelle :** captures exécutées avec Godot 4.7.2, renderer Mobile,
   Vulkan Forward Mobile sur la GeForce RTX 3070 Laptop. Les captures P0-118 sont
@@ -253,7 +250,7 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
 - `prototype0_spectators.png` : cadrage de validation de la bordure extérieure ;
 - `prototype0_effects.png` : capture du mannequin avec les quatre états appliqués par le
   harnais de validation (capture Mobile après attente de l'initialisation de la cible).
-- `prototype0_axe.png` : capture Mobile du troisième coup Electro Axe et de ses éclairs.
+- `prototype0_axe.png` : capture historique de l'ancienne arme, non chargée en V0.1.
 - `prototype0_shotgun.png` : capture Mobile d'une salve Shotgun et de l'impact critique.
 - `prototype0_shotgun_new.png` : capture Godot de la nouvelle densité de végétation et du
   mannequin robotique après la passe P0-115.
@@ -265,7 +262,7 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   d'impact synchronisé.
 - `prototype0_fx_pass_shotgun_live.png` et `prototype0_fx_pass_shotgun.png` : captures
   Godot de la bouche du shotgun, des plombs coniques, des impacts et de la réaction cible.
-- `prototype0_fx_pass_axe.png` : capture Godot du troisième coup Electro Axe et de sa zone
+- `prototype0_fx_pass_axe.png` : capture historique de l'ancienne arme, non chargée en V0.1.
   d'onde/éclairs.
 - `prototype0_fx_pass_drone.png` : capture Godot du projectile Drone et de sa traînée cyan.
 - `prototype0_fx_pass_effects.png` : capture Godot de BURN, SLOW, STUN et SPOTTED renforcés.
@@ -296,7 +293,7 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 - `ZQSD`, `WASD` ou flèches : déplacement ;
 - souris : orienter l'attaque ;
 - clic gauche ou espace : utiliser l'arme active ;
-- `Espace` : auto-attaque (clic souris conservé sur PC) ; `G` : basculer Electro Axe / Shotgun ;
+- `Espace` : auto-attaque (clic souris conservé sur PC) ; `G` : basculer Blaster / Shotgun ;
 - `A` : module offensif équipé ; `E` : module défensif ; `R` : module mobilité ;
 - `T` : recharger le Shotgun.
 
@@ -318,6 +315,20 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
   marque. Rejouer nettoie les FX temporaires et réinitialise PV, munitions, cooldowns et
   passifs. Le mannequin ne se réinitialise plus automatiquement en mode duel ; son
   comportement de laboratoire est conservé hors duel.
+
+## Remplacement d'arme — 26 septembre 2026
+
+- **P0-129 — Blaster :** la V0.1 jouable contient maintenant uniquement `blaster` et
+  `shotgun`. Le Blaster tire 20 dégâts, portée 14 m, projectile 24 m/s et cooldown 0,45 s.
+  Un maintien de tir charge pendant 1 s jusqu'à 50 dégâts ; la vitesse de déplacement est
+  réduite à 80 % pendant la charge, puis restaurée au relâchement, au changement d'arme ou
+  à la mort. Aucun effet BURN/SLOW/STUN/SPOTTED n'est appliqué par le Blaster de base.
+- **Tests :** `tools/test_blaster.gd` couvre tir normal, cooldown, charge 50 %, charge
+  maximale et prolongée, vitesse, annulation et régression. Tous les tests `tools/test_*.gd`
+  disponibles passent dans Godot 4.7.2 en mode headless.
+- **Compatibilité Android :** le bouton tactile d'attaque conserve son état pressé/maintenu/
+  relâché via `set_touch_attack_held`; le joystick, la visée, le Shotgun et les modules ne
+  sont pas réécrits.
 - **P0-129 — bot :** le déplacement vérifie maintenant les obstacles et applique SLOW/STUN
   à son comportement. Le projectile revalide sa trajectoire et sa proximité à l'impact,
   y compris l'absorption par un Magnetic Field ; un tir interrompu ne cause aucun dégât.
