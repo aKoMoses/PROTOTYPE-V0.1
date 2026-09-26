@@ -219,10 +219,15 @@ visibilité, avant leur passe de carte jouable.
   Une capture réelle en renderer Mobile a été vérifiée en 1280×720 : joystick, visée et
   boutons restent lisibles et dans la fenêtre. Ce mode est désactivé par défaut et n'a
   aucun effet sur le build desktop ou mobile normal.
+- **P0-123 — preset Android :** `export_presets.cfg` contient maintenant un preset
+  Android nommé `Android`, en paysage, package `com.prototype0.arena`, version `0.1.0`
+  et architecture ARM64. La sortie debug prévue est `exports/prototype0-debug.apk`.
+  Godot reconnaît le preset ; l'export ne peut pas encore s'exécuter ici car les templates
+  Android 4.7.2, le SDK Android, Java/OpenJDK et `adb` ne sont pas installés.
 - **Limite de validation :** aucune capture tactile réelle ni export Android n'a été
   exécuté dans cet environnement ; la validation finale sur téléphone reste nécessaire.
-- **Prochaine tâche :** P0-123 — configurer l'export Android puis mesurer le framerate
-  et la lisibilité sur un téléphone réel dès que le SDK et l'appareil seront disponibles.
+- **Prochaine tâche :** P0-124 — installer les templates et le SDK Android, produire
+  l'APK debug, puis mesurer le framerate et la lisibilité sur un téléphone réel.
 
 ## Captures de validation
 
