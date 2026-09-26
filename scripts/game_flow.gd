@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const BLASTER_ICON: Texture2D = preload("res://art/icons/blaster-gravure.png")
 
 enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
 enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT }
@@ -40,6 +41,7 @@ var _equipment_content: VBoxContainer
 var _equipment_details: Label
 var _selection_buttons: Dictionary = {}
 var _hud_labels: Dictionary = {}
+var _blaster_ui_icon: AtlasTexture
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _settings_panel: PanelContainer
@@ -62,6 +64,9 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	touch_controls = touch_node
 	loadout = LOADOUT.load_local()
 	_load_settings()
+	_blaster_ui_icon = AtlasTexture.new()
+	_blaster_ui_icon.atlas = BLASTER_ICON
+	_blaster_ui_icon.region = Rect2(100, 270, 1100, 770)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_ui()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
@@ -251,6 +256,9 @@ func _selection_row(category: String, title: String, ids: Array) -> void:
 		button.clip_text = true
 		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.add_theme_font_size_override("font_size", 12)
+		if identifier == "blaster":
+			button.icon = _blaster_ui_icon
+			button.expand_icon = true
 		button.pressed.connect(func() -> void:
 			loadout[category] = identifier
 			_refresh_equipment()
@@ -328,7 +336,7 @@ func _build_hud() -> void:
 	_screen_root.add_child(_hud)
 	var top_left := PanelContainer.new()
 	top_left.position = Vector2(22, 18)
-	top_left.custom_minimum_size = Vector2(285, 108)
+	top_left.custom_minimum_size = Vector2(325, 108)
 	top_left.add_theme_stylebox_override("panel", _panel_style(Color(0.08, 0.07, 0.08, 0.86), Color("#5f4c4b"), 9))
 	_hud.add_child(top_left)
 	var left_box := VBoxContainer.new()
@@ -337,8 +345,22 @@ func _build_hud() -> void:
 	left_box.add_child(_hud_labels.player)
 	_hud_labels.player_effects = _label("", 14, CYAN)
 	left_box.add_child(_hud_labels.player_effects)
+	var weapon_row := HBoxContainer.new()
+	weapon_row.custom_minimum_size = Vector2(270, 32)
+	weapon_row.add_theme_constant_override("separation", 8)
+	left_box.add_child(weapon_row)
+	var weapon_icon := TextureRect.new()
+	weapon_icon.texture = _blaster_ui_icon
+	weapon_icon.custom_minimum_size = Vector2(42, 32)
+	weapon_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	weapon_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	weapon_row.add_child(weapon_icon)
+	_hud_labels.weapon_icon = weapon_icon
 	_hud_labels.weapon = _label("", 14, AMBER)
-	left_box.add_child(_hud_labels.weapon)
+	_hud_labels.weapon.custom_minimum_size = Vector2(220, 32)
+	_hud_labels.weapon.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_hud_labels.weapon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	weapon_row.add_child(_hud_labels.weapon)
 	_hud_labels.passive = _label("", 14, MUTED)
 	left_box.add_child(_hud_labels.passive)
 	var top_right := PanelContainer.new()
@@ -441,6 +463,7 @@ func _update_hud() -> void:
 	_hud_labels.player_effects.text = _effects_text(player)
 	_hud_labels.enemy_effects.text = _effects_text(target)
 	var weapon_id := str(player.call("get_weapon_id"))
+	_hud_labels.weapon_icon.visible = weapon_id == "blaster"
 	var weapon_text := LOADOUT.display_name(weapon_id)
 	if weapon_id == "shotgun":
 		weapon_text += "   •   %d / 3" % int(player.call("get_shotgun_ammo"))

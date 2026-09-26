@@ -13,6 +13,7 @@ conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
 - Blaster (tir normal ou chargé) et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
+- icône « Gravure » du Blaster dans l'équipement et le HUD, avec son « Plasma » au tir ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,

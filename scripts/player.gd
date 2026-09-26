@@ -10,6 +10,7 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
+const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-plasma.mp3")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
@@ -139,6 +140,7 @@ var _blaster_tip: Node3D
 var _blaster_light: OmniLight3D
 var _blaster_charge_visual: MeshInstance3D
 var _blaster_charge_material: StandardMaterial3D
+var _blaster_shot_audio: AudioStreamPlayer
 var _shotgun_pivot: Node3D
 var _shotgun_tip: Node3D
 var _shotgun_light: OmniLight3D
@@ -183,6 +185,12 @@ func _ready() -> void:
 	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
+	_blaster_shot_audio = AudioStreamPlayer.new()
+	_blaster_shot_audio.name = "BlasterShotAudio"
+	_blaster_shot_audio.stream = BLASTER_SHOT_SOUND
+	_blaster_shot_audio.max_polyphony = 4
+	_blaster_shot_audio.volume_db = -6.0
+	add_child(_blaster_shot_audio)
 
 
 func _load_weapon_definitions() -> void:
@@ -1838,6 +1846,7 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	if now < _blaster_next_attack_ready_at:
 		return
 	_mark_combat_event()
+	_blaster_shot_audio.play()
 	look_at(global_position + direction, Vector3.UP)
 	_blaster_attack_token += 1
 	var token := _blaster_attack_token

@@ -23,6 +23,12 @@ func _initialize() -> void:
 		await _test_charge_speed(player)
 		await _test_cancel_on_weapon_change(player)
 		await _test_cancel_on_death(player, target)
+		var shot_audio := player.get_node_or_null("BlasterShotAudio") as AudioStreamPlayer
+		if shot_audio != null:
+			shot_audio.stop()
+	current_scene = null
+	scene.queue_free()
+	await process_frame
 	if _failures.is_empty():
 		print("P0-127 BLASTER TEST: PASS")
 		quit(0)
@@ -47,6 +53,11 @@ func _prepare(player: Node, target: Node) -> void:
 func _test_normal_shot(player: Node, target: Node) -> void:
 	await _prepare(player, target)
 	player.call("_fire_blaster_projectile", 20.0, 0.0, Vector3(0.0, 0.0, -1.0))
+	var shot_audio := player.get_node_or_null("BlasterShotAudio") as AudioStreamPlayer
+	if shot_audio == null or shot_audio.stream == null or shot_audio.stream.resource_path != "res://art/audio/blaster-plasma.mp3":
+		_failures.append("tir normal : son Plasma manquant")
+	elif not shot_audio.playing:
+		_failures.append("tir normal : son Plasma non joué")
 	await _wait_seconds(0.35)
 	var damage := 1000.0 - float(target.call("get_health"))
 	if absf(damage - 20.0) > 0.6:
