@@ -14,8 +14,15 @@ var _aim_vector := Vector2.ZERO
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
+	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 	queue_redraw()
+
+
+func _touch_preview_requested() -> bool:
+	for argument in OS.get_cmdline_user_args():
+		if argument == "touch_preview":
+			return true
+	return false
 
 
 func set_player(value: Node) -> void:
@@ -111,8 +118,8 @@ func _draw() -> void:
 	_draw_action(actions["mobility"], 32.0 * scale, Color(0.92, 0.68, 0.30, 0.72), "R")
 	_draw_action(actions["weapon"], 30.0 * scale, Color(0.70, 0.44, 0.80, 0.72), "G")
 	var font := ThemeDB.fallback_font
-	draw_string(font, joystick + Vector2(-28.0 * scale, 120.0 * scale), "MOVE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(0.82, 0.95, 0.97, 0.78))
-	draw_string(font, aim + Vector2(-28.0 * scale, 108.0 * scale), "AIM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(1.0, 0.88, 0.70, 0.78))
+	draw_string(font, joystick + Vector2(-28.0 * scale, -joystick_radius - 12.0 * scale), "MOVE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(0.82, 0.95, 0.97, 0.78))
+	draw_string(font, aim + Vector2(-28.0 * scale, aim_radius + 24.0 * scale), "AIM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(1.0, 0.88, 0.70, 0.78))
 
 
 func _draw_action(center: Vector2, radius: float, color: Color, label: String) -> void:
