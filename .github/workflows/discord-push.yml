@@ -13,3 +13,4 @@ jobs:
         run: node tools/notify-push.cjs
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GAME_PUSH_SECRET: ${{ secrets.GAME_PUSH_SECRET }}
