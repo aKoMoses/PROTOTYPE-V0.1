@@ -7,6 +7,12 @@ extends CanvasLayer
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const BLASTER_ICON: Texture2D = preload("res://art/icons/blaster-gravure.png")
+const COUNTDOWN_SECONDS := 3.0
+const COUNTDOWN_DIGITS := [
+	preload("res://art/countdown/3.png"),
+	preload("res://art/countdown/2.png"),
+	preload("res://art/countdown/1.png"),
+]
 
 enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
 enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT }
@@ -42,6 +48,11 @@ var _equipment_details: Label
 var _selection_buttons: Dictionary = {}
 var _hud_labels: Dictionary = {}
 var _blaster_ui_icon: AtlasTexture
+var _countdown_overlay: Control
+var _countdown_dim: ColorRect
+var _countdown_glow: TextureRect
+var _countdown_image: TextureRect
+var _countdown_digit_index := -1
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _settings_panel: PanelContainer
@@ -74,8 +85,6 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_show_screen(Screen.MENU)
 
 func _process(delta: float) -> void:
-	if current_screen == Screen.COMBAT:
-		_update_hud()
 	if not _pause_active and round_phase == RoundPhase.COUNTDOWN:
 		_countdown_remaining = maxf(0.0, _countdown_remaining - delta)
 		if _countdown_remaining <= 0.0:
@@ -87,6 +96,9 @@ func _process(delta: float) -> void:
 			_start_next_round()
 	if _pause_active:
 		_update_pause_labels()
+	if current_screen == Screen.COMBAT:
+		_update_hud()
+		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -414,6 +426,70 @@ func _build_hud() -> void:
 	dev.visible = false
 	_hud.add_child(dev)
 	_hud_labels.dev = dev
+	_build_countdown_overlay()
+
+func _build_countdown_overlay() -> void:
+	_countdown_overlay = Control.new()
+	_countdown_overlay.name = "CountdownOverlay"
+	_countdown_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_countdown_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_screen_root.add_child(_countdown_overlay)
+	_countdown_dim = ColorRect.new()
+	_countdown_dim.color = Color(0.04, 0.04, 0.06, 0.52)
+	_countdown_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_countdown_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_countdown_overlay.add_child(_countdown_dim)
+	_countdown_glow = TextureRect.new()
+	_countdown_glow.name = "CountdownGlow"
+	_countdown_glow.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_countdown_glow.offset_left = -230
+	_countdown_glow.offset_top = -230
+	_countdown_glow.offset_right = 230
+	_countdown_glow.offset_bottom = 230
+	_countdown_glow.pivot_offset = Vector2(230, 230)
+	_countdown_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_countdown_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_countdown_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_countdown_overlay.add_child(_countdown_glow)
+	_countdown_image = TextureRect.new()
+	_countdown_image.name = "CountdownDigit"
+	_countdown_image.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_countdown_image.offset_left = -230
+	_countdown_image.offset_top = -230
+	_countdown_image.offset_right = 230
+	_countdown_image.offset_bottom = 230
+	_countdown_image.pivot_offset = Vector2(230, 230)
+	_countdown_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_countdown_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_countdown_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_countdown_overlay.add_child(_countdown_image)
+	_countdown_overlay.visible = false
+
+func _update_countdown_overlay() -> void:
+	if _countdown_overlay == null:
+		return
+	if current_screen == Screen.COMBAT:
+		_hud.visible = round_phase != RoundPhase.COUNTDOWN
+	_countdown_overlay.visible = current_screen == Screen.COMBAT and not _pause_active and round_phase == RoundPhase.COUNTDOWN
+	if not _countdown_overlay.visible:
+		return
+	var number := ceili(_countdown_remaining)
+	var index := clampi(3 - number, 0, 2)
+	if index != _countdown_digit_index:
+		_countdown_digit_index = index
+		_countdown_image.texture = COUNTDOWN_DIGITS[index]
+		_countdown_glow.texture = COUNTDOWN_DIGITS[index]
+	var beat := 1.0 - (_countdown_remaining - float(number - 1))
+	var impact := 1.0 - pow(1.0 - clampf(beat / 0.22, 0.0, 1.0), 3.0)
+	var settle := clampf((beat - 0.22) / 0.20, 0.0, 1.0)
+	var scale_value := lerpf(1.58, 0.92, impact) if beat < 0.22 else lerpf(0.92, 1.0, settle)
+	var opacity := clampf(beat / 0.08, 0.0, 1.0) * clampf((1.0 - beat) / 0.20, 0.0, 1.0)
+	_countdown_image.scale = Vector2.ONE * scale_value
+	_countdown_image.rotation_degrees = lerpf(-5.0 if index % 2 == 0 else 5.0, 0.0, impact)
+	_countdown_image.modulate.a = opacity
+	_countdown_glow.scale = Vector2.ONE * (scale_value + 0.08)
+	_countdown_glow.modulate = Color(CYAN.r, CYAN.g, CYAN.b, opacity * (0.18 + 0.20 * (1.0 - impact)))
+	_countdown_dim.modulate.a = 0.65 + 0.35 * opacity
 
 func _build_pause() -> void:
 	_pause_panel = _center_panel(430, 310)
@@ -500,7 +576,7 @@ func _module_icon(category: String) -> String:
 func _phase_text() -> String:
 	match round_phase:
 		RoundPhase.COUNTDOWN:
-			return "COMBAT DANS %d" % ceili(_countdown_remaining)
+			return ""
 		RoundPhase.LIVE:
 			return "COMBAT"
 		RoundPhase.ROUND_RESULT:
@@ -589,7 +665,8 @@ func resolve_round(player_dead: bool, target_dead: bool) -> void:
 
 func _begin_round_countdown() -> void:
 	round_phase = RoundPhase.COUNTDOWN
-	_countdown_remaining = 3.0
+	_countdown_remaining = COUNTDOWN_SECONDS
+	_countdown_digit_index = -1
 	_round_resolved = false
 	_result_panel.visible = false
 	_set_result_actions_visible(false)
@@ -597,6 +674,9 @@ func _begin_round_countdown() -> void:
 		main.call("prepare_round", loadout)
 	if main != null and main.has_method("set_menu_mode"):
 		main.call("set_menu_mode", false)
+	if touch_controls != null:
+		touch_controls.visible = false
+	_update_countdown_overlay()
 
 
 func _begin_live_round() -> void:
@@ -606,6 +686,9 @@ func _begin_live_round() -> void:
 	_countdown_remaining = 0.0
 	if main != null and main.has_method("activate_round"):
 		main.call("activate_round")
+	if touch_controls != null:
+		touch_controls.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
+	_update_countdown_overlay()
 
 
 func _start_next_round() -> void:
@@ -659,6 +742,7 @@ func _toggle_pause() -> void:
 			touch_controls.call("reset_inputs")
 		get_tree().paused = true
 		_pause_panel.visible = true
+		_update_countdown_overlay()
 
 func _resume() -> void:
 	_end_pause(true)
@@ -676,6 +760,7 @@ func _end_pause(resume_game: bool) -> void:
 		main.call("shift_pause_timers", elapsed)
 	if touch_controls != null and touch_controls.has_method("reset_inputs"):
 		touch_controls.call("reset_inputs")
+	_update_countdown_overlay()
 
 func _update_pause_labels() -> void:
 	if _hud_labels.has("pause_status"):
