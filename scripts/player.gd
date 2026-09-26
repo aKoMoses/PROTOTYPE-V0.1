@@ -141,6 +141,10 @@ var _trail_width := 0.1
 var _trail_active := false
 var combat_state
 var _debug_key_latches: Dictionary = {}
+var _touch_move_vector := Vector2.ZERO
+var _touch_aim_vector := Vector2.ZERO
+var _touch_attack_held := false
+var _touch_actions: Dictionary = {}
 
 
 func _ready() -> void:
@@ -261,15 +265,17 @@ func _update_movement(delta: float) -> void:
 	if _dash_active:
 		_update_dash(delta)
 		return
-	var input_vector := Vector2.ZERO
-	if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
-		input_vector.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		input_vector.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_UP):
-		input_vector.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		input_vector.y += 1.0
+	var input_vector := _touch_move_vector
+	if input_vector.length_squared() <= 0.001:
+		input_vector = Vector2.ZERO
+		if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
+			input_vector.x -= 1.0
+		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+			input_vector.x += 1.0
+		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_UP):
+			input_vector.y -= 1.0
+		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+			input_vector.y += 1.0
 
 	input_vector = input_vector.normalized()
 	if input_vector.length_squared() > 0.001:
@@ -323,6 +329,10 @@ func _update_weapon_ambient_motion(delta: float) -> void:
 
 
 func _update_aim() -> void:
+	if _touch_aim_vector.length_squared() > 0.04:
+		aim_direction = Vector3(_touch_aim_vector.x, 0.0, _touch_aim_vector.y).normalized()
+		look_at(global_position + aim_direction, Vector3.UP)
+		return
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		return
@@ -345,7 +355,7 @@ func _update_aim() -> void:
 func _update_attack() -> void:
 	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return
-	var wants_to_attack := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+	var wants_to_attack := _touch_attack_held or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	if _weapon_id == "shotgun":
 		_update_shotgun_attack(wants_to_attack)
 		return
@@ -390,6 +400,14 @@ func _update_debug_effects() -> void:
 		_activate_defensive_module()
 	if _pressed_once(KEY_R):
 		_activate_mobility_module()
+	if _consume_touch_action("weapon"):
+		set_weapon("shotgun" if _weapon_id == "electro_axe" else "electro_axe")
+	if _consume_touch_action("offensive"):
+		_perform_offensive_module()
+	if _consume_touch_action("defensive"):
+		_activate_defensive_module()
+	if _consume_touch_action("mobility"):
+		_activate_mobility_module()
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -397,6 +415,29 @@ func _pressed_once(keycode: Key) -> bool:
 	var was_down := bool(_debug_key_latches.get(keycode, false))
 	_debug_key_latches[keycode] = is_down
 	return is_down and not was_down
+
+
+func set_touch_move_vector(value: Vector2) -> void:
+	_touch_move_vector = value.limit_length(1.0)
+
+
+func set_touch_aim_vector(value: Vector2) -> void:
+	_touch_aim_vector = value.limit_length(1.0)
+
+
+func set_touch_attack_held(value: bool) -> void:
+	_touch_attack_held = value
+
+
+func trigger_touch_action(action: String) -> void:
+	_touch_actions[action] = true
+
+
+func _consume_touch_action(action: String) -> bool:
+	if not bool(_touch_actions.get(action, false)):
+		return false
+	_touch_actions[action] = false
+	return true
 
 
 func _mark_combat_event() -> void:

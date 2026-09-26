@@ -3,6 +3,7 @@ extends Node3D
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
+const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const METAL_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
@@ -1488,6 +1489,7 @@ func _build_target() -> void:
 
 func _build_interface() -> void:
 	var layer := CanvasLayer.new()
+	layer.name = "Interface"
 	add_child(layer)
 
 	var title := Label.new()
@@ -1511,6 +1513,12 @@ func _build_interface() -> void:
 	status.add_theme_font_size_override("font_size", 17)
 	status.add_theme_color_override("font_color", Color("#7de8ff"))
 	layer.add_child(status)
+
+	var touch_controls := Control.new()
+	touch_controls.name = "TouchControls"
+	touch_controls.set_script(TOUCH_CONTROLS_SCRIPT)
+	touch_controls.call("set_player", player)
+	layer.add_child(touch_controls)
 
 
 func _create_box(node_name: String, box_position: Vector3, size: Vector3, color: Color, texture: Texture2D = null) -> StaticBody3D:

@@ -200,8 +200,17 @@ visibilité, avant leur passe de carte jouable.
   `tools/test_fx_budget.gd` vérifie le plafonnement à 42 bursts actifs.
 - **À vérifier ensuite :** test manuel prolongé en mouvement (Espace, A, E, R, G/T),
   observation du projectile du bot avec F7 dans une ligne de vue dégagée, et mesure du
-  framerate sur appareil mobile réel. Prochaine tâche : **P0-120 — validation de build
-  Android et ajustements de lisibilité sur écran tactile.**
+  framerate sur appareil mobile réel.
+- **P0-120 — première couche tactile :** `touch_controls.gd` ajoute un joystick de
+  déplacement, un joystick de visée et cinq boutons (attaque, A, E, R, G). Le panneau est
+  automatiquement visible sur une cible tactile/mobile et reste masqué sur PC ; les
+  raccourcis clavier/souris et les règles de combat ne changent pas. Les actions tactiles
+  passent par les mêmes fonctions que les commandes desktop afin de conserver les
+  cooldowns, hitboxes, collisions et effets existants. Le build Android et le framerate
+  sur appareil réel restent à valider dès qu'un environnement d'export et un téléphone
+  seront disponibles.
+- **Prochaine tâche :** P0-121 — écran tactile réel, safe areas/notch et validation de
+  lisibilité sur plusieurs ratios mobiles.
 
 ## Captures de validation
 
