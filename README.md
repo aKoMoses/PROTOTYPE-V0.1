@@ -226,8 +226,20 @@ visibilité, avant leur passe de carte jouable.
   Android 4.7.2, le SDK Android, Java/OpenJDK et `adb` ne sont pas installés.
 - **Limite de validation :** aucune capture tactile réelle ni export Android n'a été
   exécuté dans cet environnement ; la validation finale sur téléphone reste nécessaire.
-- **Prochaine tâche :** P0-124 — installer les templates et le SDK Android, produire
-  l'APK debug, puis mesurer le framerate et la lisibilité sur un téléphone réel.
+- **Prochaine tâche :** P0-125 — installer l'APK sur un téléphone réel, puis mesurer
+  le framerate et la lisibilité pendant le parcours de test manuel.
+- **P0-124 — APK debug produit :** l'export Godot 4.7.2 a réussi avec la commande
+  `godot --headless --path . --export-debug Android exports/prototype0-debug.apk`.
+  L'APK se trouve dans `exports/prototype0-debug.apk` (35 707 755 octets). `aapt` a
+  confirmé le package `com.prototype0.arena`, `versionCode=1`, `versionName=0.1.0`,
+  et l'archive ne contient que `lib/arm64-v8a`. `apksigner verify --verbose` confirme
+  les signatures APK v2 et v3. La compression ETC2/ASTC est activée dans le projet
+  pour satisfaire l'export Mobile.
+- **Installation/lancement physique :** aucun appareil Android autorisé n'a été
+  détecté. ADB ne peut pas initialiser son dossier utilisateur dans cet environnement ;
+  l'APK est donc produit et vérifié, mais ni installé ni lancé sur téléphone. Il reste
+  à transférer l'APK sur le téléphone, autoriser l'installation depuis cette source,
+  puis ouvrir `Prototype 0` pour le parcours de test manuel.
 
 ## Captures de validation
 
