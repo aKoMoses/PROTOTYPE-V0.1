@@ -4,6 +4,7 @@ const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
 const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
+const GAME_FLOW_SCRIPT := preload("res://scripts/game_flow.gd")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const METAL_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
@@ -11,6 +12,10 @@ const STEEL_DARK_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const BANNER_TEXTURE: Texture2D = preload("res://art/banner_red.svg")
 
 var player: CharacterBody3D
+var game_flow: CanvasLayer
+var target: StaticBody3D
+var touch_controls: Control
+var duel_active := false
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
 var _fx_serial := 0
@@ -71,6 +76,7 @@ func _trim_fx_budget() -> void:
 
 
 func _ready() -> void:
+	set_meta("camera_shake_enabled", true)
 	_build_environment()
 	_build_arena()
 	_build_player()
@@ -1448,6 +1454,10 @@ func _build_player() -> void:
 	player.set_script(PLAYER_SCRIPT)
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	add_child(player)
+	if DisplayServer.get_name() != "headless":
+		player.call("set_gameplay_enabled", false)
+	if player.has_signal("died"):
+		player.died.connect(_on_player_died)
 
 
 func _build_camera() -> void:
@@ -1470,7 +1480,7 @@ func _build_camera() -> void:
 
 
 func _build_target() -> void:
-	var target := StaticBody3D.new()
+	target = StaticBody3D.new()
 	target.name = "TargetDummy"
 	target.set_script(TARGET_SCRIPT)
 	target.position = Vector3(3.5, 0.0, 15.5)
@@ -1480,45 +1490,102 @@ func _build_target() -> void:
 	# gameplay scene from any editor/capture reuse and keeps diagnostic effects
 	# (F1-F4) opt-in instead of leaking into a new round.
 	target.call("reset_combat_state")
-	# In the playable desktop run the mannequin doubles as a local opponent.
-	# Headless tests keep it disabled for deterministic assertions; F7 still
-	# toggles it at any time during gameplay.
-	if DisplayServer.get_name() != "headless":
-		target.call("set_training_bot_enabled", true)
+	target.call("set_duel_mode", false)
+	if target.has_signal("died"):
+		target.died.connect(_on_target_died)
 
 
 func _build_interface() -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "Interface"
-	add_child(layer)
-
-	var title := Label.new()
-	title.position = Vector2(24.0, 18.0)
-	title.text = "PROTOTYPE 0 — ESSAI 2,5D"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color("#f6d5a6"))
-	layer.add_child(title)
-
-	var help := Label.new()
-	help.position = Vector2(24.0, 54.0)
-	help.text = "ZQSD / WASD / flèches : déplacement\nSouris : orienter l'attaque   •   Espace : auto-attaque\nA : offensif   •   E : défensif   •   R : mobilité   •   G : changer d'arme\nT : recharger le Shotgun   •   F1–F7 : diagnostics / bot d'entraînement\nCombo en 3 coups : estoc → slash → onde de choc. Les obstacles bloquent le mouvement.\nLab : F1 BURN • F2 SLOW • F3 STUN • F4 SPOTTED • F5 RESET • F6 HITBOX • F7 BOT ON/OFF"
-	help.add_theme_font_size_override("font_size", 17)
-	help.add_theme_color_override("font_color", Color.WHITE)
-	layer.add_child(help)
-
-	var status := Label.new()
-	status.name = "Status"
-	status.position = Vector2(24.0, 650.0)
-	status.text = "ARÈNE DE FER — mannequin : PV, dégâts, reset et quatre effets testables."
-	status.add_theme_font_size_override("font_size", 17)
-	status.add_theme_color_override("font_color", Color("#7de8ff"))
-	layer.add_child(status)
-
-	var touch_controls := Control.new()
+	game_flow = CanvasLayer.new()
+	# Keep the historical Interface path so existing tools and captures remain valid.
+	game_flow.name = "Interface"
+	game_flow.set_script(GAME_FLOW_SCRIPT)
+	add_child(game_flow)
+	touch_controls = Control.new()
 	touch_controls.name = "TouchControls"
 	touch_controls.set_script(TOUCH_CONTROLS_SCRIPT)
 	touch_controls.call("set_player", player)
-	layer.add_child(touch_controls)
+	game_flow.add_child(touch_controls)
+	game_flow.call("configure", self, player, target, touch_controls)
+
+
+func set_menu_mode(menu_mode: bool) -> void:
+	# Headless integration scripts exercise the combat actors directly without
+	# navigating the visual menu. Keep their physics active for those tests.
+	if DisplayServer.get_name() == "headless":
+		return
+	if menu_mode:
+		if player != null and player.has_method("set_gameplay_enabled"):
+			player.call("set_gameplay_enabled", false)
+		if target != null:
+			target.call("set_training_bot_enabled", false)
+
+
+func start_duel(loadout: Dictionary) -> void:
+	duel_active = true
+	if player == null or target == null:
+		return
+	clear_transient_fx()
+	player.position = Vector3(-3.5, 0.0, 17.0)
+	target.position = Vector3(3.5, 0.0, 15.5)
+	target.call("set_duel_mode", true)
+	target.call("reset_combat_state")
+	player.call("apply_loadout", loadout)
+	player.call("reset_combat_state")
+	player.call("set_gameplay_enabled", true)
+	target.call("set_training_bot_enabled", true)
+
+
+func restart_duel(loadout: Dictionary) -> void:
+	start_duel(loadout)
+
+
+func stop_duel() -> void:
+	duel_active = false
+	if player != null:
+		player.call("set_gameplay_enabled", false)
+		player.call("clear_touch_inputs")
+	if target != null:
+		target.call("set_training_bot_enabled", false)
+		target.call("set_duel_mode", false)
+
+
+func resolve_round() -> void:
+	if game_flow == null or not duel_active:
+		return
+	var player_dead := bool(player.call("is_real_dead"))
+	var target_dead := bool(target.call("is_real_dead"))
+	if not player_dead and player.has_method("get_health"):
+		player_dead = float(player.call("get_health")) <= 0.0
+	if not target_dead:
+		target_dead = float(target.call("get_health")) <= 0.0
+	if player_dead or target_dead:
+		game_flow.call("resolve_round", player_dead, target_dead)
+
+
+func shift_pause_timers(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	if player != null and player.has_method("shift_pause_timers"):
+		player.call("shift_pause_timers", seconds)
+	if target != null and target.has_method("shift_pause_timers"):
+		target.call("shift_pause_timers", seconds)
+
+
+func clear_transient_fx() -> void:
+	for node in get_tree().get_nodes_in_group("prototype0_fx_budget"):
+		if is_instance_valid(node):
+			node.queue_free()
+
+
+func _on_player_died() -> void:
+	if game_flow != null:
+		game_flow.call("on_actor_died", player)
+
+
+func _on_target_died() -> void:
+	if game_flow != null:
+		game_flow.call("on_actor_died", target)
 
 
 func _create_box(node_name: String, box_position: Vector3, size: Vector3, color: Color, texture: Texture2D = null) -> StaticBody3D:

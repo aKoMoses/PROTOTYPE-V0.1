@@ -9,6 +9,7 @@ var _aim_touch := -1
 var _action_touches: Dictionary = {}
 var _joystick_vector := Vector2.ZERO
 var _aim_vector := Vector2.ZERO
+var _control_scale := 1.0
 
 
 func _ready() -> void:
@@ -61,7 +62,31 @@ func _safe_rect() -> Rect2:
 
 func _layout_scale() -> float:
 	var size := _safe_rect().size
-	return clampf(minf(size.x, size.y) / 720.0, 0.72, 1.20)
+	return clampf(minf(size.x, size.y) / 720.0, 0.72, 1.20) * _control_scale
+
+
+func set_control_scale(value: float) -> void:
+	_control_scale = clampf(value, 0.85, 1.15)
+	queue_redraw()
+
+
+func reset_inputs() -> void:
+	_joystick_touch = -1
+	_aim_touch = -1
+	_action_touches.clear()
+	_joystick_vector = Vector2.ZERO
+	_aim_vector = Vector2.ZERO
+	if player != null and is_instance_valid(player):
+		if player.has_method("clear_touch_inputs"):
+			player.call("clear_touch_inputs")
+		else:
+			if player.has_method("set_touch_move_vector"):
+				player.call("set_touch_move_vector", Vector2.ZERO)
+			if player.has_method("set_touch_aim_vector"):
+				player.call("set_touch_aim_vector", Vector2.ZERO)
+			if player.has_method("set_touch_attack_held"):
+				player.call("set_touch_attack_held", false)
+	queue_redraw()
 
 
 func _joystick_radius() -> float:

@@ -113,6 +113,12 @@ func _physics_process(delta: float) -> void:
 	var player := scene.get_node_or_null("Player") as Node3D if scene != null else null
 	if bot_body == null or player == null or not is_instance_valid(player):
 		return
+	if bot_body.has_method("is_stunned") and bool(bot_body.call("is_stunned")):
+		_windup_remaining = 0.0
+		_windup_player = null
+		_move_velocity = Vector3.ZERO
+		_update_telegraph()
+		return
 	_elapsed += delta
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if _dodge_remaining > 0.0:
@@ -163,7 +169,10 @@ func _update_patrol(bot_body: Node3D, player: Node3D, delta: float) -> void:
 	to_desired.y = 0.0
 	var desired_velocity := Vector3.ZERO
 	if to_desired.length_squared() > 0.04:
-		desired_velocity = to_desired.normalized() * MOVE_SPEED
+		var slow_multiplier := 1.0
+		if bot_body.has_method("get_slow_percent"):
+			slow_multiplier = 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
+		desired_velocity = to_desired.normalized() * MOVE_SPEED * slow_multiplier
 	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
 	_move_bot(bot_body, delta)
 
@@ -171,7 +180,19 @@ func _update_patrol(bot_body: Node3D, player: Node3D, delta: float) -> void:
 func _move_bot(bot_body: Node3D, delta: float) -> void:
 	if _move_velocity.length_squared() <= 0.04:
 		_move_velocity = Vector3.ZERO
-	bot_body.global_position += _move_velocity * delta
+	var next_position := bot_body.global_position + _move_velocity * delta
+	var world := bot_body.get_world_3d()
+	if world != null and _move_velocity.length_squared() > 0.001:
+		var query := PhysicsRayQueryParameters3D.create(bot_body.global_position + Vector3.UP * 0.72, next_position + Vector3.UP * 0.72)
+		query.collision_mask = 1 | 8
+		query.collide_with_areas = true
+		query.collide_with_bodies = true
+		query.exclude = [bot_body.get_rid()]
+		var hit: Dictionary = world.direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			next_position = Vector3(hit.position) - _move_velocity.normalized() * 0.72
+			_move_velocity = Vector3.ZERO
+	bot_body.global_position = next_position
 	bot_body.global_position.x = clampf(bot_body.global_position.x, -27.0, 27.0)
 	bot_body.global_position.z = clampf(bot_body.global_position.z, -27.0, 27.0)
 	bot_body.global_position.y = 0.0
@@ -223,8 +244,8 @@ func _line_of_sight_clear(bot_body: Node3D, player: Node3D) -> bool:
 	if world == null:
 		return true
 	var query := PhysicsRayQueryParameters3D.create(bot_body.global_position + Vector3.UP * 0.72, player.global_position + Vector3.UP * 0.72)
-	query.collision_mask = 1
-	query.collide_with_areas = false
+	query.collision_mask = 1 | 8
+	query.collide_with_areas = true
 	query.collide_with_bodies = true
 	query.exclude = [bot_body.get_rid(), player.get_rid()]
 	return world.direct_space_state.intersect_ray(query).is_empty()
@@ -306,9 +327,18 @@ func _spawn_attack_visual(player: Node3D, attack_id: String) -> void:
 
 
 func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, attack_id: String) -> void:
-	if player != null and is_instance_valid(player) and player.has_method("take_damage"):
-		player.call("take_damage", ATTACK_DAMAGE, "training_bot", attack_id)
-	_spawn_impact_visual(scene, impact_position)
+	var bot_body := get_parent() as Node3D
+	var impact_confirmed := false
+	if player != null and is_instance_valid(player) and bot_body != null:
+		var current_target := player.global_position + Vector3.UP * 0.92
+		var still_near := current_target.distance_to(impact_position) <= 1.35
+		impact_confirmed = still_near and _line_of_sight_clear(bot_body, player)
+		if impact_confirmed and player.has_method("take_damage"):
+			player.call("take_damage", ATTACK_DAMAGE, "training_bot", attack_id)
+	if impact_confirmed:
+		_spawn_impact_visual(scene, impact_position)
+	else:
+		_spawn_impact_visual(scene, impact_position, true)
 
 
 func _spawn_muzzle_visual(scene: Node, origin: Vector3, direction: Vector3) -> void:
@@ -377,13 +407,13 @@ func _register_fx_budget(node: Node, category: String = "burst") -> void:
 		scene.call("register_fx_node", node, category)
 
 
-func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
+func _spawn_impact_visual(scene: Node, impact_position: Vector3, blocked: bool = false) -> void:
 	if scene == null or not is_instance_valid(scene):
 		return
 	var flash := OmniLight3D.new()
 	flash.name = "TrainingBotImpactLight"
 	flash.position = impact_position
-	flash.light_color = Color("#ff754b")
+	flash.light_color = Color("#8793a3") if blocked else Color("#ff754b")
 	flash.light_energy = 2.8
 	flash.omni_range = 2.2
 	scene.add_child(flash)
@@ -395,9 +425,9 @@ func _spawn_impact_visual(scene: Node, impact_position: Vector3) -> void:
 	impact.mesh = impact_mesh
 	var impact_material := StandardMaterial3D.new()
 	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	impact_material.albedo_color = Color("#ffb15a")
+	impact_material.albedo_color = Color("#9aa4b1") if blocked else Color("#ffb15a")
 	impact_material.emission_enabled = true
-	impact_material.emission = Color("#ff4a26")
+	impact_material.emission = Color("#667382") if blocked else Color("#ff4a26")
 	impact_material.emission_energy_multiplier = 2.6
 	impact.material_override = impact_material
 	scene.add_child(impact)

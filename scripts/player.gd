@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
 signal bush_state_changed(in_bush: bool, bush_name: String)
+signal died
 
 const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
@@ -145,6 +146,7 @@ var _touch_move_vector := Vector2.ZERO
 var _touch_aim_vector := Vector2.ZERO
 var _touch_attack_held := false
 var _touch_actions: Dictionary = {}
+var _gameplay_enabled := true
 
 
 func _ready() -> void:
@@ -152,6 +154,7 @@ func _ready() -> void:
 	collision_mask = 1
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	combat_state.health_changed.connect(_on_health_changed)
+	combat_state.died.connect(_on_state_died)
 	passive_state = PASSIVE_STATE.new()
 	passive_state.configure(_passive_id)
 	visibility_state = VISIBILITY_STATE.new()
@@ -219,6 +222,10 @@ func _load_axe_definition() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _gameplay_enabled:
+		velocity = Vector3.ZERO
+		clear_touch_inputs()
+		return
 	if visibility_state != null:
 		visibility_state.update(delta)
 	var baroud_expired: bool = passive_state != null and bool(passive_state.process(delta))
@@ -433,6 +440,24 @@ func trigger_touch_action(action: String) -> void:
 	_touch_actions[action] = true
 
 
+func clear_touch_inputs() -> void:
+	_touch_move_vector = Vector2.ZERO
+	_touch_aim_vector = Vector2.ZERO
+	_touch_attack_held = false
+	_touch_actions.clear()
+
+
+func set_gameplay_enabled(value: bool) -> void:
+	_gameplay_enabled = value
+	if not value:
+		clear_touch_inputs()
+		velocity = Vector3.ZERO
+
+
+func is_gameplay_enabled() -> bool:
+	return _gameplay_enabled
+
+
 func _consume_touch_action(action: String) -> bool:
 	if not bool(_touch_actions.get(action, false)):
 		return false
@@ -625,6 +650,45 @@ func _finalize_passive_death() -> void:
 		_attack_label.text = "ÉLIMINÉ"
 
 
+func _on_state_died() -> void:
+	if not _gameplay_enabled:
+		return
+	_gameplay_enabled = false
+	clear_touch_inputs()
+	died.emit()
+
+
+func is_real_dead() -> bool:
+	return (passive_state != null and passive_state.real_dead) or (combat_state != null and combat_state.is_dead())
+
+
+func apply_loadout(next_loadout: Dictionary) -> void:
+	var weapon_id := str(next_loadout.get("weapon", "electro_axe"))
+	var offensive_id := str(next_loadout.get("offensive", "modulo_drone"))
+	var defensive_id := str(next_loadout.get("defensive", "magnetic_field"))
+	var mobility_id := str(next_loadout.get("mobility", "pyro_boots"))
+	var passive_id := str(next_loadout.get("passive", "baroud"))
+	_offensive_module_id = offensive_id if offensive_id in ["modulo_drone", "javelin"] else "modulo_drone"
+	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield"] else "magnetic_field"
+	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector"] else "pyro_boots"
+	set_passive(passive_id)
+	_weapon_id = "shotgun" if weapon_id == "shotgun" else "electro_axe"
+	_update_weapon_visuals()
+
+
+func shift_pause_timers(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	_last_attack_time += seconds
+	if _combo_expires_at > 0.0:
+		_combo_expires_at += seconds
+	if _next_attack_ready_at > 0.0:
+		_next_attack_ready_at += seconds
+	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target):
+		if _javelin_mark_target.has_method("shift_pause_timers"):
+			_javelin_mark_target.call("shift_pause_timers", seconds)
+
+
 func _update_baroud_presentation() -> void:
 	if _baroud_bar_bg == null or _baroud_bar_fill == null or passive_state == null:
 		return
@@ -678,6 +742,10 @@ func get_health() -> float:
 
 func get_max_health() -> float:
 	return combat_state.max_health if combat_state != null else COMBAT_DATA.MAX_HEALTH
+
+
+func get_active_effect_types() -> Array[String]:
+	return combat_state.get_active_effect_types() if combat_state != null else []
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

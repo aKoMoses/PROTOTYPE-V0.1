@@ -1,5 +1,7 @@
 extends StaticBody3D
 
+signal died
+
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
@@ -33,6 +35,8 @@ var _locomotion_nodes: Array[Node3D] = []
 var _locomotion_clock := 0.0
 var _locomotion_amount := 0.0
 var _last_visual_position := Vector3.ZERO
+var _duel_mode := false
+var _duel_paused := false
 
 
 func _ready() -> void:
@@ -63,7 +67,7 @@ func _process(delta: float) -> void:
 	_update_robot_motion(delta, moving)
 	if visibility_state != null:
 		visibility_state.update(delta)
-	if combat_state != null and not _resetting:
+	if combat_state != null and not _resetting and not _duel_paused:
 		combat_state.update(delta)
 	if _javelin_mark_until >= 0.0 and Time.get_ticks_msec() / 1000.0 >= _javelin_mark_until:
 		_javelin_mark_until = -1.0
@@ -362,6 +366,28 @@ func _on_effect_changed(_effect_type: String, _active: bool) -> void:
 	_update_effect_presentation()
 
 
+func set_duel_mode(value: bool) -> void:
+	_duel_mode = value
+	if not value:
+		_duel_paused = false
+
+
+func set_duel_paused(value: bool) -> void:
+	_duel_paused = value
+
+
+func is_real_dead() -> bool:
+	return combat_state != null and combat_state.is_dead()
+
+
+func shift_pause_timers(seconds: float) -> void:
+	# CombatState effects use simulation delta, while the Javelin mark uses an
+	# absolute timestamp. Move that timestamp forward so a pause never consumes
+	# gameplay duration in the background.
+	if seconds > 0.0 and _javelin_mark_until > 0.0:
+		_javelin_mark_until += seconds
+
+
 func _on_state_died() -> void:
 	if _resetting:
 		return
@@ -374,7 +400,9 @@ func _on_state_died() -> void:
 		_body_material.albedo_color = Color("#3b302e")
 	_update_status("")
 	_update_effect_presentation()
-	call_deferred("_reset_target")
+	died.emit()
+	if not _duel_mode:
+		call_deferred("_reset_target")
 
 
 func _reset_target() -> void:

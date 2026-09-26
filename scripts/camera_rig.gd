@@ -44,6 +44,9 @@ func _process(delta: float) -> void:
 
 
 func shake(duration: float, strength: float = 0.12) -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null and scene.has_meta("camera_shake_enabled") and not bool(scene.get_meta("camera_shake_enabled")):
+		return
 	_shake_time = maxf(_shake_time, duration)
 	_shake_strength = maxf(_shake_strength, strength)
 

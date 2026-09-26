@@ -222,12 +222,13 @@ visibilité, avant leur passe de carte jouable.
 - **P0-123 — preset Android :** `export_presets.cfg` contient maintenant un preset
   Android nommé `Android`, en paysage, package `com.prototype0.arena`, version `0.1.0`
   et architecture ARM64. La sortie debug prévue est `exports/prototype0-debug.apk`.
-  Godot reconnaît le preset ; l'export ne peut pas encore s'exécuter ici car les templates
-  Android 4.7.2, le SDK Android, Java/OpenJDK et `adb` ne sont pas installés.
+  Le preset a d'abord été préparé avant l'installation locale des dépendances ; l'export
+  fonctionnel et sa vérification sont documentés en P0-124 puis P0-130.
 - **Limite de validation :** aucune capture tactile réelle ni export Android n'a été
   exécuté dans cet environnement ; la validation finale sur téléphone reste nécessaire.
-- **Prochaine tâche :** P0-125 — installer l'APK sur un téléphone réel, puis mesurer
-  le framerate et la lisibilité pendant le parcours de test manuel.
+- **Prochaine tâche historique :** P0-125 — installer l'APK sur un téléphone réel, puis
+  mesurer le framerate et la lisibilité pendant le parcours de test manuel. Cette tâche
+  reste ouverte après les lots interface et manche ci-dessous.
 - **P0-124 — APK debug produit :** l'export Godot 4.7.2 a réussi avec la commande
   `godot --headless --path . --export-debug Android exports/prototype0-debug.apk`.
   L'APK se trouve dans `exports/prototype0-debug.apk` (35 707 755 octets). `aapt` a
@@ -298,3 +299,48 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 - `Espace` : auto-attaque (clic souris conservé sur PC) ; `G` : basculer Electro Axe / Shotgun ;
 - `A` : module offensif équipé ; `E` : module défensif ; `R` : module mobilité ;
 - `T` : recharger le Shotgun.
+
+## Suivi systèmes — 26 septembre 2026
+
+- **P0-126 — navigation et équipement :** le lancement desktop ouvre désormais un menu
+  principal, puis un écran d’équipement avec les deux armes et les deux variantes de
+  chaque catégorie. Les identifiants sont validés et sauvegardés dans
+  `user://prototype0_loadout.cfg` ; une valeur invalide retombe sur le build par défaut.
+  `scripts/loadout_state.gd` lit les noms et statistiques depuis `combat_data.gd`.
+- **P0-127 — HUD, tactile et réglages :** l'ancien bloc de diagnostic permanent est
+  remplacé en combat par un HUD compact (PV, états, arme, munitions, cooldowns réels,
+  passif et pause). Les contrôles tactiles restent sur la même couche et peuvent être
+  redimensionnés entre 85 % et 115 %. Les réglages de secousse caméra et de taille tactile
+  sont persistants dans `user://prototype0_settings.cfg`.
+- **P0-128 — manche locale :** Jouer initialise le build sélectionné, active le bot,
+  désactive les commandes derrière les menus, puis mène à une manche Victoire/Défaite/
+  Égalité. La pause suspend l'arbre de jeu et décale les horloges absolues de combo et de
+  marque. Rejouer nettoie les FX temporaires et réinitialise PV, munitions, cooldowns et
+  passifs. Le mannequin ne se réinitialise plus automatiquement en mode duel ; son
+  comportement de laboratoire est conservé hors duel.
+- **P0-129 — bot :** le déplacement vérifie maintenant les obstacles et applique SLOW/STUN
+  à son comportement. Le projectile revalide sa trajectoire et sa proximité à l'impact,
+  y compris l'absorption par un Magnetic Field ; un tir interrompu ne cause aucun dégât.
+- **Tests ajoutés :** `tools/test_game_flow.gd` et `tools/test_loadout_state.gd`. Le premier
+  vérifie menu → duel → pause → mort réelle → résultat → rejouer ; le second vérifie la
+  validation et la persistance (l'écriture `user://` est indisponible dans le sandbox de
+  vérification actuel, mais le chemin de production est actif dans l'application).
+  Les tests de combat existants restent PASS après cette intégration.
+
+### Captures de cette étape
+
+- `captures/menu_current.png` : menu principal Godot en 1280×720 ;
+- `captures/equipment_current.png` : écran d'équipement et choix actifs ;
+- `captures/duel_current.png` : HUD compact en manche jouable.
+- `captures/result_current.png` : écran Victoire après résolution d'une mort réelle.
+
+La validation visuelle ci-dessus a été faite avec Godot 4.7.2, renderer Mobile et Vulkan
+sur le GPU disponible. Le parcours Android tactile et le framerate sur appareil réel
+restent à vérifier séparément.
+
+- **P0-130 — APK après intégration :** nouvel export debug réussi dans
+  `exports/prototype0-debug.apk` (36 278 373 octets, SHA-256
+  `9A640A8D4C68E35D8BBAE3F7876034F1878C71077B652D3533A89E6B7500C082`). Le package
+  reste `com.prototype0.arena`, version `0.1.0`, min/target SDK 24/36 et ARM64 ;
+  `apksigner` confirme les schémas v2 et v3. Aucun téléphone n'est connecté ici :
+  installation, tactile réel et FPS Android restent à mesurer sur appareil.

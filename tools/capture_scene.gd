@@ -15,6 +15,21 @@ func _initialize() -> void:
 	# Main builds the arena and its runtime children during _ready(). Wait one
 	# frame before looking up the player/target so capture options are reliable.
 	await process_frame
+	var flow := scene.get_node_or_null("Interface")
+	if arguments.size() >= 2 and flow != null:
+		if arguments[1] == "equipment":
+			flow.call("_open_equipment")
+		elif arguments[1] == "duel":
+			flow.call("_start_duel")
+		elif arguments[1] == "result":
+			flow.call("_start_duel")
+			var result_target: Node = scene.get_node_or_null("TargetDummy")
+			if result_target != null:
+				result_target.call("take_damage", 1000.0, "capture", "result_capture")
+			await process_frame
+			await process_frame
+			for _result_frame in range(4):
+				await process_frame
 	if arguments.size() >= 3:
 		var capture_player := scene.get_node_or_null("Player") as Node3D
 		if capture_player != null:
