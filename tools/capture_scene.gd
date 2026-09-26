@@ -19,13 +19,17 @@ func _initialize() -> void:
 	if arguments.size() >= 2 and flow != null:
 		if arguments[1] == "equipment":
 			flow.call("_open_equipment")
-		elif arguments[1] == "duel":
+		elif arguments[1] == "duel" or arguments[1] == "duel_live":
 			flow.call("_start_duel")
+			if arguments[1] == "duel_live":
+				flow.call("_begin_live_round")
 		elif arguments[1] == "result":
 			flow.call("_start_duel")
+			flow.call("_begin_live_round")
 			var result_target: Node = scene.get_node_or_null("TargetDummy")
 			if result_target != null:
 				result_target.call("take_damage", 1000.0, "capture", "result_capture")
+			flow.call("resolve_round", false, true)
 			await process_frame
 			await process_frame
 			for _result_frame in range(4):

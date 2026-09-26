@@ -8,6 +8,7 @@ const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 
 enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
+enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT }
 
 var main: Node
 var player: Node
@@ -17,6 +18,15 @@ var current_screen := Screen.MENU
 var loadout: Dictionary = LOADOUT.defaults()
 var result_text := ""
 var _round_resolved := false
+var round_phase := RoundPhase.IDLE
+var player_round_score := 0
+var bot_round_score := 0
+var round_number := 0
+var match_id := 0
+var _countdown_remaining := 0.0
+var _round_result_remaining := 0.0
+var _round_result_player_dead := false
+var _round_result_bot_dead := false
 var _pause_active := false
 var _pause_started_msec := 0
 var _settings: Dictionary = {"camera_shake": true, "touch_scale": 1.0}
@@ -27,11 +37,13 @@ var _equipment_panel: PanelContainer
 var _title_label: Label
 var _status_label: Label
 var _equipment_content: VBoxContainer
+var _equipment_details: Label
 var _selection_buttons: Dictionary = {}
 var _hud_labels: Dictionary = {}
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _settings_panel: PanelContainer
+var _result_actions: Array[Control] = []
 
 const BG := Color("#161417")
 const PANEL := Color("#292327")
@@ -56,9 +68,18 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		touch_controls.call("set_control_scale", _settings.touch_scale)
 	_show_screen(Screen.MENU)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if current_screen == Screen.COMBAT:
 		_update_hud()
+	if not _pause_active and round_phase == RoundPhase.COUNTDOWN:
+		_countdown_remaining = maxf(0.0, _countdown_remaining - delta)
+		if _countdown_remaining <= 0.0:
+			_begin_live_round()
+	if not _pause_active and round_phase == RoundPhase.ROUND_RESULT:
+		_round_result_remaining = maxf(0.0, _round_result_remaining - delta)
+		_update_round_result_label()
+		if _round_result_remaining <= 0.0:
+			_start_next_round()
 	if _pause_active:
 		_update_pause_labels()
 
@@ -192,17 +213,22 @@ func _build_menu() -> void:
 	box.add_child(hint)
 
 func _build_equipment() -> void:
-	_equipment_panel = _center_panel(1000, 640)
+	_equipment_panel = _center_panel(1000, 620)
 	_equipment_panel.name = "EquipmentPanel"
 	_screen_root.add_child(_equipment_panel)
 	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 10)
+	outer.add_theme_constant_override("separation", 5)
 	_equipment_panel.add_child(outer)
 	outer.add_child(_label("ÉQUIPEMENT", 32, CREAM))
 	outer.add_child(_label("Un choix par catégorie • les valeurs viennent des données de combat", 14, MUTED))
 	_equipment_content = VBoxContainer.new()
 	_equipment_content.add_theme_constant_override("separation", 7)
 	outer.add_child(_equipment_content)
+	_equipment_details = _label("", 14, CYAN)
+	_equipment_details.custom_minimum_size = Vector2(0, 52)
+	_equipment_details.add_theme_font_size_override("font_size", 12)
+	_equipment_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	outer.add_child(_equipment_details)
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 18)
@@ -214,17 +240,17 @@ func _selection_row(category: String, title: String, ids: Array) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	var heading := _label(title, 15, AMBER)
-	heading.custom_minimum_size = Vector2(120, 56)
+	heading.custom_minimum_size = Vector2(120, 46)
 	heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(heading)
 	_selection_buttons[category] = {}
 	for identifier in ids:
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(300, 56)
+		button.custom_minimum_size = Vector2(300, 46)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.clip_text = true
 		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		button.add_theme_font_size_override("font_size", 14)
+		button.add_theme_font_size_override("font_size", 12)
 		button.pressed.connect(func() -> void:
 			loadout[category] = identifier
 			_refresh_equipment()
@@ -248,17 +274,16 @@ func _refresh_equipment() -> void:
 			var active := str(loadout.get(category, "")) == str(identifier)
 			var description := LOADOUT.category_description(identifier)
 			var stats := LOADOUT.stat_line(identifier)
-			# Keep the card readable on a 1280×720 landscape viewport. The full
-			# values remain available in CombatData and the card keeps the useful
-			# decision numbers without forcing the panel off-screen.
 			button.tooltip_text = description + "  " + stats
-			if description.length() > 25:
-				description = description.left(25) + "…"
-			if stats.length() > 16:
-				stats = stats.left(16) + "…"
 			button.text = ("◆ " if active else "◇ ") + LOADOUT.display_name(identifier) + "\n" + description + "  " + stats
 			button.add_theme_color_override("font_color", CYAN if active else CREAM)
 			button.add_theme_stylebox_override("normal", _panel_style(Color("#1d555b") if active else PANEL_ALT, CYAN if active else Color("#594649"), 8))
+	if _equipment_details != null:
+		var active_lines: Array[String] = []
+		for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
+			var identifier := str(loadout.get(category, ""))
+			active_lines.append("%s : %s — %s %s" % [category.to_upper(), LOADOUT.display_name(identifier), LOADOUT.category_description(identifier), LOADOUT.stat_line(identifier)])
+		_equipment_details.text = "\n".join(active_lines)
 
 func _build_settings() -> void:
 	_settings_panel = _center_panel(620, 390)
@@ -328,6 +353,21 @@ func _build_hud() -> void:
 	right_box.add_child(_hud_labels.enemy)
 	_hud_labels.enemy_effects = _label("", 14, AMBER)
 	right_box.add_child(_hud_labels.enemy_effects)
+	var score_panel := PanelContainer.new()
+	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	score_panel.position = Vector2(-280, 18)
+	score_panel.size = Vector2(560, 76)
+	score_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.08, 0.07, 0.08, 0.90), Color("#705057"), 9))
+	_hud.add_child(score_panel)
+	var score_box := VBoxContainer.new()
+	score_box.add_theme_constant_override("separation", 2)
+	score_panel.add_child(score_box)
+	_hud_labels.match = _label("MATCH  0 — 0", 22, CREAM)
+	_hud_labels.match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	score_box.add_child(_hud_labels.match)
+	_hud_labels.phase = _label("PRÉPARATION", 15, CYAN)
+	_hud_labels.phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	score_box.add_child(_hud_labels.phase)
 	var pause := _button("Ⅱ  PAUSE", Callable(self, "_toggle_pause"), 150)
 	pause.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	pause.position = Vector2(-170, 138)
@@ -378,9 +418,13 @@ func _build_result() -> void:
 	_hud_labels.result_detail = _label("", 16, MUTED)
 	_hud_labels.result_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_hud_labels.result_detail)
-	box.add_child(_button("REJOUER", Callable(self, "_restart"), 340))
-	box.add_child(_button("MODIFIER L’ÉQUIPEMENT", Callable(self, "_open_equipment"), 340))
-	box.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu"), 340))
+	var replay := _button("REJOUER", Callable(self, "_restart"), 340)
+	var equipment := _button("MODIFIER L’ÉQUIPEMENT", Callable(self, "_open_equipment"), 340)
+	var menu := _button("RETOUR AU MENU", Callable(self, "_return_menu"), 340)
+	_result_actions = [replay, equipment, menu]
+	box.add_child(replay)
+	box.add_child(equipment)
+	box.add_child(menu)
 
 func _update_hud() -> void:
 	if player == null or target == null:
@@ -391,6 +435,9 @@ func _update_hud() -> void:
 	var e_max := float(target.call("get_max_health"))
 	_hud_labels.player.text = "JOUEUR   %d / %d PV" % [roundi(p_hp), roundi(p_max)]
 	_hud_labels.enemy.text = "BOT   %d / %d PV" % [roundi(e_hp), roundi(e_max)]
+	_hud_labels.match.text = "MATCH  %d — %d   •   MANCHE %d" % [player_round_score, bot_round_score, maxi(1, round_number)]
+	_hud_labels.phase.text = _phase_text()
+	_hud_labels.phase.add_theme_color_override("font_color", AMBER if round_phase == RoundPhase.COUNTDOWN else CYAN)
 	_hud_labels.player_effects.text = _effects_text(player)
 	_hud_labels.enemy_effects.text = _effects_text(target)
 	var weapon_id := str(player.call("get_weapon_id"))
@@ -399,6 +446,8 @@ func _update_hud() -> void:
 		weapon_text += "   •   %d / 3" % int(player.call("get_shotgun_ammo"))
 		if bool(player.call("is_shotgun_reloading")):
 			weapon_text += "   RECHARGE"
+	elif weapon_id == "blaster" and bool(player.call("is_blaster_charging")):
+		weapon_text += "   •   CHARGE %d%%" % roundi(float(player.call("get_blaster_charge_ratio")) * 100.0)
 	_hud_labels.weapon.text = weapon_text
 	var passive_id := str(player.call("get_passive_id"))
 	var passive_text := LOADOUT.display_name(passive_id)
@@ -424,11 +473,41 @@ func _effects_text(actor: Node) -> String:
 func _module_icon(category: String) -> String:
 	return {"offensive": "✦", "defensive": "◇", "mobility": "➤"}.get(category, "•")
 
+
+func _phase_text() -> String:
+	match round_phase:
+		RoundPhase.COUNTDOWN:
+			return "COMBAT DANS %d" % ceili(_countdown_remaining)
+		RoundPhase.LIVE:
+			return "COMBAT"
+		RoundPhase.ROUND_RESULT:
+			return "RÉSULTAT DE MANCHE"
+		RoundPhase.MATCH_RESULT:
+			return "MATCH TERMINÉ"
+		_:
+			return "PRÉPARATION"
+
+
+func get_match_score() -> Vector2i:
+	return Vector2i(player_round_score, bot_round_score)
+
+
+func get_round_phase_name() -> String:
+	return RoundPhase.keys()[round_phase]
+
 func _open_menu() -> void:
 	_end_pause(false)
+	round_phase = RoundPhase.IDLE
+	if main != null and main.has_method("stop_duel"):
+		main.call("stop_duel")
 	_show_screen(Screen.MENU)
 
 func _open_equipment() -> void:
+	_end_pause(false)
+	if round_phase == RoundPhase.MATCH_RESULT:
+		round_phase = RoundPhase.IDLE
+		if main != null and main.has_method("stop_duel"):
+			main.call("stop_duel")
 	loadout = LOADOUT.sanitize(loadout)
 	_show_screen(Screen.EQUIPMENT)
 
@@ -438,39 +517,115 @@ func _open_settings() -> void:
 func _start_duel() -> void:
 	loadout = LOADOUT.sanitize(loadout)
 	LOADOUT.save_local(loadout)
+	match_id += 1
+	player_round_score = 0
+	bot_round_score = 0
+	round_number = 1
 	_round_resolved = false
 	result_text = ""
+	round_phase = RoundPhase.COUNTDOWN
 	if main != null and main.has_method("start_duel"):
 		main.call("start_duel", loadout)
 	_show_screen(Screen.COMBAT)
+	_begin_round_countdown()
 
 func on_actor_died(actor: Node) -> void:
-	if _round_resolved or current_screen != Screen.COMBAT:
+	if _round_resolved or current_screen != Screen.COMBAT or round_phase != RoundPhase.LIVE:
 		return
 	if main != null:
 		main.call_deferred("resolve_round")
 
 func resolve_round(player_dead: bool, target_dead: bool) -> void:
-	if _round_resolved:
+	if _round_resolved or round_phase != RoundPhase.LIVE:
 		return
 	_round_resolved = true
-	_pause_active = false
-	get_tree().paused = false
+	_round_result_player_dead = player_dead
+	_round_result_bot_dead = target_dead
 	if player_dead and target_dead:
 		result_text = "ÉGALITÉ"
 	elif target_dead:
 		result_text = "VICTOIRE"
+		player_round_score += 1
 	else:
 		result_text = "DÉFAITE"
+		bot_round_score += 1
+	round_phase = RoundPhase.ROUND_RESULT
+	_round_result_remaining = 2.0
 	_hud_labels.result_title.text = result_text
 	_hud_labels.result_title.add_theme_color_override("font_color", GREEN if result_text == "VICTOIRE" else RED if result_text == "DÉFAITE" else AMBER)
-	_hud_labels.result_detail.text = "Manche terminée • équipement conservé : %s" % LOADOUT.display_name(str(loadout.weapon))
-	_show_screen(Screen.RESULT)
+	_hud_labels.result_detail.text = "Score %d — %d • équipement conservé : %s" % [player_round_score, bot_round_score, LOADOUT.display_name(str(loadout.weapon))]
+	_set_result_actions_visible(false)
+	_update_round_result_label()
+	_hud.visible = true
+	_result_panel.visible = true
+	if touch_controls != null:
+		touch_controls.visible = false
 	if main != null and main.has_method("stop_duel"):
 		main.call("stop_duel")
 
+
+func _begin_round_countdown() -> void:
+	round_phase = RoundPhase.COUNTDOWN
+	_countdown_remaining = 3.0
+	_round_resolved = false
+	_result_panel.visible = false
+	_set_result_actions_visible(false)
+	if main != null and main.has_method("prepare_round"):
+		main.call("prepare_round", loadout)
+	if main != null and main.has_method("set_menu_mode"):
+		main.call("set_menu_mode", false)
+
+
+func _begin_live_round() -> void:
+	if round_phase != RoundPhase.COUNTDOWN:
+		return
+	round_phase = RoundPhase.LIVE
+	_countdown_remaining = 0.0
+	if main != null and main.has_method("activate_round"):
+		main.call("activate_round")
+
+
+func _start_next_round() -> void:
+	if round_phase != RoundPhase.ROUND_RESULT:
+		return
+	if player_round_score >= 3 or bot_round_score >= 3:
+		_show_final_result()
+		return
+	round_number += 1
+	_round_result_remaining = 0.0
+	_result_panel.visible = false
+	_begin_round_countdown()
+
+
+func _show_final_result() -> void:
+	round_phase = RoundPhase.MATCH_RESULT
+	current_screen = Screen.RESULT
+	_round_resolved = true
+	_result_panel.visible = true
+	_hud.visible = false
+	if touch_controls != null:
+		touch_controls.visible = false
+	_set_result_actions_visible(true)
+	_hud_labels.result_title.text = "MATCH GAGNÉ" if player_round_score >= 3 else "MATCH PERDU"
+	_hud_labels.result_title.add_theme_color_override("font_color", GREEN if player_round_score >= 3 else RED)
+	_hud_labels.result_detail.text = "Score final  %d — %d" % [player_round_score, bot_round_score]
+	if main != null and main.has_method("set_menu_mode"):
+		main.call("set_menu_mode", true)
+
+
+func _update_round_result_label() -> void:
+	if not _hud_labels.has("result_detail") or round_phase != RoundPhase.ROUND_RESULT:
+		return
+	_hud_labels.result_detail.text = "%s\nScore %d — %d\nProchaine manche dans %.1f s" % [result_text, player_round_score, bot_round_score, _round_result_remaining]
+
+
+func _set_result_actions_visible(visible: bool) -> void:
+	for control in _result_actions:
+		if control != null and is_instance_valid(control):
+			control.visible = visible
+
 func _toggle_pause() -> void:
-	if current_screen != Screen.COMBAT or _round_resolved:
+	if current_screen != Screen.COMBAT or round_phase == RoundPhase.IDLE or round_phase == RoundPhase.MATCH_RESULT:
 		return
 	if _pause_active:
 		_resume()
@@ -494,7 +649,7 @@ func _end_pause(resume_game: bool) -> void:
 	_pause_active = false
 	_pause_panel.visible = false
 	get_tree().paused = false
-	if resume_game and main != null and main.has_method("shift_pause_timers"):
+	if resume_game and round_phase == RoundPhase.LIVE and main != null and main.has_method("shift_pause_timers"):
 		main.call("shift_pause_timers", elapsed)
 	if touch_controls != null and touch_controls.has_method("reset_inputs"):
 		touch_controls.call("reset_inputs")
@@ -505,14 +660,21 @@ func _update_pause_labels() -> void:
 
 func _restart() -> void:
 	_end_pause(false)
+	match_id += 1
+	player_round_score = 0
+	bot_round_score = 0
+	round_number = 1
 	_round_resolved = false
-	if main != null and main.has_method("restart_duel"):
-		main.call("restart_duel", loadout)
+	result_text = ""
+	if main != null and main.has_method("start_duel"):
+		main.call("start_duel", loadout)
 	_show_screen(Screen.COMBAT)
+	_begin_round_countdown()
 
 func _return_menu() -> void:
 	_end_pause(false)
 	_round_resolved = false
+	round_phase = RoundPhase.IDLE
 	if main != null and main.has_method("stop_duel"):
 		main.call("stop_duel")
 	_show_screen(Screen.MENU)

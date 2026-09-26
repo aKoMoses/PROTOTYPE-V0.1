@@ -37,6 +37,10 @@ var _dodge_remaining := 0.0
 var _dodge_cooldown_remaining := 0.0
 var _dodge_direction := Vector3.ZERO
 var _move_velocity := Vector3.ZERO
+var _last_observed_position := Vector3.ZERO
+var _has_last_observed_position := false
+var _blocked_time := 0.0
+var _avoid_direction := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -58,6 +62,10 @@ func set_enabled(value: bool) -> void:
 	_dodge_cooldown_remaining = 0.0
 	_dodge_direction = Vector3.ZERO
 	_move_velocity = Vector3.ZERO
+	_last_observed_position = Vector3.ZERO
+	_has_last_observed_position = false
+	_blocked_time = 0.0
+	_avoid_direction = Vector3.ZERO
 	_update_telegraph()
 	set_physics_process(enabled)
 	var owner_3d := get_parent() as Node3D
@@ -80,6 +88,10 @@ func reset_clock() -> void:
 	_dodge_cooldown_remaining = 0.0
 	_dodge_direction = Vector3.ZERO
 	_move_velocity = Vector3.ZERO
+	_last_observed_position = Vector3.ZERO
+	_has_last_observed_position = false
+	_blocked_time = 0.0
+	_avoid_direction = Vector3.ZERO
 	_update_telegraph()
 
 
@@ -113,6 +125,16 @@ func _physics_process(delta: float) -> void:
 	var player := scene.get_node_or_null("Player") as Node3D if scene != null else null
 	if bot_body == null or player == null or not is_instance_valid(player):
 		return
+	if bot_body.has_method("is_real_dead") and bool(bot_body.call("is_real_dead")):
+		_move_velocity = Vector3.ZERO
+		_windup_remaining = 0.0
+		_update_telegraph()
+		return
+	if player.has_method("is_real_dead") and bool(player.call("is_real_dead")):
+		_move_velocity = Vector3.ZERO
+		_windup_remaining = 0.0
+		_update_telegraph()
+		return
 	if bot_body.has_method("is_stunned") and bool(bot_body.call("is_stunned")):
 		_windup_remaining = 0.0
 		_windup_player = null
@@ -120,6 +142,13 @@ func _physics_process(delta: float) -> void:
 		_update_telegraph()
 		return
 	_elapsed += delta
+	var player_visible := true
+	if bot_body.has_method("is_visible_to"):
+		player_visible = bool(bot_body.call("is_visible_to", player))
+	if player_visible and _line_of_sight_clear(bot_body, player):
+		_last_observed_position = player.global_position
+		_has_last_observed_position = true
+	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if _dodge_remaining > 0.0:
 		_dodge_remaining = maxf(0.0, _dodge_remaining - delta)
@@ -128,7 +157,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_try_dodge(bot_body, player)
 		if _dodge_remaining <= 0.0:
-			_update_patrol(bot_body, player, delta)
+			_update_patrol(bot_body, pursuit_position, delta)
 	_telegraph_clock += delta
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -148,8 +177,8 @@ func _physics_process(delta: float) -> void:
 		_next_attack_at = _elapsed + 0.35
 
 
-func _update_patrol(bot_body: Node3D, player: Node3D, delta: float) -> void:
-	var to_player := player.global_position - bot_body.global_position
+func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -> void:
+	var to_player := pursuit_position - bot_body.global_position
 	to_player.y = 0.0
 	var distance := to_player.length()
 	var desired: Vector3
@@ -190,8 +219,17 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 		query.exclude = [bot_body.get_rid()]
 		var hit: Dictionary = world.direct_space_state.intersect_ray(query)
 		if not hit.is_empty():
-			next_position = Vector3(hit.position) - _move_velocity.normalized() * 0.72
-			_move_velocity = Vector3.ZERO
+			_blocked_time += delta
+			if _avoid_direction == Vector3.ZERO or _blocked_time > 0.35:
+				var side := Vector3(-_move_velocity.z, 0.0, _move_velocity.x).normalized()
+				_avoid_direction = side if int(_elapsed * 2.0) % 2 == 0 else -side
+			_blocked_time = 0.0
+			var slide_velocity := _avoid_direction * maxf(MOVE_SPEED * 0.8, _move_velocity.length() * 0.65)
+			next_position = bot_body.global_position + slide_velocity * delta
+			_move_velocity = _move_velocity.move_toward(slide_velocity, MOVE_ACCELERATION * delta)
+		else:
+			_blocked_time = maxf(0.0, _blocked_time - delta * 0.5)
+			_avoid_direction = Vector3.ZERO
 	bot_body.global_position = next_position
 	bot_body.global_position.x = clampf(bot_body.global_position.x, -27.0, 27.0)
 	bot_body.global_position.z = clampf(bot_body.global_position.z, -27.0, 27.0)

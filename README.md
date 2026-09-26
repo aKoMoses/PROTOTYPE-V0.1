@@ -4,6 +4,11 @@ Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
 
 ## Version actuelle
 
+La passe V0.2 ajoute la boucle de match locale complète : décompte de 3 secondes,
+manches successives, score premier à 3, égalité sans point, pause pendant les états
+de manche, bot désactivé hors combat et écran de résultat final. Le détail vérifié est
+conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
+
 - arène 3D plus grande que l'écran ;
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
@@ -217,7 +222,7 @@ visibilité, avant leur passe de carte jouable.
   boutons restent lisibles et dans la fenêtre. Ce mode est désactivé par défaut et n'a
   aucun effet sur le build desktop ou mobile normal.
 - **P0-123 — preset Android :** `export_presets.cfg` contient maintenant un preset
-  Android nommé `Android`, en paysage, package `com.prototype0.arena`, version `0.1.0`
+  Android nommé `Android`, en paysage, package `com.prototype0.arena`, version `0.2.0`
   et architecture ARM64. La sortie debug prévue est `exports/prototype0-debug.apk`.
   Le preset a d'abord été préparé avant l'installation locale des dépendances ; l'export
   fonctionnel et sa vérification sont documentés en P0-124 puis P0-130.
@@ -238,6 +243,22 @@ visibilité, avant leur passe de carte jouable.
   l'APK est donc produit et vérifié, mais ni installé ni lancé sur téléphone. Il reste
   à transférer l'APK sur le téléphone, autoriser l'installation depuis cette source,
   puis ouvrir `Prototype 0` pour le parcours de test manuel.
+
+## Passe V0.2 — 26 septembre 2026
+
+- **V02-01 :** routes jouables limitées au Blaster et au Shotgun ; les anciens
+  identifiants d'arme sont migrés vers le Blaster sans modifier les valeurs de combat.
+- **V02-02 :** `PrototypeGameFlow` est l'autorité unique du score et des transitions.
+  Le décompte verrouille les commandes, chaque mort ne résout qu'une fois la manche,
+  l'égalité ne donne aucun point et le match se termine au premier score de 3.
+- **V02-03 :** le bot mémorise la dernière position visible, respecte obstacles/bushs,
+  est désactivé hors manche et repart proprement au reset.
+- **V02-04 :** écran équipement détaillé, HUD score/phase, charge du Blaster,
+  munitions/recharge Shotgun, PV et états des deux acteurs.
+- **V02-05 :** `tools/test_game_flow.gd` couvre les transitions, pause, score unique,
+  égalité, reset et fin de match ; l'ensemble des tests précédents reste PASS.
+- **V02-06 :** preset Android passé au version code 2 / nom 0.2.0 ; l'APK sera
+  régénéré et vérifié après cette passe.
 
 ## Captures de validation
 
@@ -349,9 +370,17 @@ La validation visuelle ci-dessus a été faite avec Godot 4.7.2, renderer Mobile
 sur le GPU disponible. Le parcours Android tactile et le framerate sur appareil réel
 restent à vérifier séparément.
 
-- **P0-130 — APK après intégration :** nouvel export debug réussi dans
-  `exports/prototype0-debug.apk` (36 278 373 octets, SHA-256
-  `9A640A8D4C68E35D8BBAE3F7876034F1878C71077B652D3533A89E6B7500C082`). Le package
-  reste `com.prototype0.arena`, version `0.1.0`, min/target SDK 24/36 et ARM64 ;
-  `apksigner` confirme les schémas v2 et v3. Aucun téléphone n'est connecté ici :
-  installation, tactile réel et FPS Android restent à mesurer sur appareil.
+- **P0-130 — APK V0.2 après intégration :** export debug réussi dans
+  `exports/prototype0-debug.apk` (37 725 703 octets, SHA-256
+  `C6F3BC144242C90A459FD2F4E33596D0B6F053D18BAC08FC621F2B0EA850019B`). `aapt` confirme
+  le package `com.prototype0.arena`, `versionCode=2`, `versionName=0.2.0`, min/target
+  SDK 24/36 et ARM64 ; `apksigner` confirme les schémas v2 et v3. Aucun téléphone
+  n'est connecté ici : installation, tactile réel et FPS Android restent à mesurer
+  sur appareil.
+
+### Captures V0.2 réellement produites
+
+`captures/v02_menu.png`, `captures/v02_equipment.png`, `captures/v02_duel_live.png` et
+`captures/v02_result.png` ont été rendues par la scène Godot avec le renderer Mobile.
+La capture résultat montre une victoire de manche 1–0 ; le bouton de manche suivante
+est volontairement masqué pendant le délai automatique de deux secondes.

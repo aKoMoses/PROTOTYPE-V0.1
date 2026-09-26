@@ -1522,6 +1522,10 @@ func set_menu_mode(menu_mode: bool) -> void:
 
 
 func start_duel(loadout: Dictionary) -> void:
+	prepare_round(loadout)
+
+
+func prepare_round(loadout: Dictionary) -> void:
 	duel_active = true
 	if player == null or target == null:
 		return
@@ -1529,9 +1533,17 @@ func start_duel(loadout: Dictionary) -> void:
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	target.call("set_duel_mode", true)
+	target.call("set_training_bot_enabled", false)
 	target.call("reset_combat_state")
 	player.call("apply_loadout", loadout)
 	player.call("reset_combat_state")
+	player.call("set_gameplay_enabled", false)
+	player.call("clear_touch_inputs")
+
+
+func activate_round() -> void:
+	if not duel_active or player == null or target == null:
+		return
 	player.call("set_gameplay_enabled", true)
 	target.call("set_training_bot_enabled", true)
 

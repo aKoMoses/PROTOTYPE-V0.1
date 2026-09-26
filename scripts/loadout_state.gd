@@ -99,8 +99,8 @@ static func stat_line(identifier: String) -> String:
 	var module: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	if not weapon.is_empty():
 		if identifier == "blaster":
-			return "20–50 dégâts   •   PORTÉE 14 m   •   CHARGE 1 s"
-		return "6×20 dégâts • 3 salves"
+			return "%d–%d dégâts • portée %.0f m • charge %.1f s • CD %.2f s" % [int(weapon.get("damage", 0.0)), int(weapon.get("max_damage", weapon.get("damage", 0.0))), float(weapon.get("max_range", 0.0)), float(weapon.get("charge_time", 0.0)), float(weapon.get("cooldown", 0.0))]
+		return "%d×%d dégâts • %d salves • portée %.0f m" % [int(weapon.get("pellets_per_shot", 0)), int(weapon.get("pellet_damage", 0.0)), int(weapon.get("magazine_size", 0)), float(weapon.get("max_range", 0.0))]
 	if not module.is_empty():
 		if module.has("cooldown"):
 			return "CD %.1f s" % float(module.cooldown)
