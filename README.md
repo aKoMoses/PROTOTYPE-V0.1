@@ -300,10 +300,10 @@ capture : un essai sur appareil Android reste nécessaire.
 Pour refaire une capture locale depuis PowerShell :
 
 ```powershell
-& 'C:\Users\Ben\Desktop\PROTOTYPE 0\Godot_v4.7.2-stable_win64_console.exe' `
-  --path 'C:\chemin\vers\PROTOTYPE-0' --display-driver windows `
+& 'C:\RomainOpen\perso\Godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe' `
+  --path 'C:\RomainOpen\perso\Studio\game-source' --display-driver windows `
   --rendering-method mobile --rendering-driver d3d12 `
-  --script 'res://tools/capture_scene.gd' -- 'captures\ma_capture.png' 0 0
+  --script 'res://tools/capture_scene.gd' -- 'C:\RomainOpen\perso\Studio\game-source\captures\ma_capture.png'
 ```
 
 ## Lancer le prototype
@@ -312,11 +312,13 @@ Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 ### Menu principal
 
-Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`. Son fond
+Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`, ainsi que
+la police Russo One dans `art/ui/fonts/`. Son fond
 simule en boucle trois mini-clips de combat de 3 secondes, joués en direct avec les
 robots et l'arène du jeu. Le cadrage et l'arme changent d'un clip à l'autre ; aucun
 fichier vidéo n'est lu.
-La capture Godot rendue est conservée dans `captures/menu-redesign-preview.png`.
+Les trois captures Godot sont conservées dans `captures/menu-redesign-preview.png`,
+`captures/menu-redesign-clip-2.png` et `captures/menu-redesign-clip-3.png`.
 
 ## Commandes
 

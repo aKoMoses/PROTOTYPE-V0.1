@@ -1571,7 +1571,7 @@ func _set_menu_showcase_clip(clip_index: int) -> void:
 	]
 	var target_positions: Array[Vector3] = [
 		Vector3(2.1, 0.0, 0.5),
-		Vector3(-2.0, 0.0, 1.0),
+		Vector3(-0.5, 0.0, 2.0),
 		Vector3(1.5, 0.0, 4.0),
 	]
 	var camera_positions: Array[Vector3] = [
