@@ -20,14 +20,19 @@ var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
 var _fx_serial := 0
 var _fx_budget_clock := 0.0
+var _menu_showcase_active := false
+var _menu_showcase_elapsed := 0.0
+var _menu_showcase_clip := -1
 const FX_MAX_PARTICLES := 24
 const FX_MAX_BURSTS := 42
 const FX_MAX_PROJECTILES := 14
+const MENU_SHOWCASE_CLIP_SECONDS := 3.0
 
 
 func _process(delta: float) -> void:
 	_ambient_clock += delta
 	_fx_budget_clock += delta
+	_update_menu_showcase(delta)
 	if _fx_budget_clock >= 0.25:
 		_fx_budget_clock = 0.0
 		_trim_fx_budget()
@@ -1521,6 +1526,89 @@ func set_menu_mode(menu_mode: bool) -> void:
 			target.call("set_training_bot_enabled", false)
 
 
+func set_menu_showcase_enabled(value: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if _menu_showcase_active == value:
+		return
+	_menu_showcase_active = value
+	_menu_showcase_elapsed = 0.0
+	_menu_showcase_clip = -1
+	if value:
+		_set_menu_showcase_clip(0)
+		return
+	if player != null:
+		player.call("clear_touch_inputs")
+		player.call("set_gameplay_enabled", false)
+	if target != null:
+		target.call("set_training_bot_enabled", false)
+		target.call("set_duel_mode", false)
+	reset_round_camera()
+
+
+func _update_menu_showcase(delta: float) -> void:
+	if not _menu_showcase_active or player == null or target == null:
+		return
+	_menu_showcase_elapsed += delta
+	var clip_index := int(floor(_menu_showcase_elapsed / MENU_SHOWCASE_CLIP_SECONDS)) % 3
+	if clip_index != _menu_showcase_clip:
+		_set_menu_showcase_clip(clip_index)
+	var clip_time := fmod(_menu_showcase_elapsed, MENU_SHOWCASE_CLIP_SECONDS)
+	var aim: Vector3 = target.global_position - player.global_position
+	aim.y = 0.0
+	if aim.length_squared() > 0.001:
+		player.call("set_touch_aim_vector", Vector2(aim.x, aim.z).normalized())
+	var firing := (clip_time >= 0.62 and clip_time < 1.22) or (clip_time >= 2.04 and clip_time < 2.43)
+	player.call("set_touch_attack_held", firing)
+
+
+func _set_menu_showcase_clip(clip_index: int) -> void:
+	_menu_showcase_clip = clip_index
+	var player_positions: Array[Vector3] = [
+		Vector3(-2.4, 0.0, 3.5),
+		Vector3(2.2, 0.0, 7.0),
+		Vector3(-1.5, 0.0, 5.3),
+	]
+	var target_positions: Array[Vector3] = [
+		Vector3(2.1, 0.0, 0.5),
+		Vector3(-2.0, 0.0, 4.0),
+		Vector3(1.5, 0.0, 4.0),
+	]
+	var camera_positions: Array[Vector3] = [
+		Vector3(-4.5, 13.0, 11.0),
+		Vector3(-5.2, 13.0, 11.0),
+		Vector3(-4.0, 14.0, 12.0),
+	]
+	var camera_fovs: Array[float] = [34.0, 36.0, 36.0]
+	clear_transient_fx()
+	player.global_position = player_positions[clip_index]
+	target.global_position = target_positions[clip_index]
+	player.call("clear_touch_inputs")
+	player.call("reset_combat_state")
+	player.call("set_weapon", "shotgun" if clip_index == 1 else "blaster")
+	player.call("set_gameplay_enabled", true)
+	target.call("set_duel_mode", false)
+	target.call("reset_combat_state")
+	target.call("set_training_bot_spawn_position", target_positions[clip_index])
+	target.call("set_training_bot_enabled", true)
+	var player_world_ui := player.get_node_or_null("WorldUIAnchor") as Node3D
+	if player_world_ui != null:
+		player_world_ui.visible = false
+	var target_readout := target.get_node_or_null("TargetHealthReadout")
+	if target_readout != null:
+		target_readout.visible = false
+		target_readout.call("set_cinematic_mode", true)
+	var rig := get_node_or_null("CameraRig")
+	if rig != null:
+		rig.call("reset_focus")
+		rig.call("set_target", player)
+		rig.call("set_follow_offset", Vector3(-5.5 if clip_index == 1 else -6.0, 0.0, -3.0), true)
+		var camera := rig.get_node_or_null("Camera3D") as Camera3D
+		if camera != null:
+			camera.position = camera_positions[clip_index]
+			camera.fov = camera_fovs[clip_index]
+
+
 func start_duel(loadout: Dictionary) -> void:
 	prepare_round(loadout)
 
@@ -1529,6 +1617,7 @@ func prepare_round(loadout: Dictionary) -> void:
 	duel_active = true
 	if player == null or target == null:
 		return
+	reset_round_camera()
 	clear_transient_fx()
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
@@ -1560,6 +1649,35 @@ func stop_duel() -> void:
 	if target != null:
 		target.call("set_training_bot_enabled", false)
 		target.call("set_duel_mode", false)
+
+
+func focus_round_winner(player_won: bool) -> void:
+	var rig := get_node_or_null("CameraRig")
+	var winner: Node3D = player if player_won else target
+	if rig != null:
+		rig.call("focus_on_winner", winner)
+	var readout := winner.get_node_or_null("WorldUIAnchor/PlayerHealthReadout") if player_won else winner.get_node_or_null("TargetHealthReadout")
+	if readout != null:
+		readout.call("set_cinematic_mode", true)
+
+
+func reset_round_camera() -> void:
+	var rig := get_node_or_null("CameraRig")
+	if rig != null and player != null:
+		rig.call("set_target", player)
+		rig.call("set_follow_offset", Vector3.ZERO, true)
+	if player != null:
+		var player_world_ui := player.get_node_or_null("WorldUIAnchor") as Node3D
+		if player_world_ui != null:
+			player_world_ui.visible = true
+		var player_readout := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
+		if player_readout != null:
+			player_readout.call("set_cinematic_mode", false)
+	if target != null:
+		var target_readout := target.get_node_or_null("TargetHealthReadout")
+		if target_readout != null:
+			target_readout.visible = true
+			target_readout.call("set_cinematic_mode", false)
 
 
 func resolve_round() -> void:

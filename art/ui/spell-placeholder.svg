@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6dfcf"/>
+      <stop offset=".5" stop-color="#aaa69e"/>
+      <stop offset="1" stop-color="#6e6b68"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#steel)" stroke-linecap="square" stroke-linejoin="miter">
+    <circle cx="64" cy="64" r="47" stroke-width="4"/>
+    <circle cx="64" cy="64" r="36" stroke-width="2" opacity=".88"/>
+    <path d="M64 9v17M64 102v17M9 64h17M102 64h17" stroke-width="4"/>
+    <path d="m64 31 33 33-33 33-33-33z" stroke-width="4"/>
+    <path d="m64 46 18 18-18 18-18-18z" stroke-width="3"/>
+    <circle cx="64" cy="64" r="5" fill="#4edce4" stroke="#4edce4" stroke-width="2"/>
+  </g>
+  <g fill="#d3c9b8">
+    <circle cx="64" cy="4" r="3"/>
+    <circle cx="64" cy="124" r="3"/>
+    <circle cx="4" cy="64" r="3"/>
+    <circle cx="124" cy="64" r="3"/>
+  </g>
+</svg>

@@ -73,6 +73,11 @@ func set_enabled(value: bool) -> void:
 		owner_3d.set_meta("training_bot_enabled", enabled)
 
 
+func set_spawn_position(value: Vector3) -> void:
+	_spawn_position = value
+	reset_clock()
+
+
 func toggle() -> bool:
 	set_enabled(not enabled)
 	return enabled

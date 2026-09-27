@@ -10,9 +10,8 @@ const TRAINING_BOT := preload("res://scripts/training_bot.gd")
 var combat_state
 var visibility_state
 var _resetting := false
-var _health_label: Label3D
-var _health_bar_bg: MeshInstance3D
-var _health_bar_fill: MeshInstance3D
+const COMBAT_READOUT := preload("res://scripts/combat_readout.gd")
+var _health_readout: Node3D
 var _body_material: StandardMaterial3D
 var _status_label: Label3D
 var _body_mesh: MeshInstance3D
@@ -146,6 +145,8 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	if _health_readout != null:
+		_health_readout.call("clear_damage_numbers")
 	_resetting = false
 	_javelin_mark_until = -1.0
 	if combat_state != null:
@@ -163,6 +164,11 @@ func reset_combat_state() -> void:
 func set_training_bot_enabled(value: bool) -> void:
 	if _training_bot != null:
 		_training_bot.call("set_enabled", value)
+
+
+func set_training_bot_spawn_position(value: Vector3) -> void:
+	if _training_bot != null:
+		_training_bot.call("set_spawn_position", value)
 
 
 func toggle_training_bot() -> bool:
@@ -246,7 +252,7 @@ func _update_visibility_presentation() -> void:
 	# Visibility must not turn status visuals on by itself. The previous broad
 	# loop overwrote _update_effect_presentation() every frame, making a fresh
 	# mannequin render BURN/SLOW/STUN/SPOTTED as if all four were active.
-	for node in [_body_mesh, _health_label, _health_bar_bg, _health_bar_fill, _status_label, _impact_light]:
+	for node in [_body_mesh, _health_readout, _status_label, _impact_light]:
 		if node != null:
 			node.visible = should_show
 	var burning: bool = combat_state != null and combat_state.has_effect(COMBAT_DATA.EFFECT_BURN)
@@ -353,6 +359,8 @@ func _on_health_changed(_current: float, _maximum: float) -> void:
 
 
 func _on_damage_applied(amount: float, source_id: String, _attack_id: String) -> void:
+	if _health_readout != null:
+		_health_readout.call("show_damage", amount)
 	# The prototype has one player attacker. Keep attribution on effective PV
 	# removed so Omnivamp also sees criticals and BURN ticks, never overkill.
 	if not (source_id == "player" or source_id.begins_with("player:")):
@@ -392,10 +400,6 @@ func _on_state_died() -> void:
 	if _resetting:
 		return
 	_resetting = true
-	if _health_label != null:
-		_health_label.text = "CIBLE DÉTRUITE"
-	if _health_bar_fill != null:
-		_health_bar_fill.visible = false
 	if _body_material != null:
 		_body_material.albedo_color = Color("#3b302e")
 	_update_status("")
@@ -411,14 +415,8 @@ func _reset_target() -> void:
 
 
 func _update_label() -> void:
-	if _health_label != null and combat_state != null and not _resetting:
-		_health_label.text = "CIBLE  %d / %d" % [int(round(combat_state.health)), int(round(combat_state.max_health))]
-	if _health_bar_fill != null and combat_state != null:
-		var fraction := clampf(combat_state.health / maxf(combat_state.max_health, 0.001), 0.0, 1.0)
-		var bar_width := 2.7 * fraction
-		_health_bar_fill.visible = not _resetting and fraction > 0.0
-		_health_bar_fill.scale = Vector3(bar_width, 1.0, 1.0)
-		_health_bar_fill.position.x = -1.35 + bar_width * 0.5
+	if _health_readout != null and combat_state != null:
+		_health_readout.call("set_health", combat_state.health, combat_state.max_health)
 
 
 func _build_collision() -> void:
@@ -548,34 +546,14 @@ func _build_visuals() -> void:
 	_impact_light.position = Vector3(0.0, 1.0, 0.0)
 	add_child(_impact_light)
 
-	_health_label = Label3D.new()
-	_health_label.position = Vector3(0.0, 2.72, 0.0)
-	_health_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_health_label.font_size = 46
-	_health_label.outline_size = 10
-	_health_label.modulate = Color("#ffd0c5")
-	add_child(_health_label)
-
-	_health_bar_bg = MeshInstance3D.new()
-	_health_bar_bg.name = "HealthBarBackground"
-	var health_bar_bg_mesh := BoxMesh.new()
-	health_bar_bg_mesh.size = Vector3(2.7, 0.24, 0.08)
-	_health_bar_bg.mesh = health_bar_bg_mesh
-	_health_bar_bg.position = Vector3(0.0, 2.38, 0.0)
-	_health_bar_bg.material_override = _effect_material(Color("#251b1d"), Color("#080405"))
-	add_child(_health_bar_bg)
-
-	_health_bar_fill = MeshInstance3D.new()
-	_health_bar_fill.name = "HealthBarFill"
-	var health_bar_fill_mesh := BoxMesh.new()
-	health_bar_fill_mesh.size = Vector3(1.0, 0.17, 0.10)
-	_health_bar_fill.mesh = health_bar_fill_mesh
-	_health_bar_fill.position = Vector3(-1.35, 2.38, 0.06)
-	_health_bar_fill.material_override = _effect_material(Color("#62ef78"), Color("#25c954"))
-	add_child(_health_bar_fill)
+	_health_readout = Node3D.new()
+	_health_readout.name = "TargetHealthReadout"
+	_health_readout.set_script(COMBAT_READOUT)
+	add_child(_health_readout)
+	_health_readout.call("configure", Color("#ee6b4e"), "BOT")
 
 	_status_label = Label3D.new()
-	_status_label.position = Vector3(1.35, 3.02, 0.0)
+	_status_label.position = Vector3(1.35, 4.05, 0.0)
 	_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_status_label.font_size = 32
 	_status_label.outline_size = 10

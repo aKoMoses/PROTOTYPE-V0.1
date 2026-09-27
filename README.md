@@ -310,6 +310,14 @@ Pour refaire une capture locale depuis PowerShell :
 
 Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
+### Menu principal
+
+Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`. Son fond
+simule en boucle trois mini-clips de combat de 3 secondes, joués en direct avec les
+robots et l'arène du jeu. Le cadrage et l'arme changent d'un clip à l'autre ; aucun
+fichier vidéo n'est lu.
+La capture Godot rendue est conservée dans `captures/menu-redesign-preview.png`.
+
 ## Commandes
 
 - `ZQSD`, `WASD` ou flèches : déplacement ;

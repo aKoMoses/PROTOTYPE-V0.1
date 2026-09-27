@@ -16,6 +16,8 @@ func _initialize() -> void:
 	# frame before looking up the player/target so capture options are reliable.
 	await process_frame
 	var flow := scene.get_node_or_null("Interface")
+	if arguments.size() >= 2 and arguments[1] in ["menu_clip_2", "menu_clip_3"]:
+		scene.set("_menu_showcase_elapsed", 3.3 if arguments[1] == "menu_clip_2" else 6.3)
 	if arguments.size() >= 2 and flow != null:
 		if arguments[1] == "equipment":
 			flow.call("_open_equipment")
@@ -23,17 +25,44 @@ func _initialize() -> void:
 			flow.call("_start_duel")
 			if arguments[1] == "duel_live":
 				flow.call("_begin_live_round")
-		elif arguments[1] == "result":
+		elif arguments[1] == "fight":
+			flow.call("_start_duel")
+			flow.call("_begin_fight")
+		elif arguments[1] == "damage":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			var damage_target: Node = scene.get_node_or_null("TargetDummy")
+			if damage_target != null:
+				damage_target.call("take_damage", 50.0, "capture", "damage_capture")
+		elif arguments[1] == "damage_chain":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			var chain_target: Node = scene.get_node_or_null("TargetDummy")
+			if chain_target != null:
+				chain_target.call("take_damage", 50.0, "capture:shot", "chain_1")
+				chain_target.call("take_damage", 60.0, "capture:burn", "chain_2")
+				chain_target.call("take_damage", 70.0, "capture:module", "chain_3")
+		elif arguments[1] == "shotgun_damage":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			var shotgun_player: Node = scene.get_node_or_null("Player")
+			var shotgun_target: Node = scene.get_node_or_null("TargetDummy")
+			if shotgun_player != null and shotgun_target != null:
+				shotgun_player.position = Vector3(-1.7, 0.0, 0.8)
+				shotgun_target.position = Vector3(1.0, 0.0, -1.8)
+				shotgun_target.call("set_training_bot_enabled", false)
+				shotgun_player.set("aim_direction", Vector3(2.7, 0.0, -2.6).normalized())
+				shotgun_player.call("set_weapon", "shotgun")
+				shotgun_player.call("_perform_shotgun_attack")
+				await create_timer(0.42).timeout
+		elif arguments[1] == "result" or arguments[1] == "winner_focus":
 			flow.call("_start_duel")
 			flow.call("_begin_live_round")
 			var result_target: Node = scene.get_node_or_null("TargetDummy")
 			if result_target != null:
 				result_target.call("take_damage", 1000.0, "capture", "result_capture")
 			flow.call("resolve_round", false, true)
-			await process_frame
-			await process_frame
-			for _result_frame in range(4):
-				await process_frame
+			await create_timer(1.8 if arguments[1] == "result" else 0.9).timeout
 	if arguments.size() >= 3:
 		var capture_player := scene.get_node_or_null("Player") as Node3D
 		if capture_player != null:
@@ -123,6 +152,10 @@ func _initialize() -> void:
 			passive_player.call("take_damage", 1000.0, "capture", "baroud_capture")
 			print("CAPTURE PASSIVE: baroud")
 	var settle_frames := 30
+	if arguments.size() >= 2 and arguments[1] in ["winner_focus", "result", "shotgun_damage"]:
+		settle_frames = 0
+	elif arguments.size() >= 2 and arguments[1] in ["damage", "damage_chain"]:
+		settle_frames = 8
 	if arguments.size() >= 4:
 		match arguments[3]:
 			"blaster": settle_frames = 30

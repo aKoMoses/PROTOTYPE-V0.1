@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="128" viewBox="0 0 600 128">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2b25"/>
+      <stop offset=".22" stop-color="#211b1a"/>
+      <stop offset="1" stop-color="#171719"/>
+    </linearGradient>
+    <linearGradient id="bronze" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e4b875"/>
+      <stop offset=".5" stop-color="#a97148"/>
+      <stop offset="1" stop-color="#68432f"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-25%" width="120%" height="160%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+  <path d="M52 10h496l42 27v54l-42 27H52L10 91V37z" fill="#070809" opacity=".56" filter="url(#shadow)" transform="translate(0 3)"/>
+  <path d="M52 5h496l42 27v54l-42 27H52L10 86V32z" fill="url(#plate)" stroke="#5c3f2e" stroke-width="10"/>
+  <path d="M52 8h496l35 24v54l-35 24H52L17 86V32z" fill="none" stroke="url(#bronze)" stroke-width="4"/>
+  <path d="M29 35 52 20h13v77H52L29 82z" fill="#173e42" stroke="#3fd4dc" stroke-width="3"/>
+  <path d="M571 35 548 20h-13v77h13l23-15z" fill="#482723" stroke="#d35a49" stroke-width="3"/>
+  <path d="M83 17h434M76 108h448" stroke="#d29b62" stroke-opacity=".38" stroke-width="2"/>
+  <path d="M269 103h62" stroke="#e1bd84" stroke-width="2" opacity=".82"/>
+  <g fill="#d4a56e" stroke="#5a3d2b" stroke-width="3">
+    <circle cx="51" cy="13" r="7"/><circle cx="549" cy="13" r="7"/>
+    <circle cx="51" cy="115" r="7"/><circle cx="549" cy="115" r="7"/>
+    <circle cx="126" cy="11" r="5"/><circle cx="474" cy="11" r="5"/>
+    <circle cx="126" cy="117" r="5"/><circle cx="474" cy="117" r="5"/>
+    <circle cx="584" cy="39" r="5"/><circle cx="584" cy="89" r="5"/>
+    <circle cx="16" cy="39" r="5"/><circle cx="16" cy="89" r="5"/>
+  </g>
+</svg>
