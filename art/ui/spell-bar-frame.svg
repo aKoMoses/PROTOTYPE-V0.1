@@ -1,79 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="108" viewBox="0 0 520 108">
-  <defs>
-    <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4a3930"/>
-      <stop offset=".22" stop-color="#29211f"/>
-      <stop offset=".78" stop-color="#191718"/>
-      <stop offset="1" stop-color="#39271f"/>
-    </linearGradient>
-    <linearGradient id="pod" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a5238"/>
-      <stop offset=".12" stop-color="#342722"/>
-      <stop offset=".82" stop-color="#211b1a"/>
-      <stop offset="1" stop-color="#5b3b2b"/>
-    </linearGradient>
-    <linearGradient id="inset" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#121314"/>
-      <stop offset=".55" stop-color="#211b1a"/>
-      <stop offset="1" stop-color="#121213"/>
-    </linearGradient>
-    <linearGradient id="copper" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e4b778"/>
-      <stop offset=".48" stop-color="#b57949"/>
-      <stop offset="1" stop-color="#70452f"/>
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
-      <feGaussianBlur stdDeviation="3"/>
-    </filter>
-  </defs>
-
-  <!-- Shared chassis and its cast shadow -->
-  <path d="M27 7h466l22 17v62l-20 16H25L5 86V24z" fill="#080809" opacity=".64" filter="url(#shadow)" transform="translate(0 3)"/>
-  <path d="M28 4h464l23 18v63l-20 17H25L5 85V23z" fill="url(#hull)" stroke="#100e0e" stroke-width="3"/>
-  <path d="M30 7h460l18 15v5H12v-4zM12 82h496v5l-18 12H30L12 87z" fill="#51382c" stroke="#765039" stroke-width="1.5"/>
-  <path d="M14 28h9v50l-9 8-8-9V24zM506 28h-9v50l9 8 8-9V24z" fill="#302624" stroke="#9a6340" stroke-width="2"/>
-  <path d="M18 31h4v37h-4zM498 31h4v37h-4z" fill="#d99a5b" opacity=".72"/>
-
-  <!-- The three raised spell pods share the lower support rail. -->
-  <g>
-    <path d="M24 16 32 10h128l10 10v60l-9 11H23l-10-10V27z" fill="#08090a" transform="translate(0 4)"/>
-    <path d="M24 15 32 9h128l10 10v60l-9 11H23l-10-10V26z" fill="url(#pod)" stroke="#65432f" stroke-width="2"/>
-    <path d="M25 18 33 13h125l8 8v56l-8 9H25l-8-8V27z" fill="url(#inset)" stroke="url(#copper)" stroke-width="2.2"/>
-    <path d="M28 20 34 16h122v3H34l-6 5zM21 76l6 7h129l6-7-2 6-5 5H25l-6-7z" fill="#d29a62" opacity=".42"/>
-    <path d="M20 31 25 26h38l5 5v45l-5 6H24l-5-6z" fill="#111213" stroke="#775139" stroke-width="2"/>
-    <path d="M77 21h76l4 4v13H73V25z" fill="#493128" stroke="url(#copper)" stroke-width="1.8"/>
-    <path d="M75 43h79v34H75z" fill="#171617" opacity=".38"/>
-    <circle cx="25" cy="19" r="2.2" fill="#e3ad6f"/>
-    <circle cx="160" cy="79" r="2.2" fill="#9b6540"/>
-  </g>
-
-  <g transform="translate(170 0)">
-    <path d="M24 16 32 10h128l10 10v60l-9 11H23l-10-10V27z" fill="#08090a" transform="translate(0 4)"/>
-    <path d="M24 15 32 9h128l10 10v60l-9 11H23l-10-10V26z" fill="url(#pod)" stroke="#65432f" stroke-width="2"/>
-    <path d="M25 18 33 13h125l8 8v56l-8 9H25l-8-8V27z" fill="url(#inset)" stroke="url(#copper)" stroke-width="2.2"/>
-    <path d="M28 20 34 16h122v3H34l-6 5zM21 76l6 7h129l6-7-2 6-5 5H25l-6-7z" fill="#d29a62" opacity=".42"/>
-    <path d="M20 31 25 26h38l5 5v45l-5 6H24l-5-6z" fill="#111213" stroke="#775139" stroke-width="2"/>
-    <path d="M77 21h76l4 4v13H73V25z" fill="#493128" stroke="url(#copper)" stroke-width="1.8"/>
-    <path d="M75 43h79v34H75z" fill="#171617" opacity=".38"/>
-    <circle cx="25" cy="19" r="2.2" fill="#e3ad6f"/>
-    <circle cx="160" cy="79" r="2.2" fill="#9b6540"/>
-  </g>
-
-  <g transform="translate(340 0)">
-    <path d="M24 16 32 10h128l10 10v60l-9 11H23l-10-10V27z" fill="#08090a" transform="translate(0 4)"/>
-    <path d="M24 15 32 9h128l10 10v60l-9 11H23l-10-10V26z" fill="url(#pod)" stroke="#65432f" stroke-width="2"/>
-    <path d="M25 18 33 13h125l8 8v56l-8 9H25l-8-8V27z" fill="url(#inset)" stroke="url(#copper)" stroke-width="2.2"/>
-    <path d="M28 20 34 16h122v3H34l-6 5zM21 76l6 7h129l6-7-2 6-5 5H25l-6-7z" fill="#d29a62" opacity=".42"/>
-    <path d="M20 31 25 26h38l5 5v45l-5 6H24l-5-6z" fill="#111213" stroke="#775139" stroke-width="2"/>
-    <path d="M77 21h76l4 4v13H73V25z" fill="#493128" stroke="url(#copper)" stroke-width="1.8"/>
-    <path d="M75 43h79v34H75z" fill="#171617" opacity=".38"/>
-    <circle cx="25" cy="19" r="2.2" fill="#e3ad6f"/>
-    <circle cx="160" cy="79" r="2.2" fill="#9b6540"/>
-  </g>
-
-  <!-- Low connector bridges and a deep front rail make the modules one assembly. -->
-  <path d="M173 74h4v13h-4zM343 74h4v13h-4z" fill="#c18a57"/>
-  <path d="M25 91h470l-12 11H37z" fill="#30231f" stroke="#795238" stroke-width="1.5"/>
-  <path d="M39 94h442l-8 5H47z" fill="#b77849" opacity=".52"/>
-  <path d="M254 92h12v8h-12z" fill="#161516" stroke="#9a6040" stroke-width="1.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="72" viewBox="0 0 184 72">
+  <path d="M8 5h168l5 5v55l-5 5H8l-5-5V10z" fill="#101010" opacity=".46"/>
+  <path d="M8 3h168l5 5v55l-5 5H8l-5-5V8z" fill="#211c1b" stroke="#171516" stroke-width="2"/>
+  <path d="M9 5h166l4 4v53l-4 4H9l-4-4V9z" fill="none" stroke="#b78250" stroke-width="1.5"/>
+  <path d="M9 9h51v54H9z" fill="#10191b" stroke="#3d7b80" stroke-width="1.4"/>
+  <path d="M62 8h25v25H62z" fill="#352820" stroke="#ba8556" stroke-width="1.4"/>
+  <path d="M62 38h114v25H62z" fill="#182023" stroke="#517378" stroke-width="1.2"/>
+  <path d="M10 6h164" stroke="#e2b172" opacity=".33" stroke-width="1"/>
+  <circle cx="7" cy="7" r="1.7" fill="#d8a163"/>
+  <circle cx="177" cy="65" r="1.7" fill="#d8a163"/>
 </svg>

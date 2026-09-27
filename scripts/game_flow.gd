@@ -7,7 +7,14 @@ extends CanvasLayer
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const BLASTER_ICON: Texture2D = preload("res://art/icons/blaster-gravure.png")
-const SPELL_PLACEHOLDER_ICON: Texture2D = preload("res://art/ui/spell-placeholder.svg")
+const MODULE_ICONS := {
+	"modulo_drone": preload("res://art/ui/icons/drone.svg"),
+	"javelin": preload("res://art/ui/icons/javelin.svg"),
+	"magnetic_field": preload("res://art/ui/icons/magnetic.svg"),
+	"static_shield": preload("res://art/ui/icons/shield.svg"),
+	"pyro_boots": preload("res://art/ui/icons/boots.svg"),
+	"bio_injector": preload("res://art/ui/icons/injector.svg"),
+}
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
 const MENU_PANEL_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-panel.png")
@@ -474,8 +481,8 @@ func _build_hud() -> void:
 	var score_panel := Control.new()
 	score_panel.name = "MatchSummary"
 	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	score_panel.position = Vector2(-300, 8)
-	score_panel.size = Vector2(600, 128)
+	score_panel.position = Vector2(-230, 12)
+	score_panel.size = Vector2(460, 60)
 	score_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(score_panel)
 	var score_backdrop := TextureRect.new()
@@ -485,51 +492,46 @@ func _build_hud() -> void:
 	score_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
 	score_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	score_panel.add_child(score_backdrop)
-	var match_tag := _label("MATCH", 15, AMBER)
-	match_tag.position = Vector2(68, 38)
-	match_tag.size = Vector2(100, 28)
-	match_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	match_tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	score_panel.add_child(match_tag)
-	_hud_labels.match = _label("0 — 0", 36, CREAM)
-	_hud_labels.match.position = Vector2(185, 18)
-	_hud_labels.match.size = Vector2(230, 54)
+	_hud_labels.match = _label("0 — 0", 27, CREAM)
+	_hud_labels.match.position = Vector2(168, 7)
+	_hud_labels.match.size = Vector2(124, 46)
 	_hud_labels.match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match)
-	_hud_labels.match_round = _label("MANCHE 1", 16, CREAM)
-	_hud_labels.match_round.position = Vector2(430, 36)
-	_hud_labels.match_round.size = Vector2(115, 30)
+	_hud_labels.match_round = _label("MANCHE 1", 14, CREAM)
+	_hud_labels.match_round.position = Vector2(32, 15)
+	_hud_labels.match_round.size = Vector2(130, 30)
 	_hud_labels.match_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match_round.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match_round)
-	_hud_labels.phase = _label("PRÉPARATION", 15, CYAN)
-	_hud_labels.phase.position = Vector2(190, 80)
-	_hud_labels.phase.size = Vector2(220, 28)
+	_hud_labels.phase = _label("PRÉPARATION", 13, CYAN)
+	_hud_labels.phase.position = Vector2(298, 15)
+	_hud_labels.phase.size = Vector2(130, 30)
 	_hud_labels.phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.phase.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_hud_labels.phase.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_hud_labels.phase.clip_text = true
 	score_panel.add_child(_hud_labels.phase)
-	var pause := _button("Ⅱ  PAUSE", Callable(self, "_toggle_pause"), 150)
+	var pause := _button("Ⅱ", Callable(self, "_toggle_pause"), 44)
+	pause.name = "PauseButton"
 	pause.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	pause.position = Vector2(-170, 138)
-	pause.custom_minimum_size = Vector2(148, 40)
+	pause.position = Vector2(-58, 18)
+	pause.custom_minimum_size = Vector2(44, 44)
+	pause.tooltip_text = "Pause (Échap)"
+	pause.add_theme_font_size_override("font_size", 20)
+	var pause_style := _panel_style(Color("#211c1c"), Color("#a87a50"), 6)
+	pause_style.set_content_margin_all(0)
+	pause.add_theme_stylebox_override("normal", pause_style)
 	_hud.add_child(pause)
 	var spell_frame := Control.new()
 	spell_frame.name = "SpellBar"
 	spell_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spell_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	spell_frame.offset_left = -260.0
-	spell_frame.offset_top = -118.0
-	spell_frame.offset_right = 260.0
+	spell_frame.offset_left = -284.0
+	spell_frame.offset_top = -82.0
+	spell_frame.offset_right = 284.0
 	spell_frame.offset_bottom = -10.0
 	_hud.add_child(spell_frame)
-	var spell_backdrop := TextureRect.new()
-	spell_backdrop.texture = SPELL_BAR_FRAME
-	spell_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	spell_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	spell_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
-	spell_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spell_frame.add_child(spell_backdrop)
 	var spell_slots := [
 		{"id": "offensive", "key": "A"},
 		{"id": "defensive", "key": "E"},
@@ -539,44 +541,48 @@ func _build_hud() -> void:
 		var slot: Dictionary = spell_slots[index]
 		var module_id: String = slot["id"]
 		var slot_content := Control.new()
-		slot_content.position = Vector2(10.0 + float(index) * 170.0, 10.0)
-		slot_content.size = Vector2(160.0, 88.0)
+		slot_content.name = "%sSlot" % module_id.capitalize()
+		slot_content.position = Vector2(float(index) * 192.0, 0.0)
+		slot_content.size = Vector2(184.0, 72.0)
 		slot_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		spell_frame.add_child(slot_content)
+		var slot_backdrop := TextureRect.new()
+		slot_backdrop.texture = SPELL_BAR_FRAME
+		slot_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		slot_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		slot_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
+		slot_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_content.add_child(slot_backdrop)
 		var placeholder := TextureRect.new()
-		placeholder.texture = SPELL_PLACEHOLDER_ICON
-		placeholder.position = Vector2(11.0, 23.0)
-		placeholder.size = Vector2(46.0, 46.0)
+		placeholder.position = Vector2(13.0, 12.0)
+		placeholder.size = Vector2(42.0, 48.0)
 		placeholder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		placeholder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		placeholder.modulate = Color.WHITE
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(placeholder)
 		_hud_labels["%s_icon" % module_id] = placeholder
-		var key_label := _label(str(slot["key"]), 14, CREAM)
-		key_label.position = Vector2(64.0, 10.0)
-		key_label.size = Vector2(88.0, 22.0)
+		var key_label := _label(str(slot["key"]), 13, AMBER)
+		key_label.position = Vector2(63.0, 9.0)
+		key_label.size = Vector2(23.0, 23.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(key_label)
-		_hud_labels["%s_key" % module_id] = key_label
-		var module_label := _label("", 13, CREAM)
-		module_label.position = Vector2(64.0, 34.0)
-		module_label.size = Vector2(88.0, 34.0)
+		var module_label := _label("", 11, CREAM)
+		module_label.position = Vector2(88.0, 9.0)
+		module_label.size = Vector2(89.0, 23.0)
 		module_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		module_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		module_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		module_label.add_theme_font_size_override("font_size", 12)
+		module_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		module_label.clip_text = true
 		module_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(module_label)
 		_hud_labels[module_id] = module_label
-		var status := _label("", 12, CYAN)
-		status.position = Vector2(64.0, 68.0)
-		status.size = Vector2(86.0, 16.0)
-		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var status := _label("", 13, CYAN)
+		status.position = Vector2(63.0, 39.0)
+		status.size = Vector2(112.0, 22.0)
+		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		status.add_theme_font_size_override("font_size", 11)
 		status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(status)
 		_hud_labels["%s_status" % module_id] = status
@@ -740,7 +746,8 @@ func _update_hud() -> void:
 	for key in spell_modules.keys():
 		var identifier: String = spell_modules[key]
 		var cooldown := float(player.call("get_module_cooldown", identifier))
-		_hud_labels[key].text = "%s  %s" % [_module_icon(key), LOADOUT.display_name(identifier)]
+		_hud_labels[key].text = LOADOUT.display_name(identifier)
+		_hud_labels["%s_icon" % key].texture = MODULE_ICONS.get(identifier)
 		if cooldown > 0.0:
 			_hud_labels["%s_status" % key].text = "%.1fs" % cooldown
 			_hud_labels[key].add_theme_color_override("font_color", MUTED)
@@ -754,10 +761,6 @@ func _effects_text(actor: Node) -> String:
 	var effects: Array = actor.call("get_active_effect_types")
 	return "ÉTATS : " + (" / ".join(effects) if not effects.is_empty() else "—")
 
-func _module_icon(category: String) -> String:
-	return {"offensive": "✦", "defensive": "◇", "mobility": "➤"}.get(category, "•")
-
-
 func _phase_text() -> String:
 	match round_phase:
 		RoundPhase.COUNTDOWN:
@@ -769,9 +772,9 @@ func _phase_text() -> String:
 		RoundPhase.WINNER_FOCUS:
 			return ""
 		RoundPhase.ROUND_RESULT:
-			return "RÉSULTAT DE MANCHE"
+			return "FIN DE MANCHE"
 		RoundPhase.MATCH_RESULT:
-			return "MATCH TERMINÉ"
+			return "FIN DU MATCH"
 		_:
 			return "PRÉPARATION"
 
