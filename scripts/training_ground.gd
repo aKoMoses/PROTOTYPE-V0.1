@@ -325,8 +325,8 @@ func _build_ui() -> void:
 	_status.add_theme_font_size_override("font_size", 15)
 	_status.add_theme_color_override("font_color", Color("#f3e8d1"))
 	top.add_child(_status)
-	top.add_child(_button("RESET  F5", _reset_trial, "secondary", 42))
-	top.add_child(_button("MENU  TAB", _toggle_menu, "secondary", 42))
+	top.add_child(_button("RESET  F5", _reset_trial, "secondary", 46))
+	top.add_child(_button("MENU  TAB", _toggle_menu, "secondary", 46))
 	_build_spell_bar(ui)
 	_meter = Control.new()
 	_meter.name = "TrainingMeter"
@@ -371,10 +371,11 @@ func _build_ui() -> void:
 	_menu_count = _label("3/12 mannequins fixes", 16)
 	_menu_count.add_theme_color_override("font_color", Color("#6fe0eb"))
 	title_column.add_child(_menu_count)
-	_meter_toggle_button = _button("KIKIMÈTRE  K", _toggle_meter, "secondary", 42)
+	_meter_toggle_button = _button("KIKIMÈTRE  K", _toggle_meter, "secondary", 46)
+	_meter_toggle_button.name = "MeterToggleButton"
 	_meter_toggle_button.custom_minimum_size.x = 185
 	title_row.add_child(_meter_toggle_button)
-	var close := _button("FERMER  TAB", _toggle_menu, "secondary", 42)
+	var close := _button("FERMER  TAB", _toggle_menu, "secondary", 46)
 	close.custom_minimum_size.x = 156
 	title_row.add_child(close)
 	content.add_child(HSeparator.new())
@@ -406,13 +407,20 @@ func _build_ui() -> void:
 	dummies.add_child(sizes)
 	for index in range(3):
 		var size_button := _button(["PETIT", "MOYEN", "GRAND"][index], _select_size.bind(index), "secondary", 48)
+		size_button.name = ["SmallSizeButton", "MediumSizeButton", "LargeSizeButton"][index]
 		size_button.custom_minimum_size.x = 108
 		sizes.add_child(size_button)
 		_size_buttons.append(size_button)
 	_select_size(_place_size_index)
-	dummies.add_child(_button("PLACER UN MANNEQUIN", func() -> void: _start_tool("place"), "primary", 52))
-	dummies.add_child(_button("SUPPRIMER UN", func() -> void: _start_tool("remove"), "secondary", 48))
-	dummies.add_child(_button("TOUT RETIRER", _remove_all_fixed, "secondary", 48))
+	var place_button := _button("PLACER UN MANNEQUIN", func() -> void: _start_tool("place"), "primary", 52)
+	place_button.name = "PlaceButton"
+	dummies.add_child(place_button)
+	var remove_button := _button("SUPPRIMER UN", func() -> void: _start_tool("remove"), "secondary", 48)
+	remove_button.name = "RemoveButton"
+	dummies.add_child(remove_button)
+	var clear_button := _button("TOUT RETIRER", _remove_all_fixed, "secondary", 48)
+	clear_button.name = "ClearButton"
+	dummies.add_child(clear_button)
 	var dummy_hint := _label("Cliquez sur le terrain pour placer ou retirer.\nClic droit / Échap : annuler l'outil.", 14)
 	dummy_hint.add_theme_color_override("font_color", Color("#aebfc1"))
 	dummies.add_child(dummy_hint)
@@ -441,6 +449,7 @@ func _build_ui() -> void:
 	footer.add_child(footer_spacer)
 	footer.add_child(_button("Menu principal", _return_to_main_menu, "secondary", 50))
 	var resume := _button("REPRENDRE  TAB", _toggle_menu, "primary", 50)
+	resume.name = "ResumeButton"
 	resume.custom_minimum_size.x = 235
 	footer.add_child(resume)
 	_menu.visible = false
@@ -751,6 +760,8 @@ func _toggle_menu() -> void:
 	player.call("set_gameplay_enabled", not _menu.visible and not bool(player.call("is_real_dead")))
 	if _menu.visible and _first_picker != null:
 		_first_picker.grab_focus()
+	elif not _menu.visible:
+		get_viewport().gui_release_focus()
 	if not _menu.visible:
 		_update_spell_bar()
 	_update_status()

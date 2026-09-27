@@ -10,14 +10,21 @@ func _initialize() -> void:
 	root.add_child(scene)
 	current_scene = scene
 	await process_frame
-	if section == "fixed":
+	if section == "fixed" or section == "meter":
 		scene.get_node("Player").global_position = Vector3(-24.0, 0.0, -5.0)
 	elif section == "shooter":
 		scene.get_node("Player").global_position = Vector3(24.0, 0.0, -5.0)
-	if section == "fixed" or section == "shooter":
+	if section == "fixed" or section == "shooter" or section == "meter":
 		scene.get_node("CameraRig").call("set_target", scene.get_node("Player"))
 	for _frame in range(20):
 		await process_frame
+	if section == "meter":
+		var target: Node = (scene.call("get_training_targets") as Array)[1]
+		target.call("take_damage", 200.0, "player", "blaster:capture")
+		target.call("take_damage", 100.0, "player", "modulo_drone:capture")
+		target.call("take_damage", 50.0, "player:modulo_drone", "")
+		for _frame in range(3):
+			await process_frame
 	if show_menu:
 		scene.call("_toggle_menu")
 		for _frame in range(3):

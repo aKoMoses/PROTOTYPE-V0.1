@@ -111,10 +111,14 @@ func get_recent_dps() -> float:
 	for hit in _recent_hits:
 		if _selected_target_id == -1 or int(hit.target_id) == _selected_target_id:
 			recent_damage += float(hit.amount)
-	return recent_damage / maxf(0.5, minf(WINDOW_SECONDS, _elapsed)) if _started else 0.0
+	return recent_damage / maxf(1.0, minf(WINDOW_SECONDS, _elapsed)) if _started else 0.0
 
 func get_source_damage(category: String) -> float:
 	return float(_sources_all.get(category, 0.0))
+
+func set_target_filter(target: Node = null) -> void:
+	_selected_target_id = target.get_instance_id() if target != null and is_instance_valid(target) else -1
+	_rebuild_target_picker()
 
 func is_expanded() -> bool:
 	return _expanded
@@ -202,7 +206,7 @@ func _build_panel() -> void:
 	_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_panel.offset_left = -346.0
 	_panel.offset_right = -16.0
-	_panel.offset_top = -372.0
+	_panel.offset_top = -420.0
 	_panel.offset_bottom = -16.0
 	if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile"):
 		_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)

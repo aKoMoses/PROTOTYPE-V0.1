@@ -330,16 +330,22 @@ cible mobile, la zone de tir reçu et un espace de placement libre. Des repères
 sol, des passages entre les secteurs, quelques caisses et balises indiquent où
 s'entraîner ; les cinq mannequins de départ sont espacés d'au moins 8 m. Le
 placement reste possible sur les surfaces libres de toute la carte.
-Le sous-menu du terrain permet de changer et sauvegarder le build,
-de placer jusqu'à 12 mannequins fixes, d'en supprimer un par clic ou de tous les
-retirer. Le placement montre un aperçu vert ou rouge ; clic droit ou Échap annule
-l'outil. Le reset restaure les PV, munitions, cooldowns, effets et positions des
-mannequins mobiles sans retirer les mannequins placés.
+Le sous-menu Tab regroupe le build, les mannequins et les règles d'essai. Changer un
+équipement l'applique et le sauvegarde immédiatement. On peut placer jusqu'à 12
+mannequins fixes, en supprimer un par clic ou tous les retirer. Le placement montre
+un aperçu vert ou rouge ; clic droit ou Échap annule l'outil. Après un KO, chaque
+mannequin revient avec ses PV après 0,75 s pour permettre les essais longs.
+Le reset restaure les PV, munitions, cooldowns, effets et positions des mannequins
+mobiles sans retirer les mannequins placés.
 
 Sur le terrain : **Tab** ouvre ou ferme le sous-menu, **F5** réinitialise l'essai,
 **F6** bascule l'invulnérabilité, **F7** les cooldowns instantanés, **F8** les
 munitions illimitées, **F9** soigne le joueur et **F10** le met à 50 % de ses PV.
-Ces commandes sont aussi disponibles en boutons dans le sous-menu.
+**K** masque ou ouvre le kikimètre. Il affiche les dégâts effectivement infligés,
+le DPS des 5 dernières secondes, la durée depuis le premier coup et la répartition
+par arme, module et brûlure ; on peut filtrer par cible. Le temps se fige avec le
+menu Tab et F5 vide aussi la mesure. Ces commandes sont également disponibles en
+boutons dans le sous-menu ; le kikimètre a un bouton tactile compact sur mobile.
 
 Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`, ainsi que
 la police Russo One dans `art/ui/fonts/`. Son fond
