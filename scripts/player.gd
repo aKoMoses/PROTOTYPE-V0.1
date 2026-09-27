@@ -10,7 +10,11 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
-const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-plasma.mp3")
+const BLASTER_CHARGE_SOUND: AudioStream = preload("res://art/audio/blaster-charge-v2.wav")
+const BLASTER_CHARGE_HOLD_SOUND: AudioStream = preload("res://art/audio/blaster-charge-hold-v2.wav")
+const BLASTER_READY_SOUND: AudioStream = preload("res://art/audio/blaster-ready-v2.wav")
+const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-shot-v2.wav")
+const BLASTER_CHARGED_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-shot-charged-v2.wav")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
@@ -140,7 +144,13 @@ var _blaster_tip: Node3D
 var _blaster_light: OmniLight3D
 var _blaster_charge_visual: MeshInstance3D
 var _blaster_charge_material: StandardMaterial3D
+var _blaster_charge_audio: AudioStreamPlayer
+var _blaster_charge_hold_audio: AudioStreamPlayer
+var _blaster_ready_audio: AudioStreamPlayer
 var _blaster_shot_audio: AudioStreamPlayer
+var _blaster_charged_shot_audio: AudioStreamPlayer
+var _blaster_charge_audio_fade: Tween
+var _blaster_ready_cued := false
 var _shotgun_pivot: Node3D
 var _shotgun_tip: Node3D
 var _shotgun_light: OmniLight3D
@@ -188,12 +198,36 @@ func _ready() -> void:
 	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
+	_blaster_charge_audio = AudioStreamPlayer.new()
+	_blaster_charge_audio.name = "BlasterChargeAudio"
+	_blaster_charge_audio.stream = BLASTER_CHARGE_SOUND
+	_blaster_charge_audio.volume_db = -9.0
+	add_child(_blaster_charge_audio)
+	_blaster_charge_hold_audio = AudioStreamPlayer.new()
+	_blaster_charge_hold_audio.name = "BlasterChargeHoldAudio"
+	var hold_stream := BLASTER_CHARGE_HOLD_SOUND.duplicate() as AudioStreamWAV
+	hold_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	hold_stream.loop_end = roundi(hold_stream.get_length() * hold_stream.mix_rate)
+	_blaster_charge_hold_audio.stream = hold_stream
+	_blaster_charge_hold_audio.volume_db = -10.0
+	add_child(_blaster_charge_hold_audio)
+	_blaster_ready_audio = AudioStreamPlayer.new()
+	_blaster_ready_audio.name = "BlasterReadyAudio"
+	_blaster_ready_audio.stream = BLASTER_READY_SOUND
+	_blaster_ready_audio.volume_db = -4.0
+	add_child(_blaster_ready_audio)
 	_blaster_shot_audio = AudioStreamPlayer.new()
 	_blaster_shot_audio.name = "BlasterShotAudio"
 	_blaster_shot_audio.stream = BLASTER_SHOT_SOUND
 	_blaster_shot_audio.max_polyphony = 4
-	_blaster_shot_audio.volume_db = -6.0
+	_blaster_shot_audio.volume_db = -8.0
 	add_child(_blaster_shot_audio)
+	_blaster_charged_shot_audio = AudioStreamPlayer.new()
+	_blaster_charged_shot_audio.name = "BlasterChargedShotAudio"
+	_blaster_charged_shot_audio.stream = BLASTER_CHARGED_SHOT_SOUND
+	_blaster_charged_shot_audio.max_polyphony = 4
+	_blaster_charged_shot_audio.volume_db = -7.0
+	add_child(_blaster_charged_shot_audio)
 
 
 func _load_weapon_definitions() -> void:
@@ -406,6 +440,8 @@ func _update_attack() -> void:
 		_begin_blaster_charge(now)
 	if _blaster_charge_active:
 		_blaster_charge_ratio = clampf((now - _blaster_charge_started_at) / maxf(0.001, _blaster_charge_time), 0.0, 1.0)
+		if _blaster_charge_ratio >= 1.0:
+			_play_blaster_ready_sound()
 	if just_released and _blaster_charge_active:
 		_release_blaster_charge()
 	_attack_hold_last = wants_to_attack
@@ -1908,16 +1944,59 @@ func _begin_blaster_charge(now: float = -1.0) -> void:
 	_blaster_charge_active = true
 	_blaster_charge_started_at = now
 	_blaster_charge_ratio = 0.0
+	_blaster_ready_cued = false
+	if _blaster_charge_audio_fade != null and _blaster_charge_audio_fade.is_running():
+		_blaster_charge_audio_fade.kill()
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.stop()
+	_blaster_ready_audio.stop()
+	_blaster_charge_audio.volume_db = -9.0
+	_blaster_charge_hold_audio.volume_db = -10.0
+	_blaster_charge_audio.play()
 	_mark_combat_event()
 	if _attack_label != null:
 		_attack_label.text = ""
 	_update_blaster_charge_visual(0.0)
 
 
+func _play_blaster_ready_sound() -> void:
+	if _blaster_ready_cued or not _blaster_charge_active:
+		return
+	_blaster_ready_cued = true
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.play()
+	_blaster_ready_audio.play()
+
+
+func _stop_blaster_charge_audio() -> void:
+	if _blaster_charge_audio == null:
+		return
+	_blaster_ready_audio.stop()
+	if _blaster_charge_audio_fade != null and _blaster_charge_audio_fade.is_running():
+		_blaster_charge_audio_fade.kill()
+	if not _blaster_charge_audio.playing and not _blaster_charge_hold_audio.playing:
+		return
+	_blaster_charge_audio_fade = create_tween().set_parallel(true)
+	if _blaster_charge_audio.playing:
+		_blaster_charge_audio_fade.tween_property(_blaster_charge_audio, "volume_db", -60.0, 0.02)
+	if _blaster_charge_hold_audio.playing:
+		_blaster_charge_audio_fade.tween_property(_blaster_charge_hold_audio, "volume_db", -60.0, 0.02)
+	_blaster_charge_audio_fade.chain().tween_callback(_finish_blaster_charge_audio_stop)
+
+
+func _finish_blaster_charge_audio_stop() -> void:
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.stop()
+	_blaster_charge_audio.volume_db = -9.0
+	_blaster_charge_hold_audio.volume_db = -10.0
+
+
 func _cancel_blaster_charge(reason: String = "") -> void:
+	_stop_blaster_charge_audio()
 	_blaster_charge_active = false
 	_blaster_charge_started_at = -1.0
 	_blaster_charge_ratio = 0.0
+	_blaster_ready_cued = false
 	if _blaster_charge_visual != null:
 		_blaster_charge_visual.visible = false
 	if _blaster_light != null:
@@ -1943,7 +2022,9 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	if now < _blaster_next_attack_ready_at:
 		return
 	_mark_combat_event()
-	_blaster_shot_audio.play()
+	var shot_audio := _blaster_charged_shot_audio if charge_ratio >= 0.85 else _blaster_shot_audio
+	shot_audio.pitch_scale = lerpf(1.05, 0.94, charge_ratio)
+	shot_audio.play()
 	look_at(global_position + direction, Vector3.UP)
 	_blaster_attack_token += 1
 	var token := _blaster_attack_token

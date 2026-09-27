@@ -13,7 +13,7 @@ conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
 - Blaster (tir normal ou chargé) et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
-- icône « Gravure » du Blaster dans l'équipement et le HUD, avec son « Plasma » au tir ;
+- icône « Gravure » du Blaster dans l'équipement et le HUD, avec charge sonore et tirs normal/chargé distincts ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
@@ -34,6 +34,14 @@ et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous
 La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
 monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
 répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
+
+## Son du Blaster
+
+La direction A du Blaster utilise cinq WAV dans `art/audio/` : montée de charge,
+fond discret après charge complète, signal « prêt », tir normal et tir chargé.
+Un relâchement avant une seconde coupe la charge en 20 ms et lance aussitôt le
+tir normal ; la charge s'arrête aussi en cas d'interruption, de mort ou de
+changement d'arme. Les anciens MP3 restent disponibles comme sources de comparaison.
 
 ## Rendu et ressources visuelles
 
