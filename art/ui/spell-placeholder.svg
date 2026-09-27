@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
     <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e6dfcf"/>
-      <stop offset=".5" stop-color="#aaa69e"/>
-      <stop offset="1" stop-color="#6e6b68"/>
+      <stop offset="0" stop-color="#e5b778"/>
+      <stop offset=".5" stop-color="#bd7c4b"/>
+      <stop offset="1" stop-color="#754a33"/>
     </linearGradient>
   </defs>
   <g fill="none" stroke="url(#steel)" stroke-linecap="square" stroke-linejoin="miter">
@@ -14,7 +14,7 @@
     <path d="m64 46 18 18-18 18-18-18z" stroke-width="3"/>
     <circle cx="64" cy="64" r="5" fill="#4edce4" stroke="#4edce4" stroke-width="2"/>
   </g>
-  <g fill="#d3c9b8">
+  <g fill="#d6a26a">
     <circle cx="64" cy="4" r="3"/>
     <circle cx="64" cy="124" r="3"/>
     <circle cx="4" cy="64" r="3"/>

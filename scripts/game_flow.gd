@@ -518,10 +518,10 @@ func _build_hud() -> void:
 	spell_frame.name = "SpellBar"
 	spell_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spell_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	spell_frame.offset_left = -300.0
-	spell_frame.offset_top = -166.0
-	spell_frame.offset_right = 300.0
-	spell_frame.offset_bottom = -8.0
+	spell_frame.offset_left = -260.0
+	spell_frame.offset_top = -118.0
+	spell_frame.offset_right = 260.0
+	spell_frame.offset_bottom = -10.0
 	_hud.add_child(spell_frame)
 	var spell_backdrop := TextureRect.new()
 	spell_backdrop.texture = SPELL_BAR_FRAME
@@ -539,42 +539,44 @@ func _build_hud() -> void:
 		var slot: Dictionary = spell_slots[index]
 		var module_id: String = slot["id"]
 		var slot_content := Control.new()
-		slot_content.position = Vector2(float(index) * 200.0, 0.0)
-		slot_content.size = Vector2(200.0, 158.0)
+		slot_content.position = Vector2(10.0 + float(index) * 170.0, 10.0)
+		slot_content.size = Vector2(160.0, 88.0)
 		slot_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		spell_frame.add_child(slot_content)
 		var placeholder := TextureRect.new()
 		placeholder.texture = SPELL_PLACEHOLDER_ICON
-		placeholder.position = Vector2(68.0, 15.0)
-		placeholder.size = Vector2(64.0, 64.0)
+		placeholder.position = Vector2(11.0, 23.0)
+		placeholder.size = Vector2(46.0, 46.0)
 		placeholder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		placeholder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		placeholder.modulate = Color("#c9c3b7")
+		placeholder.modulate = Color.WHITE
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(placeholder)
 		_hud_labels["%s_icon" % module_id] = placeholder
 		var key_label := _label(str(slot["key"]), 14, CREAM)
-		key_label.position = Vector2(80.0, 83.0)
-		key_label.size = Vector2(40.0, 26.0)
+		key_label.position = Vector2(64.0, 10.0)
+		key_label.size = Vector2(88.0, 22.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(key_label)
 		_hud_labels["%s_key" % module_id] = key_label
 		var module_label := _label("", 13, CREAM)
-		module_label.position = Vector2(5.0, 108.0)
-		module_label.size = Vector2(190.0, 22.0)
-		module_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		module_label.position = Vector2(64.0, 34.0)
+		module_label.size = Vector2(88.0, 34.0)
+		module_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		module_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		module_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		module_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		module_label.add_theme_font_size_override("font_size", 12)
 		module_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(module_label)
 		_hud_labels[module_id] = module_label
 		var status := _label("", 12, CYAN)
-		status.position = Vector2(5.0, 130.0)
-		status.size = Vector2(190.0, 18.0)
-		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		status.position = Vector2(64.0, 68.0)
+		status.size = Vector2(86.0, 16.0)
+		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		status.add_theme_font_size_override("font_size", 11)
 		status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(status)
 		_hud_labels["%s_status" % module_id] = status
@@ -746,7 +748,7 @@ func _update_hud() -> void:
 		else:
 			_hud_labels["%s_status" % key].text = "PRÊT"
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
-			_hud_labels["%s_icon" % key].modulate = Color("#c89a65")
+			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 
 func _effects_text(actor: Node) -> String:
 	var effects: Array = actor.call("get_active_effect_types")
