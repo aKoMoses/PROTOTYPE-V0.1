@@ -25,6 +25,16 @@ et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
 
+## Musique du duel
+
+Le match charge `art/audio/arena_electro_build.wav`. La musique
+démarre avec le premier décompte, continue entre les manches, se met en pause avec le jeu
+et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous les effets sonores.
+
+La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
+monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
+répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
+
 ## Rendu et ressources visuelles
 
 - Renderer conservé : **Mobile** (Godot 4.7.2).
@@ -311,6 +321,25 @@ Pour refaire une capture locale depuis PowerShell :
 Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 ### Menu principal
+
+Le bouton **TRAINING GROUND** ouvre une carte dédiée d'entraînement. Elle contient
+trois mannequins fixes de tailles et de zones de touche différentes, un mannequin
+mobile et un tireur fixe qui lance un tir simple toutes les 1,5 secondes lorsqu'il
+voit le joueur. La carte sépare les trois couloirs de cibles fixes, la piste de la
+cible mobile, la zone de tir reçu et un espace de placement libre. Des repères au
+sol, des passages entre les secteurs, quelques caisses et balises indiquent où
+s'entraîner ; les cinq mannequins de départ sont espacés d'au moins 8 m. Le
+placement reste possible sur les surfaces libres de toute la carte.
+Le sous-menu du terrain permet de changer et sauvegarder le build,
+de placer jusqu'à 12 mannequins fixes, d'en supprimer un par clic ou de tous les
+retirer. Le placement montre un aperçu vert ou rouge ; clic droit ou Échap annule
+l'outil. Le reset restaure les PV, munitions, cooldowns, effets et positions des
+mannequins mobiles sans retirer les mannequins placés.
+
+Sur le terrain : **Tab** ouvre ou ferme le sous-menu, **F5** réinitialise l'essai,
+**F6** bascule l'invulnérabilité, **F7** les cooldowns instantanés, **F8** les
+munitions illimitées, **F9** soigne le joueur et **F10** le met à 50 % de ses PV.
+Ces commandes sont aussi disponibles en boutons dans le sous-menu.
 
 Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`, ainsi que
 la police Russo One dans `art/ui/fonts/`. Son fond

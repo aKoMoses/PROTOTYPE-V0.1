@@ -16,6 +16,20 @@ func _initialize() -> void:
 	else:
 		if int(flow.get("current_screen")) != 0:
 			_failures.append("écran menu absent au démarrage")
+		flow.call("_open_equipment")
+		var tabs: Dictionary = flow.get("_equipment_nav_buttons")
+		(tabs["passive"] as Button).emit_signal("pressed")
+		if str(flow.get("_equipment_category")) != "passive":
+			_failures.append("onglet passif inaccessible")
+		var choices: Dictionary = flow.get("_selection_buttons")
+		(choices["passive"]["omnivamp"] as Button).emit_signal("pressed")
+		var current_loadout: Dictionary = flow.get("loadout")
+		if str(current_loadout.passive) != "omnivamp":
+			_failures.append("la sélection du passif ne met pas à jour l'équipement")
+		var previews: Dictionary = flow.get("_equipment_preview_buttons")
+		(previews["weapon"] as Button).emit_signal("pressed")
+		if str(flow.get("_equipment_category")) != "weapon":
+			_failures.append("le récapitulatif ne ramène pas à la catégorie choisie")
 		var selected := {"weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"}
 		flow.set("loadout", selected)
 		flow.call("_start_duel")
@@ -27,15 +41,28 @@ func _initialize() -> void:
 		if bool(player.call("is_gameplay_enabled")):
 			_failures.append("joueur actif pendant le décompte")
 		var intro_audio := flow.get_node("CountdownAudio") as AudioStreamPlayer
+		var match_music := flow.get_node("MatchMusic") as AudioStreamPlayer
+		if match_music.stream == null or not match_music.stream is AudioStreamWAV:
+			_failures.append("musique locale du duel absente")
+		else:
+			var music_stream := match_music.stream as AudioStreamWAV
+			if music_stream.loop_mode != AudioStreamWAV.LOOP_FORWARD or music_stream.loop_begin != 408000:
+				_failures.append("boucle musicale mal configurée")
+			if not match_music.playing:
+				_failures.append("musique non lancée au décompte")
 		var intro_image := flow.get_node("FlowRoot/CountdownOverlay/CountdownDigit") as TextureRect
 		if intro_audio.stream == null or intro_audio.stream.resource_path != "res://art/audio/countdown-3.mp3":
 			_failures.append("son du chiffre 3 absent")
 		var countdown_before_pause := float(flow.get("_countdown_remaining"))
 		flow.call("_toggle_pause")
 		await process_frame
+		if not match_music.stream_paused:
+			_failures.append("musique non suspendue pendant la pause")
 		if absf(float(flow.get("_countdown_remaining")) - countdown_before_pause) > 0.01:
 			_failures.append("pause n'arrête pas le décompte")
 		flow.call("_resume")
+		if match_music.stream_paused:
+			_failures.append("musique non reprise après la pause")
 		flow.set("_countdown_remaining", 2.05)
 		flow.call("_process", 0.1)
 		if intro_image.texture.resource_path != "res://art/countdown/2.png" or intro_audio.stream.resource_path != "res://art/audio/countdown-2.mp3":

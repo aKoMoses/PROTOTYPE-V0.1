@@ -92,6 +92,17 @@ func _initialize() -> void:
 			blaster_target.call("reset_combat_state")
 			blaster_player.call("_fire_blaster_projectile", 50.0, 1.0, Vector3(0.0, 0.0, -1.0))
 			print("CAPTURE BLASTER: charged shot started")
+	if arguments.size() >= 4 and arguments[3] == "blaster_charge":
+		var charging_player := scene.get_node_or_null("Player")
+		var charging_target := scene.get_node_or_null("TargetDummy")
+		if charging_player != null and charging_target != null:
+			charging_player.position = Vector3(0.0, 0.0, 0.0)
+			charging_target.position = Vector3(0.0, 0.0, -4.0)
+			charging_target.call("set_training_bot_enabled", false)
+			charging_player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
+			charging_player.call("set_weapon", "blaster")
+			charging_player.call("_begin_blaster_charge")
+			print("CAPTURE BLASTER: charge started")
 	if arguments.size() >= 4 and (arguments[3] == "shotgun" or arguments[3] == "shotgun_live"):
 		var shotgun_player := scene.get_node_or_null("Player")
 		var shotgun_target := scene.get_node_or_null("TargetDummy")
@@ -129,6 +140,7 @@ func _initialize() -> void:
 			if arguments[3] == "drone":
 				module_player.call("_perform_modulo_drone")
 			else:
+				module_player.set("_offensive_module_id", "javelin")
 				module_player.call("_perform_javelin")
 			print("CAPTURE MODULE: ", arguments[3])
 	if arguments.size() >= 4 and (arguments[3] == "magnetic" or arguments[3] == "stasis"):
@@ -159,6 +171,7 @@ func _initialize() -> void:
 	if arguments.size() >= 4:
 		match arguments[3]:
 			"blaster": settle_frames = 30
+			"blaster_charge": settle_frames = 14
 			"shotgun_live": settle_frames = 6
 			"shotgun": settle_frames = 22
 			"bot": settle_frames = 18

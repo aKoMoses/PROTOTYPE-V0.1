@@ -13,7 +13,8 @@ func _initialize() -> void:
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
-		if player.get_node_or_null("WorldUIAnchor/PlayerHealthBarFill") == null or player.get_node_or_null("WorldUIAnchor/PlayerHealthLabel") == null:
+		var player_readout := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
+		if player_readout == null:
 			_failures.append("barre de PV joueur absente")
 		if bool(target.call("is_training_bot_enabled")):
 			_failures.append("bot actif au démarrage")
@@ -48,9 +49,10 @@ func _initialize() -> void:
 			_failures.append("bot immobile après activation")
 		if float(player.call("get_health")) >= float(player.call("get_max_health")):
 			_failures.append("bot n'inflige aucun dégât lisible")
-		var health_fill := player.get_node_or_null("WorldUIAnchor/PlayerHealthBarFill")
-		if health_fill != null and float(health_fill.scale.x) >= 2.8:
-			_failures.append("barre de PV joueur non synchronisée")
+		if player_readout != null:
+			var health_number := player_readout.get("_health_number") as Label
+			if health_number == null or health_number.text != "%d" % roundi(float(player.call("get_health"))):
+				_failures.append("barre de PV joueur non synchronisée")
 		if not (target.call("get_active_effect_types") as Array).is_empty():
 			_failures.append("bot applique un effet de statut automatiquement")
 		if bool(target.get_node("TrainingBot").call("is_telegraph_active")):

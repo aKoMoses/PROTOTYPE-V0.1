@@ -95,6 +95,8 @@ func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:
 		_failures.append("Javelin : dégâts %.2f au lieu de 140" % (1000.0 - float(target.call("get_health"))))
 	if not bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin : marque absente")
+	if float(player.call("get_javelin_recast_fraction")) <= 0.0:
+		_failures.append("Javelin : fenêtre de réactivation absente du HUD")
 	var cooldown_before := float(player.call("get_module_cooldown", "javelin"))
 	var position_before: Vector3 = player.global_position
 	player.call("_perform_javelin")
@@ -103,6 +105,8 @@ func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:
 		_failures.append("Javelin recast : dégâts additionnels")
 	if bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin recast : marque non consommée")
+	if float(player.call("get_javelin_recast_fraction")) > 0.0:
+		_failures.append("Javelin recast : fenêtre encore affichée après consommation")
 	if player.global_position.distance_to(position_before) < 0.5:
 		_failures.append("Javelin recast : téléportation non effectuée")
 	if float(player.call("get_module_cooldown", "javelin")) > cooldown_before + 0.1:
