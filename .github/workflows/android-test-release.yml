@@ -3,6 +3,8 @@ name: Android test APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,7 @@ jobs:
           done
 
       - name: Check signing configuration
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_B64: ${{ secrets.PROTOTYPE0_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
@@ -55,6 +58,7 @@ jobs:
           fi
 
       - name: Prepare Android version and signing key
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_B64: ${{ secrets.PROTOTYPE0_KEYSTORE_BASE64 }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
@@ -70,6 +74,7 @@ jobs:
             -alias prototype0test -storepass "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" > /dev/null
 
       - name: Export signed APK
+        if: github.event_name != 'pull_request'
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: prototype0test
@@ -82,6 +87,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging exports/prototype0-android.apk | head -n 1
 
       - name: Publish test release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
