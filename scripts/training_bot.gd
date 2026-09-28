@@ -784,9 +784,9 @@ func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, 
 			var surface: String = vfx.call("surface_for", hit.collider)
 			vfx.call("impact", hit.position, hit.normal, surface, 0.75, Color("#ffbf83"))
 			if surface == "shield" and hit.collider.name == "MagneticField":
-				GameSfx.play_event("magnetic_absorb")
+				get_node("/root/GameSfx").play_event("magnetic_absorb")
 			elif surface != "robot" and surface != "shield":
-				GameSfx.play_event("impact_decor")
+				get_node("/root/GameSfx").play_event("impact_decor")
 
 
 func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMaterial3D:

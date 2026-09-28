@@ -1028,7 +1028,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	var effective := float(result["effective"])
 	if effective <= 0.0:
 		return 0.0
-	GameSfx.play_event("damage_received")
+	get_node("/root/GameSfx").play_event("damage_received")
 	if bool(result["real_death"]):
 		combat_state.apply_damage(combat_state.health, source_id, attack_id)
 	else:
@@ -1102,9 +1102,9 @@ func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0) -> void:
 	var surface: String = vfx.call("surface_for", collider)
 	vfx.call("impact", contact["position"], contact["normal"], surface, power, color)
 	if surface == "shield" and collider != null and collider.name == "MagneticField":
-		GameSfx.play_event("magnetic_absorb")
+		get_node("/root/GameSfx").play_event("magnetic_absorb")
 	elif surface != "robot" and surface != "shield":
-		GameSfx.play_event("impact_decor")
+		get_node("/root/GameSfx").play_event("impact_decor")
 
 
 func _create_surface_impact_fx(origin: Vector3, direction: Vector3, color: Color = Color("#ff9c52")) -> void:
@@ -2048,7 +2048,7 @@ func _perform_pyro_boots() -> void:
 	if _attack_label != null:
 		_attack_label.text = "PYRO BOOTS  •  DASH"
 	_create_dash_fx(global_position)
-	GameSfx.play_event("pyro_dash")
+	get_node("/root/GameSfx").play_event("pyro_dash")
 
 
 func _perform_bio_injector() -> void:
@@ -2281,7 +2281,9 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	if token != _module_token or not _module_busy:
 		return
 	var target := _select_drone_target(origin, direction)
-	var excluded: Array[RID] = survival_synergies.drone_exclusions() if survival_synergies != null else []
+	var excluded: Array[RID] = []
+	if survival_synergies != null:
+		excluded.assign(survival_synergies.drone_exclusions())
 	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _drone_max_range, excluded)
 	var hit_excluded: Array[RID] = excluded.duplicate()
 	if target != null:
@@ -2510,7 +2512,7 @@ func _recast_javelin() -> void:
 	target.call("clear_javelin_mark")
 	_javelin_mark_target = null
 	_create_teleport_fx(destination)
-	GameSfx.play_event("javelin_teleport")
+	get_node("/root/GameSfx").play_event("javelin_teleport")
 	_attack_label.text = "JAVELIN  •  TÉLÉPORTÉ"
 
 

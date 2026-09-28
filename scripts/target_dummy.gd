@@ -296,7 +296,7 @@ func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> 
 		_health_readout.call("show_damage", amount)
 	# Burn ticks are damage but have no collision impact.
 	if not attack_id.is_empty():
-		GameSfx.play_event("impact_critical" if attack_id.contains(":critical") else "impact_robot")
+		get_node("/root/GameSfx").play_event("impact_critical" if attack_id.contains(":critical") else "impact_robot")
 	# The prototype has one player attacker. Keep attribution on effective PV
 	# removed so Omnivamp also sees criticals and BURN ticks, never overkill.
 	if not (source_id == "player" or source_id.begins_with("player:")):
@@ -354,7 +354,7 @@ func _on_state_died() -> void:
 	if _resetting:
 		return
 	_resetting = true
-	GameSfx.play_event("robot_destruction")
+	get_node("/root/GameSfx").play_event("robot_destruction")
 	if _visual_rig != null:
 		_visual_rig.call("play_death")
 	_update_status("")
