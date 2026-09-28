@@ -9,6 +9,7 @@ func _initialize() -> void:
 	await physics_frame
 	var player: Node = scene.get_node_or_null("Player")
 	_check(player != null, "joueur présent")
+	player.call("set_robot", "polyvalent")
 	_check(str(scene.get("_state")) == "selection", "choix de l'arme au départ")
 	_check(not bool(player.call("is_gameplay_enabled")), "combat désactivé avant le choix")
 	scene.call("_choose_weapon", "blaster")
@@ -111,6 +112,7 @@ func _initialize() -> void:
 	root.add_child(shotgun_scene)
 	current_scene = shotgun_scene
 	await physics_frame
+	shotgun_scene.get_node("Player").call("set_robot", "polyvalent")
 	shotgun_scene.call("_choose_weapon", "shotgun")
 	shotgun_scene.call("_begin_wave_combat")
 	var shotgun_player := shotgun_scene.get_node("Player")

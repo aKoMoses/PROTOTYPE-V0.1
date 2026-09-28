@@ -7,6 +7,12 @@ extends RefCounted
 
 const MAX_HEALTH := 1000.0
 const MOVE_SPEED := 5.0
+const DEFAULT_ROBOT := "polyvalent"
+const ROBOT_DEFINITIONS := {
+	"agile": {"max_health": 800.0, "move_speed": 6.0},
+	"polyvalent": {"max_health": MAX_HEALTH, "move_speed": MOVE_SPEED},
+	"puissant": {"max_health": 1200.0, "move_speed": 4.0},
+}
 const CRIT_MULTIPLIER := 1.5
 const BURN_DAMAGE_PER_SECOND := 20.0
 const BURN_DURATION := 3.5

@@ -23,6 +23,7 @@ const SHOTGUN_CYCLE_SOUND: AudioStream = preload("res://art/audio/shotgun-cycle-
 const SHOTGUN_RELOAD_SOUND: AudioStream = preload("res://art/audio/shotgun-reload-a.wav")
 
 @export var move_speed := 5.0
+var _robot_id := COMBAT_DATA.DEFAULT_ROBOT
 @export var attack_interval := 0.55
 @export_category("Weapon Handling")
 @export_range(0.25, 0.50, 0.01) var aim_hold_time := 0.35
@@ -1135,9 +1136,7 @@ func is_real_dead() -> bool:
 func apply_loadout(next_loadout: Dictionary) -> void:
 	survival_mode = false
 	_survival_evolutions = {"weapon": false, "offensive": false, "defensive": false, "mobility": false, "passive": false}
-	if combat_state != null:
-		combat_state.max_health = COMBAT_DATA.MAX_HEALTH
-		combat_state.health = minf(combat_state.health, combat_state.max_health)
+	set_robot(str(next_loadout.get("robot", COMBAT_DATA.DEFAULT_ROBOT)))
 	_survival_cooldown_multipliers = {"offensive": 1.0, "defensive": 1.0, "mobility": 1.0}
 	_survival_dash_multiplier = 1.0
 	_load_weapon_definitions()
@@ -1159,6 +1158,19 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	_weapon_id = "shotgun" if weapon_id == "shotgun" else "blaster"
 	_update_weapon_visuals()
 	_sync_weapon_readout()
+
+func set_robot(identifier: String) -> void:
+	_robot_id = identifier if COMBAT_DATA.ROBOT_DEFINITIONS.has(identifier) else COMBAT_DATA.DEFAULT_ROBOT
+	var definition: Dictionary = COMBAT_DATA.ROBOT_DEFINITIONS[_robot_id]
+	move_speed = float(definition.move_speed)
+	if combat_state != null:
+		var health_ratio: float = combat_state.health / maxf(1.0, combat_state.max_health)
+		combat_state.max_health = float(definition.max_health)
+		combat_state.health = clampf(health_ratio, 0.0, 1.0) * combat_state.max_health
+		combat_state.health_changed.emit(combat_state.health, combat_state.max_health)
+
+func get_robot_id() -> String:
+	return _robot_id
 
 func configure_survival_build(build: Dictionary) -> void:
 	_load_weapon_definitions()
@@ -1199,7 +1211,7 @@ func configure_survival_build(build: Dictionary) -> void:
 	var passive_ranks: Dictionary = ranks.get("passive", {})
 	var passive_power := 0.65 + 0.60 * int(passive_ranks.get("power", 0))
 	if combat_state != null:
-		combat_state.max_health = COMBAT_DATA.MAX_HEALTH + 250.0 * int(passive_ranks.get("tempo", 0))
+		combat_state.max_health = float(COMBAT_DATA.ROBOT_DEFINITIONS[_robot_id].max_health) + 250.0 * int(passive_ranks.get("tempo", 0))
 		combat_state.health_changed.emit(combat_state.health, combat_state.max_health)
 	if passive_state != null:
 		passive_state.baroud_max_health = PASSIVE_STATE.BAROUD_MAX_HEALTH * passive_power

@@ -269,6 +269,7 @@ func _build_player_and_camera() -> void:
 	player.position = Vector3.ZERO
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
+	player.call("set_robot", str(LOADOUT.load_local().robot))
 	var attack_label: Label3D = player.get("_attack_label")
 	if attack_label != null:
 		attack_label.visible = false

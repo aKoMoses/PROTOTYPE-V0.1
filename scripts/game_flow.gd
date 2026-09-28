@@ -15,6 +15,7 @@ const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
 const EQUIPMENT_CATEGORIES := [
+	{"id": "robot", "title": "ROBOT"},
 	{"id": "weapon", "title": "ARME"},
 	{"id": "offensive", "title": "OFFENSIF"},
 	{"id": "defensive", "title": "DÉFENSIF"},
@@ -81,7 +82,7 @@ var _title_label: Label
 var _status_label: Label
 var _equipment_content: HBoxContainer
 var _equipment_category_label: Label
-var _equipment_category := "weapon"
+var _equipment_category := "robot"
 var _equipment_nav_buttons: Dictionary = {}
 var _equipment_nav_icons: Dictionary = {}
 var _equipment_preview_buttons: Dictionary = {}
@@ -435,7 +436,7 @@ func _build_equipment() -> void:
 	sidebar.custom_minimum_size.x = 218
 	sidebar.add_theme_constant_override("separation", 11)
 	columns.add_child(sidebar)
-	sidebar.add_child(_label("ÉQUIPEMENT", 25, CREAM))
+	sidebar.add_child(_label("FORGE", 25, CREAM))
 	var accent := ColorRect.new()
 	accent.color = AMBER
 	accent.custom_minimum_size = Vector2(38, 3)
@@ -480,7 +481,7 @@ func _build_equipment() -> void:
 	actions.add_child(start)
 	right.add_child(actions)
 	_build_equipment_info_bubble()
-	_open_equipment_category("weapon")
+	_open_equipment_category("robot")
 
 func _build_equipment_info_bubble() -> void:
 	_equipment_info_panel = PanelContainer.new()
@@ -575,6 +576,7 @@ func _add_equipment_preview(parent: HBoxContainer, category: String, title: Stri
 
 func _equipment_options(category: String) -> Array:
 	match category:
+		"robot": return LOADOUT.ROBOTS
 		"weapon": return LOADOUT.WEAPONS
 		"offensive": return LOADOUT.OFFENSIVE
 		"defensive": return LOADOUT.DEFENSIVE
@@ -610,11 +612,11 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	_equipment_content.add_child(button)
 	var content := VBoxContainer.new()
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content.offset_left = 18
-	content.offset_right = -18
-	content.offset_top = 18
-	content.offset_bottom = -16
-	content.add_theme_constant_override("separation", 5)
+	content.offset_left = 12 if category == "robot" else 18
+	content.offset_right = -12 if category == "robot" else -18
+	content.offset_top = 12 if category == "robot" else 18
+	content.offset_bottom = -10 if category == "robot" else -16
+	content.add_theme_constant_override("separation", 3 if category == "robot" else 5)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(content)
 	var info := Button.new()
@@ -637,16 +639,23 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	info.pressed.connect(func() -> void: _show_equipment_info(identifier))
 	var icon := TextureRect.new()
 	icon.texture = _equipment_icon(identifier)
-	icon.custom_minimum_size.y = 188
+	icon.custom_minimum_size.y = 160 if category == "robot" else 188
 	icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(icon)
-	var name_label := _label(LOADOUT.display_name(identifier), 21, CREAM)
+	var name_label := _label(LOADOUT.display_name(identifier), 19 if category == "robot" else 21, CREAM)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(name_label)
+	if category == "robot":
+		var definition: Dictionary = COMBAT_DATA.ROBOT_DEFINITIONS[identifier]
+		var stats := _label("%d PV  ·  %.1f m/s" % [int(definition.max_health), float(definition.move_speed)], 14, CREAM)
+		stats.name = "RobotStats"
+		stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(stats)
 	var marker := _label("", 13, CYAN)
 	marker.custom_minimum_size.y = 21
 	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -654,6 +663,8 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	content.add_child(marker)
 	button.pressed.connect(func() -> void:
 		loadout[category] = identifier
+		if category == "robot":
+			LOADOUT.save_local(loadout)
 		_equipment_info_panel.visible = false
 		_equipment_info_id = ""
 		_refresh_equipment()

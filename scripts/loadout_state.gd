@@ -7,6 +7,7 @@ extends RefCounted
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const SAVE_PATH := "user://prototype0_loadout.cfg"
 
+const ROBOTS := ["agile", "polyvalent", "puissant"]
 const WEAPONS := ["blaster", "shotgun"]
 const OFFENSIVE := ["modulo_drone", "javelin"]
 const DEFENSIVE := ["magnetic_field", "static_shield"]
@@ -15,6 +16,7 @@ const PASSIVES := ["baroud", "omnivamp"]
 
 static func defaults() -> Dictionary:
 	return {
+		"robot": COMBAT_DATA.DEFAULT_ROBOT,
 		"weapon": "blaster",
 		"offensive": "modulo_drone",
 		"defensive": "magnetic_field",
@@ -24,6 +26,8 @@ static func defaults() -> Dictionary:
 
 static func sanitize(value: Dictionary) -> Dictionary:
 	var result := defaults()
+	if value.has("robot") and ROBOTS.has(str(value.robot)):
+		result.robot = str(value.robot)
 	if value.has("weapon") and WEAPONS.has(str(value.weapon)):
 		result.weapon = str(value.weapon)
 	if value.has("offensive") and OFFENSIVE.has(str(value.offensive)):
@@ -43,11 +47,12 @@ static func is_valid(value: Dictionary) -> bool:
 			return false
 	return true
 
-static func load_local() -> Dictionary:
+static func load_local(path: String = SAVE_PATH) -> Dictionary:
 	var config := ConfigFile.new()
-	if config.load(SAVE_PATH) != OK:
+	if config.load(path) != OK:
 		return defaults()
 	var raw := {
+		"robot": config.get_value("loadout", "robot", COMBAT_DATA.DEFAULT_ROBOT),
 		"weapon": config.get_value("loadout", "weapon", "blaster"),
 		"offensive": config.get_value("loadout", "offensive", "modulo_drone"),
 		"defensive": config.get_value("loadout", "defensive", "magnetic_field"),
@@ -56,16 +61,19 @@ static func load_local() -> Dictionary:
 	}
 	return sanitize(raw)
 
-static func save_local(value: Dictionary) -> bool:
+static func save_local(value: Dictionary, path: String = SAVE_PATH) -> bool:
 	var normalized := sanitize(value)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://"))
 	var config := ConfigFile.new()
 	for key in normalized.keys():
 		config.set_value("loadout", key, normalized[key])
-	return config.save(SAVE_PATH) == OK
+	return config.save(path) == OK
 
 static func display_name(identifier: String) -> String:
 	var names := {
+		"agile": "AGILE",
+		"polyvalent": "POLYVALENT",
+		"puissant": "PUISSANT",
 		"blaster": "BLASTER",
 		"shotgun": "SHOTGUN",
 		"modulo_drone": "MODULO DRONE",
@@ -81,6 +89,9 @@ static func display_name(identifier: String) -> String:
 
 static func category_description(identifier: String) -> String:
 	var descriptions := {
+		"agile": "Déplacements rapides, châssis léger et moins de PV.",
+		"polyvalent": "Un équilibre entre mobilité et résistance.",
+		"puissant": "Châssis renforcé : plus de PV, déplacement plus lent.",
 		"blaster": "Tir précis ou tir chargé jusqu’à 50 dégâts.",
 		"shotgun": "6 plombs coniques, 3 salves, recharge automatique.",
 		"modulo_drone": "Projectile guidé : dégâts, BURN et SPOTTED.",
@@ -95,6 +106,9 @@ static func category_description(identifier: String) -> String:
 	return str(descriptions.get(identifier, "Équipement Prototype 0."))
 
 static func stat_line(identifier: String) -> String:
+	if COMBAT_DATA.ROBOT_DEFINITIONS.has(identifier):
+		var robot: Dictionary = COMBAT_DATA.ROBOT_DEFINITIONS[identifier]
+		return "%d PV • vitesse %.1f m/s" % [int(robot.max_health), float(robot.move_speed)]
 	var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get(identifier, {})
 	var module: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	if not weapon.is_empty():

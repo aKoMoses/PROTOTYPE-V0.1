@@ -3,6 +3,9 @@ extends RefCounted
 ## Ben's choices from choix.html, verified on 2026-09-28.
 ## Keep the downloaded originals intact; atlas regions remove empty margins in UI.
 const SOURCES := {
+	"agile": preload("res://art/robot-concepts/robot-agile-face-v3.png"),
+	"polyvalent": preload("res://art/robot-concepts/robot-polyvalent-face-v3.png"),
+	"puissant": preload("res://art/robot-concepts/robot-puissant-face-v3.png"),
 	"blaster": preload("res://art/icons/blaster-gravure.png"),
 	"shotgun": preload("res://art/icons/ben/shotgun-a.png"),
 	"modulo_drone": preload("res://art/icons/ben/modulo-drone-b.png"),
@@ -15,6 +18,9 @@ const SOURCES := {
 	"omnivamp": preload("res://art/icons/ben/omnivamp-a.png"),
 }
 const REGIONS := {
+	"agile": Rect2(388, 34, 478, 1174),
+	"polyvalent": Rect2(334, 10, 574, 1186),
+	"puissant": Rect2(292, 4, 670, 1216),
 	"blaster": Rect2(100, 270, 1100, 770),
 	"shotgun": Rect2(20, 335, 1220, 610),
 	"modulo_drone": Rect2(15, 237, 1225, 770),
@@ -34,7 +40,7 @@ func get_icon(identifier: String) -> Texture2D:
 	if not _textures.has(identifier):
 		var texture := AtlasTexture.new()
 		texture.atlas = SOURCES[identifier]
-		texture.region = REGIONS[identifier]
+		texture.region = REGIONS.get(identifier, Rect2(Vector2.ZERO, texture.atlas.get_size()))
 		texture.filter_clip = true
 		_textures[identifier] = texture
 	return _textures[identifier]

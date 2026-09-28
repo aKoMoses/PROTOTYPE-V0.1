@@ -383,6 +383,7 @@ func _build_ui() -> void:
 	equipment.add_theme_constant_override("separation", 10)
 	columns.add_child(equipment)
 	equipment.add_child(_label("BUILD", 21))
+	_add_loadout_row(equipment, "robot", "Robot", LOADOUT.ROBOTS)
 	_add_loadout_row(equipment, "weapon", "Arme", LOADOUT.WEAPONS)
 	_add_loadout_row(equipment, "offensive", "Offensif", LOADOUT.OFFENSIVE)
 	_add_loadout_row(equipment, "defensive", "Défensif", LOADOUT.DEFENSIVE)

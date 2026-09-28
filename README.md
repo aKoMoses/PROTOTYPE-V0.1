@@ -25,6 +25,35 @@ et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
 
+## Robots de la forge
+
+La forge s'ouvre sur l'onglet **ROBOT**, avec les portraits de face du personnage
+principal en versions Agile, Polyvalent et Puissant. Les cartes affichent les PV,
+la vitesse et le robot équipé. Le choix est sauvegardé dès la sélection et repris
+en duel, en entraînement et en survie. Une ancienne sauvegarde reçoit le Polyvalent
+sans modifier ses armes ou modules.
+
+| Robot | PV de base | Vitesse de base |
+| --- | ---: | ---: |
+| Agile | 800 | 6 m/s |
+| Polyvalent | 1 000 | 5 m/s |
+| Puissant | 1 200 | 4 m/s |
+
+Les valeurs sont centralisées dans `scripts/combat_data.gd`. Les ralentissements
+et le Bio Injector s'appliquent à cette vitesse ; les bonus de PV de survie
+s'ajoutent aux PV du châssis. Les resets de manche gardent le robot choisi.
+Les portraits sont propres à chaque châssis ; le modèle 3D animé en combat reste
+le modèle actuel partagé, sans modification de ses collisions ni de ses dégâts.
+
+Validation : `tools/test_robot_forge.gd` couvre les cartes, la sauvegarde, la
+migration, les PV/vitesse, les resets et la transmission aux trois modes.
+Les tests existants loadout, game flow, mobilité, passifs, entraînement et survie
+passent également. Captures : `captures/robot_forge.png` et
+`captures/robot_forge_mobile.png` (fenêtre paysage 2340 × 1080 sur PC ; tactile
+réel non vérifié). Certains tests existants signalent des ressources audio
+encore actives à la fermeture ; le test spécifique des robots se termine sans
+erreur. L'équilibrage reste une première base à éprouver en jeu.
+
 ## Musique du menu
 
 Le menu utilise « Poussière et cambouis », le troisième essai validé par l'utilisateur,
