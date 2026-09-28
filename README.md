@@ -494,6 +494,13 @@ peuvent dépasser leurs valeurs de duel. Le joueur récupère 150 PV après chaq
 sans réinitialisation complète entre les vagues. La douzième vague ajoute un ennemi
 plus résistant ; la partie s'achève sur une victoire ou à la mort du joueur.
 
+La musique de Survie change avec les vagues : variation retenue aux vagues 1 à 4,
+« La forge s'emballe » aux vagues 5 à 8, puis variation plus dense aux vagues 9 à 12.
+Chaque piste dure une minute et boucle depuis la vingtième seconde pour ne jouer sa
+montée initiale qu'une fois. Un fond plus calme accompagne le choix des améliorations.
+Les changements de piste se font en fondu ; la pause suspend la musique et le résultat
+l'arrête.
+
 L'arène est une casse automobile avec trois épaves servant de couverts, des carcasses
 et des tas de ferraille sur le pourtour. Avant chaque vague, un compte à rebours et des
 cercles colorés annoncent les points d'arrivée. Les ennemis ont trois rôles : poursuivant

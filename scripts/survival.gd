@@ -14,6 +14,14 @@ const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const FLOOR_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_HALF := 23.0
+const MUSIC_PATHS := [
+	"res://son-musique/musiques/survie_early_loop.wav",
+	"res://son-musique/musiques/la_forge_semballe_loop.wav",
+	"res://son-musique/musiques/survie_late_loop.wav",
+]
+const REWARD_MUSIC_PATH := "res://son-musique/musiques/survie_respiration_loop.wav"
+const MUSIC_STAGE_VOLUME_DB := [-17.0, -17.0, -15.5]
+const REWARD_MUSIC_LOOP_START_S := 1.25
 const SPAWN_POINTS := [Vector3(-12, 0, -7), Vector3(10, 0, 3), Vector3(12, 0, -7), Vector3(-10, 0, 3), Vector3(0, 0, -9)]
 
 var player: CharacterBody3D
@@ -36,6 +44,11 @@ var _pause_panel: PanelContainer
 var _pause_content: VBoxContainer
 var _touch: Control
 var _music: AudioStreamPlayer
+var _other_music: AudioStreamPlayer
+var _reward_music: AudioStreamPlayer
+var _music_stage := -1
+var _music_tween: Tween
+var _reward_music_tween: Tween
 var _arrival_label: Label
 var _arrival_markers: Array[Node3D] = []
 var _incoming_roles: Array[String] = []
@@ -291,13 +304,106 @@ func _build_player_and_camera() -> void:
 func _build_music() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "SurvivalMusic"
-	_music.volume_db = -17
-	var path := "res://art/audio/arena_electro_build.wav"
-	if ResourceLoader.exists(path):
-		_music.stream = load(path)
-		if _music.stream is AudioStreamWAV:
-			(_music.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_music.volume_db = MUSIC_STAGE_VOLUME_DB[0]
 	add_child(_music)
+	_other_music = AudioStreamPlayer.new()
+	_other_music.name = "SurvivalMusicTransition"
+	_other_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_other_music.volume_db = -60.0
+	add_child(_other_music)
+	_reward_music = AudioStreamPlayer.new()
+	_reward_music.name = "SurvivalRewardMusic"
+	_reward_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_reward_music.volume_db = -60.0
+	_reward_music.stream = _load_looping_music(REWARD_MUSIC_PATH)
+	add_child(_reward_music)
+
+func _load_looping_music(path: String) -> AudioStream:
+	if not ResourceLoader.exists(path):
+		push_error("Musique de Survie absente : " + path)
+		return null
+	var stream := load(path) as AudioStream
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = int((20.0 if path != REWARD_MUSIC_PATH else REWARD_MUSIC_LOOP_START_S) * wav.mix_rate)
+		wav.loop_end = int(wav.get_length() * wav.mix_rate)
+	return stream
+
+func _music_stage_for_wave(next_wave: int) -> int:
+	if next_wave <= 4:
+		return 0
+	if next_wave <= 8:
+		return 1
+	return 2
+
+func _play_music_for_wave(next_wave: int) -> void:
+	var target_stage := _music_stage_for_wave(next_wave)
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	var target_volume_db: float = MUSIC_STAGE_VOLUME_DB[target_stage]
+	if target_stage == _music_stage:
+		if not _music.playing and _music.stream != null:
+			_music.play()
+		_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		_music_tween.tween_property(_music, "volume_db", target_volume_db, 1.2)
+		return
+	var next_stream := _load_looping_music(MUSIC_PATHS[target_stage])
+	if next_stream == null:
+		return
+	_music_stage = target_stage
+	if not _music.playing:
+		_music.stream = next_stream
+		_music.volume_db = target_volume_db
+		_music.stream_paused = false
+		_music.play()
+		return
+	var previous := _music
+	var next_player := _other_music
+	next_player.stop()
+	next_player.stream = next_stream
+	next_player.stream_paused = false
+	next_player.volume_db = -60.0
+	# Variations share the theme's pulse. Keep its position when changing arrangement.
+	next_player.play(minf(previous.get_playback_position(), next_stream.get_length() - 0.1))
+	_music = next_player
+	_other_music = previous
+	_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	_music_tween.tween_property(_music, "volume_db", target_volume_db, 1.2)
+	_music_tween.tween_property(previous, "volume_db", -60.0, 1.2)
+	_music_tween.chain().tween_callback(previous.stop)
+
+func _enter_reward_music() -> void:
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_music_tween.tween_property(_music, "volume_db", -38.0, 0.8)
+	if _reward_music.stream == null:
+		return
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_reward_music.volume_db = -60.0
+	_reward_music.stream_paused = false
+	_reward_music.play()
+	_reward_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_reward_music_tween.tween_property(_reward_music, "volume_db", -24.0, 0.8)
+
+func _leave_reward_music() -> void:
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_reward_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_reward_music_tween.tween_property(_reward_music, "volume_db", -60.0, 1.2)
+	_reward_music_tween.tween_callback(_reward_music.stop)
+
+func _stop_all_music() -> void:
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_music.stop()
+	_other_music.stop()
+	_reward_music.stop()
 
 func _build_ui() -> void:
 	_ui_layer = CanvasLayer.new()
@@ -586,8 +692,6 @@ func _choose_weapon(identifier: String) -> void:
 		return
 	player.call("configure_survival_build", progression.build())
 	player.call("reset_combat_state")
-	if _music.stream != null:
-		_music.play()
 	_start_wave()
 
 func _start_wave() -> void:
@@ -596,6 +700,7 @@ func _start_wave() -> void:
 	wave += 1
 	defeated = 0
 	_state = "incoming"
+	_play_music_for_wave(wave)
 	_update_spell_bar(progression.build())
 	_choice_panel.visible = false
 	_touch.visible = false
@@ -685,6 +790,7 @@ func _complete_wave() -> void:
 	_state = "reward"
 	_spell_bar.visible = false
 	get_tree().paused = true
+	_enter_reward_music()
 	_clear_choices()
 	_choice_content.add_child(_label("VAGUE %d TERMINÉE" % wave, 24, Color("#f3ddbb")))
 	_choice_content.add_child(_label("Choisis une amélioration", 16, Color("#c7d2d1")))
@@ -702,6 +808,7 @@ func _choose_reward(choice: Dictionary) -> void:
 	if _state != "reward" or not progression.apply_reward(wave, choice):
 		return
 	get_tree().paused = false
+	_leave_reward_music()
 	player.call("configure_survival_build", progression.build())
 	player.call("heal", 150.0, "wave_reward")
 	_start_wave()
@@ -720,8 +827,7 @@ func _show_result(won: bool) -> void:
 		if is_instance_valid(enemy):
 			enemy.call("set_training_bot_enabled", false)
 	get_tree().paused = true
-	if _music != null:
-		_music.stop()
+	_stop_all_music()
 	_clear_choices()
 	_choice_content.add_child(_label("VICTOIRE  ·  12 VAGUES" if won else "DÉFAITE  ·  VAGUE %d" % wave, 28, Color("#8fe6aa") if won else Color("#f28a79")))
 	_choice_content.add_child(_label("Arme : %s  ·  Ennemis vaincus : %d" % [LOADOUT.display_name(progression.weapon), _total_defeated()], 17, Color("#f3ddbb")))
@@ -743,6 +849,8 @@ func _pause_run() -> void:
 	_spell_bar.visible = false
 	get_tree().paused = true
 	_music.stream_paused = true
+	_other_music.stream_paused = true
+	_reward_music.stream_paused = true
 	_touch.call("reset_inputs")
 	_show_pause_content()
 	_pause_overlay.visible = true
@@ -756,6 +864,8 @@ func _resume_run() -> void:
 	_update_spell_bar(progression.build())
 	get_tree().paused = false
 	_music.stream_paused = false
+	_other_music.stream_paused = false
+	_reward_music.stream_paused = false
 	_pause_overlay.visible = false
 	_pause_panel.visible = false
 	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
