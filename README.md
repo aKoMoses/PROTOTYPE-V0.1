@@ -16,9 +16,9 @@ conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 - icône « Gravure » du Blaster dans l'équipement et le HUD, avec charge sonore et tirs normal/chargé distincts ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
-- première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
-  plaques crème/rouille, acier sombre, pneus, caisses, barils, bannières rouges,
-  hautes herbes décoratives, poussière, lampes et gradins de spectateurs.
+- arène industrielle de récupération : sol en grandes plaques réparées, couverts blindés,
+  enceinte assemblée, acier sombre, panneaux crème/rouille et signalétique rouge usée ;
+  le décor mobile conserve des zones de combat calmes et lisibles.
 
 Le lot Blaster sert à valider la perspective, la caméra, les déplacements, les hitboxes
 et les sensations de combat avec le Shotgun et les modules. Les kits de vie
@@ -68,12 +68,42 @@ changement d'arme. Les anciens MP3 restent disponibles comme sources de comparai
 ## Rendu et ressources visuelles
 
 - Renderer conservé : **Mobile** (Godot 4.7.2).
-- Ressources réutilisables dans `art/` : `sand_dust.svg`, `metal_cream.svg`,
+- Ressources réutilisables dans `art/` : `arena_floor.svg`, `metal_cream.svg`,
   `metal_rust.svg`, `steel_dark.svg` et `banner_red.svg`.
 - Les collisions des couverts restent séparées de leurs modules décoratifs : les petits
-  débris, herbes et accessoires n'ajoutent pas de formes de collision individuelles.
-- L'éclairage exécuté combine une direction chaude, un remplissage froid discret, des
-  lampes locales, des écrans cyan et une brume simple compatible Mobile.
+  panneaux, renforts et accessoires n'ajoutent pas de formes de collision individuelles.
+- L'éclairage exécuté combine une direction chaude et un remplissage froid sans ombre ;
+  les voyants restent émissifs, sans multiplication des lumières locales ni brouillard.
+
+## Passe environment art — 28 septembre 2026
+
+La scène de jeu réelle est `scenes/main.tscn` ; `scripts/main.gd` y construit l'arène à
+l'exécution. La passe est donc intégrée à ce générateur, et non à une scène de démonstration
+séparée. Elle remplace le grand sol sableux uniforme par un calepinage industriel calme,
+habille les volumes de collision existants avec une famille de caissons blindés et de
+panneaux réparés, construit la face intérieure de l'enceinte et ajoute trois repères peints
+(`YARD 07`, `WEST // 03`, `EAST // 07`). Les obstacles, limites, spawns, zones de soin et
+la caméra conservent leurs transformations de référence.
+
+Le contrat automatique `tools/test_arena_contract.gd`, enregistré dans
+`docs/arena_gameplay_contract.json`, valide **48 bloqueurs, 4 zones de soin et 14 bushs**.
+Les 22 scripts `tools/test_*.gd` passent, dont déplacements du bot, visibilité, commandes
+tactiles, Blaster normal/chargé, Shotgun, modules, états de combat et intégration VFX.
+Les captures comparables sont `captures/environment_before.png`,
+`captures/environment_after.png` et `captures/environment_after_mobile.png`.
+
+Sur le même PC, à 1280×720 avec Forward Mobile/Vulkan, l'audit reproductible
+`tools/audit_arena_runtime.gd` passe de 3 923 à 1 584 nœuds, de 3 325 à 1 077 meshes,
+de 25 à 4 lumières et de 4 277 à 1 453 draw calls. Les primitives rendues passent de
+5 078 969 à 178 381 ; le temps de processus mesuré passe de 19,616 ms à 6,882 ms.
+Le compteur FPS de cette session de capture fenêtrée est trop variable pour servir de
+benchmark. Ce relevé PC ne constitue donc pas une mesure de performances Android.
+
+L'import, l'exécution Godot 4.7.2 et l'export APK debug sont validés avec la chaîne
+portable JDK 17 / Android SDK du projet. À chaque push sur `main`, le workflow GitHub
+réexécute toute la suite, signe un APK de release et le publie comme préversion. Le
+tactile réel, la lisibilité finale et les 60 FPS doivent encore être vérifiés sur un
+téléphone Android.
 
 ## Suivi systèmes — 24 septembre 2026
 

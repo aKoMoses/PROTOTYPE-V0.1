@@ -1,0 +1,1955 @@
+{
+	"bushes": [
+		{
+			"height": 2.9375,
+			"name": "BushEastPocket",
+			"position": [
+				18.5,
+				0.0,
+				-5.4
+			],
+			"radius": 1.6,
+			"scale": [
+				2.0,
+				1.4,
+				1.875
+			]
+		},
+		{
+			"height": 2.115,
+			"name": "BushEastSpine",
+			"position": [
+				8.8,
+				0.0,
+				1.0
+			],
+			"radius": 1.152,
+			"scale": [
+				1.44,
+				1.008,
+				1.35
+			]
+		},
+		{
+			"height": 2.82,
+			"name": "BushNorthCenter",
+			"position": [
+				0.0,
+				0.0,
+				-7.5
+			],
+			"radius": 1.536,
+			"scale": [
+				1.92,
+				1.344,
+				1.8
+			]
+		},
+		{
+			"height": 3.1725,
+			"name": "BushNorthEastCover",
+			"position": [
+				13.8,
+				0.0,
+				-8.0
+			],
+			"radius": 1.728,
+			"scale": [
+				2.16,
+				1.512,
+				2.025
+			]
+		},
+		{
+			"height": 2.35,
+			"name": "BushNorthPad",
+			"position": [
+				-2.8,
+				0.0,
+				-20.5
+			],
+			"radius": 1.28,
+			"scale": [
+				1.6,
+				1.12,
+				1.5
+			]
+		},
+		{
+			"height": 1.88,
+			"name": "BushNorthWest",
+			"position": [
+				-19.5,
+				0.0,
+				-12.6
+			],
+			"radius": 1.024,
+			"scale": [
+				1.28,
+				0.896,
+				1.2
+			]
+		},
+		{
+			"height": 3.1725,
+			"name": "BushNorthWestCover",
+			"position": [
+				-14.0,
+				0.0,
+				-8.0
+			],
+			"radius": 1.728,
+			"scale": [
+				2.16,
+				1.512,
+				2.025
+			]
+		},
+		{
+			"height": 2.82,
+			"name": "BushSouthCenter",
+			"position": [
+				0.0,
+				0.0,
+				9.5
+			],
+			"radius": 1.536,
+			"scale": [
+				1.92,
+				1.344,
+				1.8
+			]
+		},
+		{
+			"height": 1.88,
+			"name": "BushSouthEast",
+			"position": [
+				19.5,
+				0.0,
+				12.6
+			],
+			"radius": 1.024,
+			"scale": [
+				1.28,
+				0.896,
+				1.2
+			]
+		},
+		{
+			"height": 3.1725,
+			"name": "BushSouthEastCover",
+			"position": [
+				14.0,
+				0.0,
+				10.0
+			],
+			"radius": 1.728,
+			"scale": [
+				2.16,
+				1.512,
+				2.025
+			]
+		},
+		{
+			"height": 2.35,
+			"name": "BushSouthPad",
+			"position": [
+				2.8,
+				0.0,
+				20.5
+			],
+			"radius": 1.28,
+			"scale": [
+				1.6,
+				1.12,
+				1.5
+			]
+		},
+		{
+			"height": 3.1725,
+			"name": "BushSouthWestCover",
+			"position": [
+				-13.8,
+				0.0,
+				10.0
+			],
+			"radius": 1.728,
+			"scale": [
+				2.16,
+				1.512,
+				2.025
+			]
+		},
+		{
+			"height": 2.9375,
+			"name": "BushWestPocket",
+			"position": [
+				-18.5,
+				0.0,
+				5.4
+			],
+			"radius": 1.6,
+			"scale": [
+				2.0,
+				1.4,
+				1.875
+			]
+		},
+		{
+			"height": 2.115,
+			"name": "BushWestSpine",
+			"position": [
+				-8.8,
+				0.0,
+				1.0
+			],
+			"radius": 1.152,
+			"scale": [
+				1.44,
+				1.008,
+				1.35
+			]
+		}
+	],
+	"camera": {
+		"fov": 38.0,
+		"position": [
+			0.0,
+			20.5,
+			17.5
+		],
+		"rotation_degrees": [
+			-48.885,
+			0.0,
+			0.0
+		]
+	},
+	"health_pads": [
+		{
+			"name": "HealthPadEast",
+			"position": [
+				21.0,
+				0.0,
+				0.0
+			]
+		},
+		{
+			"name": "HealthPadNorth",
+			"position": [
+				0.0,
+				0.0,
+				-20.8
+			]
+		},
+		{
+			"name": "HealthPadSouth",
+			"position": [
+				0.0,
+				0.0,
+				20.8
+			]
+		},
+		{
+			"name": "HealthPadWest",
+			"position": [
+				-21.0,
+				0.0,
+				0.0
+			]
+		}
+	],
+	"spawns": {
+		"player": [
+			-3.5,
+			0.0,
+			17.0
+		],
+		"target": [
+			3.5,
+			0.0,
+			15.5
+		]
+	},
+	"static_bodies": [
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastLimit",
+			"position": [
+				29.0,
+				1.5,
+				0.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.8,
+						3.0,
+						58.0
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel0",
+			"position": [
+				28.1,
+				1.05,
+				-24.8
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel1",
+			"position": [
+				28.1,
+				1.05,
+				-16.53
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel2",
+			"position": [
+				28.1,
+				1.05,
+				-8.26
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel3",
+			"position": [
+				28.1,
+				1.05,
+				0.01
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel4",
+			"position": [
+				28.1,
+				1.05,
+				8.28
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel5",
+			"position": [
+				28.1,
+				1.05,
+				16.55
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPanel6",
+			"position": [
+				28.1,
+				1.05,
+				24.82
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPocketLong",
+			"position": [
+				18.5,
+				1.0,
+				-8.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						1.8,
+						2.0,
+						5.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastPocketShort",
+			"position": [
+				16.0,
+				1.0,
+				-10.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						4.6,
+						2.0,
+						1.6
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "EastSpine",
+			"position": [
+				7.0,
+				1.1,
+				1.2
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						2.15,
+						2.2,
+						9.6
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthCenterCover",
+			"position": [
+				0.0,
+				0.95,
+				-9.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						10.8,
+						1.9,
+						1.55
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthEastAngle",
+			"position": [
+				12.0,
+				0.95,
+				-6.7
+			],
+			"rotation_degrees": [
+				0.0,
+				25.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						5.0,
+						1.9,
+						1.3
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthEastBlock",
+			"position": [
+				17.8,
+				1.15,
+				-16.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						3.2,
+						2.3,
+						3.2
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthLimit",
+			"position": [
+				0.0,
+				1.5,
+				-29.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						58.0,
+						3.0,
+						0.8
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel0",
+			"position": [
+				-24.8,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel1",
+			"position": [
+				-16.53,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel2",
+			"position": [
+				-8.26,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel3",
+			"position": [
+				0.01,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel4",
+			"position": [
+				8.28,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel5",
+			"position": [
+				16.55,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthPanel6",
+			"position": [
+				24.82,
+				1.05,
+				-28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthWestAngle",
+			"position": [
+				-11.3,
+				1.0,
+				-9.4
+			],
+			"rotation_degrees": [
+				0.0,
+				-24.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						6.2,
+						2.0,
+						1.4
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "NorthWestBlock",
+			"position": [
+				-17.5,
+				1.15,
+				-15.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						4.0,
+						2.3,
+						3.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthCenterCover",
+			"position": [
+				0.0,
+				0.95,
+				11.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						9.5,
+						1.9,
+						1.55
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthEastAngle",
+			"position": [
+				11.3,
+				1.0,
+				10.8
+			],
+			"rotation_degrees": [
+				0.0,
+				-24.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						6.2,
+						2.0,
+						1.4
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthEastBlock",
+			"position": [
+				17.5,
+				1.15,
+				15.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						4.0,
+						2.3,
+						3.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthLimit",
+			"position": [
+				0.0,
+				1.5,
+				29.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						58.0,
+						3.0,
+						0.8
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel0",
+			"position": [
+				24.8,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel1",
+			"position": [
+				16.53,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel2",
+			"position": [
+				8.26,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel3",
+			"position": [
+				-0.01,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel4",
+			"position": [
+				-8.28,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel5",
+			"position": [
+				-16.55,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.1,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthPanel6",
+			"position": [
+				-24.82,
+				1.05,
+				28.1
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						7.5,
+						2.45,
+						0.86
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthWestAngle",
+			"position": [
+				-12.0,
+				0.95,
+				8.1
+			],
+			"rotation_degrees": [
+				0.0,
+				25.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						5.0,
+						1.9,
+						1.3
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "SouthWestBlock",
+			"position": [
+				-17.8,
+				1.15,
+				16.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						3.2,
+						2.3,
+						3.2
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestLimit",
+			"position": [
+				-29.0,
+				1.5,
+				0.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.8,
+						3.0,
+						58.0
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel0",
+			"position": [
+				-28.1,
+				1.05,
+				24.8
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel1",
+			"position": [
+				-28.1,
+				1.05,
+				16.53
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel2",
+			"position": [
+				-28.1,
+				1.05,
+				8.26
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel3",
+			"position": [
+				-28.1,
+				1.05,
+				-0.01
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel4",
+			"position": [
+				-28.1,
+				1.05,
+				-8.28
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel5",
+			"position": [
+				-28.1,
+				1.05,
+				-16.55
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.45,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPanel6",
+			"position": [
+				-28.1,
+				1.05,
+				-24.82
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						0.86,
+						2.1,
+						7.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPocketLong",
+			"position": [
+				-18.5,
+				1.0,
+				8.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						1.8,
+						2.0,
+						5.5
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestPocketShort",
+			"position": [
+				-16.0,
+				1.0,
+				10.0
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						4.6,
+						2.0,
+						1.6
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"name": "WestSpine",
+			"position": [
+				-7.0,
+				1.1,
+				1.2
+			],
+			"rotation_degrees": [
+				0.0,
+				0.0,
+				0.0
+			],
+			"shapes": [
+				{
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation_degrees": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"size": [
+						2.15,
+						2.2,
+						9.6
+					],
+					"type": "BoxShape3D"
+				}
+			]
+		}
+	]
+}
