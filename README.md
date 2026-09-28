@@ -13,7 +13,7 @@ conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
 - Blaster (tir normal ou chargé) et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
-- icône « Gravure » du Blaster dans l'équipement et le HUD, avec son « Plasma » au tir ;
+- icône « Gravure » du Blaster dans l'équipement et le HUD, avec charge sonore et tirs normal/chargé distincts ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
@@ -24,6 +24,24 @@ Le lot Blaster sert à valider la perspective, la caméra, les déplacements, le
 et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
+
+## Musique du duel
+
+Le match charge `art/audio/arena_electro_build.wav`. La musique
+démarre avec le premier décompte, continue entre les manches, se met en pause avec le jeu
+et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous les effets sonores.
+
+La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
+monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
+répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
+
+## Son du Blaster
+
+La direction A du Blaster utilise cinq WAV dans `art/audio/` : montée de charge,
+fond discret après charge complète, signal « prêt », tir normal et tir chargé.
+Un relâchement avant une seconde coupe la charge en 20 ms et lance aussitôt le
+tir normal ; la charge s'arrête aussi en cas d'interruption, de mort ou de
+changement d'arme. Les anciens MP3 restent disponibles comme sources de comparaison.
 
 ## Rendu et ressources visuelles
 
@@ -344,6 +362,31 @@ accessibles publiquement.
 Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 ### Menu principal
+
+Le bouton **TRAINING GROUND** ouvre une carte dédiée d'entraînement. Elle contient
+trois mannequins fixes de tailles et de zones de touche différentes, un mannequin
+mobile et un tireur fixe qui lance un tir simple toutes les 1,5 secondes lorsqu'il
+voit le joueur. La carte sépare les trois couloirs de cibles fixes, la piste de la
+cible mobile, la zone de tir reçu et un espace de placement libre. Des repères au
+sol, des passages entre les secteurs, quelques caisses et balises indiquent où
+s'entraîner ; les cinq mannequins de départ sont espacés d'au moins 8 m. Le
+placement reste possible sur les surfaces libres de toute la carte.
+Le sous-menu Tab regroupe le build, les mannequins et les règles d'essai. Changer un
+équipement l'applique et le sauvegarde immédiatement. On peut placer jusqu'à 12
+mannequins fixes, en supprimer un par clic ou tous les retirer. Le placement montre
+un aperçu vert ou rouge ; clic droit ou Échap annule l'outil. Après un KO, chaque
+mannequin revient avec ses PV après 0,75 s pour permettre les essais longs.
+Le reset restaure les PV, munitions, cooldowns, effets et positions des mannequins
+mobiles sans retirer les mannequins placés.
+
+Sur le terrain : **Tab** ouvre ou ferme le sous-menu, **F5** réinitialise l'essai,
+**F6** bascule l'invulnérabilité, **F7** les cooldowns instantanés, **F8** les
+munitions illimitées, **F9** soigne le joueur et **F10** le met à 50 % de ses PV.
+**K** masque ou ouvre le kikimètre. Il affiche les dégâts effectivement infligés,
+le DPS des 5 dernières secondes, la durée depuis le premier coup et la répartition
+par arme, module et brûlure ; on peut filtrer par cible. Le temps se fige avec le
+menu Tab et F5 vide aussi la mesure. Ces commandes sont également disponibles en
+boutons dans le sous-menu ; le kikimètre a un bouton tactile compact sur mobile.
 
 Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`, ainsi que
 la police Russo One dans `art/ui/fonts/`. Son fond

@@ -13,9 +13,10 @@ func _initialize() -> void:
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
+		var player_readout := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
 		var health_sprite := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout/HealthBarSprite") as Sprite3D
 		var health_number := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout/HealthBarViewport/HealthBarUI/HealthNumber") as Label
-		if health_sprite == null or health_sprite.texture == null or health_number == null:
+		if player_readout == null or health_sprite == null or health_sprite.texture == null or health_number == null:
 			_failures.append("barre de PV joueur absente")
 		if bool(target.call("is_training_bot_enabled")):
 			_failures.append("bot actif au démarrage")
