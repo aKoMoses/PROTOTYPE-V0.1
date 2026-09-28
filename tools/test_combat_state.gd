@@ -8,6 +8,8 @@ var _failures: Array[String] = []
 
 func _initialize() -> void:
 	var state := COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	var healing_events: Array[float] = []
+	state.healing_applied.connect(func(amount: float, _source_id: String) -> void: healing_events.append(amount))
 	_assert_close(state.health, 1000.0, "initial PV")
 	_assert_close(state.apply_damage(200.0, "test", "attack-1"), 200.0, "damage effective")
 	_assert_close(state.health, 800.0, "damage reduces PV")
@@ -17,9 +19,13 @@ func _initialize() -> void:
 	state.reset()
 	_assert_close(state.health, 1000.0, "reset restores PV")
 	_assert_close(state.heal(0.0), 0.0, "zero heal ignored")
+	_assert_close(state.heal(100.0, "full-health-kit"), 0.0, "full health heal ignored")
 	state.apply_damage(500.0)
-	_assert_close(state.heal(400.0), 400.0, "effective heal")
-	_assert_close(state.heal(400.0), 100.0, "overheal clamped")
+	_assert_close(state.heal(400.0, "health-kit"), 400.0, "effective heal")
+	_assert_close(state.heal(400.0, "health-kit"), 100.0, "overheal clamped")
+	_assert_close(state.health, state.max_health, "healing never exceeds maximum")
+	if healing_events.size() != 2 or not is_equal_approx(healing_events[0], 400.0) or not is_equal_approx(healing_events[1], 100.0):
+		_failures.append("healing signal emitted more than once or at full health")
 
 	state.reset()
 	state.apply_burn(3.5, 20.0, "burn-a")

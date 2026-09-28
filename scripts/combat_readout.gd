@@ -30,6 +30,7 @@ var _blaster_progress_track: Panel
 var _blaster_progress_fill: ColorRect
 var _blaster_progress_tip: ColorRect
 var _latest_popup: Node3D
+var _latest_healing_popup: Node3D
 var _damage_serial := 0
 
 
@@ -122,10 +123,25 @@ func show_damage(amount: float) -> void:
 		popups.front().queue_free()
 
 
+func show_healing(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	if _latest_healing_popup == null or not is_instance_valid(_latest_healing_popup) or not bool(_latest_healing_popup.call("can_merge")):
+		_damage_serial += 1
+		_latest_healing_popup = Node3D.new()
+		_latest_healing_popup.name = "HealingNumber%d" % _damage_serial
+		_latest_healing_popup.set_script(DAMAGE_POPUP)
+		_latest_healing_popup.set("side", -_damage_side)
+		_latest_healing_popup.set("healing_mode", true)
+		add_child(_latest_healing_popup)
+	_latest_healing_popup.call("add_healing", amount)
+
+
 func clear_damage_numbers() -> void:
 	_latest_popup = null
+	_latest_healing_popup = null
 	for child in get_children():
-		if child.name.begins_with("DamageNumber"):
+		if child.name.begins_with("DamageNumber") or child.name.begins_with("HealingNumber"):
 			child.queue_free()
 
 

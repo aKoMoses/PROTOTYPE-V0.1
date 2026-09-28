@@ -25,6 +25,7 @@ const BLASTER_CHARGED_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster
 @export_range(0.25, 0.50, 0.01) var aim_hold_time := 0.35
 @export_range(0.04, 0.30, 0.01) var aim_raise_time := 0.10
 @export_range(0.08, 0.40, 0.01) var aim_lower_time := 0.18
+@export_range(0.05, 0.40, 0.01) var mobile_blaster_charge_threshold := 0.20
 @export_category("Debug")
 @export var enable_direction_debug := false
 
@@ -208,6 +209,11 @@ var _touch_aim_vector := Vector2.ZERO
 var _touch_aim_active := false
 var _touch_attack_held := false
 var _touch_actions: Dictionary = {}
+var _touch_fire_active := false
+var _touch_fire_started_at := -1.0
+var _touch_fire_charge_started := false
+var _touch_last_valid_aim_direction := Vector3(0.0, 0.0, -1.0)
+var _touch_fire_requests: Array[Dictionary] = []
 var _gameplay_enabled := true
 var _direction_debug_mesh: MeshInstance3D
 var _direction_debug_geometry: ImmediateMesh
@@ -227,6 +233,7 @@ func _ready() -> void:
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	combat_state.health_changed.connect(_on_health_changed)
 	combat_state.damage_applied.connect(_on_damage_applied)
+	combat_state.healing_applied.connect(_on_healing_applied)
 	combat_state.died.connect(_on_state_died)
 	passive_state = PASSIVE_STATE.new()
 	passive_state.configure(_passive_id)
@@ -356,8 +363,8 @@ func _physics_process(delta: float) -> void:
 	_update_bush_state(delta)
 	_update_debug_effects()
 	_update_javelin_mark()
-	if combat_state != null and combat_state.is_stunned() and _blaster_charge_active:
-		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
+	if combat_state != null and combat_state.is_stunned() and (_blaster_charge_active or _touch_fire_active):
+		cancel_touch_fire("BLASTER  •  INTERROMPU")
 	if combat_state != null and combat_state.is_stunned() and _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	if combat_state != null and combat_state.is_stunned() and _module_busy:
@@ -627,17 +634,60 @@ func _update_attack() -> void:
 		_attack_hold_last = wants_to_attack
 		return
 	var now := Time.get_ticks_msec() / 1000.0
+	var processed_touch_request := false
+	if not _touch_fire_requests.is_empty():
+		_process_touch_fire_request()
+		processed_touch_request = true
+	if _touch_fire_active:
+		_update_mobile_blaster_contact(now)
+		# Le flux tactile possède sa propre machine d'état. Il ne doit jamais être
+		# interprété une seconde fois comme le maintien PC historique.
+		_attack_hold_last = wants_to_attack
+		return
+	if processed_touch_request:
+		_attack_hold_last = wants_to_attack
+		return
 	var just_pressed := wants_to_attack and not _attack_hold_last
 	var just_released := not wants_to_attack and _attack_hold_last
 	if just_pressed:
 		_begin_blaster_charge(now)
-	if _blaster_charge_active:
-		_blaster_charge_ratio = clampf((now - _blaster_charge_started_at) / maxf(0.001, _blaster_charge_time), 0.0, 1.0)
-		if _blaster_charge_ratio >= 1.0:
-			_play_blaster_ready_sound()
+	_update_active_blaster_charge(now)
 	if just_released and _blaster_charge_active:
 		_release_blaster_charge()
 	_attack_hold_last = wants_to_attack
+
+
+func _update_active_blaster_charge(now: float) -> void:
+	if not _blaster_charge_active:
+		return
+	_blaster_charge_ratio = clampf((now - _blaster_charge_started_at) / maxf(0.001, _blaster_charge_time), 0.0, 1.0)
+	if _blaster_charge_ratio >= 1.0:
+		_play_blaster_ready_sound()
+
+
+func _update_mobile_blaster_contact(now: float) -> void:
+	if not _touch_fire_active or _weapon_id != "blaster":
+		return
+	var held_for := maxf(0.0, now - _touch_fire_started_at)
+	if not _touch_fire_charge_started and held_for >= mobile_blaster_charge_threshold and now >= _blaster_next_attack_ready_at:
+		# Le délai de distinction ne rallonge pas la charge existante : une charge
+		# commencée à 0,20 s conserve l'instant du toucher comme origine.
+		var charge_origin := maxf(_touch_fire_started_at, _blaster_next_attack_ready_at)
+		_begin_blaster_charge(charge_origin)
+		_touch_fire_charge_started = _blaster_charge_active
+	_update_active_blaster_charge(now)
+
+
+func _process_touch_fire_request() -> void:
+	if _touch_fire_requests.is_empty():
+		return
+	var request: Dictionary = _touch_fire_requests.pop_front()
+	if not _gameplay_enabled or is_real_dead() or _weapon_id != "blaster":
+		return
+	var direction: Vector3 = request.get("direction", _normalized_aim_direction())
+	var charge_ratio := clampf(float(request.get("charge_ratio", 0.0)), 0.0, 1.0)
+	var damage := lerpf(_blaster_damage, _blaster_max_damage, charge_ratio)
+	_fire_blaster_projectile(damage, charge_ratio, direction)
 
 
 func _update_debug_effects() -> void:
@@ -715,10 +765,81 @@ func set_move_input(value: Vector2) -> void:
 func set_aim_input(value: Vector2) -> void:
 	_touch_aim_vector = value.limit_length(1.0)
 	_touch_aim_active = _touch_aim_vector.length_squared() > 0.04
+	if _touch_aim_active:
+		var direction := _camera_relative_direction(_touch_aim_vector)
+		if direction.length_squared() > 0.001:
+			_touch_last_valid_aim_direction = direction.normalized()
+			# Mettre à jour immédiatement évite de perdre le dernier drag lorsqu'un
+			# relâchement arrive entre deux frames physiques.
+			_set_aim_direction(_touch_last_valid_aim_direction)
 
 
 func set_touch_attack_held(value: bool) -> void:
 	_touch_attack_held = value
+
+
+func begin_touch_fire() -> void:
+	if _touch_fire_active or not _gameplay_enabled or is_real_dead():
+		return
+	_touch_fire_active = true
+	_touch_fire_started_at = Time.get_ticks_msec() / 1000.0
+	_touch_fire_charge_started = false
+	_touch_last_valid_aim_direction = _normalized_aim_direction()
+	if _weapon_id == "shotgun":
+		# Le Shotgun conserve exactement son chemin pressé/maintenu existant.
+		_touch_attack_held = true
+
+
+func end_touch_fire(final_aim: Vector2 = Vector2.ZERO) -> bool:
+	if final_aim.length_squared() > 0.04:
+		set_aim_input(final_aim)
+	if not _touch_fire_active:
+		return false
+	var released_weapon := _weapon_id
+	var now := Time.get_ticks_msec() / 1000.0
+	var held_for := maxf(0.0, now - _touch_fire_started_at)
+	var direction_snapshot := _touch_last_valid_aim_direction
+	if direction_snapshot.length_squared() <= 0.001:
+		direction_snapshot = _normalized_aim_direction()
+	_touch_fire_active = false
+	_touch_attack_held = false
+	_touch_fire_started_at = -1.0
+	_touch_fire_charge_started = false
+	if released_weapon != "blaster":
+		return false
+	var ratio := mobile_blaster_release_ratio(held_for, mobile_blaster_charge_threshold, _blaster_charge_time)
+	if _blaster_charge_active:
+		ratio = maxf(ratio, _blaster_charge_ratio)
+	_touch_fire_requests.append({
+		"direction": direction_snapshot.normalized(),
+		"charge_ratio": ratio,
+	})
+	_cancel_blaster_charge()
+	return true
+
+
+func cancel_touch_fire(reason: String = "") -> void:
+	_touch_fire_active = false
+	_touch_fire_started_at = -1.0
+	_touch_fire_charge_started = false
+	_touch_attack_held = false
+	_touch_fire_requests.clear()
+	if _blaster_charge_active:
+		_cancel_blaster_charge(reason)
+
+
+static func mobile_blaster_release_ratio(hold_seconds: float, charge_threshold: float, charge_time: float) -> float:
+	if hold_seconds < maxf(0.0, charge_threshold):
+		return 0.0
+	return clampf(hold_seconds / maxf(0.001, charge_time), 0.0, 1.0)
+
+
+func get_mobile_blaster_input_state() -> StringName:
+	if _weapon_id != "blaster" or not _touch_fire_active:
+		return &"aim"
+	if not _blaster_charge_active:
+		return &"aim"
+	return &"ready" if _blaster_charge_ratio >= 1.0 else &"charging"
 
 
 func trigger_touch_action(action: String) -> void:
@@ -729,8 +850,9 @@ func clear_touch_inputs() -> void:
 	_touch_move_vector = Vector2.ZERO
 	_touch_aim_vector = Vector2.ZERO
 	_touch_aim_active = false
-	_touch_attack_held = false
 	_touch_actions.clear()
+	_attack_hold_last = false
+	cancel_touch_fire()
 
 
 func set_gameplay_enabled(value: bool) -> void:
@@ -975,8 +1097,8 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield"] else "magnetic_field"
 	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector"] else "pyro_boots"
 	set_passive(passive_id)
+	cancel_touch_fire()
 	_weapon_id = "shotgun" if weapon_id == "shotgun" else "blaster"
-	_cancel_blaster_charge()
 	_update_weapon_visuals()
 	_sync_weapon_readout()
 
@@ -1083,6 +1205,14 @@ func _on_damage_applied(amount: float, _source_id: String, _attack_id: String) -
 		_health_readout.call("show_damage", amount)
 
 
+func _on_healing_applied(amount: float, _source_id: String) -> void:
+	if _health_readout != null and _health_readout.has_method("show_healing"):
+		_health_readout.call("show_healing", amount)
+	if _attack_label != null:
+		_attack_label.text = "SOIN  •  +%d PV" % roundi(amount)
+	_spawn_particle_burst(global_position + Vector3.UP * 1.05, Color("#72f0a5"), 10, 0.32, 2.2, 0.10, Vector3.UP, 58.0)
+
+
 func heal(amount: float, source_id: String = "") -> float:
 	if _stasis_remaining > 0.0 or passive_state == null or not passive_state.can_heal():
 		return 0.0
@@ -1112,6 +1242,7 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	clear_touch_inputs()
 	if _status_vfx != null:
 		_status_vfx.call("clear")
 	if _health_readout != null:
@@ -1138,7 +1269,7 @@ func reset_blaster_state() -> void:
 	_blaster_attack_busy = false
 	_blaster_next_attack_ready_at = -10.0
 	_attack_hold_last = false
-	_cancel_blaster_charge()
+	cancel_touch_fire()
 
 
 func set_weapon(weapon_id: String) -> void:
@@ -1650,8 +1781,8 @@ func _perform_static_shield() -> void:
 	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
 	_stasis_remaining = _static_duration
-	if _blaster_charge_active:
-		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
+	if _blaster_charge_active or _touch_fire_active:
+		cancel_touch_fire("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	if _module_busy:
@@ -2088,8 +2219,8 @@ func _recast_javelin() -> void:
 	if destination == Vector3.INF:
 		_attack_label.text = "JAVELIN  •  DESTINATION BLOQUÉE"
 		return
-	if _blaster_charge_active:
-		_cancel_blaster_charge("BLASTER  •  INTERROMPU")
+	if _blaster_charge_active or _touch_fire_active:
+		cancel_touch_fire("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	global_position = destination
@@ -2313,7 +2444,7 @@ func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: floa
 	var contact := _visual_contact(start, endpoint, target if did_hit else null)
 	var visual_endpoint: Vector3 = contact.get("position", endpoint)
 	var direction := visual_endpoint - start
-	direction = direction.normalized() if direction.length_squared() > 0.001 else aim_direction
+	direction = direction.normalized() if direction.length_squared() > 0.001 else _last_projectile_direction
 	projectile.look_at(start + direction, Vector3.UP)
 	var vfx := _vfx_manager()
 	if vfx != null:

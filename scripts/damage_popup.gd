@@ -6,8 +6,10 @@ const MERGE_GAP := 0.22
 const MAX_GROUP_AGE := 0.75
 
 var total_damage := 0.0
+var total_healing := 0.0
 var hit_count := 0
 var side := 1.0
+var healing_mode := false
 var _age := 0.0
 var _idle := 0.0
 var _punch := 0.0
@@ -17,9 +19,9 @@ var _ghost: Label3D
 
 func _ready() -> void:
 	position = Vector3(side * 2.55, 2.35, 0.0)
-	_label = _make_label(Color("#ff9a3e"), 19)
+	_label = _make_label(Color("#72f0a5") if healing_mode else Color("#ff9a3e"), 19)
 	add_child(_label)
-	_ghost = _make_label(Color(1.0, 0.34, 0.12, 0.38), 23)
+	_ghost = _make_label(Color(0.32, 1.0, 0.55, 0.34) if healing_mode else Color(1.0, 0.34, 0.12, 0.38), 23)
 	_ghost.position = Vector3(0.11, -0.10, 0.02)
 	add_child(_ghost)
 
@@ -34,6 +36,16 @@ func add_damage(amount: float) -> void:
 	_idle = 0.0
 	_punch = 1.0
 	var value := "-%d" % roundi(total_damage)
+	_label.text = value
+	_ghost.text = value
+
+
+func add_healing(amount: float) -> void:
+	total_healing += amount
+	hit_count += 1
+	_idle = 0.0
+	_punch = 1.0
+	var value := "+%d" % roundi(total_healing)
 	_label.text = value
 	_ghost.text = value
 

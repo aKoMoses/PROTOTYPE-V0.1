@@ -1,7 +1,15 @@
 extends Control
 
-## Contrôles tactiles optionnels pour le futur build mobile.
-## Le panneau reste invisible sur desktop et ne modifie pas les raccourcis PC.
+## Contrôles tactiles paysage. Chaque doigt reste propriétaire du contrôle qu'il
+## a activé ; la visée et la demande de tir partagent le joystick droit.
+
+@export_category("Ergonomie mobile")
+@export_range(0.85, 1.15, 0.01) var control_scale := 1.0
+@export_range(14.0, 42.0, 1.0) var safe_edge_margin := 24.0
+@export_range(72.0, 104.0, 1.0) var move_joystick_radius := 88.0
+@export_range(72.0, 104.0, 1.0) var aim_joystick_radius := 86.0
+@export_range(32.0, 44.0, 1.0) var module_button_radius := 36.0
+@export_range(8.0, 22.0, 1.0) var touch_target_padding := 12.0
 
 var player: Node
 var _joystick_touch := -1
@@ -9,11 +17,13 @@ var _aim_touch := -1
 var _action_touches: Dictionary = {}
 var _joystick_vector := Vector2.ZERO
 var _aim_vector := Vector2.ZERO
-var _control_scale := 1.0
+var _fire_feedback_remaining := 0.0
+var _inputs_suspended := false
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 	queue_redraw()
@@ -33,11 +43,24 @@ func set_player(value: Node) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		queue_redraw()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		reset_inputs()
+	elif what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+		reset_inputs()
 
 
-func _process(_delta: float) -> void:
+func _exit_tree() -> void:
+	reset_inputs()
+
+
+func _process(delta: float) -> void:
+	var suspended := not visible or get_tree().paused
+	if suspended and not _inputs_suspended:
+		reset_inputs()
+	_inputs_suspended = suspended
 	if not visible:
 		return
+	_fire_feedback_remaining = maxf(0.0, _fire_feedback_remaining - delta)
 	queue_redraw()
 
 
@@ -60,13 +83,38 @@ func _safe_rect() -> Rect2:
 	return clipped if clipped.size.x > 0.0 and clipped.size.y > 0.0 else viewport_rect
 
 
+func _layout_scale_for_rect(rect: Rect2) -> float:
+	return clampf(minf(rect.size.x, rect.size.y) / 720.0, 0.72, 1.20) * control_scale
+
+
 func _layout_scale() -> float:
-	var size := _safe_rect().size
-	return clampf(minf(size.x, size.y) / 720.0, 0.72, 1.20) * _control_scale
+	return _layout_scale_for_rect(_safe_rect())
+
+
+func _layout_for_safe_rect(safe: Rect2) -> Dictionary:
+	var scale := _layout_scale_for_rect(safe)
+	var move_radius := move_joystick_radius * scale
+	var aim_radius := aim_joystick_radius * scale
+	var margin := safe_edge_margin * scale
+	var move := Vector2(safe.position.x + margin + move_radius, safe.end.y - margin - move_radius)
+	var aim := Vector2(safe.end.x - margin - aim_radius, safe.end.y - margin - aim_radius)
+	return {
+		"scale": scale,
+		"move_radius": move_radius,
+		"aim_radius": aim_radius,
+		"move": move,
+		"aim": aim,
+		"actions": {
+			"offensive": move + Vector2(-12.0, -150.0) * scale,
+			"defensive": move + Vector2(101.0, -112.0) * scale,
+			"mobility": move + Vector2(151.0, -30.0) * scale,
+			"weapon": Vector2(safe.end.x - 48.0 * scale, safe.position.y + 56.0 * scale),
+		},
+	}
 
 
 func set_control_scale(value: float) -> void:
-	_control_scale = clampf(value, 0.85, 1.15)
+	control_scale = clampf(value, 0.85, 1.15)
 	queue_redraw()
 
 
@@ -76,6 +124,7 @@ func reset_inputs() -> void:
 	_action_touches.clear()
 	_joystick_vector = Vector2.ZERO
 	_aim_vector = Vector2.ZERO
+	_fire_feedback_remaining = 0.0
 	if player != null and is_instance_valid(player):
 		if player.has_method("clear_touch_inputs"):
 			player.call("clear_touch_inputs")
@@ -90,36 +139,29 @@ func reset_inputs() -> void:
 
 
 func _joystick_radius() -> float:
-	return 88.0 * _layout_scale()
+	return float(_layout_for_safe_rect(_safe_rect()).move_radius)
 
 
 func _aim_radius() -> float:
-	return 78.0 * _layout_scale()
+	return float(_layout_for_safe_rect(_safe_rect()).aim_radius)
 
 
 func _joystick_center() -> Vector2:
-	var safe := _safe_rect()
-	var radius := _joystick_radius()
-	var margin := 18.0 * _layout_scale()
-	return Vector2(safe.position.x + margin + radius, safe.end.y - margin - radius)
+	return Vector2(_layout_for_safe_rect(_safe_rect()).move)
 
 
 func _aim_center() -> Vector2:
-	var safe := _safe_rect()
-	var scale := _layout_scale()
-	return Vector2(safe.end.x - 318.0 * scale, safe.end.y - 150.0 * scale)
+	return Vector2(_layout_for_safe_rect(_safe_rect()).aim)
 
 
 func _action_centers() -> Dictionary:
-	var safe := _safe_rect()
-	var scale := _layout_scale()
-	return {
-		"attack": Vector2(safe.end.x - 112.0 * scale, safe.end.y - 126.0 * scale),
-		"offensive": Vector2(safe.end.x - 230.0 * scale, safe.end.y - 70.0 * scale),
-		"defensive": Vector2(safe.end.x - 205.0 * scale, safe.end.y - 238.0 * scale),
-		"mobility": Vector2(safe.end.x - 330.0 * scale, safe.end.y - 278.0 * scale),
-		"weapon": Vector2(safe.end.x - 92.0 * scale, safe.position.y + 94.0 * scale),
-	}
+	# Arc supérieur/droit autour du pouce gauche. Aucun module ne partage la
+	# zone du joystick droit.
+	return Dictionary(_layout_for_safe_rect(_safe_rect()).actions)
+
+
+func _action_radius(action: String) -> float:
+	return (module_button_radius if action != "weapon" else 32.0) * _layout_scale()
 
 
 func _draw() -> void:
@@ -129,27 +171,48 @@ func _draw() -> void:
 	var scale := _layout_scale()
 	var joystick_radius := _joystick_radius()
 	var aim_radius := _aim_radius()
-	var base_color := Color(0.06, 0.10, 0.13, 0.40)
-	var edge_color := Color(0.35, 0.85, 0.92, 0.58)
+	var base_color := Color(0.06, 0.10, 0.13, 0.42)
+	var move_edge := Color(0.35, 0.85, 0.92, 0.64)
+	var aim_edge := Color(0.95, 0.62, 0.30, 0.66)
 	draw_circle(joystick, joystick_radius, base_color)
-	draw_arc(joystick, joystick_radius, 0.0, TAU, 48, edge_color, 3.0 * scale, true)
-	draw_circle(joystick + _joystick_vector * joystick_radius * 0.66, 30.0 * scale, Color(0.30, 0.85, 0.92, 0.76))
+	draw_arc(joystick, joystick_radius, 0.0, TAU, 48, move_edge, 3.0 * scale, true)
+	draw_circle(joystick + _joystick_vector * joystick_radius * 0.66, 30.0 * scale, Color(0.30, 0.85, 0.92, 0.78))
 	draw_circle(aim, aim_radius, base_color)
-	draw_arc(aim, aim_radius, 0.0, TAU, 48, Color(0.95, 0.62, 0.30, 0.55), 3.0 * scale, true)
-	draw_circle(aim + _aim_vector * aim_radius * 0.62, 24.0 * scale, Color(0.96, 0.66, 0.30, 0.70))
-	_draw_action(actions["attack"], 46.0 * scale, Color(0.92, 0.28, 0.22, 0.78), "ATK")
-	_draw_action(actions["offensive"], 32.0 * scale, Color(0.35, 0.78, 0.96, 0.72), "A")
-	_draw_action(actions["defensive"], 32.0 * scale, Color(0.38, 0.90, 0.62, 0.72), "E")
-	_draw_action(actions["mobility"], 32.0 * scale, Color(0.92, 0.68, 0.30, 0.72), "R")
-	_draw_action(actions["weapon"], 30.0 * scale, Color(0.70, 0.44, 0.80, 0.72), "G")
+	draw_arc(aim, aim_radius, 0.0, TAU, 48, aim_edge, 3.0 * scale, true)
+	draw_circle(aim + _aim_vector * aim_radius * 0.62, 25.0 * scale, Color(0.96, 0.66, 0.30, 0.76))
+	_draw_charge_feedback(aim, aim_radius, scale)
+	_draw_action(actions["offensive"], _action_radius("offensive"), Color(0.35, 0.78, 0.96, 0.76), "A")
+	_draw_action(actions["defensive"], _action_radius("defensive"), Color(0.38, 0.90, 0.62, 0.76), "E")
+	_draw_action(actions["mobility"], _action_radius("mobility"), Color(0.92, 0.68, 0.30, 0.76), "R")
+	_draw_action(actions["weapon"], _action_radius("weapon"), Color(0.70, 0.44, 0.80, 0.74), "G")
 	var font := ThemeDB.fallback_font
-	draw_string(font, joystick + Vector2(-28.0 * scale, -joystick_radius - 12.0 * scale), "MOVE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(0.82, 0.95, 0.97, 0.78))
-	draw_string(font, aim + Vector2(-28.0 * scale, aim_radius + 24.0 * scale), "AIM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(15.0 * scale), Color(1.0, 0.88, 0.70, 0.78))
+	draw_string(font, joystick + Vector2(-30.0 * scale, joystick_radius + 22.0 * scale), "DÉPLACER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(14.0 * scale), Color(0.82, 0.95, 0.97, 0.82))
+	draw_string(font, aim + Vector2(-74.0 * scale, aim_radius + 22.0 * scale), "VISER / TIRER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(14.0 * scale), Color(1.0, 0.88, 0.70, 0.86))
+	draw_string(font, aim + Vector2(-178.0 * scale, -aim_radius - 16.0 * scale), "RELÂCHER : TIR  •  MAINTENIR : CHARGE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(12.0 * scale), Color(1.0, 0.91, 0.77, 0.80))
+
+
+func _draw_charge_feedback(center: Vector2, radius: float, scale: float) -> void:
+	var state := "aim"
+	var progress := 0.0
+	if player != null and is_instance_valid(player):
+		if player.has_method("get_mobile_blaster_input_state"):
+			state = str(player.call("get_mobile_blaster_input_state"))
+		if player.has_method("get_blaster_charge_ratio"):
+			progress = clampf(float(player.call("get_blaster_charge_ratio")), 0.0, 1.0)
+	if state == "charging":
+		draw_arc(center, radius + 8.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * progress, 56, Color(0.34, 0.91, 1.0, 0.94), 7.0 * scale, true)
+	elif state == "ready":
+		var pulse := 0.72 + 0.28 * sin(float(Time.get_ticks_msec()) * 0.014)
+		draw_arc(center, radius + 9.0 * scale, 0.0, TAU, 56, Color(0.78, 1.0, 0.66, 0.84 + pulse * 0.16), 8.0 * scale, true)
+		draw_arc(center, radius + (14.0 + pulse * 3.0) * scale, 0.0, TAU, 56, Color(0.78, 1.0, 0.66, 0.30), 3.0 * scale, true)
+	if _fire_feedback_remaining > 0.0:
+		var flash := _fire_feedback_remaining / 0.16
+		draw_arc(center, radius + (18.0 - flash * 8.0) * scale, 0.0, TAU, 48, Color(1.0, 0.83, 0.44, flash), 5.0 * scale, true)
 
 
 func _draw_action(center: Vector2, radius: float, color: Color, label: String) -> void:
 	draw_circle(center, radius, color)
-	draw_arc(center, radius, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.70), 2.0, true)
+	draw_arc(center, radius, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.72), 2.0, true)
 	var font := ThemeDB.fallback_font
 	var font_size := int(16.0 * _layout_scale())
 	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
@@ -157,61 +220,86 @@ func _draw_action(center: Vector2, radius: float, color: Color, label: String) -
 
 
 func _input(event: InputEvent) -> void:
-	if not visible or player == null or not is_instance_valid(player):
+	if not visible or player == null or not is_instance_valid(player) or get_tree().paused:
 		return
+	var handled := false
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
-		if touch.pressed:
-			_begin_touch(touch.index, touch.position)
-		else:
-			_end_touch(touch.index)
+		handled = _begin_touch(touch.index, touch.position) if touch.pressed else _end_touch(touch.index)
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
-		_update_touch(drag.index, drag.position)
+		handled = _update_touch(drag.index, drag.position)
+	if handled:
+		get_viewport().set_input_as_handled()
 
 
-func _begin_touch(index: int, position: Vector2) -> void:
-	var joystick := _joystick_center()
-	var aim := _aim_center()
+func _begin_touch(index: int, position: Vector2) -> bool:
 	var actions := _action_centers()
-	if position.distance_to(joystick) <= _joystick_radius() * 1.32 and _joystick_touch == -1:
-		_joystick_touch = index
-		_update_joystick(position)
-		return
-	if position.distance_to(aim) <= _aim_radius() * 1.36 and _aim_touch == -1:
-		_aim_touch = index
-		_update_aim(position)
-		return
+	# Les actions sont testées avant le joystick : leur zone tactile généreuse ne
+	# peut ainsi jamais être interprétée comme un déplacement ou un tir.
 	for action in actions.keys():
-		var radius := (58.0 if action == "attack" else 45.0) * _layout_scale()
+		var radius := _action_radius(action) + touch_target_padding * _layout_scale()
 		if position.distance_to(actions[action]) <= radius:
 			_action_touches[index] = action
 			_press_action(action)
-			return
+			return true
+	var joystick := _joystick_center()
+	if position.distance_to(joystick) <= _joystick_radius() * 1.18 and _joystick_touch == -1:
+		_joystick_touch = index
+		_update_joystick(position)
+		return true
+	var aim := _aim_center()
+	if position.distance_to(aim) <= _aim_radius() * 1.28 and _aim_touch == -1:
+		_aim_touch = index
+		_update_aim(position)
+		if player.has_method("begin_touch_fire"):
+			player.call("begin_touch_fire")
+		elif player.has_method("set_touch_attack_held"):
+			player.call("set_touch_attack_held", true)
+		return true
+	return false
 
 
-func _update_touch(index: int, position: Vector2) -> void:
+func _update_touch(index: int, position: Vector2) -> bool:
 	if index == _joystick_touch:
 		_update_joystick(position)
-	elif index == _aim_touch:
+		return true
+	if index == _aim_touch:
 		_update_aim(position)
+		return true
+	return _action_touches.has(index)
 
 
-func _end_touch(index: int) -> void:
+func _end_touch(index: int) -> bool:
+	var handled := false
 	if index == _joystick_touch:
+		handled = true
 		_joystick_touch = -1
 		_joystick_vector = Vector2.ZERO
 		if player.has_method("set_touch_move_vector"):
 			player.call("set_touch_move_vector", Vector2.ZERO)
 	if index == _aim_touch:
+		handled = true
+		# Le joueur reçoit la dernière valeur avant que l'interface ne recentre le
+		# stick. La requête de tir possède ainsi un instantané immuable de la visée.
+		var fire_requested := false
+		if player.has_method("end_touch_fire"):
+			fire_requested = bool(player.call("end_touch_fire", _aim_vector))
+		elif player.has_method("set_touch_attack_held"):
+			player.call("set_touch_attack_held", false)
+			fire_requested = true
 		_aim_touch = -1
 		_aim_vector = Vector2.ZERO
 		if player.has_method("set_touch_aim_vector"):
 			player.call("set_touch_aim_vector", Vector2.ZERO)
+		if fire_requested:
+			_fire_feedback_remaining = 0.16
 	if _action_touches.has(index):
+		handled = true
 		var action: String = _action_touches[index]
 		_action_touches.erase(index)
 		_release_action(action)
+	return handled
 
 
 func _update_joystick(position: Vector2) -> void:
@@ -229,13 +317,9 @@ func _update_aim(position: Vector2) -> void:
 
 
 func _press_action(action: String) -> void:
-	if action == "attack":
-		if player.has_method("set_touch_attack_held"):
-			player.call("set_touch_attack_held", true)
-	elif player.has_method("trigger_touch_action"):
+	if player.has_method("trigger_touch_action"):
 		player.call("trigger_touch_action", action)
 
 
-func _release_action(action: String) -> void:
-	if action == "attack" and player.has_method("set_touch_attack_held"):
-		player.call("set_touch_attack_held", false)
+func _release_action(_action: String) -> void:
+	pass

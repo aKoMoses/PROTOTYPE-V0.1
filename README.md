@@ -57,8 +57,11 @@ coupe le son de résultat en cours.
 
 La direction A du Blaster utilise cinq WAV dans `art/audio/` : montée de charge,
 fond discret après charge complète, signal « prêt », tir normal et tir chargé.
-Un relâchement avant une seconde coupe la charge en 20 ms et lance aussitôt le
-tir normal ; la charge s'arrête aussi en cas d'interruption, de mort ou de
+Sur PC, le maintien historique commence immédiatement et conserve la charge partielle.
+Sur mobile, le joystick droit vise et tire : relâcher avant 0,20 s demande un tir normal,
+maintenir au-delà démarre la présentation de charge sans rallonger la durée totale de
+1 s, puis relâcher tire une fois. La pleine charge reste armée sans tir automatique.
+La charge s'arrête sans projectile en cas d'interruption, de pause, de mort ou de
 changement d'arme. Les anciens MP3 restent disponibles comme sources de comparaison.
 
 ## Rendu et ressources visuelles
@@ -423,6 +426,11 @@ Les trois captures Godot sont conservées dans `captures/menu-redesign-preview.p
 - `A` : module offensif équipé ; `E` : module défensif ; `R` : module mobilité ;
 - `T` : recharger le Shotgun.
 
+Sur mobile paysage, le joystick gauche déplace le personnage et les trois modules sont
+regroupés en arc autour de celui-ci. Le joystick droit, placé dans l'angle inférieur
+droit de la zone sûre, vise et tire au relâchement : geste bref pour un tir normal,
+maintien pour charger, changement de direction possible pendant toute la charge.
+
 ## Suivi systèmes — 26 septembre 2026
 
 - **P0-126 — navigation et équipement :** le lancement desktop ouvre désormais un menu
@@ -452,9 +460,9 @@ Les trois captures Godot sont conservées dans `captures/menu-redesign-preview.p
 - **Tests :** `tools/test_blaster.gd` couvre tir normal, cooldown, charge 50 %, charge
   maximale et prolongée, vitesse, annulation et régression. Tous les tests `tools/test_*.gd`
   disponibles passent dans Godot 4.7.2 en mode headless.
-- **Compatibilité Android :** le bouton tactile d'attaque conserve son état pressé/maintenu/
-  relâché via `set_touch_attack_held`; le joystick, la visée, le Shotgun et les modules ne
-  sont pas réécrits.
+- **Compatibilité Android :** le bouton tactile d'attaque séparé est supprimé. Le doigt du
+  joystick droit possède seul le cycle viser/maintenir/relâcher ; son dernier vecteur valide
+  est capturé avant recentrage. Le Shotgun conserve sa cadence et son chemin de tir existants.
 - **P0-129 — bot :** le déplacement vérifie maintenant les obstacles et applique SLOW/STUN
   à son comportement. Le projectile revalide sa trajectoire et sa proximité à l'impact,
   y compris l'absorption par un Magnetic Field ; un tir interrompu ne cause aucun dégât.

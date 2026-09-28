@@ -63,7 +63,9 @@ func _initialize() -> void:
 				result_target.call("take_damage", 1000.0, "capture", "result_capture")
 			flow.call("resolve_round", false, true)
 			await create_timer(1.8 if arguments[1] == "result" else 0.9).timeout
-	if arguments.size() >= 3:
+	# Les options de capture (par exemple `duel_live touch_preview`) ne sont pas
+	# des coordonnees. Ne deplacer le joueur que pour deux valeurs numeriques.
+	if arguments.size() >= 3 and arguments[1].is_valid_float() and arguments[2].is_valid_float():
 		var capture_player := scene.get_node_or_null("Player") as Node3D
 		if capture_player != null:
 			capture_player.position = Vector3(float(arguments[1]), 0.0, float(arguments[2]))

@@ -24,6 +24,9 @@ func _initialize() -> void:
 		await _test_charge_speed(player)
 		await _test_cancel_on_weapon_change(player)
 		await _test_cancel_on_death(player, target)
+		await _test_mobile_tap_snapshot(player, target)
+		await _test_mobile_full_charge_release(player, target)
+		await _test_mobile_cancel_without_shot(player, target)
 		var shot_audio := player.get_node_or_null("BlasterShotAudio") as AudioStreamPlayer
 		if shot_audio != null:
 			shot_audio.stop()
@@ -158,6 +161,86 @@ func _test_cancel_on_death(player: Node, target: Node) -> void:
 		_failures.append("mort pendant charge : état de charge bloqué")
 	player.call("set_gameplay_enabled", true)
 	player.call("reset_combat_state")
+
+
+func _test_mobile_tap_snapshot(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	player.call("set_aim_input", Vector2(1.0, 0.0))
+	var expected: Vector3 = player.get("aim_direction")
+	target.global_position = player.global_position + expected * 4.0
+	var token_before := int(player.get("_blaster_attack_token"))
+	player.call("begin_touch_fire")
+	await _wait_seconds(0.06)
+	if int(player.get("_blaster_attack_token")) != token_before:
+		_failures.append("mobile tap : projectile créé au toucher initial")
+	player.call("end_touch_fire", Vector2(1.0, 0.0))
+	# Reproduit la remise à zéro/une entrée ultérieure avant le traitement de la
+	# requête : la direction du tir doit rester celle capturée au relâchement.
+	player.call("set_aim_input", Vector2(-1.0, 0.0))
+	await physics_frame
+	await physics_frame
+	if int(player.get("_blaster_attack_token")) != token_before + 1:
+		_failures.append("mobile tap : le relâchement n'a pas demandé exactement un tir")
+	var actual: Vector3 = player.get("_last_projectile_direction")
+	if actual.dot(expected) < 0.999:
+		_failures.append("mobile tap : direction relâchée perdue (dot %.4f)" % actual.dot(expected))
+	await _wait_seconds(0.36)
+	var damage := 1000.0 - float(target.call("get_health"))
+	if absf(damage - 20.0) > 0.8:
+		_failures.append("mobile tap : %.2f dégâts au lieu d'un tir normal de 20" % damage)
+	await _wait_seconds(0.15)
+	player.call("set_aim_input", Vector2(1.0, 0.0))
+	player.call("begin_touch_fire")
+	await _wait_seconds(0.05)
+	player.call("end_touch_fire", Vector2(1.0, 0.0))
+	await _wait_seconds(0.38)
+	if int(player.get("_blaster_attack_token")) != token_before + 2 or absf((1000.0 - float(target.call("get_health"))) - 40.0) > 1.0:
+		_failures.append("mobile tap : gestes courts successifs hors cadence")
+
+
+func _test_mobile_full_charge_release(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	player.call("set_aim_input", Vector2(0.0, -1.0))
+	var token_before := int(player.get("_blaster_attack_token"))
+	player.call("begin_touch_fire")
+	await _wait_seconds(0.48)
+	player.call("set_aim_input", Vector2(1.0, 0.0))
+	var expected: Vector3 = player.get("aim_direction")
+	target.global_position = player.global_position + expected * 4.0
+	await _wait_seconds(0.70)
+	if int(player.get("_blaster_attack_token")) != token_before:
+		_failures.append("mobile charge : tir automatique avant relâchement")
+	if str(player.call("get_mobile_blaster_input_state")) != "ready" or float(player.call("get_blaster_charge_ratio")) < 0.99:
+		_failures.append("mobile charge : pleine charge non maintenue")
+	player.call("end_touch_fire", Vector2(1.0, 0.0))
+	player.call("set_aim_input", Vector2(-1.0, 0.0))
+	await physics_frame
+	await physics_frame
+	if int(player.get("_blaster_attack_token")) != token_before + 1:
+		_failures.append("mobile charge : le relâchement n'a pas produit un tir unique")
+	var actual: Vector3 = player.get("_last_projectile_direction")
+	if actual.dot(expected) < 0.999:
+		_failures.append("mobile charge : changement de direction non conservé")
+	await _wait_seconds(0.36)
+	var damage := 1000.0 - float(target.call("get_health"))
+	if absf(damage - 50.0) > 1.2:
+		_failures.append("mobile charge : %.2f dégâts au lieu de 50" % damage)
+
+
+func _test_mobile_cancel_without_shot(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	player.call("set_aim_input", Vector2(0.0, -1.0))
+	var token_before := int(player.get("_blaster_attack_token"))
+	player.call("begin_touch_fire")
+	await _wait_seconds(0.28)
+	if not bool(player.call("is_blaster_charging")):
+		_failures.append("mobile annulation : charge non démarrée après le seuil")
+	player.call("clear_touch_inputs")
+	await _wait_seconds(0.10)
+	if bool(player.call("is_blaster_charging")) or bool(player.get("_touch_fire_active")):
+		_failures.append("mobile annulation : contact/charge encore actifs")
+	if int(player.get("_blaster_attack_token")) != token_before or float(target.call("get_health")) < 999.9:
+		_failures.append("mobile annulation : interruption interprétée comme un tir")
 
 
 func _wait_seconds(seconds: float) -> void:
