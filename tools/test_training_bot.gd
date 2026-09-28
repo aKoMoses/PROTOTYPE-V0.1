@@ -13,9 +13,10 @@ func _initialize() -> void:
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
-		var health_readout := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
+		var player_readout := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
+		var health_sprite := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout/HealthBarSprite") as Sprite3D
 		var health_number := player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout/HealthBarViewport/HealthBarUI/HealthNumber") as Label
-		if health_readout == null or health_number == null:
+		if player_readout == null or health_sprite == null or health_sprite.texture == null or health_number == null:
 			_failures.append("barre de PV joueur absente")
 		elif health_number.text != str(roundi(float(player.call("get_health")))):
 			_failures.append("affichage PV initial désynchronisé")
@@ -52,7 +53,7 @@ func _initialize() -> void:
 			_failures.append("bot immobile après activation")
 		if float(player.call("get_health")) >= float(player.call("get_max_health")):
 			_failures.append("bot n'inflige aucun dégât lisible")
-		if health_number != null and health_number.text != str(roundi(float(player.call("get_health")))):
+		if health_number != null and health_number.text != "%d" % roundi(float(player.call("get_health"))):
 			_failures.append("barre de PV joueur non synchronisée")
 		if not (target.call("get_active_effect_types") as Array).is_empty():
 			_failures.append("bot applique un effet de statut automatiquement")

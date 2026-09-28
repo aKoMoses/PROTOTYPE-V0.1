@@ -1,0 +1,117 @@
+name: Android test APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-test-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager --install 'platform-tools' 'build-tools;35.0.1' 'platforms;android-35'
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import game assets
+        run: godot --headless --path . --editor --quit
+
+      - name: Run game tests
+        run: |
+          set -euo pipefail
+          for test_file in tools/test_*.gd; do
+            echo "Running $test_file"
+            godot --headless --path . --script "res://$test_file"
+          done
+
+      - name: Verify Android export on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt -storetype PKCS12 -keyalg RSA -keysize 2048 \
+            -validity 1 -alias prototype0test -dname 'CN=CI disposable test' \
+            -keystore "$RUNNER_TEMP/ci-smoke.jks" \
+            -storepass smoke-only-ci -keypass smoke-only-ci
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$RUNNER_TEMP/ci-smoke.jks"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER=prototype0test
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=smoke-only-ci
+          python3 tools/prepare_android_ci.py "$GITHUB_RUN_NUMBER" > /dev/null
+          godot --headless --path . --export-release Android "$RUNNER_TEMP/prototype0-ci-smoke.apk"
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose "$RUNNER_TEMP/prototype0-ci-smoke.apk"
+          [[ "$(apkanalyzer manifest application-id "$RUNNER_TEMP/prototype0-ci-smoke.apk")" == 'com.prototype0.arena' ]]
+          [[ "$(apkanalyzer manifest version-code "$RUNNER_TEMP/prototype0-ci-smoke.apk")" == "$((10000 + GITHUB_RUN_NUMBER))" ]]
+
+      - name: Check signing configuration
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_B64: ${{ secrets.PROTOTYPE0_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z "$KEYSTORE_B64" || -z "$KEYSTORE_PASSWORD" ]]; then
+            echo 'Configure PROTOTYPE0_KEYSTORE_BASE64 and PROTOTYPE0_KEYSTORE_PASSWORD before publishing.' >&2
+            exit 1
+          fi
+
+      - name: Prepare Android version and signing key
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_B64: ${{ secrets.PROTOTYPE0_KEYSTORE_BASE64 }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: prototype0test
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/prototype0-test.jks"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/prototype0-test.jks" >> "$GITHUB_ENV"
+          python3 tools/prepare_android_ci.py "$RUN_NUMBER" >> "$GITHUB_ENV"
+          keytool -list -keystore "$RUNNER_TEMP/prototype0-test.jks" \
+            -alias prototype0test -storepass "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" > /dev/null
+
+      - name: Export signed APK
+        if: github.event_name != 'pull_request'
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: prototype0test
+        run: |
+          set -euo pipefail
+          mkdir -p exports
+          godot --headless --path . --export-release Android exports/prototype0-android.apk
+          test -s exports/prototype0-android.apk
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose exports/prototype0-android.apk
+          apkanalyzer apk summary exports/prototype0-android.apk
+
+      - name: Publish test release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" exports/prototype0-android.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Prototype 0 $RELEASE_TAG" \
+            --notes "Build de test Android issue du commit $GITHUB_SHA." \
+            --prerelease

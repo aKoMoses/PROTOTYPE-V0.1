@@ -20,6 +20,9 @@ const DODGE_DURATION := 0.34
 const DODGE_COOLDOWN := 3.5
 const DODGE_SPEED := 7.2
 const MOVE_ACCELERATION := 7.0
+var training_stationary := false
+var training_attack_interval := ATTACK_INTERVAL
+var training_attack_damage := ATTACK_DAMAGE
 
 var enabled := false
 var _elapsed := 0.0
@@ -176,7 +179,9 @@ func _physics_process(delta: float) -> void:
 		_has_visual_aim_position = true
 	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
-	if _dodge_remaining > 0.0:
+	if training_stationary:
+		_move_velocity = Vector3.ZERO
+	elif _dodge_remaining > 0.0:
 		_dodge_remaining = maxf(0.0, _dodge_remaining - delta)
 		_move_velocity = _move_velocity.move_toward(_dodge_direction * DODGE_SPEED, MOVE_ACCELERATION * delta)
 		_move_bot(bot_body, delta)
@@ -191,7 +196,7 @@ func _physics_process(delta: float) -> void:
 		if _windup_remaining <= 0.0:
 			_resolve_attack(bot_body, _windup_player)
 			_windup_player = null
-			_next_attack_at = _elapsed + ATTACK_INTERVAL
+			_next_attack_at = _elapsed + (maxf(0.1, training_attack_interval - WINDUP_DURATION) if training_stationary else training_attack_interval)
 		return
 	if _elapsed < _next_attack_at:
 		return
@@ -364,7 +369,7 @@ func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, 
 		var still_near := current_target.distance_to(impact_position) <= 1.35
 		impact_confirmed = still_near and _line_of_sight_clear(bot_body, player)
 		if impact_confirmed and player.has_method("take_damage"):
-			player.call("take_damage", ATTACK_DAMAGE, "training_bot", attack_id)
+			player.call("take_damage", training_attack_damage, "training_bot", attack_id)
 	if not is_instance_valid(scene):
 		return
 	var vfx := scene.get_node_or_null("VFXManager")

@@ -13,7 +13,7 @@ conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;
 - Blaster (tir normal ou chargé) et Shotgun à six plombs à la barre d'espace (clic souris conservé comme raccourci PC) ;
-- icône « Gravure » du Blaster dans l'équipement et le HUD, avec son « Plasma » au tir ;
+- icône « Gravure » du Blaster dans l'équipement et le HUD, avec charge sonore et tirs normal/chargé distincts ;
 - obstacles bloquant le joueur et les projectiles ;
 - cible d'entraînement à 1 000 PV avec affichage des dégâts, ralentissement et stun ;
 - première passe visuelle de l'arène : sol sableux peint, murs de ferraille modulaires,
@@ -24,6 +24,24 @@ Le lot Blaster sert à valider la perspective, la caméra, les déplacements, le
 et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
+
+## Musique du duel
+
+Le match charge `art/audio/arena_electro_build.wav`. La musique
+démarre avec le premier décompte, continue entre les manches, se met en pause avec le jeu
+et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous les effets sonores.
+
+La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
+monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
+répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
+
+## Son du Blaster
+
+La direction A du Blaster utilise cinq WAV dans `art/audio/` : montée de charge,
+fond discret après charge complète, signal « prêt », tir normal et tir chargé.
+Un relâchement avant une seconde coupe la charge en 20 ms et lance aussitôt le
+tir normal ; la charge s'arrête aussi en cas d'interruption, de mort ou de
+changement d'arme. Les anciens MP3 restent disponibles comme sources de comparaison.
 
 ## Rendu et ressources visuelles
 
@@ -308,9 +326,67 @@ Pour refaire une capture locale depuis PowerShell :
 
 ## Lancer le prototype
 
+### Tester chaque version sur Android depuis le telephone
+
+Chaque push sur `main` lance `.github/workflows/android-test-release.yml` : import Godot
+4.7.2, tests, export Android signe, puis publication d'une preversion avec l'APK dans
+[les Releases](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases). En cas d'echec,
+aucune nouvelle APK n'est publiee. L'historique des builds se trouve dans l'onglet
+[Actions](https://github.com/aKoMoses/PROTOTYPE-V0.1/actions).
+
+Configuration unique, sur le PC qui possede Godot/Java et le projet Git :
+
+1. Installer [GitHub CLI](https://cli.github.com/) et lancer `gh auth login`.
+2. Dans PowerShell, depuis la racine du depot, lancer
+   `powershell -ExecutionPolicy Bypass -File .\tools\setup-android-signing.ps1`.
+   Le script cree une cle de test stable, puis renseigne les deux secrets du depot.
+3. Sauvegarder le dossier `.android-signing` hors du depot (cle et mot de passe).
+   Il est ignore par Git. Une cle perdue empeche de mettre a jour l'application
+   deja installee sans la desinstaller.
+4. Depuis GitHub, dans **Actions > Android test APK**, lancer **Run workflow** pour
+   produire la premiere APK. Verifier la publication dans **Releases**.
+5. Sur Android, installer [Obtainium](https://github.com/ImranR98/Obtainium/releases),
+   ajouter `https://github.com/aKoMoses/PROTOTYPE-V0.1`, activer la prise en compte
+   des **prereleases**, puis installer `prototype0-android.apk` depuis Obtainium.
+
+Pour les versions suivantes, un push sur `main` suffit. Obtainium detecte la nouvelle
+Release et propose l'installation ; Android peut demander de la confirmer. Si une
+ancienne APK Prototype 0 a ete signee avec une autre cle, la desinstaller **une fois**
+avant d'installer la premiere APK issue de cette chaine (la desinstallation efface
+les donnees locales de l'application).
+
+La cle est reservee aux builds de test. Conserver une cle differente si une version
+est publiee un jour sur une boutique. Les APK des Releases de ce depot public sont
+accessibles publiquement.
+
 Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 ### Menu principal
+
+Le bouton **TRAINING GROUND** ouvre une carte dédiée d'entraînement. Elle contient
+trois mannequins fixes de tailles et de zones de touche différentes, un mannequin
+mobile et un tireur fixe qui lance un tir simple toutes les 1,5 secondes lorsqu'il
+voit le joueur. La carte sépare les trois couloirs de cibles fixes, la piste de la
+cible mobile, la zone de tir reçu et un espace de placement libre. Des repères au
+sol, des passages entre les secteurs, quelques caisses et balises indiquent où
+s'entraîner ; les cinq mannequins de départ sont espacés d'au moins 8 m. Le
+placement reste possible sur les surfaces libres de toute la carte.
+Le sous-menu Tab regroupe le build, les mannequins et les règles d'essai. Changer un
+équipement l'applique et le sauvegarde immédiatement. On peut placer jusqu'à 12
+mannequins fixes, en supprimer un par clic ou tous les retirer. Le placement montre
+un aperçu vert ou rouge ; clic droit ou Échap annule l'outil. Après un KO, chaque
+mannequin revient avec ses PV après 0,75 s pour permettre les essais longs.
+Le reset restaure les PV, munitions, cooldowns, effets et positions des mannequins
+mobiles sans retirer les mannequins placés.
+
+Sur le terrain : **Tab** ouvre ou ferme le sous-menu, **F5** réinitialise l'essai,
+**F6** bascule l'invulnérabilité, **F7** les cooldowns instantanés, **F8** les
+munitions illimitées, **F9** soigne le joueur et **F10** le met à 50 % de ses PV.
+**K** masque ou ouvre le kikimètre. Il affiche les dégâts effectivement infligés,
+le DPS des 5 dernières secondes, la durée depuis le premier coup et la répartition
+par arme, module et brûlure ; on peut filtrer par cible. Le temps se fige avec le
+menu Tab et F5 vide aussi la mesure. Ces commandes sont également disponibles en
+boutons dans le sous-menu ; le kikimètre a un bouton tactile compact sur mobile.
 
 Le menu utilise les textures de plaque et de boutons dans `art/ui/menu/`, ainsi que
 la police Russo One dans `art/ui/fonts/`. Son fond

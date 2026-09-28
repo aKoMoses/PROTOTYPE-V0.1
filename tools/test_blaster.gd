@@ -16,6 +16,7 @@ func _initialize() -> void:
 		target.call("set_training_bot_enabled", false)
 		player.call("set_weapon", "blaster")
 		await _test_normal_shot(player, target)
+		await _test_early_release_audio(player, target)
 		await _test_cooldown(player, target)
 		await _test_charge_damage(player, target, 0.50, 35.0, "charge 50%")
 		await _test_charge_damage(player, target, 1.15, 50.0, "charge maximale")
@@ -54,14 +55,32 @@ func _test_normal_shot(player: Node, target: Node) -> void:
 	await _prepare(player, target)
 	player.call("_fire_blaster_projectile", 20.0, 0.0, Vector3(0.0, 0.0, -1.0))
 	var shot_audio := player.get_node_or_null("BlasterShotAudio") as AudioStreamPlayer
-	if shot_audio == null or shot_audio.stream == null or shot_audio.stream.resource_path != "res://art/audio/blaster-plasma.mp3":
-		_failures.append("tir normal : son Plasma manquant")
+	if shot_audio == null or shot_audio.stream == null or shot_audio.stream.resource_path != "res://art/audio/blaster-shot-v2.wav":
+		_failures.append("tir normal : nouveau son manquant")
 	elif not shot_audio.playing:
-		_failures.append("tir normal : son Plasma non joué")
+		_failures.append("tir normal : nouveau son non joué")
 	await _wait_seconds(0.35)
 	var damage := 1000.0 - float(target.call("get_health"))
 	if absf(damage - 20.0) > 0.6:
 		_failures.append("tir normal : %.2f dégâts au lieu de 20" % damage)
+
+
+func _test_early_release_audio(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	player.call("_begin_blaster_charge")
+	var charge_audio := player.get_node("BlasterChargeAudio") as AudioStreamPlayer
+	var hold_audio := player.get_node("BlasterChargeHoldAudio") as AudioStreamPlayer
+	var ready_audio := player.get_node("BlasterReadyAudio") as AudioStreamPlayer
+	if not charge_audio.playing:
+		_failures.append("charge courte : son de charge non joué")
+	await _wait_seconds(0.16)
+	player.call("_release_blaster_charge")
+	await _wait_seconds(0.05)
+	if charge_audio.playing or hold_audio.playing or ready_audio.playing:
+		_failures.append("tir avant charge complète : son de charge encore actif")
+	var shot_audio := player.get_node("BlasterShotAudio") as AudioStreamPlayer
+	if not shot_audio.playing:
+		_failures.append("tir avant charge complète : son du tir absent")
 
 
 func _test_cooldown(player: Node, target: Node) -> void:
@@ -86,6 +105,9 @@ func _test_charge_damage(player: Node, target: Node, hold_time: float, expected:
 	var ratio := float(player.call("get_blaster_charge_ratio"))
 	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 	player.call("_release_blaster_charge")
+	var expected_audio := player.get_node("BlasterChargedShotAudio" if hold_time >= 1.0 else "BlasterShotAudio") as AudioStreamPlayer
+	if not expected_audio.playing:
+		_failures.append("%s : son de tir incorrect" % label)
 	await _wait_seconds(0.40)
 	var damage := 1000.0 - float(target.call("get_health"))
 	var expected_damage := expected if hold_time < 1.0 else 50.0
@@ -96,9 +118,12 @@ func _test_charge_damage(player: Node, target: Node, hold_time: float, expected:
 func _test_charge_cap(player: Node) -> void:
 	await _prepare(player, current_scene.get_node("TargetDummy"))
 	player.call("_begin_blaster_charge")
-	await _wait_seconds(1.35)
+	await _wait_seconds(1.75)
 	if float(player.call("get_blaster_charge_ratio")) > 1.001:
 		_failures.append("charge prolongée : ratio supérieur à 1")
+	var hold_audio := player.get_node("BlasterChargeHoldAudio") as AudioStreamPlayer
+	if not hold_audio.playing:
+		_failures.append("charge prolongée : fond sonore absent")
 	player.call("_cancel_blaster_charge")
 
 

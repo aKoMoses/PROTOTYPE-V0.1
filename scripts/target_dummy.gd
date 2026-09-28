@@ -257,6 +257,12 @@ func has_javelin_mark() -> bool:
 	return _javelin_mark_until > Time.get_ticks_msec() / 1000.0 and not _resetting and get_health() > 0.0
 
 
+func get_javelin_mark_remaining() -> float:
+	if not has_javelin_mark():
+		return 0.0
+	return maxf(0.0, _javelin_mark_until - Time.get_ticks_msec() / 1000.0)
+
+
 func clear_javelin_mark() -> void:
 	_javelin_mark_until = -1.0
 

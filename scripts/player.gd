@@ -12,8 +12,12 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
-const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-plasma.mp3")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
+const BLASTER_CHARGE_SOUND: AudioStream = preload("res://art/audio/blaster-charge-v2.wav")
+const BLASTER_CHARGE_HOLD_SOUND: AudioStream = preload("res://art/audio/blaster-charge-hold-v2.wav")
+const BLASTER_READY_SOUND: AudioStream = preload("res://art/audio/blaster-ready-v2.wav")
+const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-shot-v2.wav")
+const BLASTER_CHARGED_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-shot-charged-v2.wav")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
@@ -162,7 +166,13 @@ var _blaster_recoil_tweens: Array[Tween] = []
 var _blaster_light: OmniLight3D
 var _blaster_charge_visual: MeshInstance3D
 var _blaster_charge_material: StandardMaterial3D
+var _blaster_charge_audio: AudioStreamPlayer
+var _blaster_charge_hold_audio: AudioStreamPlayer
+var _blaster_ready_audio: AudioStreamPlayer
 var _blaster_shot_audio: AudioStreamPlayer
+var _blaster_charged_shot_audio: AudioStreamPlayer
+var _blaster_charge_audio_fade: Tween
+var _blaster_ready_cued := false
 var _shotgun_pivot: Node3D
 var _shotgun_pivot_home_transform := Transform3D.IDENTITY
 var _shotgun_sway_pivot: Node3D
@@ -206,6 +216,9 @@ var _direction_debug_enabled := false
 var _direction_debug_label: Label3D
 var _status_vfx: Node3D
 var _stasis_visual: Node3D
+var training_invulnerable := false
+var training_instant_cooldowns := false
+var training_unlimited_ammo := false
 
 
 func _ready() -> void:
@@ -225,12 +238,36 @@ func _ready() -> void:
 	_status_vfx.name = "StatusVFX"
 	add_child(_status_vfx)
 	_status_vfx.call("configure", self)
+	_blaster_charge_audio = AudioStreamPlayer.new()
+	_blaster_charge_audio.name = "BlasterChargeAudio"
+	_blaster_charge_audio.stream = BLASTER_CHARGE_SOUND
+	_blaster_charge_audio.volume_db = -9.0
+	add_child(_blaster_charge_audio)
+	_blaster_charge_hold_audio = AudioStreamPlayer.new()
+	_blaster_charge_hold_audio.name = "BlasterChargeHoldAudio"
+	var hold_stream := BLASTER_CHARGE_HOLD_SOUND.duplicate() as AudioStreamWAV
+	hold_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	hold_stream.loop_end = roundi(hold_stream.get_length() * hold_stream.mix_rate)
+	_blaster_charge_hold_audio.stream = hold_stream
+	_blaster_charge_hold_audio.volume_db = -10.0
+	add_child(_blaster_charge_hold_audio)
+	_blaster_ready_audio = AudioStreamPlayer.new()
+	_blaster_ready_audio.name = "BlasterReadyAudio"
+	_blaster_ready_audio.stream = BLASTER_READY_SOUND
+	_blaster_ready_audio.volume_db = -4.0
+	add_child(_blaster_ready_audio)
 	_blaster_shot_audio = AudioStreamPlayer.new()
 	_blaster_shot_audio.name = "BlasterShotAudio"
 	_blaster_shot_audio.stream = BLASTER_SHOT_SOUND
 	_blaster_shot_audio.max_polyphony = 4
-	_blaster_shot_audio.volume_db = -6.0
+	_blaster_shot_audio.volume_db = -8.0
 	add_child(_blaster_shot_audio)
+	_blaster_charged_shot_audio = AudioStreamPlayer.new()
+	_blaster_charged_shot_audio.name = "BlasterChargedShotAudio"
+	_blaster_charged_shot_audio.stream = BLASTER_CHARGED_SHOT_SOUND
+	_blaster_charged_shot_audio.max_polyphony = 4
+	_blaster_charged_shot_audio.volume_db = -7.0
+	add_child(_blaster_charged_shot_audio)
 
 
 func _load_weapon_definitions() -> void:
@@ -331,7 +368,9 @@ func _physics_process(delta: float) -> void:
 	_update_shotgun_reload(delta)
 	_update_attack()
 	_update_weapon_ambient_motion(delta)
+	_update_shotgun_reload_visual()
 	_update_blaster_charge_visual(delta)
+	_sync_weapon_readout()
 
 
 func _update_movement(delta: float) -> void:
@@ -594,6 +633,8 @@ func _update_attack() -> void:
 		_begin_blaster_charge(now)
 	if _blaster_charge_active:
 		_blaster_charge_ratio = clampf((now - _blaster_charge_started_at) / maxf(0.001, _blaster_charge_time), 0.0, 1.0)
+		if _blaster_charge_ratio >= 1.0:
+			_play_blaster_ready_sound()
 	if just_released and _blaster_charge_active:
 		_release_blaster_charge()
 	_attack_hold_last = wants_to_attack
@@ -612,6 +653,8 @@ func _update_debug_effects() -> void:
 	# future module bindings and are intentionally explicit in the HUD/README.
 	var active_scene := get_tree().current_scene
 	if active_scene == null:
+		return
+	if active_scene.has_method("get_training_targets"):
 		return
 	var target := active_scene.get_node_or_null("TargetDummy")
 	if target == null:
@@ -801,6 +844,8 @@ func _find_bush_at_position() -> Node3D:
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
+	if training_invulnerable:
+		return 0.0
 	if _stasis_remaining > 0.0:
 		return 0.0
 	if combat_state == null or passive_state == null:
@@ -933,6 +978,26 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	_weapon_id = "shotgun" if weapon_id == "shotgun" else "blaster"
 	_cancel_blaster_charge()
 	_update_weapon_visuals()
+	_sync_weapon_readout()
+
+func set_training_options(invulnerable: bool, instant_cooldowns: bool, unlimited_ammo: bool) -> void:
+	training_invulnerable = invulnerable
+	training_instant_cooldowns = instant_cooldowns
+	training_unlimited_ammo = unlimited_ammo
+	if instant_cooldowns:
+		_module_cooldowns.clear()
+		_blaster_next_attack_ready_at = -10.0
+	if unlimited_ammo:
+		_shotgun_ammo = _shotgun_magazine_size
+		_shotgun_reloading = false
+		_shotgun_reload_remaining = 0.0
+
+func set_training_health_ratio(ratio: float) -> void:
+	if combat_state == null:
+		return
+	reset_combat_state()
+	combat_state.health = clampf(ratio, 0.01, 1.0) * combat_state.max_health
+	combat_state.health_changed.emit(combat_state.health, combat_state.max_health)
 
 
 func shift_pause_timers(seconds: float) -> void:
@@ -1086,8 +1151,9 @@ func set_weapon(weapon_id: String) -> void:
 	_weapon_id = weapon_id
 	_reset_weapon_pose_to_locomotion(true)
 	_update_weapon_visuals()
+	_sync_weapon_readout()
 	if _attack_label != null:
-		_attack_label.text = "ARME : %s" % ("BLASTER" if _weapon_id == "blaster" else "SHOTGUN")
+		_attack_label.text = "ARME : BLASTER" if _weapon_id == "blaster" else ""
 
 
 func get_offensive_module_id() -> String:
@@ -1121,6 +1187,16 @@ func get_weapon_id() -> String:
 
 func get_shotgun_ammo() -> int:
 	return _shotgun_ammo
+
+
+func get_shotgun_magazine_size() -> int:
+	return _shotgun_magazine_size
+
+
+func get_shotgun_reload_progress() -> float:
+	if not _shotgun_reloading:
+		return 0.0
+	return 1.0 - _shotgun_reload_remaining / maxf(0.001, _shotgun_reload_duration)
 
 
 func is_shotgun_reloading() -> bool:
@@ -1187,7 +1263,8 @@ func _perform_shotgun_attack() -> void:
 	_shotgun_attack_token += 1
 	var token := _shotgun_attack_token
 	_shotgun_attack_busy = true
-	_shotgun_ammo -= 1
+	if not training_unlimited_ammo:
+		_shotgun_ammo -= 1
 	_shotgun_attack_origin = global_position
 	_shotgun_attack_direction = aim_direction.normalized()
 	var attack_speed := get_attack_speed_multiplier()
@@ -1195,14 +1272,12 @@ func _perform_shotgun_attack() -> void:
 	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	var salvo := {
 		"id": token,
-		"valid_hits": 0,
-		"base_damage_sum": 0.0,
-		"critical_applied": false,
+		"hits_by_target": {},
 		"credited": {},
 	}
 	var emission_timer := get_tree().create_timer(_shotgun_preparation / attack_speed, true, false, false)
 	emission_timer.timeout.connect(func() -> void: _emit_shotgun_salvo(token, salvo))
-	var finish_timer := get_tree().create_timer((_shotgun_preparation + _shotgun_recovery) / attack_speed, true, false, false)
+	var finish_timer := get_tree().create_timer((_shotgun_preparation + (0.01 if training_instant_cooldowns else _shotgun_recovery)) / attack_speed, true, false, false)
 	finish_timer.timeout.connect(func() -> void: _finish_shotgun_attack(token))
 
 
@@ -1238,14 +1313,15 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	_shotgun_attack_direction = _normalized_aim_direction()
 	_last_projectile_direction = _shotgun_attack_direction
 	_begin_weapon_fire()
-	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
+	var target := _module_target()
 	var visual_start := _shotgun_muzzle.global_position if _shotgun_muzzle != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
 	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35, _shotgun_muzzle)
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
 		# Keep the established planar hit cone/falloff; model length must not buff damage.
 		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
-		var shot := _get_shotgun_pellet_result(target, direction)
+		var pellet_target := _best_training_target(_shotgun_attack_origin, direction, _shotgun_max_range, 1.0) if get_tree().current_scene.has_method("get_training_targets") else target
+		var shot := _get_shotgun_pellet_result(pellet_target, direction)
 		var distance: float = float(shot["distance"])
 		var did_hit: bool = bool(shot["did_hit"])
 		var visual_direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
@@ -1253,7 +1329,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 		var endpoint := visual_start + visual_direction * maxf(0.025, distance - barrel_advance)
 		if _show_debug_hitbox:
 			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e") if did_hit else Color("#6e9cab"), 0.025, 0.45)
-		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, target, salvo, index)
+		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, pellet_target, salvo, index)
 	_play_shotgun_animation(get_attack_speed_multiplier())
 
 
@@ -1270,7 +1346,8 @@ func _get_shotgun_pellet_result(target: Node, direction: Vector3) -> Dictionary:
 		var closest := start + direction * along
 		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
 		var target_distance := Vector3(target_offset.x, 0.0, target_offset.z).length()
-		if along > 0.0 and along <= _shotgun_max_range and lateral <= _shotgun_hitbox_radius and _shotgun_path_clear(target, start, target.global_position):
+		var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else _shotgun_hitbox_radius
+		if along > 0.0 and along <= _shotgun_max_range and lateral <= hit_radius and _shotgun_path_clear(target, start, target.global_position):
 			did_hit = true
 			endpoint = target.global_position
 			travel_distance = target_distance
@@ -1354,13 +1431,18 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 	var effective_damage := float(target.call("take_damage", damage, "player", projectile_id))
 	if effective_damage <= 0.0:
 		return
-	salvo["valid_hits"] = int(salvo["valid_hits"]) + 1
-	salvo["base_damage_sum"] = float(salvo["base_damage_sum"]) + damage
+	var hits_by_target: Dictionary = salvo["hits_by_target"]
+	var target_id := target.get_instance_id()
+	var tally: Dictionary = hits_by_target.get(target_id, {"valid_hits": 0, "base_damage_sum": 0.0, "critical_applied": false})
+	tally["valid_hits"] = int(tally["valid_hits"]) + 1
+	tally["base_damage_sum"] = float(tally["base_damage_sum"]) + damage
+	hits_by_target[target_id] = tally
+	_create_target_hit_fx(target.global_position, false)
 	target.call("flash_impact", false)
-	if int(salvo["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(salvo["critical_applied"]):
-		salvo["critical_applied"] = true
-		var bonus := float(salvo["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
-		var bonus_id := "shotgun:%d:critical" % int(salvo["id"])
+	if int(tally["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(tally["critical_applied"]):
+		tally["critical_applied"] = true
+		var bonus := float(tally["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
+		var bonus_id := "shotgun:%d:critical:%d" % [int(salvo["id"]), target_id]
 		target.call("take_damage", bonus, "player", bonus_id)
 		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:shotgun")
 		target.call("flash_impact", true)
@@ -1387,7 +1469,7 @@ func _cancel_shotgun_attack() -> void:
 		return
 	_shotgun_attack_token += 1
 	_shotgun_attack_busy = false
-	_attack_label.text = "SHOTGUN  •  INTERROMPU"
+	_attack_label.text = ""
 
 
 func _start_shotgun_reload() -> void:
@@ -1396,7 +1478,7 @@ func _start_shotgun_reload() -> void:
 	_shotgun_reloading = true
 	_shotgun_reload_token += 1
 	_shotgun_reload_remaining = _shotgun_reload_duration
-	_attack_label.text = "SHOTGUN  •  RECHARGE %.1fs" % _shotgun_reload_duration
+	_attack_label.text = ""
 
 
 func _update_shotgun_reload(delta: float) -> void:
@@ -1407,7 +1489,23 @@ func _update_shotgun_reload(delta: float) -> void:
 		return
 	_shotgun_ammo = _shotgun_magazine_size
 	_shotgun_reloading = false
-	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
+	_attack_label.text = ""
+
+
+func _update_shotgun_reload_visual() -> void:
+	if not _shotgun_reloading or _shotgun_pivot == null or _weapon_id != "shotgun":
+		return
+	var phase := get_shotgun_reload_progress()
+	var lift := sin(phase * PI)
+	_shotgun_pivot.position = Vector3(0.58, 0.88 + 0.14 * lift, -0.36 + 0.12 * lift)
+	_shotgun_pivot.rotation = Vector3(-0.22 * lift, 0.0, 0.12 * lift)
+
+
+func _sync_weapon_readout() -> void:
+	if _health_readout == null:
+		return
+	_health_readout.call("set_shotgun_ammo", _weapon_id == "shotgun", _shotgun_ammo, _shotgun_magazine_size, _shotgun_reloading, get_shotgun_reload_progress())
+	_health_readout.call("set_blaster_charge", _weapon_id == "blaster", _blaster_charge_active, get_blaster_charge_ratio())
 
 
 func _update_javelin_mark() -> void:
@@ -1416,6 +1514,15 @@ func _update_javelin_mark() -> void:
 		return
 	if not bool(_javelin_mark_target.call("has_javelin_mark")):
 		_javelin_mark_target = null
+
+
+func get_javelin_recast_fraction() -> float:
+	if _javelin_mark_target == null or not is_instance_valid(_javelin_mark_target):
+		return 0.0
+	if not _javelin_mark_target.has_method("get_javelin_mark_remaining"):
+		return 0.0
+	var remaining := float(_javelin_mark_target.call("get_javelin_mark_remaining"))
+	return clampf(remaining / maxf(0.001, _javelin_mark_duration), 0.0, 1.0)
 
 
 func _update_module_cooldowns(delta: float) -> void:
@@ -1428,6 +1535,8 @@ func _update_module_cooldowns(delta: float) -> void:
 
 
 func get_module_cooldown(module_id: String) -> float:
+	if training_instant_cooldowns:
+		return 0.0
 	return maxf(0.0, float(_module_cooldowns.get(module_id, 0.0)))
 
 
@@ -1440,7 +1549,7 @@ func _module_ready(module_id: String) -> bool:
 
 
 func _start_module_cooldown(module_id: String, duration: float) -> void:
-	_module_cooldowns[module_id] = maxf(0.0, duration)
+	_module_cooldowns[module_id] = 0.0 if training_instant_cooldowns else maxf(0.0, duration)
 
 
 func get_mobility_module_id() -> String:
@@ -1673,7 +1782,31 @@ func _create_bio_fx() -> void:
 
 func _module_target() -> Node:
 	var active_scene := get_tree().current_scene
+	if active_scene != null and active_scene.has_method("get_training_targets"):
+		return _best_training_target(global_position, aim_direction, 20.0, 1.0)
 	return active_scene.get_node_or_null("TargetDummy") if active_scene != null else null
+
+func _best_training_target(origin: Vector3, direction: Vector3, max_range: float, radius_scale: float) -> Node:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("get_training_targets"):
+		return null
+	var best: Node = null
+	var best_along := INF
+	var flat_direction := Vector3(direction.x, 0.0, direction.z).normalized()
+	for candidate in scene.call("get_training_targets"):
+		if not is_instance_valid(candidate) or not candidate.has_method("get_health") or float(candidate.call("get_health")) <= 0.0:
+			continue
+		var offset: Vector3 = candidate.global_position - origin
+		offset.y = 0.0
+		var along := flat_direction.dot(offset)
+		if along <= 0.0 or along > max_range or along >= best_along:
+			continue
+		var lateral := (offset - flat_direction * along).length()
+		var hit_radius := float(candidate.call("get_training_hit_radius")) if candidate.has_method("get_training_hit_radius") else 0.8
+		if lateral <= hit_radius * radius_scale and _solid_path_clear(origin, candidate.global_position, [candidate.get_rid()]):
+			best = candidate
+			best_along = along
+	return best
 
 
 func _module_visual_start(direction: Vector3) -> Vector3:
@@ -2002,16 +2135,59 @@ func _begin_blaster_charge(now: float = -1.0) -> void:
 	_begin_weapon_aim()
 	_blaster_charge_started_at = now
 	_blaster_charge_ratio = 0.0
+	_blaster_ready_cued = false
+	if _blaster_charge_audio_fade != null and _blaster_charge_audio_fade.is_running():
+		_blaster_charge_audio_fade.kill()
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.stop()
+	_blaster_ready_audio.stop()
+	_blaster_charge_audio.volume_db = -9.0
+	_blaster_charge_hold_audio.volume_db = -10.0
+	_blaster_charge_audio.play()
 	_mark_combat_event()
 	if _attack_label != null:
-		_attack_label.text = "BLASTER  •  CHARGE 0%"
+		_attack_label.text = ""
 	_update_blaster_charge_visual(0.0)
 
 
+func _play_blaster_ready_sound() -> void:
+	if _blaster_ready_cued or not _blaster_charge_active:
+		return
+	_blaster_ready_cued = true
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.play()
+	_blaster_ready_audio.play()
+
+
+func _stop_blaster_charge_audio() -> void:
+	if _blaster_charge_audio == null:
+		return
+	_blaster_ready_audio.stop()
+	if _blaster_charge_audio_fade != null and _blaster_charge_audio_fade.is_running():
+		_blaster_charge_audio_fade.kill()
+	if not _blaster_charge_audio.playing and not _blaster_charge_hold_audio.playing:
+		return
+	_blaster_charge_audio_fade = create_tween().set_parallel(true)
+	if _blaster_charge_audio.playing:
+		_blaster_charge_audio_fade.tween_property(_blaster_charge_audio, "volume_db", -60.0, 0.02)
+	if _blaster_charge_hold_audio.playing:
+		_blaster_charge_audio_fade.tween_property(_blaster_charge_hold_audio, "volume_db", -60.0, 0.02)
+	_blaster_charge_audio_fade.chain().tween_callback(_finish_blaster_charge_audio_stop)
+
+
+func _finish_blaster_charge_audio_stop() -> void:
+	_blaster_charge_audio.stop()
+	_blaster_charge_hold_audio.stop()
+	_blaster_charge_audio.volume_db = -9.0
+	_blaster_charge_hold_audio.volume_db = -10.0
+
+
 func _cancel_blaster_charge(reason: String = "") -> void:
+	_stop_blaster_charge_audio()
 	_blaster_charge_active = false
 	_blaster_charge_started_at = -1.0
 	_blaster_charge_ratio = 0.0
+	_blaster_ready_cued = false
 	if _blaster_charge_visual != null:
 		_blaster_charge_visual.visible = false
 	if _blaster_light != null:
@@ -2037,7 +2213,9 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	if now < _blaster_next_attack_ready_at:
 		return
 	_mark_combat_event()
-	_blaster_shot_audio.play()
+	var shot_audio := _blaster_charged_shot_audio if charge_ratio >= 0.85 else _blaster_shot_audio
+	shot_audio.pitch_scale = lerpf(1.05, 0.94, charge_ratio)
+	shot_audio.play()
 	_set_aim_direction(direction)
 	var shot_direction := _normalized_aim_direction()
 	_last_projectile_direction = shot_direction
@@ -2046,7 +2224,7 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	_blaster_attack_token += 1
 	var token := _blaster_attack_token
 	_blaster_attack_busy = true
-	_blaster_next_attack_ready_at = now + _blaster_cooldown
+	_blaster_next_attack_ready_at = now + (0.01 if training_instant_cooldowns else _blaster_cooldown)
 	_play_blaster_recoil(charge_ratio)
 	_camera_impulse(0.045 + charge_ratio * 0.035, 0.018 + charge_ratio * 0.034)
 	if wait_for_firing_pose and _visual_rig != null and _visual_rig.skeleton != null:
@@ -2067,7 +2245,8 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 		var closest := collision_origin + shot_direction * along
 		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
 		var path_clear := _blaster_path_clear(target, origin, target.global_position)
-		if along > 0.0 and along <= _blaster_max_range and lateral <= 0.95 and path_clear:
+		var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else 0.95
+		if along > 0.0 and along <= _blaster_max_range and lateral <= hit_radius and path_clear:
 			var visual_along := clampf((target.global_position - origin).dot(shot_direction), 0.025, _blaster_max_range)
 			endpoint = origin + shot_direction * visual_along
 			did_hit = true
@@ -2920,6 +3099,7 @@ func _build_robot() -> void:
 	_world_ui_anchor.add_child(_health_readout)
 	_health_readout.call("configure", Color("#42d9e5"), "JOUEUR", -1.0)
 	_on_health_changed(get_health(), get_max_health())
+	_sync_weapon_readout()
 
 	_baroud_bar_bg = MeshInstance3D.new()
 	var baroud_bg_mesh := BoxMesh.new()

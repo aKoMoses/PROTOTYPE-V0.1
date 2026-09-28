@@ -6,10 +6,32 @@ extends CanvasLayer
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const BLASTER_ICON: Texture2D = preload("res://art/icons/blaster-gravure.png")
-const SPELL_PLACEHOLDER_ICON: Texture2D = preload("res://art/ui/spell-placeholder.svg")
+const SHOTGUN_ICON: Texture2D = preload("res://art/icons/shotgun-gravure.png")
+const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
+const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
+const MODULE_ICONS := {
+	"modulo_drone": preload("res://art/ui/icons/drone.svg"),
+	"javelin": preload("res://art/ui/icons/javelin.svg"),
+	"magnetic_field": preload("res://art/ui/icons/magnetic.svg"),
+	"static_shield": preload("res://art/ui/icons/shield.svg"),
+	"pyro_boots": preload("res://art/ui/icons/boots.svg"),
+	"bio_injector": preload("res://art/ui/icons/injector.svg"),
+}
+const PASSIVE_ICONS := {
+	"baroud": preload("res://art/icons/baroud-gravure.png"),
+	"omnivamp": preload("res://art/icons/omnivamp-gravure.png"),
+}
+const EQUIPMENT_CATEGORIES := [
+	{"id": "weapon", "title": "ARME"},
+	{"id": "offensive", "title": "OFFENSIF"},
+	{"id": "defensive", "title": "DÉFENSIF"},
+	{"id": "mobility", "title": "MOBILITÉ"},
+	{"id": "passive", "title": "PASSIF"},
+]
 const MENU_PANEL_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-panel.png")
 const MENU_BUTTON_PRIMARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-primary.png")
 const MENU_BUTTON_SECONDARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-secondary.png")
@@ -29,6 +51,7 @@ const COUNTDOWN_SOUNDS := [
 ]
 const FIGHT_IMAGE: Texture2D = preload("res://art/countdown/fight.png")
 const FIGHT_SOUND: AudioStream = preload("res://art/audio/countdown-fight.mp3")
+const MATCH_MUSIC_PATH := "res://art/audio/arena_electro_build.wav"
 
 enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
 enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT, FIGHT, WINNER_FOCUS }
@@ -55,24 +78,38 @@ var _round_result_player_dead := false
 var _round_result_bot_dead := false
 var _pause_active := false
 var _pause_started_msec := 0
+var _javelin_recast_display_fraction := 0.0
 var _settings: Dictionary = {"camera_shake": true, "touch_scale": 1.0}
 var _screen_root: Control
 var _hud: Control
 var _menu_panel: Control
-var _equipment_panel: PanelContainer
+var _equipment_panel: Control
 var _title_label: Label
 var _status_label: Label
-var _equipment_content: VBoxContainer
-var _equipment_details: Label
+var _equipment_content: HBoxContainer
+var _equipment_category_label: Label
+var _equipment_category := "weapon"
+var _equipment_nav_buttons: Dictionary = {}
+var _equipment_nav_icons: Dictionary = {}
+var _equipment_preview_buttons: Dictionary = {}
+var _equipment_preview_icons: Dictionary = {}
+var _equipment_info_panel: PanelContainer
+var _equipment_info_title: Label
+var _equipment_info_description: Label
+var _equipment_info_stats: Label
+var _equipment_info_id := ""
 var _selection_buttons: Dictionary = {}
+var _selection_markers: Dictionary = {}
 var _hud_labels: Dictionary = {}
 var _blaster_ui_icon: AtlasTexture
+var _shotgun_ui_icon: AtlasTexture
 var _countdown_overlay: Control
 var _countdown_dim: ColorRect
 var _countdown_glow: TextureRect
 var _countdown_image: TextureRect
 var _countdown_digit_index := -1
 var _countdown_audio: AudioStreamPlayer
+var _match_music: AudioStreamPlayer
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
@@ -99,11 +136,23 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_blaster_ui_icon = AtlasTexture.new()
 	_blaster_ui_icon.atlas = BLASTER_ICON
 	_blaster_ui_icon.region = Rect2(100, 270, 1100, 770)
+	_shotgun_ui_icon = AtlasTexture.new()
+	_shotgun_ui_icon.atlas = SHOTGUN_ICON
+	_shotgun_ui_icon.region = Rect2(0, 250, 1280, 830)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_countdown_audio = AudioStreamPlayer.new()
 	_countdown_audio.name = "CountdownAudio"
 	_countdown_audio.volume_db = -8.0
 	add_child(_countdown_audio)
+	_match_music = AudioStreamPlayer.new()
+	_match_music.name = "MatchMusic"
+	_match_music.volume_db = -17.0
+	if ResourceLoader.exists(MATCH_MUSIC_PATH):
+		_match_music.stream = load(MATCH_MUSIC_PATH) as AudioStream
+		if _match_music.stream is AudioStreamWAV:
+			(_match_music.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+			(_match_music.stream as AudioStreamWAV).loop_begin = 408000
+	add_child(_match_music)
 	_build_ui()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
@@ -302,13 +351,8 @@ func _build_menu() -> void:
 	spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(spacer)
 	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 84.0))
+	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 76.0))
 	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 76.0))
-	var hint := _label("SOURIS / CLAVIER / MANETTE", 12, MUTED)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hint.position = Vector2(165.0, 490.0)
-	hint.size = Vector2(350.0, 28.0)
-	_menu_panel.add_child(hint)
 
 
 func _menu_art_button(text: String, callback: Callable, texture: Texture2D, height: float) -> Control:
@@ -355,80 +399,316 @@ func _menu_art_button(text: String, callback: Callable, texture: Texture2D, heig
 	return item
 
 func _build_equipment() -> void:
-	_equipment_panel = _center_panel(1000, 620)
+	_equipment_panel = Control.new()
 	_equipment_panel.name = "EquipmentPanel"
+	_equipment_panel.custom_minimum_size = Vector2(1170, 650)
+	_equipment_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_equipment_panel.position -= Vector2(585, 325)
 	_screen_root.add_child(_equipment_panel)
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 5)
-	_equipment_panel.add_child(outer)
-	outer.add_child(_label("ÉQUIPEMENT", 32, CREAM))
-	outer.add_child(_label("Un choix par catégorie • les valeurs viennent des données de combat", 14, MUTED))
-	_equipment_content = VBoxContainer.new()
-	_equipment_content.add_theme_constant_override("separation", 7)
-	outer.add_child(_equipment_content)
-	_equipment_details = _label("", 14, CYAN)
-	_equipment_details.custom_minimum_size = Vector2(0, 52)
-	_equipment_details.add_theme_font_size_override("font_size", 12)
-	_equipment_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	outer.add_child(_equipment_details)
+	var frame := TextureRect.new()
+	frame.texture = EQUIPMENT_FRAME
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_equipment_panel.add_child(frame)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 58)
+	margin.add_theme_constant_override("margin_right", 58)
+	margin.add_theme_constant_override("margin_top", 70)
+	margin.add_theme_constant_override("margin_bottom", 70)
+	_equipment_panel.add_child(margin)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 21)
+	margin.add_child(columns)
+	var sidebar := VBoxContainer.new()
+	sidebar.custom_minimum_size.x = 218
+	sidebar.add_theme_constant_override("separation", 11)
+	columns.add_child(sidebar)
+	sidebar.add_child(_label("ÉQUIPEMENT", 25, CREAM))
+	var accent := ColorRect.new()
+	accent.color = AMBER
+	accent.custom_minimum_size = Vector2(38, 3)
+	sidebar.add_child(accent)
+	for item in EQUIPMENT_CATEGORIES:
+		_add_equipment_nav_button(sidebar, str(item.id), str(item.title))
+	var divider := ColorRect.new()
+	divider.color = Color("#59483b")
+	divider.custom_minimum_size.x = 2
+	columns.add_child(divider)
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_constant_override("separation", 12)
+	columns.add_child(right)
+	_equipment_category_label = _label("", 21, AMBER)
+	right.add_child(_equipment_category_label)
+	_equipment_content = HBoxContainer.new()
+	_equipment_content.custom_minimum_size.y = 292
+	_equipment_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_equipment_content.add_theme_constant_override("separation", 16)
+	right.add_child(_equipment_content)
+	var preview := PanelContainer.new()
+	var preview_style := _panel_style(Color("#15191c"), Color("#69543e"), 5)
+	preview_style.content_margin_left = 9
+	preview_style.content_margin_right = 9
+	preview_style.content_margin_top = 5
+	preview_style.content_margin_bottom = 5
+	preview.add_theme_stylebox_override("panel", preview_style)
+	right.add_child(preview)
+	var preview_items := HBoxContainer.new()
+	preview_items.add_theme_constant_override("separation", 7)
+	preview.add_child(preview_items)
+	for item in EQUIPMENT_CATEGORIES:
+		_add_equipment_preview(preview_items, str(item.id), str(item.title))
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 18)
-	actions.add_child(_button("RETOUR", Callable(self, "_open_menu"), 220))
-	actions.add_child(_button("ENTRER DANS L’ARÈNE", Callable(self, "_start_duel"), 330))
-	outer.add_child(actions)
+	actions.add_theme_constant_override("separation", 16)
+	actions.add_child(_button("RETOUR", Callable(self, "_open_menu"), 204))
+	var start := _button("ENTRER DANS L’ARÈNE", Callable(self, "_start_duel"), 340)
+	start.add_theme_stylebox_override("normal", _panel_style(Color("#124a53"), CYAN, 5))
+	start.add_theme_stylebox_override("hover", _panel_style(Color("#1d606a"), Color.WHITE, 5))
+	actions.add_child(start)
+	right.add_child(actions)
+	_build_equipment_info_bubble()
+	_open_equipment_category("weapon")
 
-func _selection_row(category: String, title: String, ids: Array) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var heading := _label(title, 15, AMBER)
-	heading.custom_minimum_size = Vector2(120, 46)
-	heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(heading)
+func _build_equipment_info_bubble() -> void:
+	_equipment_info_panel = PanelContainer.new()
+	_equipment_info_panel.name = "EquipmentInfoBubble"
+	_equipment_info_panel.position = Vector2(772, 155)
+	_equipment_info_panel.custom_minimum_size.x = 322
+	var style := _panel_style(Color("#171b1f"), CYAN, 6)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	_equipment_info_panel.add_theme_stylebox_override("panel", style)
+	_equipment_panel.add_child(_equipment_info_panel)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 5)
+	_equipment_info_panel.add_child(content)
+	_equipment_info_title = _label("", 17, CREAM)
+	content.add_child(_equipment_info_title)
+	_equipment_info_description = _label("", 13, CREAM)
+	content.add_child(_equipment_info_description)
+	_equipment_info_stats = _label("", 13, CYAN)
+	content.add_child(_equipment_info_stats)
+	_equipment_info_panel.visible = false
+
+func _show_equipment_info(identifier: String) -> void:
+	if _equipment_info_panel.visible and _equipment_info_id == identifier:
+		_equipment_info_panel.visible = false
+		_equipment_info_id = ""
+		return
+	_equipment_info_id = identifier
+	_equipment_info_title.text = LOADOUT.display_name(identifier)
+	_equipment_info_description.text = LOADOUT.category_description(identifier)
+	_equipment_info_stats.text = LOADOUT.stat_line(identifier)
+	_equipment_info_panel.visible = true
+
+func _add_equipment_nav_button(parent: VBoxContainer, category: String, title: String) -> void:
+	var button := Button.new()
+	button.name = "%sTab" % category.to_pascal_case()
+	button.custom_minimum_size.y = 61
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	parent.add_child(button)
+	var content := HBoxContainer.new()
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.offset_left = 13
+	content.offset_right = -12
+	content.add_theme_constant_override("separation", 10)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(content)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(39, 42)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(icon)
+	var label := _label(title, 15, CREAM)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(label)
+	button.pressed.connect(func() -> void: _open_equipment_category(category))
+	_equipment_nav_buttons[category] = button
+	_equipment_nav_icons[category] = icon
+
+func _add_equipment_preview(parent: HBoxContainer, category: String, title: String) -> void:
+	var button := EQUIPMENT_CARD.new() as Button
+	button.name = "%sPreview" % category.to_pascal_case()
+	button.custom_minimum_size = Vector2(0, 76)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	parent.add_child(button)
+	var content := VBoxContainer.new()
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.offset_top = 5
+	content.offset_bottom = -5
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 1)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(content)
+	var label := _label(title, 10, AMBER)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(label)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(0, 43)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(icon)
+	button.pressed.connect(func() -> void: _open_equipment_category(category))
+	_equipment_preview_buttons[category] = button
+	_equipment_preview_icons[category] = icon
+
+func _equipment_options(category: String) -> Array:
+	match category:
+		"weapon": return LOADOUT.WEAPONS
+		"offensive": return LOADOUT.OFFENSIVE
+		"defensive": return LOADOUT.DEFENSIVE
+		"mobility": return LOADOUT.MOBILITY
+		"passive": return LOADOUT.PASSIVES
+	return []
+
+func _open_equipment_category(category: String) -> void:
+	_equipment_category = category
+	_equipment_info_panel.visible = false
+	_equipment_info_id = ""
+	for item in EQUIPMENT_CATEGORIES:
+		if str(item.id) == category:
+			_equipment_category_label.text = str(item.title)
+			break
+	for child in _equipment_content.get_children():
+		child.free()
+	_selection_buttons.clear()
+	_selection_markers.clear()
 	_selection_buttons[category] = {}
-	for identifier in ids:
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(300, 46)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.clip_text = true
-		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		button.add_theme_font_size_override("font_size", 12)
-		if identifier == "blaster":
-			button.icon = _blaster_ui_icon
-			button.expand_icon = true
-		button.pressed.connect(func() -> void:
-			loadout[category] = identifier
-			_refresh_equipment()
-		)
-		_selection_buttons[category][identifier] = button
-		row.add_child(button)
-	_equipment_content.add_child(row)
+	_selection_markers[category] = {}
+	for identifier in _equipment_options(category):
+		_add_equipment_choice(category, str(identifier))
+	_refresh_equipment()
+
+func _add_equipment_choice(category: String, identifier: String) -> void:
+	var button := EQUIPMENT_CARD.new() as Button
+	button.name = "%sOption" % identifier.to_pascal_case()
+	button.custom_minimum_size = Vector2(0, 292)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.tooltip_text = "%s\n%s\n%s" % [LOADOUT.display_name(identifier), LOADOUT.category_description(identifier), LOADOUT.stat_line(identifier)]
+	_equipment_content.add_child(button)
+	var content := VBoxContainer.new()
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.offset_left = 18
+	content.offset_right = -18
+	content.offset_top = 18
+	content.offset_bottom = -16
+	content.add_theme_constant_override("separation", 5)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(content)
+	var info := Button.new()
+	info.name = "Info"
+	info.text = "i"
+	info.anchor_left = 1.0
+	info.anchor_right = 1.0
+	info.offset_left = -37.0
+	info.offset_right = -10.0
+	info.offset_top = 10.0
+	info.offset_bottom = 37.0
+	info.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	info.add_theme_font_size_override("font_size", 15)
+	info.add_theme_color_override("font_color", CYAN)
+	var info_style := _panel_style(Color("#17262a"), Color("#638087"), 14)
+	info_style.set_content_margin_all(0)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		info.add_theme_stylebox_override(state, info_style)
+	button.add_child(info)
+	info.pressed.connect(func() -> void: _show_equipment_info(identifier))
+	var icon := TextureRect.new()
+	icon.texture = _equipment_icon(identifier)
+	icon.custom_minimum_size.y = 188
+	icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(icon)
+	var name_label := _label(LOADOUT.display_name(identifier), 21, CREAM)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(name_label)
+	var marker := _label("", 13, CYAN)
+	marker.custom_minimum_size.y = 21
+	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(marker)
+	button.pressed.connect(func() -> void:
+		loadout[category] = identifier
+		_equipment_info_panel.visible = false
+		_equipment_info_id = ""
+		_refresh_equipment()
+	)
+	_selection_buttons[category][identifier] = button
+	_selection_markers[category][identifier] = marker
+
+func _equipment_icon(identifier: String) -> Texture2D:
+	match identifier:
+		"blaster": return _blaster_ui_icon
+		"shotgun": return _shotgun_ui_icon
+		_:
+			if MODULE_ICONS.has(identifier):
+				return MODULE_ICONS[identifier]
+			return PASSIVE_ICONS.get(identifier)
+
+func _equipment_card_style(active: bool, hover: bool = false) -> StyleBoxFlat:
+	var background := Color("#123039") if active else Color("#1c1d1f")
+	var border := CYAN if active else Color("#8c6745")
+	if hover:
+		background = Color("#19464e") if active else Color("#2b2825")
+		border = Color.WHITE if active else AMBER
+	var style := _panel_style(background, border, 5)
+	style.set_content_margin_all(0)
+	return style
 
 func _refresh_equipment() -> void:
-	for child in _equipment_content.get_children():
-		child.queue_free()
-	_selection_buttons.clear()
-	_selection_row("weapon", "ARME", LOADOUT.WEAPONS)
-	_selection_row("offensive", "OFFENSIF", LOADOUT.OFFENSIVE)
-	_selection_row("defensive", "DÉFENSIF", LOADOUT.DEFENSIVE)
-	_selection_row("mobility", "MOBILITÉ", LOADOUT.MOBILITY)
-	_selection_row("passive", "PASSIF", LOADOUT.PASSIVES)
+	for item in EQUIPMENT_CATEGORIES:
+		var category := str(item.id)
+		var chosen := str(loadout.get(category, ""))
+		var selected := category == _equipment_category
+		var tab: Button = _equipment_nav_buttons[category]
+		tab.add_theme_stylebox_override("normal", _equipment_tab_style(selected))
+		tab.add_theme_stylebox_override("hover", _equipment_tab_style(true))
+		tab.add_theme_stylebox_override("pressed", _equipment_tab_style(true))
+		tab.add_theme_stylebox_override("focus", _equipment_tab_style(true))
+		(_equipment_nav_icons[category] as TextureRect).texture = _equipment_icon(chosen)
+		var preview: Button = _equipment_preview_buttons[category]
+		preview.tooltip_text = "%s\n%s\n%s" % [LOADOUT.display_name(chosen), LOADOUT.category_description(chosen), LOADOUT.stat_line(chosen)]
+		preview.add_theme_stylebox_override("normal", _equipment_preview_style(selected))
+		preview.add_theme_stylebox_override("hover", _equipment_preview_style(true))
+		preview.add_theme_stylebox_override("pressed", _equipment_preview_style(true))
+		preview.add_theme_stylebox_override("focus", _equipment_preview_style(true))
+		(_equipment_preview_icons[category] as TextureRect).texture = _equipment_icon(chosen)
 	for category in _selection_buttons.keys():
 		for identifier in _selection_buttons[category].keys():
 			var button: Button = _selection_buttons[category][identifier]
 			var active := str(loadout.get(category, "")) == str(identifier)
-			var description := LOADOUT.category_description(identifier)
-			var stats := LOADOUT.stat_line(identifier)
-			button.tooltip_text = description + "  " + stats
-			button.text = ("◆ " if active else "◇ ") + LOADOUT.display_name(identifier) + "\n" + description + "  " + stats
-			button.add_theme_color_override("font_color", CYAN if active else CREAM)
-			button.add_theme_stylebox_override("normal", _panel_style(Color("#1d555b") if active else PANEL_ALT, CYAN if active else Color("#594649"), 8))
-	if _equipment_details != null:
-		var active_lines: Array[String] = []
-		for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
-			var identifier := str(loadout.get(category, ""))
-			active_lines.append("%s : %s — %s %s" % [category.to_upper(), LOADOUT.display_name(identifier), LOADOUT.category_description(identifier), LOADOUT.stat_line(identifier)])
-		_equipment_details.text = "\n".join(active_lines)
+			var marker: Label = _selection_markers[category][identifier]
+			marker.text = "✓  ÉQUIPÉ" if active else ""
+			button.add_theme_stylebox_override("normal", _equipment_card_style(active))
+			button.add_theme_stylebox_override("hover", _equipment_card_style(active, true))
+			button.add_theme_stylebox_override("pressed", _equipment_card_style(true))
+			button.add_theme_stylebox_override("focus", _equipment_card_style(active, true))
+
+func _equipment_tab_style(active: bool) -> StyleBoxFlat:
+	var style := _panel_style(Color("#30251e") if active else Color("#1c1c1e"), AMBER if active else Color("#574b43"), 5)
+	style.set_content_margin_all(0)
+	return style
+
+func _equipment_preview_style(active: bool) -> StyleBoxFlat:
+	var style := _panel_style(Color("#123039") if active else Color("#1a1d1f"), CYAN if active else Color("#5b4b3b"), 4)
+	style.set_content_margin_all(0)
+	return style
 
 func _build_settings() -> void:
 	_settings_panel = _center_panel(620, 390)
@@ -474,8 +754,8 @@ func _build_hud() -> void:
 	var score_panel := Control.new()
 	score_panel.name = "MatchSummary"
 	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	score_panel.position = Vector2(-300, 8)
-	score_panel.size = Vector2(600, 128)
+	score_panel.position = Vector2(-230, 12)
+	score_panel.size = Vector2(460, 60)
 	score_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(score_panel)
 	var score_backdrop := TextureRect.new()
@@ -485,51 +765,46 @@ func _build_hud() -> void:
 	score_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
 	score_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	score_panel.add_child(score_backdrop)
-	var match_tag := _label("MATCH", 15, AMBER)
-	match_tag.position = Vector2(68, 38)
-	match_tag.size = Vector2(100, 28)
-	match_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	match_tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	score_panel.add_child(match_tag)
-	_hud_labels.match = _label("0 — 0", 36, CREAM)
-	_hud_labels.match.position = Vector2(185, 18)
-	_hud_labels.match.size = Vector2(230, 54)
+	_hud_labels.match = _label("0 — 0", 27, CREAM)
+	_hud_labels.match.position = Vector2(168, 7)
+	_hud_labels.match.size = Vector2(124, 46)
 	_hud_labels.match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match)
-	_hud_labels.match_round = _label("MANCHE 1", 16, CREAM)
-	_hud_labels.match_round.position = Vector2(430, 36)
-	_hud_labels.match_round.size = Vector2(115, 30)
+	_hud_labels.match_round = _label("MANCHE 1", 14, CREAM)
+	_hud_labels.match_round.position = Vector2(32, 15)
+	_hud_labels.match_round.size = Vector2(130, 30)
 	_hud_labels.match_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match_round.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match_round)
-	_hud_labels.phase = _label("PRÉPARATION", 15, CYAN)
-	_hud_labels.phase.position = Vector2(190, 80)
-	_hud_labels.phase.size = Vector2(220, 28)
+	_hud_labels.phase = _label("PRÉPARATION", 13, CYAN)
+	_hud_labels.phase.position = Vector2(298, 15)
+	_hud_labels.phase.size = Vector2(130, 30)
 	_hud_labels.phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.phase.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_hud_labels.phase.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_hud_labels.phase.clip_text = true
 	score_panel.add_child(_hud_labels.phase)
-	var pause := _button("Ⅱ  PAUSE", Callable(self, "_toggle_pause"), 150)
+	var pause := _button("Ⅱ", Callable(self, "_toggle_pause"), 44)
+	pause.name = "PauseButton"
 	pause.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	pause.position = Vector2(-170, 138)
-	pause.custom_minimum_size = Vector2(148, 40)
+	pause.position = Vector2(-58, 18)
+	pause.custom_minimum_size = Vector2(44, 44)
+	pause.tooltip_text = "Pause (Échap)"
+	pause.add_theme_font_size_override("font_size", 20)
+	var pause_style := _panel_style(Color("#211c1c"), Color("#a87a50"), 6)
+	pause_style.set_content_margin_all(0)
+	pause.add_theme_stylebox_override("normal", pause_style)
 	_hud.add_child(pause)
 	var spell_frame := Control.new()
 	spell_frame.name = "SpellBar"
 	spell_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spell_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	spell_frame.offset_left = -260.0
-	spell_frame.offset_top = -118.0
-	spell_frame.offset_right = 260.0
+	spell_frame.offset_left = -284.0
+	spell_frame.offset_top = -82.0
+	spell_frame.offset_right = 284.0
 	spell_frame.offset_bottom = -10.0
 	_hud.add_child(spell_frame)
-	var spell_backdrop := TextureRect.new()
-	spell_backdrop.texture = SPELL_BAR_FRAME
-	spell_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	spell_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	spell_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
-	spell_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spell_frame.add_child(spell_backdrop)
 	var spell_slots := [
 		{"id": "offensive", "key": "A"},
 		{"id": "defensive", "key": "E"},
@@ -539,47 +814,81 @@ func _build_hud() -> void:
 		var slot: Dictionary = spell_slots[index]
 		var module_id: String = slot["id"]
 		var slot_content := Control.new()
-		slot_content.position = Vector2(10.0 + float(index) * 170.0, 10.0)
-		slot_content.size = Vector2(160.0, 88.0)
+		slot_content.name = "%sSlot" % module_id.capitalize()
+		slot_content.position = Vector2(float(index) * 192.0, 0.0)
+		slot_content.size = Vector2(184.0, 72.0)
 		slot_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		spell_frame.add_child(slot_content)
+		var slot_backdrop := TextureRect.new()
+		slot_backdrop.texture = SPELL_BAR_FRAME
+		slot_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		slot_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		slot_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
+		slot_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_content.add_child(slot_backdrop)
 		var placeholder := TextureRect.new()
-		placeholder.texture = SPELL_PLACEHOLDER_ICON
-		placeholder.position = Vector2(11.0, 23.0)
-		placeholder.size = Vector2(46.0, 46.0)
+		placeholder.position = Vector2(13.0, 12.0)
+		placeholder.size = Vector2(42.0, 48.0)
 		placeholder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		placeholder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		placeholder.modulate = Color.WHITE
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(placeholder)
 		_hud_labels["%s_icon" % module_id] = placeholder
-		var key_label := _label(str(slot["key"]), 14, CREAM)
-		key_label.position = Vector2(64.0, 10.0)
-		key_label.size = Vector2(88.0, 22.0)
+		var key_label := _label(str(slot["key"]), 13, AMBER)
+		key_label.position = Vector2(63.0, 9.0)
+		key_label.size = Vector2(23.0, 23.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(key_label)
-		_hud_labels["%s_key" % module_id] = key_label
-		var module_label := _label("", 13, CREAM)
-		module_label.position = Vector2(64.0, 34.0)
-		module_label.size = Vector2(88.0, 34.0)
+		var module_label := _label("", 11, CREAM)
+		module_label.position = Vector2(88.0, 9.0)
+		module_label.size = Vector2(89.0, 23.0)
 		module_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		module_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		module_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		module_label.add_theme_font_size_override("font_size", 12)
+		module_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		module_label.clip_text = true
 		module_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(module_label)
 		_hud_labels[module_id] = module_label
-		var status := _label("", 12, CYAN)
-		status.position = Vector2(64.0, 68.0)
-		status.size = Vector2(86.0, 16.0)
-		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var status := _label("", 13, CYAN)
+		status.position = Vector2(63.0, 39.0)
+		status.size = Vector2(112.0, 22.0)
+		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		status.add_theme_font_size_override("font_size", 11)
 		status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(status)
 		_hud_labels["%s_status" % module_id] = status
+		if module_id == "offensive":
+			var recast_frame := Panel.new()
+			recast_frame.name = "JavelinRecastFrame"
+			recast_frame.position = Vector2(10.0, 9.0)
+			recast_frame.size = Vector2(48.0, 54.0)
+			recast_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var frame_style := StyleBoxFlat.new()
+			frame_style.bg_color = Color.TRANSPARENT
+			frame_style.border_color = Color("#efb765", 0.8)
+			frame_style.set_border_width_all(1)
+			frame_style.set_corner_radius_all(4)
+			recast_frame.add_theme_stylebox_override("panel", frame_style)
+			recast_frame.visible = false
+			slot_content.add_child(recast_frame)
+			_hud_labels.offensive_recast_frame = recast_frame
+			var recast_track := ColorRect.new()
+			recast_track.name = "JavelinRecastTrack"
+			recast_track.position = Vector2(12.0, 66.0)
+			recast_track.size = Vector2(160.0, 3.0)
+			recast_track.color = Color("#5f4737")
+			recast_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			recast_track.visible = false
+			slot_content.add_child(recast_track)
+			_hud_labels.offensive_recast_track = recast_track
+			var recast_fill := ColorRect.new()
+			recast_fill.name = "JavelinRecastFill"
+			recast_fill.color = AMBER
+			recast_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			recast_track.add_child(recast_fill)
+			_hud_labels.offensive_recast_fill = recast_fill
 	var dev := _label("", 12, Color(1, 1, 1, 0.45))
 	dev.position = Vector2(22, 140)
 	dev.name = "DevDiagnostics"
@@ -681,6 +990,16 @@ func _play_countdown_sound(sound: AudioStream) -> void:
 	_countdown_audio.stream = sound
 	_countdown_audio.play()
 
+func _start_match_music() -> void:
+	if _match_music.stream == null:
+		return
+	_match_music.stop()
+	_match_music.stream_paused = false
+	_match_music.play()
+
+func _stop_match_music() -> void:
+	_match_music.stop()
+
 func _build_pause() -> void:
 	_pause_panel = _center_panel(430, 310)
 	_screen_root.add_child(_pause_panel)
@@ -737,26 +1056,39 @@ func _update_hud() -> void:
 		"defensive": str(player.call("get_defensive_module_id")),
 		"mobility": str(player.call("get_mobility_module_id")),
 	}
+	if not _pause_active:
+		_javelin_recast_display_fraction = float(player.call("get_javelin_recast_fraction"))
 	for key in spell_modules.keys():
 		var identifier: String = spell_modules[key]
 		var cooldown := float(player.call("get_module_cooldown", identifier))
-		_hud_labels[key].text = "%s  %s" % [_module_icon(key), LOADOUT.display_name(identifier)]
-		if cooldown > 0.0:
+		_hud_labels[key].text = LOADOUT.display_name(identifier)
+		_hud_labels["%s_icon" % key].texture = MODULE_ICONS.get(identifier)
+		var recast_active: bool = key == "offensive" and identifier == "javelin" and _javelin_recast_display_fraction > 0.0
+		if key == "offensive":
+			_hud_labels.offensive_recast_frame.visible = recast_active
+			_hud_labels.offensive_recast_track.visible = recast_active
+			if recast_active:
+				_hud_labels.offensive_recast_fill.size = Vector2(160.0 * _javelin_recast_display_fraction, 3.0)
+		if recast_active:
+			_hud_labels["%s_status" % key].text = "A →"
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER)
+			_hud_labels[key].add_theme_color_override("font_color", CREAM)
+			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
+			_hud_labels["%s_icon" % key].modulate = Color.WHITE
+		elif cooldown > 0.0:
 			_hud_labels["%s_status" % key].text = "%.1fs" % cooldown
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", MUTED)
 			_hud_labels[key].add_theme_color_override("font_color", MUTED)
 			_hud_labels["%s_icon" % key].modulate = Color("#6d6257")
 		else:
 			_hud_labels["%s_status" % key].text = "PRÊT"
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 
 func _effects_text(actor: Node) -> String:
 	var effects: Array = actor.call("get_active_effect_types")
 	return "ÉTATS : " + (" / ".join(effects) if not effects.is_empty() else "—")
-
-func _module_icon(category: String) -> String:
-	return {"offensive": "✦", "defensive": "◇", "mobility": "➤"}.get(category, "•")
-
 
 func _phase_text() -> String:
 	match round_phase:
@@ -769,9 +1101,9 @@ func _phase_text() -> String:
 		RoundPhase.WINNER_FOCUS:
 			return ""
 		RoundPhase.ROUND_RESULT:
-			return "RÉSULTAT DE MANCHE"
+			return "FIN DE MANCHE"
 		RoundPhase.MATCH_RESULT:
-			return "MATCH TERMINÉ"
+			return "FIN DU MATCH"
 		_:
 			return "PRÉPARATION"
 
@@ -786,6 +1118,7 @@ func get_round_phase_name() -> String:
 func _open_menu() -> void:
 	_end_pause(false)
 	_countdown_audio.stop()
+	_stop_match_music()
 	round_phase = RoundPhase.IDLE
 	if main != null and main.has_method("stop_duel"):
 		main.call("stop_duel")
@@ -805,6 +1138,11 @@ func _open_equipment() -> void:
 func _open_settings() -> void:
 	_show_screen(Screen.SETTINGS)
 
+func _open_training_ground() -> void:
+	_end_pause(false)
+	_stop_match_music()
+	get_tree().change_scene_to_file("res://scenes/training_ground.tscn")
+
 func _start_duel() -> void:
 	loadout = LOADOUT.sanitize(loadout)
 	LOADOUT.save_local(loadout)
@@ -819,6 +1157,7 @@ func _start_duel() -> void:
 		main.call("start_duel", loadout)
 	_show_screen(Screen.COMBAT)
 	_begin_round_countdown()
+	_start_match_music()
 
 func on_actor_died(actor: Node) -> void:
 	if _round_resolved or current_screen != Screen.COMBAT or round_phase != RoundPhase.LIVE:
@@ -927,6 +1266,7 @@ func _start_next_round() -> void:
 
 
 func _show_final_result() -> void:
+	_stop_match_music()
 	round_phase = RoundPhase.MATCH_RESULT
 	current_screen = Screen.RESULT
 	_round_resolved = true
@@ -965,6 +1305,7 @@ func _toggle_pause() -> void:
 			touch_controls.call("reset_inputs")
 		get_tree().paused = true
 		_countdown_audio.stream_paused = true
+		_match_music.stream_paused = true
 		_pause_panel.visible = true
 		_update_countdown_overlay()
 
@@ -981,6 +1322,7 @@ func _end_pause(resume_game: bool) -> void:
 	_pause_panel.visible = false
 	get_tree().paused = false
 	_countdown_audio.stream_paused = false
+	_match_music.stream_paused = false
 	if not resume_game:
 		_countdown_audio.stop()
 	if resume_game and round_phase == RoundPhase.LIVE and main != null and main.has_method("shift_pause_timers"):
@@ -1005,10 +1347,12 @@ func _restart() -> void:
 		main.call("start_duel", loadout)
 	_show_screen(Screen.COMBAT)
 	_begin_round_countdown()
+	_start_match_music()
 
 func _return_menu() -> void:
 	_end_pause(false)
 	_countdown_audio.stop()
+	_stop_match_music()
 	_round_resolved = false
 	round_phase = RoundPhase.IDLE
 	if main != null and main.has_method("stop_duel"):

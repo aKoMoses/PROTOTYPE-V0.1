@@ -13,6 +13,22 @@ var _viewport: SubViewport
 var _sprite: Sprite3D
 var _health_number: Label
 var _segments: Array[ColorRect] = []
+var _badge: Panel
+var _badge_mark: Label
+var _show_shotgun := false
+var _show_blaster := false
+var _ammo_recess: Panel
+var _ammo_shells: Array[Panel] = []
+var _ammo_caps: Array[ColorRect] = []
+var _ammo_highlights: Array[ColorRect] = []
+var _ammo_progress_track: Panel
+var _ammo_progress_fill: ColorRect
+var _ammo_progress_tip: ColorRect
+var _blaster_coil_recess: Panel
+var _blaster_coil: Line2D
+var _blaster_progress_track: Panel
+var _blaster_progress_fill: ColorRect
+var _blaster_progress_tip: ColorRect
 var _latest_popup: Node3D
 var _damage_serial := 0
 
@@ -34,6 +50,60 @@ func set_health(current: float, maximum: float) -> void:
 		_segments[index].size.x = 23.0 * fill_fraction
 		_segments[index].visible = fill_fraction > 0.0
 	_health_number.add_theme_color_override("font_color", Color("#ffb37c") if fraction <= 0.25 else Color("#fff2dc"))
+
+
+func set_shotgun_ammo(active: bool, ammo: int, capacity: int, reloading: bool, progress: float) -> void:
+	if _badge_mark == null:
+		return
+	_show_shotgun = active
+	_sync_weapon_badge()
+	_ammo_recess.visible = active
+	_ammo_progress_track.visible = active
+	_ammo_progress_fill.visible = active and reloading
+	_ammo_progress_tip.visible = active and reloading and progress > 0.02
+	if not active:
+		for shell in _ammo_shells:
+			shell.visible = false
+		return
+	var safe_ammo := clampi(ammo, 0, capacity)
+	var reload_progress := clampf(progress, 0.0, 1.0)
+	_ammo_progress_fill.size.x = 262.0 * reload_progress
+	_ammo_progress_tip.position.x = 2.0 + maxf(0.0, _ammo_progress_fill.size.x - 2.0)
+	var loading_shell := mini(_ammo_shells.size() - 1, int(reload_progress * _ammo_shells.size()))
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.015)
+	_ammo_progress_tip.color.a = 0.65 + 0.25 * pulse
+	for index in range(_ammo_shells.size()):
+		var loaded := index < safe_ammo
+		var loading := reloading and index == loading_shell and not loaded
+		var shell_color := Color("#ad6247") if loaded else Color("#37393a").lerp(Color("#ad6247"), 0.15 + pulse * 0.35) if loading else Color("#37393a")
+		_ammo_shells[index].visible = true
+		_ammo_shells[index].add_theme_stylebox_override("panel", _panel_style(shell_color, Color("#d5a16c") if loaded else Color("#88654e") if loading else Color("#685f58"), 1, 2))
+		_ammo_caps[index].color = Color("#ddb477") if loaded else Color("#a17e60") if loading else Color("#746456")
+		_ammo_highlights[index].color = Color("#e8ab7c") if loaded else Color("#b87c5b") if loading else Color("#555352")
+
+
+func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
+	if _blaster_coil == null:
+		return
+	_show_blaster = active
+	_sync_weapon_badge()
+	_blaster_coil_recess.visible = active
+	_blaster_coil.visible = active
+	_blaster_progress_track.visible = active
+	_blaster_progress_fill.visible = active and charging
+	_blaster_progress_tip.visible = active and charging and progress > 0.02
+	if not active:
+		return
+	var ratio := clampf(progress, 0.0, 1.0)
+	_blaster_progress_fill.size.x = 262.0 * ratio
+	_blaster_progress_tip.position.x = 2.0 + maxf(0.0, _blaster_progress_fill.size.x - 2.0)
+	_blaster_coil.default_color = Color("#57bcca").lerp(Color("#aaf7ff"), ratio if charging else 0.0)
+
+
+func _sync_weapon_badge() -> void:
+	var show_badge := not _show_shotgun and not _show_blaster
+	_badge.visible = show_badge
+	_badge_mark.visible = show_badge
 
 
 func show_damage(amount: float) -> void:
@@ -125,16 +195,98 @@ func _build() -> void:
 		fill.color = _accent
 		cell.add_child(fill)
 		_segments.append(fill)
-	var badge := Panel.new()
-	badge.position = Vector2(116, 78)
-	badge.size = Vector2(68, 25)
-	badge.add_theme_stylebox_override("panel", _panel_style(Color("#241f1f"), Color("#a57b50"), 2, 5))
-	root.add_child(badge)
-	var badge_mark := _label("◆", 19, _accent)
-	badge_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge_mark.position = Vector2(134, 77)
-	badge_mark.size = Vector2(32, 26)
-	root.add_child(badge_mark)
+	_badge = Panel.new()
+	_badge.position = Vector2(112, 78)
+	_badge.size = Vector2(76, 25)
+	_badge.add_theme_stylebox_override("panel", _panel_style(Color("#241f1f"), Color("#a57b50"), 2, 5))
+	root.add_child(_badge)
+	_badge_mark = _label("◆", 19, _accent)
+	_badge_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_badge_mark.position = Vector2(134, 77)
+	_badge_mark.size = Vector2(32, 26)
+	root.add_child(_badge_mark)
+	_ammo_recess = Panel.new()
+	_ammo_recess.name = "ShotgunAmmoRecess"
+	_ammo_recess.position = Vector2(124, 13)
+	_ammo_recess.size = Vector2(63, 26)
+	_ammo_recess.add_theme_stylebox_override("panel", _panel_style(Color("#211f1e"), Color("#5d4a3a"), 1, 4))
+	_ammo_recess.visible = false
+	root.add_child(_ammo_recess)
+	for index in range(3):
+		var shell := Panel.new()
+		shell.name = "ShotgunShell%d" % (index + 1)
+		shell.position = Vector2(130 + index * 19, 16)
+		shell.size = Vector2(12, 19)
+		shell.add_theme_stylebox_override("panel", _panel_style(Color("#37393a"), Color("#685f58"), 1, 2))
+		shell.visible = false
+		root.add_child(shell)
+		_ammo_shells.append(shell)
+		var cap := ColorRect.new()
+		cap.color = Color("#746456")
+		cap.position = Vector2(1, 14)
+		cap.size = Vector2(10, 4)
+		shell.add_child(cap)
+		_ammo_caps.append(cap)
+		var highlight := ColorRect.new()
+		highlight.color = Color("#555352")
+		highlight.position = Vector2(2, 2)
+		highlight.size = Vector2(2, 10)
+		shell.add_child(highlight)
+		_ammo_highlights.append(highlight)
+	_ammo_progress_track = Panel.new()
+	_ammo_progress_track.name = "ShotgunReloadGroove"
+	_ammo_progress_track.position = Vector2(17, 74)
+	_ammo_progress_track.size = Vector2(266, 8)
+	_ammo_progress_track.add_theme_stylebox_override("panel", _panel_style(Color("#151a1b"), Color("#6b503e"), 1, 2))
+	_ammo_progress_track.visible = false
+	root.add_child(_ammo_progress_track)
+	_ammo_progress_fill = ColorRect.new()
+	_ammo_progress_fill.color = Color("#d2945e")
+	_ammo_progress_fill.position = Vector2(2, 2)
+	_ammo_progress_fill.size = Vector2(0, 4)
+	_ammo_progress_fill.visible = false
+	_ammo_progress_track.add_child(_ammo_progress_fill)
+	_ammo_progress_tip = ColorRect.new()
+	_ammo_progress_tip.color = Color("#ffdaa1")
+	_ammo_progress_tip.position = Vector2(2, 2)
+	_ammo_progress_tip.size = Vector2(3, 4)
+	_ammo_progress_tip.visible = false
+	_ammo_progress_track.add_child(_ammo_progress_tip)
+	_blaster_coil_recess = Panel.new()
+	_blaster_coil_recess.name = "BlasterCoilRecess"
+	_blaster_coil_recess.position = Vector2(124, 13)
+	_blaster_coil_recess.size = Vector2(63, 26)
+	_blaster_coil_recess.add_theme_stylebox_override("panel", _panel_style(Color("#1b292c"), Color("#466d70"), 1, 4))
+	_blaster_coil_recess.visible = false
+	root.add_child(_blaster_coil_recess)
+	_blaster_coil = Line2D.new()
+	_blaster_coil.name = "BlasterCoil"
+	_blaster_coil.points = PackedVector2Array([Vector2(141, 18), Vector2(157, 18), Vector2(160, 20), Vector2(157, 22), Vector2(141, 22), Vector2(138, 24), Vector2(141, 26), Vector2(157, 26), Vector2(160, 28), Vector2(157, 30), Vector2(141, 30)])
+	_blaster_coil.width = 2.0
+	_blaster_coil.default_color = Color("#57bcca")
+	_blaster_coil.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	_blaster_coil.end_cap_mode = Line2D.LINE_CAP_ROUND
+	_blaster_coil.visible = false
+	root.add_child(_blaster_coil)
+	_blaster_progress_track = Panel.new()
+	_blaster_progress_track.name = "BlasterChargeGroove"
+	_blaster_progress_track.position = Vector2(17, 74)
+	_blaster_progress_track.size = Vector2(266, 8)
+	_blaster_progress_track.add_theme_stylebox_override("panel", _panel_style(Color("#121d20"), Color("#3c7076"), 1, 2))
+	_blaster_progress_track.visible = false
+	root.add_child(_blaster_progress_track)
+	_blaster_progress_fill = ColorRect.new()
+	_blaster_progress_fill.color = Color("#46d5e7")
+	_blaster_progress_fill.position = Vector2(2, 2)
+	_blaster_progress_fill.size = Vector2(0, 4)
+	_blaster_progress_fill.visible = false
+	_blaster_progress_track.add_child(_blaster_progress_fill)
+	_blaster_progress_tip = ColorRect.new()
+	_blaster_progress_tip.color = Color("#d7ffff")
+	_blaster_progress_tip.position = Vector2(2, 2)
+	_blaster_progress_tip.size = Vector2(3, 4)
+	_blaster_progress_tip.visible = false
+	_blaster_progress_track.add_child(_blaster_progress_tip)
 	for bolt_position in [Vector2(12, 12), Vector2(276, 12)]:
 		var bolt := Panel.new()
 		bolt.position = bolt_position
