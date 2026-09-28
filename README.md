@@ -478,8 +478,8 @@ Baroud ou soin à l'élimination d'Omnivamp. Les choix affichent les valeurs de 
 ou de la recharge avant et après amélioration.
 
 Les commandes `A`, `E` et `R` deviennent utilisables à mesure que leurs modules sont
-obtenus. Le HUD montre les vagues, les PV, le build et les cooldowns. Échap ou le bouton
-PAUSE ouvre la pause ; le résultat permet de recommencer ou de revenir au menu.
+obtenus. Le HUD montre la vague et les cooldowns. Échap ou le bouton PAUSE ouvre
+le build complet avec ses améliorations ; le résultat permet de recommencer ou de revenir au menu.
 Le test de parcours est `tools/test_survival.gd`.
 
 ## Commandes
