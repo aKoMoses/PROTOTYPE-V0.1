@@ -25,6 +25,15 @@ et les sensations de combat avec le Shotgun et les modules. Les kits de vie
 ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
 visibilité, avant leur passe de carte jouable.
 
+## Musique du menu
+
+Le menu utilise « Poussière et cambouis », le troisième essai validé par l'utilisateur,
+dans `art/audio/menu_poussiere_et_cambouis.wav` (Stable Audio 3 Medium, instrumental,
+30 secondes, stéréo 44,1 kHz). La piste continue dans l'équipement et les réglages,
+puis s'efface en 0,45 seconde au lancement du duel. Elle reprend au retour au menu.
+Le raccord de 0,75 seconde ramène la boucle à 4,75 secondes pour conserver la montée
+initiale seulement au démarrage. Niveau du lecteur : -10 dB.
+
 ## Musique du duel
 
 Le match charge `art/audio/arena_electro_build.wav`. La musique
@@ -34,6 +43,15 @@ et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous
 La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
 monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
 répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
+
+## Sons de résultat
+
+À l'affichage du résultat final du duel, la victoire joue
+`son-musique/musiques/01_victoire_rock.wav` (7 s) et la défaite
+`son-musique/musiques/02_defaite_forge.wav` (5 s), une seule fois à -6 dB.
+La musique du combat et le décompte s'arrêtent avant cette signature. Les manches
+intermédiaires restent sans jingle ; rejouer, changer d'équipement ou revenir au menu
+coupe le son de résultat en cours.
 
 ## Son du Blaster
 
