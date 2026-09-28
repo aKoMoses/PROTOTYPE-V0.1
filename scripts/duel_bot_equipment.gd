@@ -78,6 +78,7 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 		charge_remaining = maxf(0.0, charge_remaining - delta)
 		controller.set("_windup_remaining", charge_remaining)
 		controller.call("_update_telegraph")
+		_update_readout()
 		if charge_remaining <= 0.0:
 			_fire(body, player)
 			var recovery := float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["attack_recovery"]) if profile == "shotgun" else float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["cooldown"])
