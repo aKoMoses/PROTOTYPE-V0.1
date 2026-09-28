@@ -31,12 +31,13 @@ func _initialize() -> void:
 
 func _prepare(player: Node, target: Node, target_position: Vector3) -> void:
 	player.global_position = Vector3.ZERO
-	# Keep a real input source active through the delayed emission. The shotgun
-	# intentionally re-samples live aim after its 100 ms preparation window.
-	player.call("set_touch_aim_vector", Vector2.UP)
-	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 	player.call("reset_combat_state")
 	player.call("set_weapon", "shotgun")
+	# Keep a real input source active through the delayed emission. The shotgun
+	# intentionally re-samples live aim after its 100 ms preparation window. Set
+	# it after reset because reset now cancels every in-flight mobile gesture.
+	player.call("set_touch_aim_vector", Vector2.UP)
+	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 	target.global_position = target_position
 	target.call("reset_combat_state")
 

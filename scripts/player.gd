@@ -847,12 +847,21 @@ func trigger_touch_action(action: String) -> void:
 
 
 func clear_touch_inputs() -> void:
+	var touch_owned_charge := _touch_fire_charge_started
 	_touch_move_vector = Vector2.ZERO
 	_touch_aim_vector = Vector2.ZERO
 	_touch_aim_active = false
 	_touch_actions.clear()
 	_attack_hold_last = false
-	cancel_touch_fire()
+	_touch_fire_active = false
+	_touch_fire_started_at = -1.0
+	_touch_fire_charge_started = false
+	_touch_attack_held = false
+	_touch_fire_requests.clear()
+	# A hidden/inactive touch overlay must not cancel a charge started from the
+	# desktop input path. It only owns a charge it started after a touch hold.
+	if touch_owned_charge and _blaster_charge_active:
+		_cancel_blaster_charge()
 
 
 func set_gameplay_enabled(value: bool) -> void:
@@ -860,6 +869,7 @@ func set_gameplay_enabled(value: bool) -> void:
 	if not value:
 		_reset_weapon_pose_to_locomotion(true)
 		clear_touch_inputs()
+		_cancel_blaster_charge()
 		velocity = Vector3.ZERO
 		if not _round_warmup_active and not is_real_dead():
 			_play_player_animation(&"idle")
