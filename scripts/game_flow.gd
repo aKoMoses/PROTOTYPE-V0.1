@@ -52,6 +52,10 @@ const COUNTDOWN_SOUNDS := [
 const FIGHT_IMAGE: Texture2D = preload("res://art/countdown/fight.png")
 const FIGHT_SOUND: AudioStream = preload("res://art/audio/countdown-fight.mp3")
 const MATCH_MUSIC_PATH := "res://art/audio/arena_electro_build.wav"
+const MENU_MUSIC_PATH := "res://art/audio/menu_poussiere_et_cambouis.wav"
+const MENU_MUSIC_VOLUME_DB := -10.0
+const VICTORY_SOUND: AudioStream = preload("res://son-musique/musiques/01_victoire_rock.wav")
+const DEFEAT_SOUND: AudioStream = preload("res://son-musique/musiques/02_defaite_forge.wav")
 
 enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
 enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT, FIGHT, WINNER_FOCUS }
@@ -110,6 +114,10 @@ var _countdown_image: TextureRect
 var _countdown_digit_index := -1
 var _countdown_audio: AudioStreamPlayer
 var _match_music: AudioStreamPlayer
+var _menu_music: AudioStreamPlayer
+var _menu_music_tween: Tween
+var _menu_music_active := false
+var _result_audio: AudioStreamPlayer
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
@@ -152,7 +160,23 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		if _match_music.stream is AudioStreamWAV:
 			(_match_music.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 			(_match_music.stream as AudioStreamWAV).loop_begin = 408000
+			(_match_music.stream as AudioStreamWAV).loop_end = int(_match_music.stream.get_length() * (_match_music.stream as AudioStreamWAV).mix_rate)
 	add_child(_match_music)
+	_menu_music = AudioStreamPlayer.new()
+	_menu_music.name = "MenuMusic"
+	_menu_music.volume_db = -60.0
+	_menu_music.stream = load(MENU_MUSIC_PATH) as AudioStream
+	if _menu_music.stream is AudioStreamWAV:
+		var menu_stream := _menu_music.stream as AudioStreamWAV
+		menu_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		# The tail blends into 4.0–4.75 s, so the opening build plays only once.
+		menu_stream.loop_begin = int(4.75 * menu_stream.mix_rate)
+		menu_stream.loop_end = int(menu_stream.get_length() * menu_stream.mix_rate)
+	add_child(_menu_music)
+	_result_audio = AudioStreamPlayer.new()
+	_result_audio.name = "ResultAudio"
+	_result_audio.volume_db = -6.0
+	add_child(_result_audio)
 	_build_ui()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
@@ -270,6 +294,9 @@ func _clear_screen() -> void:
 
 func _show_screen(screen: Screen) -> void:
 	current_screen = screen
+	if screen != Screen.RESULT:
+		_result_audio.stop()
+	_set_menu_music_active(screen in [Screen.MENU, Screen.EQUIPMENT, Screen.SETTINGS])
 	_clear_screen()
 	if _pause_active and screen != Screen.COMBAT:
 		_end_pause(false)
@@ -990,6 +1017,22 @@ func _play_countdown_sound(sound: AudioStream) -> void:
 	_countdown_audio.stream = sound
 	_countdown_audio.play()
 
+func _set_menu_music_active(active: bool) -> void:
+	if _menu_music_active == active or _menu_music.stream == null:
+		return
+	_menu_music_active = active
+	if _menu_music_tween != null:
+		_menu_music_tween.kill()
+	_menu_music_tween = create_tween()
+	if active:
+		if not _menu_music.playing:
+			_menu_music.volume_db = -60.0
+			_menu_music.play()
+		_menu_music_tween.tween_property(_menu_music, "volume_db", MENU_MUSIC_VOLUME_DB, 0.8)
+	else:
+		_menu_music_tween.tween_property(_menu_music, "volume_db", -60.0, 0.45)
+		_menu_music_tween.tween_callback(_menu_music.stop)
+
 func _start_match_music() -> void:
 	if _match_music.stream == null:
 		return
@@ -1266,7 +1309,13 @@ func _start_next_round() -> void:
 
 
 func _show_final_result() -> void:
+	if round_phase == RoundPhase.MATCH_RESULT:
+		return
 	_stop_match_music()
+	_set_menu_music_active(false)
+	_countdown_audio.stop()
+	_result_audio.stream = VICTORY_SOUND if player_round_score >= 3 else DEFEAT_SOUND
+	_result_audio.play()
 	round_phase = RoundPhase.MATCH_RESULT
 	current_screen = Screen.RESULT
 	_round_resolved = true

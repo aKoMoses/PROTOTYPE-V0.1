@@ -16,7 +16,26 @@ func _initialize() -> void:
 	else:
 		if int(flow.get("current_screen")) != 0:
 			_failures.append("écran menu absent au démarrage")
+		var menu_music := flow.get_node("MenuMusic") as AudioStreamPlayer
+		if menu_music.stream == null or not menu_music.playing:
+			_failures.append("musique du menu absente au démarrage")
+		elif menu_music.stream.resource_path != "res://art/audio/menu_poussiere_et_cambouis.wav":
+			_failures.append("le menu ne joue pas la piste choisie")
+		else:
+			var menu_stream := menu_music.stream as AudioStreamWAV
+			if menu_stream.loop_mode != AudioStreamWAV.LOOP_FORWARD or menu_stream.loop_begin <= 0 or menu_stream.loop_end <= menu_stream.loop_begin:
+				_failures.append("boucle du menu absente ou invalide")
+			menu_music.seek(menu_stream.get_length() - 0.2)
+			await create_timer(0.6).timeout
+			if not menu_music.playing or menu_music.get_playback_position() < 4.75 or menu_music.get_playback_position() > 8.0:
+				_failures.append("la musique ne reboucle pas après son introduction")
+			menu_music.seek(0.0)
+		await create_timer(0.15).timeout
+		var menu_position := menu_music.get_playback_position()
+		flow.call("_open_settings")
 		flow.call("_open_equipment")
+		if not menu_music.playing or menu_music.get_playback_position() < menu_position:
+			_failures.append("musique du menu interrompue pendant la navigation")
 		var tabs: Dictionary = flow.get("_equipment_nav_buttons")
 		(tabs["passive"] as Button).emit_signal("pressed")
 		if str(flow.get("_equipment_category")) != "passive":
@@ -42,6 +61,10 @@ func _initialize() -> void:
 			_failures.append("joueur actif pendant le décompte")
 		var intro_audio := flow.get_node("CountdownAudio") as AudioStreamPlayer
 		var match_music := flow.get_node("MatchMusic") as AudioStreamPlayer
+		var result_audio := flow.get_node("ResultAudio") as AudioStreamPlayer
+		await create_timer(0.6).timeout
+		if menu_music.playing:
+			_failures.append("musique du menu encore active pendant le duel")
 		if match_music.stream == null or not match_music.stream is AudioStreamWAV:
 			_failures.append("musique locale du duel absente")
 		else:
@@ -124,6 +147,8 @@ func _initialize() -> void:
 			_failures.append("pause non levée")
 		flow.call("resolve_round", false, true)
 		await process_frame
+		if result_audio.playing:
+			_failures.append("jingle joué avant le résultat final du match")
 		if str(flow.call("get_round_phase_name")) != "WINNER_FOCUS" or flow.get("_result_panel").visible:
 			_failures.append("focus vainqueur absent avant le résultat")
 		if camera_rig.get("_focus_target") != player:
@@ -165,13 +190,42 @@ func _initialize() -> void:
 		flow.call("_start_next_round")
 		if str(flow.call("get_round_phase_name")) != "MATCH_RESULT" or int(flow.get("current_screen")) != 4:
 			_failures.append("le match ne se termine pas à trois victoires")
+		if not result_audio.playing or result_audio.stream.resource_path != "res://son-musique/musiques/01_victoire_rock.wav":
+			_failures.append("signature de victoire absente au résultat final")
+		if match_music.playing or intro_audio.playing:
+			_failures.append("la musique du combat masque le résultat final")
+		await create_timer(0.15).timeout
+		var result_position := result_audio.get_playback_position()
+		flow.call("_show_final_result")
+		if result_audio.get_playback_position() < result_position:
+			_failures.append("le résultat final relance sa signature")
 		flow.call("_restart")
+		if result_audio.playing:
+			_failures.append("la signature continue après rejouer")
 		flow.call("_begin_live_round")
 		if player_bar != null and not player_bar.visible:
 			_failures.append("la barre reste cachée au combat suivant")
 		flow.call("resolve_round", true, false)
 		if camera_rig.get("_focus_target") != target or flow.call("get_match_score") != Vector2i(0, 1):
 			_failures.append("la défaite ne cadre pas le bot vainqueur")
+		flow.set("bot_round_score", 3)
+		flow.call("_process", 1.6)
+		flow.set("_round_result_remaining", 0.0)
+		flow.call("_start_next_round")
+		if not result_audio.playing or result_audio.stream.resource_path != "res://son-musique/musiques/02_defaite_forge.wav":
+			_failures.append("signature de défaite absente au résultat final")
+		flow.call("_open_equipment")
+		if result_audio.playing:
+			_failures.append("la signature continue dans l'équipement")
+		flow.call("_return_menu")
+		if not menu_music.playing or match_music.playing:
+			_failures.append("retour au menu ne restaure pas sa musique seule")
+		# A quick return must cancel the pending fade-out callback.
+		flow.call("_start_duel")
+		flow.call("_return_menu")
+		await create_timer(0.9).timeout
+		if not menu_music.playing or menu_music.volume_db < -11.0:
+			_failures.append("retour rapide au menu laisse sa musique coupée")
 	scene.queue_free()
 	for _cleanup_frame in range(3):
 		await process_frame
