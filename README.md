@@ -36,13 +36,14 @@ initiale seulement au démarrage. Niveau du lecteur : -10 dB.
 
 ## Musique du duel
 
-Le match charge `art/audio/arena_electro_build.wav`. La musique
+Le match joue aussi « Poussière et cambouis » depuis
+`art/audio/menu_poussiere_et_cambouis.wav`. Le fichier source choisi est conservé dans
+`son-musique/musiques/03_poussiere_et_cambouis_30s.wav` ; la version du jeu possède
+un raccord de fin qui ramène la boucle à 4,75 secondes.
+
+La musique
 démarre avec le premier décompte, continue entre les manches, se met en pause avec le jeu
 et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous les effets sonores.
-
-La piste est une création instrumentale locale avec ACE-Step 1.5 (135 BPM). Son intro légère
-monte pendant environ huit secondes ; les boucles repartent à 8,5 secondes pour éviter de
-répéter la montée. Le WAV du jeu dure 36 secondes après montage et est inclus dans le projet.
 
 ## Sons de résultat
 

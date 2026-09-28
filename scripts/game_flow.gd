@@ -40,7 +40,7 @@ const COUNTDOWN_SOUNDS := [
 ]
 const FIGHT_IMAGE: Texture2D = preload("res://art/countdown/fight.png")
 const FIGHT_SOUND: AudioStream = preload("res://art/audio/countdown-fight.mp3")
-const MATCH_MUSIC_PATH := "res://art/audio/arena_electro_build.wav"
+const MATCH_MUSIC_PATH := "res://art/audio/menu_poussiere_et_cambouis.wav"
 const MENU_MUSIC_PATH := "res://art/audio/menu_poussiere_et_cambouis.wav"
 const MENU_MUSIC_VOLUME_DB := -10.0
 const VICTORY_SOUND: AudioStream = preload("res://son-musique/musiques/01_victoire_rock.wav")
@@ -140,7 +140,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		_match_music.stream = load(MATCH_MUSIC_PATH) as AudioStream
 		if _match_music.stream is AudioStreamWAV:
 			(_match_music.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
-			(_match_music.stream as AudioStreamWAV).loop_begin = 408000
+			(_match_music.stream as AudioStreamWAV).loop_begin = int(4.75 * (_match_music.stream as AudioStreamWAV).mix_rate)
 			(_match_music.stream as AudioStreamWAV).loop_end = int(_match_music.stream.get_length() * (_match_music.stream as AudioStreamWAV).mix_rate)
 	add_child(_match_music)
 	_menu_music = AudioStreamPlayer.new()
