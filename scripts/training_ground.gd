@@ -10,14 +10,10 @@ const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const UI_FONT: FontFile = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
-const MODULE_ICONS := {
-	"modulo_drone": preload("res://art/ui/icons/drone.svg"),
-	"javelin": preload("res://art/ui/icons/javelin.svg"),
-	"magnetic_field": preload("res://art/ui/icons/magnetic.svg"),
-	"static_shield": preload("res://art/ui/icons/shield.svg"),
-	"pyro_boots": preload("res://art/ui/icons/boots.svg"),
-	"bio_injector": preload("res://art/ui/icons/injector.svg"),
-}
+const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
+const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
+const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+var _equipment_icons = EQUIPMENT_ICONS.new()
 const CREAM := Color("#f3ddbb")
 const MUTED := Color("#bda995")
 const CYAN := Color("#42d9e5")
@@ -509,6 +505,14 @@ func _build_spell_bar(ui: Control) -> void:
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(icon)
 		_spell_labels["%s_icon" % module_id] = icon
+		var cooldown_ring := Control.new()
+		cooldown_ring.name = "CooldownRing"
+		cooldown_ring.set_script(COOLDOWN_RING)
+		cooldown_ring.position = Vector2(10.0, 9.0)
+		cooldown_ring.size = Vector2(48.0, 54.0)
+		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(cooldown_ring)
+		_spell_labels["%s_ring" % module_id] = cooldown_ring
 		var key_label := _spell_label(str(slot.key), 13, AMBER, Vector2(63.0, 9.0), Vector2(23.0, 23.0), HORIZONTAL_ALIGNMENT_CENTER)
 		content.add_child(key_label)
 		var module_label := _spell_label("", 11, CREAM, Vector2(88.0, 9.0), Vector2(89.0, 23.0), HORIZONTAL_ALIGNMENT_LEFT)
@@ -578,8 +582,10 @@ func _update_spell_bar() -> void:
 		var icon: TextureRect = _spell_labels["%s_icon" % key]
 		var status: Label = _spell_labels["%s_status" % key]
 		name_label.text = LOADOUT.display_name(identifier)
-		icon.texture = MODULE_ICONS.get(identifier)
+		icon.texture = _equipment_icons.get_icon(identifier)
 		var recast_active: bool = key == "offensive" and identifier == "javelin" and recast_fraction > 0.0
+		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
+		_spell_labels["%s_ring" % key].set_cooldown(cooldown, float(definition.get("cooldown", 1.0)), recast_active)
 		if key == "offensive":
 			_spell_labels.recast_frame.visible = recast_active
 			_spell_labels.recast_track.visible = recast_active
@@ -592,10 +598,10 @@ func _update_spell_bar() -> void:
 			icon.texture = JAVELIN_RECAST_ICON
 			icon.modulate = Color.WHITE
 		elif cooldown > 0.0:
-			status.text = "%.1fs" % cooldown
-			status.add_theme_color_override("font_color", MUTED)
-			name_label.add_theme_color_override("font_color", MUTED)
-			icon.modulate = Color("#6d6257")
+			status.text = "%.1f s" % cooldown
+			status.add_theme_color_override("font_color", CYAN)
+			name_label.add_theme_color_override("font_color", CREAM)
+			icon.modulate = Color("#b7aaa0")
 		else:
 			status.text = "PRÊT"
 			status.add_theme_color_override("font_color", CYAN)

@@ -7,24 +7,13 @@ extends CanvasLayer
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
-const BLASTER_ICON: Texture2D = preload("res://art/icons/blaster-gravure.png")
-const SHOTGUN_ICON: Texture2D = preload("res://art/icons/shotgun-gravure.png")
+const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
+const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
+var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
-const MODULE_ICONS := {
-	"modulo_drone": preload("res://art/ui/icons/drone.svg"),
-	"javelin": preload("res://art/ui/icons/javelin.svg"),
-	"magnetic_field": preload("res://art/ui/icons/magnetic.svg"),
-	"static_shield": preload("res://art/ui/icons/shield.svg"),
-	"pyro_boots": preload("res://art/ui/icons/boots.svg"),
-	"bio_injector": preload("res://art/ui/icons/injector.svg"),
-}
-const PASSIVE_ICONS := {
-	"baroud": preload("res://art/icons/baroud-gravure.png"),
-	"omnivamp": preload("res://art/icons/omnivamp-gravure.png"),
-}
 const EQUIPMENT_CATEGORIES := [
 	{"id": "weapon", "title": "ARME"},
 	{"id": "offensive", "title": "OFFENSIF"},
@@ -105,8 +94,6 @@ var _equipment_info_id := ""
 var _selection_buttons: Dictionary = {}
 var _selection_markers: Dictionary = {}
 var _hud_labels: Dictionary = {}
-var _blaster_ui_icon: AtlasTexture
-var _shotgun_ui_icon: AtlasTexture
 var _countdown_overlay: Control
 var _countdown_dim: ColorRect
 var _countdown_glow: TextureRect
@@ -141,12 +128,6 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	touch_controls = touch_node
 	loadout = LOADOUT.load_local()
 	_load_settings()
-	_blaster_ui_icon = AtlasTexture.new()
-	_blaster_ui_icon.atlas = BLASTER_ICON
-	_blaster_ui_icon.region = Rect2(100, 270, 1100, 770)
-	_shotgun_ui_icon = AtlasTexture.new()
-	_shotgun_ui_icon.atlas = SHOTGUN_ICON
-	_shotgun_ui_icon.region = Rect2(0, 250, 1280, 830)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_countdown_audio = AudioStreamPlayer.new()
 	_countdown_audio.name = "CountdownAudio"
@@ -680,13 +661,7 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	_selection_markers[category][identifier] = marker
 
 func _equipment_icon(identifier: String) -> Texture2D:
-	match identifier:
-		"blaster": return _blaster_ui_icon
-		"shotgun": return _shotgun_ui_icon
-		_:
-			if MODULE_ICONS.has(identifier):
-				return MODULE_ICONS[identifier]
-			return PASSIVE_ICONS.get(identifier)
+	return _equipment_icons.get_icon(identifier)
 
 func _equipment_card_style(active: bool, hover: bool = false) -> StyleBoxFlat:
 	var background := Color("#123039") if active else Color("#1c1d1f")
@@ -861,6 +836,14 @@ func _build_hud() -> void:
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(placeholder)
 		_hud_labels["%s_icon" % module_id] = placeholder
+		var cooldown_ring := Control.new()
+		cooldown_ring.name = "CooldownRing"
+		cooldown_ring.set_script(COOLDOWN_RING)
+		cooldown_ring.position = Vector2(10.0, 9.0)
+		cooldown_ring.size = Vector2(48.0, 54.0)
+		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_content.add_child(cooldown_ring)
+		_hud_labels["%s_ring" % module_id] = cooldown_ring
 		var key_label := _label(str(slot["key"]), 13, AMBER)
 		key_label.position = Vector2(63.0, 9.0)
 		key_label.size = Vector2(23.0, 23.0)
@@ -1105,8 +1088,10 @@ func _update_hud() -> void:
 		var identifier: String = spell_modules[key]
 		var cooldown := float(player.call("get_module_cooldown", identifier))
 		_hud_labels[key].text = LOADOUT.display_name(identifier)
-		_hud_labels["%s_icon" % key].texture = MODULE_ICONS.get(identifier)
+		_hud_labels["%s_icon" % key].texture = _equipment_icons.get_icon(identifier)
 		var recast_active: bool = key == "offensive" and identifier == "javelin" and _javelin_recast_display_fraction > 0.0
+		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
+		_hud_labels["%s_ring" % key].set_cooldown(cooldown, float(definition.get("cooldown", 1.0)), recast_active)
 		if key == "offensive":
 			_hud_labels.offensive_recast_frame.visible = recast_active
 			_hud_labels.offensive_recast_track.visible = recast_active
@@ -1119,10 +1104,10 @@ func _update_hud() -> void:
 			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 		elif cooldown > 0.0:
-			_hud_labels["%s_status" % key].text = "%.1fs" % cooldown
-			_hud_labels["%s_status" % key].add_theme_color_override("font_color", MUTED)
-			_hud_labels[key].add_theme_color_override("font_color", MUTED)
-			_hud_labels["%s_icon" % key].modulate = Color("#6d6257")
+			_hud_labels["%s_status" % key].text = "%.1f s" % cooldown
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
+			_hud_labels[key].add_theme_color_override("font_color", CREAM)
+			_hud_labels["%s_icon" % key].modulate = Color("#b7aaa0")
 		else:
 			_hud_labels["%s_status" % key].text = "PRÊT"
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
