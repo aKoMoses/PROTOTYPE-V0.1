@@ -1,6 +1,6 @@
 # Prototype 0 — suivi V0.2
 
-Dernière vérification : 26 septembre 2026. Renderer conservé : Godot 4.7.2 Mobile.
+Dernière vérification : 28 septembre 2026 (IA du duel). Renderer conservé : Godot 4.7.2 Mobile.
 
 ## État de la passe
 
@@ -14,6 +14,7 @@ Dernière vérification : 26 septembre 2026. Renderer conservé : Godot 4.7.2 Mo
 | V02-06 — Android | APK produit et signé | `exports/prototype0-debug.apk`, package `com.prototype0.arena`, version code 2 / nom 0.2.0, arm64, SHA-256 `C6F3BC144242C90A459FD2F4E33596D0B6F053D18BAC08FC621F2B0EA850019B`. |
 | V02-07 — documentation | Implémenté | Ce fichier est le suivi local de référence ; aucune mise à jour Notion requise. |
 | V02-08 — kits supplémentaires | Reporté | À commencer après validation de la boucle de manche. |
+| V02-09 — décisions du bot en duel | Implémenté et testé en headless | Le bot poursuit la dernière position vue pendant 4 s, cherche un angle praticable autour des couverts, accélère son approche après avoir vu une recharge de Shotgun et attend 0,2 s avant d'esquiver une attaque visible. L'entraînement et la Survie gardent leurs règles propres. `tools/test_duel_bot.gd` PASS ; sensations en jeu à valider. |
 
 ## Tests exécutés
 
@@ -22,6 +23,7 @@ Dernière vérification : 26 septembre 2026. Renderer conservé : Godot 4.7.2 Mo
 - `test_blaster.gd`, `test_shotgun.gd`, `test_combat_state.gd`, `test_target_dummy.gd` — PASS.
 - `test_offensive_modules.gd`, `test_defensive_modules.gd`, `test_mobility_modules.gd`, `test_passives.gd` — PASS.
 - `test_training_bot.gd`, `test_visibility.gd`, `test_touch_controls.gd`, `test_fx_budget.gd` — PASS.
+- `test_duel_bot.gd` — PASS : perte de trace derrière le couvert central, contournement réel, oubli après 4 s, avancée pendant une recharge visible, absence de lecture de la recharge à travers le couvert et délai avant esquive.
 
 Captures réellement inspectées : `captures/v02_menu.png`, `captures/v02_equipment.png`,
 `captures/v02_duel_live.png` et `captures/v02_result.png`.

@@ -306,6 +306,10 @@ func set_duel_mode(value: bool) -> void:
 		_duel_paused = false
 
 
+func is_duel_mode() -> bool:
+	return _duel_mode
+
+
 func set_duel_paused(value: bool) -> void:
 	_duel_paused = value
 	_last_visual_position = global_position

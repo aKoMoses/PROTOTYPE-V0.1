@@ -20,6 +20,12 @@ const DODGE_DURATION := 0.34
 const DODGE_COOLDOWN := 3.5
 const DODGE_SPEED := 7.2
 const MOVE_ACCELERATION := 7.0
+const DUEL_MEMORY_SECONDS := 4.0
+const DUEL_ANGLE_INTERVAL := 1.25
+const DUEL_RELOAD_REACTION := 0.35
+const DUEL_DODGE_REACTION := 0.20
+const DUEL_PRESS_SPEED := 3.0
+const DUEL_FLANK_SPEED := 3.2
 var training_stationary := false
 var training_attack_interval := ATTACK_INTERVAL
 var training_attack_damage := ATTACK_DAMAGE
@@ -50,6 +56,12 @@ var _visual_aim_position := Vector3.ZERO
 var _has_visual_aim_position := false
 var _blocked_time := 0.0
 var _avoid_direction := Vector3.ZERO
+var _last_seen_at := -100.0
+var _reload_observed_at := -1.0
+var _attack_observed_at := -1.0
+var _next_angle_at := 0.0
+var _angle_destination := Vector3.ZERO
+var _has_angle_destination := false
 
 
 func _ready() -> void:
@@ -76,6 +88,7 @@ func set_enabled(value: bool) -> void:
 	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
+	_reset_duel_decisions()
 	_charge_remaining = 0.0
 	_charge_hit = false
 	_update_telegraph()
@@ -110,6 +123,7 @@ func reset_clock() -> void:
 	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
+	_reset_duel_decisions()
 	_charge_remaining = 0.0
 	_charge_hit = false
 	_update_telegraph()
@@ -129,6 +143,14 @@ func is_dodging() -> bool:
 
 func get_dodge_cooldown_remaining() -> float:
 	return maxf(0.0, _dodge_cooldown_remaining)
+
+
+func _reset_duel_decisions() -> void:
+	_last_seen_at = -100.0
+	_reload_observed_at = -1.0
+	_attack_observed_at = -1.0
+	_next_angle_at = 0.0
+	_has_angle_destination = false
 
 
 func get_attack_phase() -> String:
@@ -183,18 +205,19 @@ func _physics_process(delta: float) -> void:
 		_update_telegraph()
 		return
 	_elapsed += delta
-	var player_visible := true
-	if bot_body.has_method("is_visible_to"):
-		player_visible = bool(bot_body.call("is_visible_to", player))
-	if player_visible and _line_of_sight_clear(bot_body, player):
+	var duel_tactics := bot_body.has_method("is_duel_mode") and bool(bot_body.call("is_duel_mode"))
+	var target_visible := (not player.has_method("is_visible_to") or bool(player.call("is_visible_to", bot_body))) and _line_of_sight_clear(bot_body, player)
+	if target_visible:
 		_last_observed_position = player.global_position
 		_has_last_observed_position = true
-	# Keep the existing pursuit decision untouched, and separately gate the
-	# visual target with the player's visibility to this bot.
-	var target_visible := not player.has_method("is_visible_to") or bool(player.call("is_visible_to", bot_body))
-	if target_visible and _line_of_sight_clear(bot_body, player):
 		_visual_aim_position = player.global_position
 		_has_visual_aim_position = true
+		_last_seen_at = _elapsed
+	elif duel_tactics and _elapsed - _last_seen_at > DUEL_MEMORY_SECONDS:
+		_has_last_observed_position = false
+		_has_visual_aim_position = false
+	if duel_tactics:
+		_observe_duel_reload(player, target_visible)
 	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if training_stationary:
@@ -204,9 +227,12 @@ func _physics_process(delta: float) -> void:
 		_move_velocity = _move_velocity.move_toward(_dodge_direction * DODGE_SPEED, MOVE_ACCELERATION * delta)
 		_move_bot(bot_body, delta)
 	else:
-		_try_dodge(bot_body, player)
+		_try_dodge(bot_body, player, target_visible, duel_tactics)
 		if _dodge_remaining <= 0.0:
-			_update_patrol(bot_body, pursuit_position, delta)
+			if duel_tactics:
+				_update_duel_movement(bot_body, pursuit_position, target_visible, delta)
+			else:
+				_update_patrol(bot_body, pursuit_position, delta)
 	_telegraph_clock += delta
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -282,6 +308,99 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		_update_telegraph()
 
 
+func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
+	var reloading := target_visible and player.has_method("get_weapon_id") and str(player.call("get_weapon_id")) == "shotgun" and player.has_method("is_shotgun_reloading") and bool(player.call("is_shotgun_reloading"))
+	if reloading:
+		if _reload_observed_at < 0.0:
+			_reload_observed_at = _elapsed
+	else:
+		_reload_observed_at = -1.0
+
+
+func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_visible: bool, delta: float) -> void:
+	var desired := pursuit_position
+	var speed := MOVE_SPEED
+	if target_visible:
+		_has_angle_destination = false
+		var toward := pursuit_position - bot_body.global_position
+		toward.y = 0.0
+		var distance := toward.length()
+		if distance > 0.05:
+			var direction := toward / distance
+			var press_reload := _reload_observed_at >= 0.0 and _elapsed - _reload_observed_at >= DUEL_RELOAD_REACTION
+			var minimum_range := 4.5 if press_reload else IDEAL_RANGE_MIN
+			var maximum_range := 6.0 if press_reload else IDEAL_RANGE_MAX
+			if distance < minimum_range:
+				desired = bot_body.global_position - direction * 2.2
+			elif distance > maximum_range:
+				desired = bot_body.global_position + direction * 2.0
+			else:
+				var side := Vector3(-direction.z, 0.0, direction.x)
+				desired = bot_body.global_position + side * (1.5 if _attack_serial % 2 == 0 else -1.5)
+			if press_reload:
+				speed = DUEL_PRESS_SPEED
+	elif _has_last_observed_position:
+		if _elapsed >= _next_angle_at or (_has_angle_destination and bot_body.global_position.distance_to(_angle_destination) < 0.65):
+			_select_duel_angle(bot_body, pursuit_position)
+			_next_angle_at = _elapsed + DUEL_ANGLE_INTERVAL
+		if _has_angle_destination:
+			desired = _angle_destination
+			speed = DUEL_FLANK_SPEED
+	else:
+		_has_angle_destination = false
+	var to_desired := desired - bot_body.global_position
+	to_desired.y = 0.0
+	var desired_velocity := Vector3.ZERO
+	if to_desired.length_squared() > 0.16:
+		var slow_multiplier := 1.0
+		if bot_body.has_method("get_slow_percent"):
+			slow_multiplier = 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
+		desired_velocity = to_desired.normalized() * speed * slow_multiplier
+	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
+	_move_bot(bot_body, delta)
+
+
+func _select_duel_angle(bot_body: Node3D, last_known_position: Vector3) -> void:
+	_has_angle_destination = false
+	var toward := last_known_position - bot_body.global_position
+	toward.y = 0.0
+	if toward.length_squared() < 0.25:
+		return
+	var direction := toward.normalized()
+	var side := Vector3(-direction.z, 0.0, direction.x)
+	var best_score := INF
+	for lateral_distance in [3.0, 6.0, 9.0, 11.0]:
+		for side_sign in [-1.0, 1.0]:
+			var candidate: Vector3 = bot_body.global_position + side * lateral_distance * side_sign + direction * 1.5
+			if absf(candidate.x) > 26.0 or absf(candidate.z) > 26.0:
+				continue
+			if not _duel_path_clear(bot_body, bot_body.global_position, candidate):
+				continue
+			var shot_clear := _duel_path_clear(bot_body, candidate, last_known_position)
+			var range_to_target: float = candidate.distance_to(last_known_position)
+			var score: float = (0.0 if shot_clear else 20.0) + absf(range_to_target - 7.0) * 0.6 + lateral_distance * 0.1
+			if score < best_score:
+				best_score = score
+				_angle_destination = candidate
+				_has_angle_destination = true
+
+
+func _duel_path_clear(bot_body: Node3D, origin: Vector3, destination: Vector3) -> bool:
+	var world := bot_body.get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(origin + Vector3.UP * 0.72, destination + Vector3.UP * 0.72)
+	query.collision_mask = 1 | 8
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [bot_body.get_rid()]
+	var scene := get_tree().current_scene if get_tree() != null else null
+	var player := scene.get_node_or_null("Player") as CollisionObject3D if scene != null else null
+	if player != null:
+		query.exclude.append(player.get_rid())
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
 func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -> void:
 	var to_player := pursuit_position - bot_body.global_position
 	to_player.y = 0.0
@@ -341,11 +460,17 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 	bot_body.global_position.y = 0.0
 
 
-func _try_dodge(bot_body: Node3D, player: Node3D) -> void:
-	if _dodge_cooldown_remaining > 0.0 or not player.has_method("is_attack_committed"):
+func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tactics: bool) -> void:
+	if not player.has_method("is_attack_committed") or not bool(player.call("is_attack_committed")) or (duel_tactics and not target_visible):
+		_attack_observed_at = -1.0
 		return
-	if not bool(player.call("is_attack_committed")):
+	if _dodge_cooldown_remaining > 0.0:
 		return
+	if duel_tactics:
+		if _attack_observed_at < 0.0:
+			_attack_observed_at = _elapsed
+		if _elapsed - _attack_observed_at < DUEL_DODGE_REACTION:
+			return
 	var away := bot_body.global_position - player.global_position
 	away.y = 0.0
 	if away.length_squared() < 0.01:
