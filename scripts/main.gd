@@ -1603,6 +1603,7 @@ func prepare_round(loadout: Dictionary) -> void:
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	target.call("set_duel_mode", true)
+	target.call("set_duel_profile", "shotgun" if game_flow != null and game_flow.round_number % 2 == 0 else "blaster")
 	target.call("set_training_bot_enabled", false)
 	target.call("reset_combat_state")
 	player.call("apply_loadout", loadout)

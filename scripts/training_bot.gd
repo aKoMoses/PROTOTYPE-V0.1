@@ -1,6 +1,8 @@
 class_name TrainingBot
 extends Node
 
+const DUEL_EQUIPMENT := preload("res://scripts/duel_bot_equipment.gd")
+
 ## Lightweight local opponent used for manual combat/visibility testing.
 ## It is opt-in (F7), uses a readable wind-up telegraph, and deliberately
 ## applies raw damage only: status effects must still come from the player's
@@ -66,12 +68,19 @@ var _attack_observed_at := -1.0
 var _next_angle_at := 0.0
 var _angle_destination := Vector3.ZERO
 var _has_angle_destination := false
+var _duel_equipment: Node
+var _threat_serial := 0
+var _threat_position := Vector3.ZERO
+var _projectile_previous: Dictionary = {}
 
 
 func _ready() -> void:
 	var owner_3d := get_parent() as Node3D
 	if owner_3d != null:
 		_spawn_position = owner_3d.global_position
+	_duel_equipment = DUEL_EQUIPMENT.new()
+	_duel_equipment.name = "DuelEquipment"
+	add_child(_duel_equipment)
 	_build_telegraph()
 	set_physics_process(false)
 
@@ -93,6 +102,8 @@ func set_enabled(value: bool) -> void:
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_reset_duel_decisions()
+	if _duel_equipment != null:
+		_duel_equipment.call("reset")
 	_charge_remaining = 0.0
 	_charge_hit = false
 	_update_telegraph()
@@ -128,6 +139,8 @@ func reset_clock() -> void:
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_reset_duel_decisions()
+	if _duel_equipment != null:
+		_duel_equipment.call("reset")
 	_charge_remaining = 0.0
 	_charge_hit = false
 	_update_telegraph()
@@ -155,6 +168,25 @@ func _reset_duel_decisions() -> void:
 	_attack_observed_at = -1.0
 	_next_angle_at = 0.0
 	_has_angle_destination = false
+	_threat_serial = 0
+	_projectile_previous.clear()
+
+
+func set_duel_profile(value: String) -> void:
+	if _duel_equipment != null:
+		_duel_equipment.call("set_profile", value)
+
+
+func get_duel_profile() -> String:
+	return str(_duel_equipment.get("profile")) if _duel_equipment != null else "blaster"
+
+
+func get_duel_ammo() -> int:
+	return int(_duel_equipment.get("ammo")) if _duel_equipment != null else 0
+
+
+func is_duel_reloading() -> bool:
+	return bool(_duel_equipment.call("is_reloading")) if _duel_equipment != null else false
 
 
 func get_attack_phase() -> String:
@@ -222,6 +254,7 @@ func _physics_process(delta: float) -> void:
 		_has_visual_aim_position = false
 	if duel_tactics:
 		_observe_duel_reload(player, target_visible)
+		_duel_equipment.call("tick", delta, _elapsed, target_visible, _last_observed_position, bot_body, player, self)
 	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if training_stationary:
@@ -234,9 +267,14 @@ func _physics_process(delta: float) -> void:
 		_try_dodge(bot_body, player, target_visible, duel_tactics)
 		if _dodge_remaining <= 0.0:
 			if duel_tactics:
-				_update_duel_movement(bot_body, pursuit_position, target_visible, delta)
+				if bool(_duel_equipment.call("is_dashing")):
+					_duel_equipment.call("advance_dash", bot_body, self, delta)
+				else:
+					_update_duel_movement(bot_body, pursuit_position, target_visible, delta)
 			else:
 				_update_patrol(bot_body, pursuit_position, delta)
+	if duel_tactics:
+		return
 	_telegraph_clock += delta
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -346,6 +384,8 @@ func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
 func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_visible: bool, delta: float) -> void:
 	var desired := pursuit_position
 	var speed := MOVE_SPEED
+	var shotgun := get_duel_profile() == "shotgun"
+	var reloading := is_duel_reloading()
 	if target_visible:
 		_has_angle_destination = false
 		var toward := pursuit_position - bot_body.global_position
@@ -354,8 +394,8 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 		if distance > 0.05:
 			var direction := toward / distance
 			var press_reload := _reload_observed_at >= 0.0 and _elapsed - _reload_observed_at >= DUEL_RELOAD_REACTION
-			var minimum_range := 4.5 if press_reload else IDEAL_RANGE_MIN
-			var maximum_range := 6.0 if press_reload else IDEAL_RANGE_MAX
+			var minimum_range := 6.0 if reloading else 1.8 if shotgun else 4.5 if press_reload else 7.0
+			var maximum_range := 8.0 if reloading else 3.0 if shotgun else 6.0 if press_reload else 10.5
 			if distance < minimum_range:
 				desired = bot_body.global_position - direction * 2.2
 			elif distance > maximum_range:
@@ -381,7 +421,7 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 		var slow_multiplier := 1.0
 		if bot_body.has_method("get_slow_percent"):
 			slow_multiplier = 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
-		desired_velocity = to_desired.normalized() * speed * slow_multiplier
+		desired_velocity = to_desired.normalized() * speed * slow_multiplier * float(_duel_equipment.call("get_speed_multiplier"))
 	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
 	_move_bot(bot_body, delta)
 
@@ -558,9 +598,12 @@ func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tac
 	if duel_tactics:
 		if _attack_observed_at < 0.0:
 			_attack_observed_at = _elapsed
+			_threat_serial += 1
+			if _threat_serial % 4 == 0:
+				_attack_observed_at = INF
 		if _elapsed - _attack_observed_at < DUEL_DODGE_REACTION:
 			return
-	var away := bot_body.global_position - player.global_position
+	var away := bot_body.global_position - (_threat_position if duel_tactics else player.global_position)
 	away.y = 0.0
 	if away.length_squared() < 0.01:
 		away = Vector3.RIGHT
@@ -572,6 +615,31 @@ func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tac
 	_dodge_remaining = DODGE_DURATION
 	_dodge_cooldown_remaining = DODGE_COOLDOWN
 	_move_velocity = _dodge_direction * DODGE_SPEED
+
+
+func _visible_player_threat(bot_body: Node3D, player: Node3D, target_visible: bool) -> bool:
+	if target_visible and player.has_method("is_blaster_charging") and bool(player.call("is_blaster_charging")):
+		_threat_position = player.global_position
+		return true
+	var latest: Dictionary = {}
+	var threatened := false
+	for projectile in get_tree().get_nodes_in_group("prototype0_gameplay_projectiles"):
+		if not projectile is Node3D or not str(projectile.name) in ["BlasterProjectile", "ShotgunPellet"]:
+			continue
+		var id := projectile.get_instance_id()
+		var position: Vector3 = projectile.global_position
+		latest[id] = position
+		if not _projectile_previous.has(id):
+			continue
+		var motion: Vector3 = position - _projectile_previous[id]
+		var toward := bot_body.global_position + Vector3.UP * 0.9 - position
+		if motion.length_squared() < 0.0001 or toward.length() > 8.0 or motion.normalized().dot(toward.normalized()) < 0.75:
+			continue
+		if _duel_path_clear(bot_body, bot_body.global_position, position):
+			_threat_position = position
+			threatened = true
+	_projectile_previous = latest
+	return threatened
 
 
 func _can_attack(bot_body: Node3D, player: Node3D) -> bool:

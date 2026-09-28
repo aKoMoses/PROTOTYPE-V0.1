@@ -304,6 +304,19 @@ func set_duel_mode(value: bool) -> void:
 	_duel_mode = value
 	if not value:
 		_duel_paused = false
+		if _health_readout != null:
+			_health_readout.call("update_actor_identity", Color("#ee6b4e"), "BOT")
+			_health_readout.call("set_shotgun_ammo", false, 0, 3, false, 0.0)
+			_health_readout.call("set_blaster_charge", false, false, 0.0)
+
+
+func set_duel_profile(value: String) -> void:
+	if _training_bot != null:
+		_training_bot.call("set_duel_profile", value)
+
+
+func get_duel_profile() -> String:
+	return str(_training_bot.call("get_duel_profile")) if _training_bot != null else "blaster"
 
 
 func is_duel_mode() -> bool:
