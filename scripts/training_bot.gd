@@ -20,6 +20,10 @@ const DODGE_DURATION := 0.34
 const DODGE_COOLDOWN := 3.5
 const DODGE_SPEED := 7.2
 const MOVE_ACCELERATION := 7.0
+const SURVIVAL_ARENA_LIMIT := 21.0
+const CHARGE_OBSTACLE_MARGIN := 0.7
+const BOT_COLLISION_MARGIN := 0.04
+const BOT_CONTACT_GAP := 0.12
 const DUEL_MEMORY_SECONDS := 4.0
 const DUEL_ANGLE_INTERVAL := 1.25
 const DUEL_RELOAD_REACTION := 0.35
@@ -260,14 +264,10 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 	var distance := toward.length()
 	if _charge_remaining > 0.0:
 		_charge_remaining = maxf(0.0, _charge_remaining - delta)
-		_move_velocity = (_charge_target - bot_body.global_position).normalized() * (18.0 if survival_role == "charger" else 14.0)
-		_move_velocity.y = 0.0
-		_move_bot(bot_body, delta)
-		if not _charge_hit and bot_body.global_position.distance_to(player.global_position) < (2.0 if survival_role == "boss" else 1.35):
+		_advance_charge(bot_body, delta)
+		if not _charge_hit and bot_body.global_position.distance_to(player.global_position) < (2.0 if survival_role == "boss" else 1.35) and _line_of_sight_clear(bot_body, player):
 			player.call("take_damage", training_attack_damage, "survival_charge", "charge:%d" % _attack_serial)
 			_charge_hit = true
-		if bot_body.global_position.distance_to(_charge_target) < 0.8:
-			_charge_remaining = 0.0
 		return
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -308,6 +308,32 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		_update_telegraph()
 
 
+func _advance_charge(bot_body: Node3D, delta: float) -> void:
+	if not _recover_bot_from_cover(bot_body):
+		_charge_remaining = 0.0
+		_move_velocity = Vector3.ZERO
+		return
+	var to_target := _charge_target - bot_body.global_position
+	to_target.y = 0.0
+	var distance := to_target.length()
+	if distance <= 0.01:
+		_charge_remaining = 0.0
+		_move_velocity = Vector3.ZERO
+		return
+	var direction := to_target / distance
+	var step := minf(distance, (18.0 if survival_role == "charger" else 14.0) * delta)
+	var previous_position := bot_body.global_position
+	var safe_motion := _safe_bot_motion(bot_body, direction * (step + CHARGE_OBSTACLE_MARGIN))
+	var next_position := previous_position + direction * minf(step, safe_motion.length())
+	next_position.x = clampf(next_position.x, -SURVIVAL_ARENA_LIMIT, SURVIVAL_ARENA_LIMIT)
+	next_position.z = clampf(next_position.z, -SURVIVAL_ARENA_LIMIT, SURVIVAL_ARENA_LIMIT)
+	next_position.y = 0.0
+	bot_body.global_position = next_position
+	if next_position.distance_to(_charge_target) <= 0.01 or next_position.distance_to(previous_position) < step - 0.01:
+		_charge_remaining = 0.0
+		_move_velocity = Vector3.ZERO
+
+
 func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
 	var reloading := target_visible and player.has_method("get_weapon_id") and str(player.call("get_weapon_id")) == "shotgun" and player.has_method("is_shotgun_reloading") and bool(player.call("is_shotgun_reloading"))
 	if reloading:
@@ -340,7 +366,7 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 			if press_reload:
 				speed = DUEL_PRESS_SPEED
 	elif _has_last_observed_position:
-		if _elapsed >= _next_angle_at or (_has_angle_destination and bot_body.global_position.distance_to(_angle_destination) < 0.65):
+		if not _has_angle_destination or bot_body.global_position.distance_to(_angle_destination) < 0.65 or (_blocked_time > 0.6 and _elapsed >= _next_angle_at):
 			_select_duel_angle(bot_body, pursuit_position)
 			_next_angle_at = _elapsed + DUEL_ANGLE_INTERVAL
 		if _has_angle_destination:
@@ -374,7 +400,8 @@ func _select_duel_angle(bot_body: Node3D, last_known_position: Vector3) -> void:
 			var candidate: Vector3 = bot_body.global_position + side * lateral_distance * side_sign + direction * 1.5
 			if absf(candidate.x) > 26.0 or absf(candidate.z) > 26.0:
 				continue
-			if not _duel_path_clear(bot_body, bot_body.global_position, candidate):
+			var travel := candidate - bot_body.global_position
+			if _safe_bot_motion(bot_body, travel).length_squared() < travel.length_squared() * 0.98:
 				continue
 			var shot_clear := _duel_path_clear(bot_body, candidate, last_known_position)
 			var range_to_target: float = candidate.distance_to(last_known_position)
@@ -433,31 +460,93 @@ func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -
 func _move_bot(bot_body: Node3D, delta: float) -> void:
 	if _move_velocity.length_squared() <= 0.0001:
 		_move_velocity = Vector3.ZERO
-	var next_position := bot_body.global_position + _move_velocity * delta
-	var world := bot_body.get_world_3d()
-	if world != null and _move_velocity.length_squared() > 0.001:
-		var query := PhysicsRayQueryParameters3D.create(bot_body.global_position + Vector3.UP * 0.72, next_position + Vector3.UP * 0.72)
-		query.collision_mask = 1 | 8
-		query.collide_with_areas = true
-		query.collide_with_bodies = true
-		query.exclude = [bot_body.get_rid()]
-		var hit: Dictionary = world.direct_space_state.intersect_ray(query)
-		if not hit.is_empty():
-			_blocked_time += delta
-			if _avoid_direction == Vector3.ZERO or _blocked_time > 0.35:
-				var side := Vector3(-_move_velocity.z, 0.0, _move_velocity.x).normalized()
-				_avoid_direction = side if int(_elapsed * 2.0) % 2 == 0 else -side
-			_blocked_time = 0.0
-			var slide_velocity := _avoid_direction * maxf(MOVE_SPEED * 0.8, _move_velocity.length() * 0.65)
-			next_position = bot_body.global_position + slide_velocity * delta
-			_move_velocity = _move_velocity.move_toward(slide_velocity, MOVE_ACCELERATION * delta)
-		else:
-			_blocked_time = maxf(0.0, _blocked_time - delta * 0.5)
-			_avoid_direction = Vector3.ZERO
-	bot_body.global_position = next_position
-	bot_body.global_position.x = clampf(bot_body.global_position.x, -27.0, 27.0)
-	bot_body.global_position.z = clampf(bot_body.global_position.z, -27.0, 27.0)
+	if not _recover_bot_from_cover(bot_body):
+		_move_velocity = Vector3.ZERO
+		return
+	var requested_motion := _move_velocity * delta
+	var safe_motion := _safe_bot_motion(bot_body, requested_motion)
+	bot_body.global_position += safe_motion
+	if safe_motion.length_squared() + 0.000001 < requested_motion.length_squared():
+		_blocked_time += delta
+		if _avoid_direction == Vector3.ZERO:
+			var side := Vector3(-_move_velocity.z, 0.0, _move_velocity.x).normalized()
+			_avoid_direction = side if int(_elapsed * 2.0) % 2 == 0 else -side
+		var slide_velocity := _avoid_direction * maxf(MOVE_SPEED * 0.8, _move_velocity.length() * 0.65)
+		var slide_motion := slide_velocity * delta
+		var safe_slide := _safe_bot_motion(bot_body, slide_motion)
+		if safe_slide.length_squared() < slide_motion.length_squared() * 0.25:
+			_avoid_direction = -_avoid_direction
+			slide_velocity = -slide_velocity
+			safe_slide = _safe_bot_motion(bot_body, slide_velocity * delta)
+		bot_body.global_position += safe_slide
+		_move_velocity = _move_velocity.move_toward(slide_velocity, MOVE_ACCELERATION * delta)
+	else:
+		_blocked_time = maxf(0.0, _blocked_time - delta * 0.5)
+		_avoid_direction = Vector3.ZERO
+	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	bot_body.global_position.x = clampf(bot_body.global_position.x, -arena_limit, arena_limit)
+	bot_body.global_position.z = clampf(bot_body.global_position.z, -arena_limit, arena_limit)
 	bot_body.global_position.y = 0.0
+
+
+func _bot_shape_query(bot_body: Node3D) -> PhysicsShapeQueryParameters3D:
+	var collision: CollisionShape3D
+	for child in bot_body.get_children():
+		if child is CollisionShape3D:
+			collision = child as CollisionShape3D
+			break
+	if collision == null or collision.shape == null:
+		return null
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = collision.shape
+	query.transform = collision.global_transform
+	query.collision_mask = 1 | 8
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [bot_body.get_rid()]
+	query.margin = BOT_COLLISION_MARGIN
+	return query
+
+
+func _safe_bot_motion(bot_body: Node3D, motion: Vector3) -> Vector3:
+	var world := bot_body.get_world_3d()
+	if world == null or motion.length_squared() <= 0.000001:
+		return motion
+	var query := _bot_shape_query(bot_body)
+	if query == null:
+		return Vector3.ZERO
+	query.motion = motion
+	var cast := world.direct_space_state.cast_motion(query)
+	if cast.size() < 2:
+		return Vector3.ZERO
+	if cast[0] >= 1.0:
+		return motion
+	return motion.normalized() * maxf(0.0, motion.length() * cast[0] - BOT_CONTACT_GAP)
+
+
+func _recover_bot_from_cover(bot_body: Node3D) -> bool:
+	var world := bot_body.get_world_3d()
+	if world == null:
+		return false
+	var query := _bot_shape_query(bot_body)
+	if query == null or world.direct_space_state.intersect_shape(query, 1).is_empty():
+		return query != null
+	var origin := bot_body.global_position
+	var shape_offset := query.transform.origin - origin
+	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	for radius in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]:
+		for index in range(16):
+			var angle := TAU * float(index) / 16.0
+			var candidate: Vector3 = origin + Vector3(cos(angle), 0.0, sin(angle)) * radius
+			if absf(candidate.x) > arena_limit or absf(candidate.z) > arena_limit:
+				continue
+			query.transform.origin = candidate + shape_offset
+			if world.direct_space_state.intersect_shape(query, 1).is_empty():
+				bot_body.global_position = candidate
+				_move_velocity = Vector3.ZERO
+				_avoid_direction = Vector3.ZERO
+				return true
+	return false
 
 
 func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tactics: bool) -> void:
