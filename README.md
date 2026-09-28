@@ -326,6 +326,39 @@ Pour refaire une capture locale depuis PowerShell :
 
 ## Lancer le prototype
 
+### Tester chaque version sur Android depuis le telephone
+
+Chaque push sur `main` lance `.github/workflows/android-test-release.yml` : import Godot
+4.7.2, tests, export Android signe, puis publication d'une preversion avec l'APK dans
+[les Releases](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases). En cas d'echec,
+aucune nouvelle APK n'est publiee. L'historique des builds se trouve dans l'onglet
+[Actions](https://github.com/aKoMoses/PROTOTYPE-V0.1/actions).
+
+Configuration unique, sur le PC qui possede Godot/Java et le projet Git :
+
+1. Installer [GitHub CLI](https://cli.github.com/) et lancer `gh auth login`.
+2. Dans PowerShell, depuis la racine du depot, lancer
+   `powershell -ExecutionPolicy Bypass -File .\tools\setup-android-signing.ps1`.
+   Le script cree une cle de test stable, puis renseigne les deux secrets du depot.
+3. Sauvegarder le dossier `.android-signing` hors du depot (cle et mot de passe).
+   Il est ignore par Git. Une cle perdue empeche de mettre a jour l'application
+   deja installee sans la desinstaller.
+4. Depuis GitHub, dans **Actions > Android test APK**, lancer **Run workflow** pour
+   produire la premiere APK. Verifier la publication dans **Releases**.
+5. Sur Android, installer [Obtainium](https://github.com/ImranR98/Obtainium/releases),
+   ajouter `https://github.com/aKoMoses/PROTOTYPE-V0.1`, activer la prise en compte
+   des **prereleases**, puis installer `prototype0-android.apk` depuis Obtainium.
+
+Pour les versions suivantes, un push sur `main` suffit. Obtainium detecte la nouvelle
+Release et propose l'installation ; Android peut demander de la confirmer. Si une
+ancienne APK Prototype 0 a ete signee avec une autre cle, la desinstaller **une fois**
+avant d'installer la premiere APK issue de cette chaine (la desinstallation efface
+les donnees locales de l'application).
+
+La cle est reservee aux builds de test. Conserver une cle differente si une version
+est publiee un jour sur une boutique. Les APK des Releases de ce depot public sont
+accessibles publiquement.
+
 Ouvrir `project.godot` avec Godot 4.7.2, puis appuyer sur `F6` ou `F5`.
 
 ### Menu principal
