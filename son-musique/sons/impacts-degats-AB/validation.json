@@ -1,0 +1,92 @@
+[
+  {
+    "file": "degats-recus-A.wav",
+    "duration": 0.62,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "degats-recus-B.wav",
+    "duration": 0.62,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.542,
+    "clipped_samples": 0
+  },
+  {
+    "file": "ecoute-version-A.wav",
+    "duration": 5.44,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "ecoute-version-B.wav",
+    "duration": 5.44,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-critique-A.wav",
+    "duration": 0.7,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-critique-B.wav",
+    "duration": 0.7,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.6982,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-decor-A.wav",
+    "duration": 0.5,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-decor-B.wav",
+    "duration": 0.5,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-robot-A.wav",
+    "duration": 0.52,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.78,
+    "clipped_samples": 0
+  },
+  {
+    "file": "impact-robot-B.wav",
+    "duration": 0.52,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.641,
+    "clipped_samples": 0
+  }
+]

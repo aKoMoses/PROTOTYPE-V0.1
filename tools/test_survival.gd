@@ -4,6 +4,7 @@ var failures: Array[String] = []
 
 func _initialize() -> void:
 	var scene: Node3D = load("res://scenes/survival.tscn").instantiate()
+	scene.set("records_path", "user://test_survival_records.json")
 	root.add_child(scene)
 	current_scene = scene
 	await physics_frame
@@ -55,6 +56,7 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	_check(float(first_targets[0].call("get_health")) < health_before, "tir atteint l'ennemi de la vague")
 	for completed_wave in range(1, 13):
+		scene.call("_spawn_reinforcements")
 		var enemies: Array = scene.call("get_training_targets")
 		_check(not enemies.is_empty(), "ennemis présents vague %d" % completed_wave)
 		if completed_wave == 12:
@@ -71,15 +73,39 @@ func _initialize() -> void:
 		await physics_frame
 		await process_frame
 		if completed_wave == 12:
+			_check(scene.get("stats").kills == 76, "les 76 ennemis des douze vagues sont comptabilisés")
 			_check(str(scene.get("_state")) == "result", "résultat après la douzième vague")
-			_check(scene.get("_choice_content").get_child(0).text.begins_with("VICTOIRE"), "victoire finale affichée")
+			_check(scene.get("summary").title.text.begins_with("VICTOIRE"), "victoire finale affichée")
 			break
 		_check(str(scene.get("_state")) == "reward" and paused, "choix de récompense après la vague %d" % completed_wave)
+		var reward_overlay: Control = scene.get("_reward_overlay")
+		_check(reward_overlay.is_visible_in_tree() and reward_overlay.find_child("RewardChoice1", true, false) != null and reward_overlay.find_child("RewardChoice2", true, false) != null, "deux cartes de récompense visibles")
+		var first_card := reward_overlay.find_child("RewardChoice1", true, false) as Button
+		_check(first_card.disabled, "cartes bloquées au moment où la vague se termine")
+		if completed_wave == 1:
+			var held_click := InputEventMouseButton.new()
+			held_click.button_index = MOUSE_BUTTON_LEFT
+			held_click.pressed = true
+			Input.parse_input_event(held_click)
+			await create_timer(0.7).timeout
+			await process_frame
+			_check(first_card.disabled, "clic maintenu ne sélectionne pas une carte")
+			held_click.pressed = false
+			Input.parse_input_event(held_click)
+			await process_frame
+			await process_frame
+			_check(not first_card.disabled, "cartes sélectionnables après le délai de sécurité")
 		var progression: SurvivalProgression = scene.get("progression")
 		var choices := progression.reward_choices(completed_wave)
 		_check(choices.size() == 2, "deux propositions à la vague %d" % completed_wave)
+		for choice in choices:
+			_check(not str(scene.call("_reward_card_description", choice)).contains("%"), "description de carte sans pourcentage")
 		_check(not progression.apply_reward(completed_wave, {"category": "invalid"}), "récompense non proposée refusée")
+		if completed_wave == 3:
+			player.get("combat_state").health = 500.0
 		scene.call("_choose_reward", choices[0])
+		if completed_wave == 3:
+			_check(is_equal_approx(float(player.call("get_health")), 600.0), "soin de 100 PV au troisième palier")
 		await physics_frame
 		_check(int(scene.get("wave")) == completed_wave + 1, "vague suivante après choix")
 		scene.call("_begin_wave_combat")
@@ -87,6 +113,38 @@ func _initialize() -> void:
 		if completed_wave == 1:
 			var next_targets: Array = scene.call("get_training_targets")
 			_check(str(next_targets[1].get_node("TrainingBot").get("survival_role")) == "charger", "chargeur présent à la deuxième vague")
+			_check(str(player.call("get_offensive_module_id")) == "modulo_drone", "Modulo Drone obtenu après la première vague")
+			player.call("trigger_touch_action", "offensive")
+			await physics_frame
+			_check(float(player.call("get_module_cooldown", "modulo_drone")) > 0.0, "commande offensive active le drone en Survie")
+			for enemy in next_targets:
+				enemy.call("set_training_bot_enabled", false)
+			var charger: Node3D = next_targets[1]
+			var charger_bot: Node = charger.get_node("TrainingBot")
+			charger.global_position = player.global_position + Vector3(0.0, 0.0, -8.0)
+			charger.call("set_training_bot_enabled", true)
+			charger_bot.set("_next_attack_at", 0.0)
+			await physics_frame
+			await physics_frame
+			_check(float(charger_bot.get("_windup_remaining")) <= 0.0, "chargeur ne prépare pas une charge à 8 m")
+			charger.global_position = player.global_position + Vector3(0.0, 0.0, -5.0)
+			await physics_frame
+			await physics_frame
+			_check(float(charger_bot.get("_windup_remaining")) > 0.0, "chargeur prépare une charge à 5 m")
+			for _charge_frame in range(75):
+				await physics_frame
+			_check(charger.global_position.distance_to(player.global_position) < 0.5, "charge s'arrête à la cible sans oscillation")
+			charger.call("set_training_bot_enabled", false)
+			charger.global_position = Vector3(4.0, 0.0, -4.5)
+			charger_bot.set("_charge_target", Vector3(11.0, 0.0, -4.5))
+			charger_bot.set("_charge_remaining", 0.8)
+			for _charge_frame in range(30):
+				charger_bot.call("_advance_charge", charger, 1.0 / 60.0)
+			_check(charger.global_position.x < 5.5 and float(charger_bot.get("_charge_remaining")) <= 0.0, "charge stoppée par le couvert")
+			charger.global_position = Vector3(20.0, 0.0, 0.0)
+			charger_bot.set("_move_velocity", Vector3(18.0, 0.0, 0.0))
+			charger_bot.call("_move_bot", charger, 0.3)
+			_check(charger.global_position.x <= 21.01, "ennemi reste dans les murs de Survie")
 		if completed_wave == 5:
 			var pierce_targets: Array = scene.call("get_training_targets")
 			for enemy in pierce_targets:
@@ -109,6 +167,7 @@ func _initialize() -> void:
 	scene.queue_free()
 	await process_frame
 	var shotgun_scene: Node3D = load("res://scenes/survival.tscn").instantiate()
+	shotgun_scene.set("records_path", "user://test_survival_records.json")
 	root.add_child(shotgun_scene)
 	current_scene = shotgun_scene
 	await physics_frame

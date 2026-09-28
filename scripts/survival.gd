@@ -11,10 +11,33 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
+const REWARD_CARD_ART: Texture2D = preload("res://art/ui/industrial-reward-card.png")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const FLOOR_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_HALF := 23.0
+const REWARD_INPUT_DELAY := 0.55
+const MUSIC_PATHS := [
+	"res://son-musique/musiques/survie_early_loop.wav",
+	"res://son-musique/musiques/la_forge_semballe_loop.wav",
+	"res://son-musique/musiques/survie_late_loop.wav",
+]
+const REWARD_MUSIC_PATH := "res://son-musique/musiques/survie_respiration_loop.wav"
+const MUSIC_STAGE_VOLUME_DB := [-17.0, -17.0, -15.5]
+const REWARD_MUSIC_LOOP_START_S := 1.25
 const SPAWN_POINTS := [Vector3(-12, 0, -7), Vector3(10, 0, 3), Vector3(12, 0, -7), Vector3(-10, 0, 3), Vector3(0, 0, -9)]
+
+const SYNERGIES := preload("res://scripts/survival_synergies.gd")
+const RUN_STATS := preload("res://scripts/survival_run_stats.gd")
+const SUMMARY := preload("res://scripts/survival_summary.gd")
+var stats := RUN_STATS.new()
+var records_path := RUN_STATS.RECORDS_PATH
+var summary: Control
+var _reinforcement_roles: Array[String] = []
+var _reinforcement_positions: Array[Vector3] = []
+var _reinforcement_remaining := 0.0
+var _spawn_positions: Array[Vector3] = []
+var _repair: Node3D
+var _synergy_label: Label
 
 var player: CharacterBody3D
 var progression: SurvivalProgression
@@ -31,11 +54,19 @@ var _equipment_icons = EQUIPMENT_ICONS.new()
 var _pause_button: Button
 var _choice_panel: PanelContainer
 var _choice_content: VBoxContainer
+var _reward_overlay: Control
+var _reward_content: VBoxContainer
+var _reward_input_delay := -1.0
 var _pause_overlay: ColorRect
 var _pause_panel: PanelContainer
 var _pause_content: VBoxContainer
 var _touch: Control
 var _music: AudioStreamPlayer
+var _other_music: AudioStreamPlayer
+var _reward_music: AudioStreamPlayer
+var _music_stage := -1
+var _music_tween: Tween
+var _reward_music_tween: Tween
 var _arrival_label: Label
 var _arrival_markers: Array[Node3D] = []
 var _incoming_roles: Array[String] = []
@@ -50,6 +81,11 @@ func _ready() -> void:
 	_build_world()
 	_build_player_and_camera()
 	_build_ui()
+	player.combat_state.damage_applied.connect(stats.record_received)
+	player.combat_state.healing_applied.connect(stats.record_heal)
+	_synergy_label = _label("", 13, Color("#efba6c"))
+	_synergy_label.position = Vector2(24, 62)
+	_hud.add_child(_synergy_label)
 	_build_music()
 	_show_weapon_choice()
 
@@ -58,6 +94,19 @@ func _process(delta: float) -> void:
 		return
 	_wave_label.text = "VAGUE %d/%d" % [wave, PROGRESSION.TOTAL_WAVES] if wave > 0 else "SURVIE"
 	var build := progression.build()
+	_synergy_label.text = SYNERGIES.names(build)
+	_synergy_label.visible = _state == "combat"
+	if _state == "combat":
+		stats.elapsed += delta
+		if not _reinforcement_roles.is_empty():
+			_reinforcement_remaining = maxf(0.0, _reinforcement_remaining - delta)
+			_arrival_label.text = "RENFORTS DANS %.1f s" % _reinforcement_remaining
+			if _reinforcement_remaining <= 0.0:
+				_spawn_reinforcements()
+		if is_instance_valid(_repair) and player.global_position.distance_to(_repair.global_position) < 1.5:
+			if float(player.call("heal", 80.0, "repair_pickup")) > 0.0:
+				_repair.queue_free()
+				_repair = null
 	_pause_button.visible = _state == "combat"
 	if _state == "incoming":
 		_arrival_remaining = maxf(0.0, _arrival_remaining - delta)
@@ -67,6 +116,12 @@ func _process(delta: float) -> void:
 				marker.scale = Vector3.ONE * (1.0 + sin(Time.get_ticks_msec() * 0.014) * 0.10)
 		if _arrival_remaining <= 0.0:
 			_begin_wave_combat()
+	if _state == "reward" and _reward_input_delay >= 0.0:
+		_reward_input_delay = maxf(0.0, _reward_input_delay - delta)
+		if _reward_input_delay <= 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not Input.is_key_pressed(KEY_SPACE):
+			_reward_input_delay = -1.0
+			for card in _reward_overlay.find_children("RewardChoice*", "Button", true, false):
+				(card as Button).disabled = false
 	_update_spell_bar(build)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -291,13 +346,106 @@ func _build_player_and_camera() -> void:
 func _build_music() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "SurvivalMusic"
-	_music.volume_db = -17
-	var path := "res://art/audio/arena_electro_build.wav"
-	if ResourceLoader.exists(path):
-		_music.stream = load(path)
-		if _music.stream is AudioStreamWAV:
-			(_music.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_music.volume_db = MUSIC_STAGE_VOLUME_DB[0]
 	add_child(_music)
+	_other_music = AudioStreamPlayer.new()
+	_other_music.name = "SurvivalMusicTransition"
+	_other_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_other_music.volume_db = -60.0
+	add_child(_other_music)
+	_reward_music = AudioStreamPlayer.new()
+	_reward_music.name = "SurvivalRewardMusic"
+	_reward_music.process_mode = Node.PROCESS_MODE_ALWAYS
+	_reward_music.volume_db = -60.0
+	_reward_music.stream = _load_looping_music(REWARD_MUSIC_PATH)
+	add_child(_reward_music)
+
+func _load_looping_music(path: String) -> AudioStream:
+	if not ResourceLoader.exists(path):
+		push_error("Musique de Survie absente : " + path)
+		return null
+	var stream := load(path) as AudioStream
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = int((20.0 if path != REWARD_MUSIC_PATH else REWARD_MUSIC_LOOP_START_S) * wav.mix_rate)
+		wav.loop_end = int(wav.get_length() * wav.mix_rate)
+	return stream
+
+func _music_stage_for_wave(next_wave: int) -> int:
+	if next_wave <= 4:
+		return 0
+	if next_wave <= 8:
+		return 1
+	return 2
+
+func _play_music_for_wave(next_wave: int) -> void:
+	var target_stage := _music_stage_for_wave(next_wave)
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	var target_volume_db: float = MUSIC_STAGE_VOLUME_DB[target_stage]
+	if target_stage == _music_stage:
+		if not _music.playing and _music.stream != null:
+			_music.play()
+		_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		_music_tween.tween_property(_music, "volume_db", target_volume_db, 1.2)
+		return
+	var next_stream := _load_looping_music(MUSIC_PATHS[target_stage])
+	if next_stream == null:
+		return
+	_music_stage = target_stage
+	if not _music.playing:
+		_music.stream = next_stream
+		_music.volume_db = target_volume_db
+		_music.stream_paused = false
+		_music.play()
+		return
+	var previous := _music
+	var next_player := _other_music
+	next_player.stop()
+	next_player.stream = next_stream
+	next_player.stream_paused = false
+	next_player.volume_db = -60.0
+	# Variations share the theme's pulse. Keep its position when changing arrangement.
+	next_player.play(minf(previous.get_playback_position(), next_stream.get_length() - 0.1))
+	_music = next_player
+	_other_music = previous
+	_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	_music_tween.tween_property(_music, "volume_db", target_volume_db, 1.2)
+	_music_tween.tween_property(previous, "volume_db", -60.0, 1.2)
+	_music_tween.chain().tween_callback(previous.stop)
+
+func _enter_reward_music() -> void:
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_music_tween.tween_property(_music, "volume_db", -38.0, 0.8)
+	if _reward_music.stream == null:
+		return
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_reward_music.volume_db = -60.0
+	_reward_music.stream_paused = false
+	_reward_music.play()
+	_reward_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_reward_music_tween.tween_property(_reward_music, "volume_db", -24.0, 0.8)
+
+func _leave_reward_music() -> void:
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_reward_music_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_reward_music_tween.tween_property(_reward_music, "volume_db", -60.0, 1.2)
+	_reward_music_tween.tween_callback(_reward_music.stop)
+
+func _stop_all_music() -> void:
+	if _music_tween != null and _music_tween.is_running():
+		_music_tween.kill()
+	if _reward_music_tween != null and _reward_music_tween.is_running():
+		_reward_music_tween.kill()
+	_music.stop()
+	_other_music.stop()
+	_reward_music.stop()
 
 func _build_ui() -> void:
 	_ui_layer = CanvasLayer.new()
@@ -354,7 +502,136 @@ func _build_ui() -> void:
 	_choice_content.add_theme_constant_override("separation", 12)
 	_choice_panel.add_child(_choice_content)
 	_choice_panel.visible = false
+	_build_reward_ui()
 	_build_pause_menu()
+
+func _build_reward_ui() -> void:
+	_reward_overlay = Control.new()
+	_reward_overlay.name = "RewardOverlay"
+	_reward_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_reward_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_reward_overlay.visible = false
+	_ui_layer.add_child(_reward_overlay)
+	var shade := ColorRect.new()
+	shade.color = Color("#091219db")
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reward_overlay.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	_reward_overlay.add_child(center)
+	var panel := PanelContainer.new()
+	panel.name = "RewardPanel"
+	panel.custom_minimum_size = Vector2(690, 550)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#17252cdd")
+	style.border_color = Color("#415e62")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(18)
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+	_reward_content = VBoxContainer.new()
+	_reward_content.add_theme_constant_override("separation", 8)
+	panel.add_child(_reward_content)
+
+func _reward_choice_card(choice: Dictionary, index: int) -> Button:
+	var card := Button.new()
+	card.name = "RewardChoice%d" % index
+	card.text = ""
+	card.disabled = true
+	card.custom_minimum_size = Vector2(290, 435)
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "focus"]:
+		card.add_theme_stylebox_override(state, empty)
+	card.pressed.connect(_choose_reward.bind(choice))
+	var art := TextureRect.new()
+	art.texture = REWARD_CARD_ART
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(art)
+	card.mouse_entered.connect(func() -> void: art.modulate = Color(1.18, 1.13, 1.04))
+	card.mouse_exited.connect(func() -> void: art.modulate = Color.WHITE)
+	card.focus_entered.connect(func() -> void: art.modulate = Color(1.18, 1.13, 1.04))
+	card.focus_exited.connect(func() -> void: art.modulate = Color.WHITE)
+	var kinds := {"item": "NOUVEAU MODULE", "evolution": "ÉVOLUTION", "power": "PUISSANCE", "tempo": "RYTHME"}
+	var eyebrow := _label(str(kinds.get(str(choice.kind), "AMÉLIORATION")), 12, Color("#b4eeea"))
+	eyebrow.position = Vector2(50, 17)
+	eyebrow.size = Vector2(190, 27)
+	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	eyebrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	eyebrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(eyebrow)
+	var icon := TextureRect.new()
+	icon.texture = _equipment_icons.get_icon(str(choice.id))
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(icon)
+	icon.position = Vector2(68, 61)
+	icon.size = Vector2(154, 155)
+	var title := _label(LOADOUT.display_name(str(choice.id)), 19, Color("#f5dfbf"))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.position = Vector2(45, 232)
+	title.size = Vector2(200, 32)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(title)
+	var description := _label(_reward_card_description(choice), 13, Color("#d7e2dd"))
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.position = Vector2(45, 284)
+	description.size = Vector2(200, 71)
+	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	description.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(description)
+	var action := _label("CHOISIR", 15, Color("#f5dfbf"))
+	action.position = Vector2(55, 376)
+	action.size = Vector2(180, 24)
+	action.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	action.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(action)
+	var synergy_hint := SYNERGIES.preview(progression.build(), choice)
+	if synergy_hint != "":
+		var hint := _label(synergy_hint, 11, Color("#ffe09a"))
+		description.position.y = 280
+		description.size.y = 45
+		description.add_theme_font_size_override("font_size", 12)
+		hint.position = Vector2(40, 329)
+		hint.size = Vector2(210, 24)
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(hint)
+		card.tooltip_text = synergy_hint
+	return card
+
+func _show_reward_choices() -> void:
+	_reward_input_delay = REWARD_INPUT_DELAY
+	for child in _reward_content.get_children():
+		_reward_content.remove_child(child)
+		child.queue_free()
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	_reward_content.add_child(top)
+	var section := _label("SURVIE  /  RÉCOMPENSE", 13, Color("#8fd1d0"))
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(section)
+	top.add_child(_label("VAGUE %02d / %02d" % [wave, PROGRESSION.TOTAL_WAVES], 13, Color("#efb765")))
+	_reward_content.add_child(_label("CHOISIS UNE AMÉLIORATION", 27, Color("#f5dfbf")))
+	var cards := HBoxContainer.new()
+	cards.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards.add_theme_constant_override("separation", 20)
+	_reward_content.add_child(cards)
+	var choices := progression.reward_choices(wave)
+	for index in range(choices.size()):
+		cards.add_child(_reward_choice_card(choices[index], index + 1))
+	_reward_overlay.visible = true
 
 func _build_pause_menu() -> void:
 	_pause_overlay = ColorRect.new()
@@ -572,9 +849,21 @@ func _show_pause_content() -> void:
 
 func _show_weapon_choice() -> void:
 	_state = "selection"
+	_reward_overlay.visible = false
 	_clear_choices()
 	_choice_content.add_child(_label("SURVIE", 25, Color("#f3ddbb")))
 	_choice_content.add_child(_label("12 vagues · Choisis une arme", 16, Color("#c7d2d1")))
+	var records := RUN_STATS.read_records(records_path)
+	var favorite: Dictionary = records.get("favorite_build", {})
+	if not favorite.is_empty():
+		var items := PackedStringArray()
+		for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
+			if str(favorite.get(category, "")) != "":
+				items.append(LOADOUT.display_name(str(favorite[category])))
+		var reference := _label("FAVORI · " + " / ".join(items), 12, Color("#efba6c"))
+		reference.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_choice_content.add_child(reference)
+	_choice_content.add_child(_label("Réparation : 100 PV après les vagues 3, 6 et 9. Kits : +80 PV dans l'arène.", 12, Color("#9dbab6")))
 	_choice_content.add_child(_button("BLASTER", func() -> void: _choose_weapon("blaster")))
 	_choice_content.add_child(_button("SHOTGUN", func() -> void: _choose_weapon("shotgun")))
 	_choice_content.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu")))
@@ -586,8 +875,6 @@ func _choose_weapon(identifier: String) -> void:
 		return
 	player.call("configure_survival_build", progression.build())
 	player.call("reset_combat_state")
-	if _music.stream != null:
-		_music.play()
 	_start_wave()
 
 func _start_wave() -> void:
@@ -596,29 +883,35 @@ func _start_wave() -> void:
 	wave += 1
 	defeated = 0
 	_state = "incoming"
+	_play_music_for_wave(wave)
 	_update_spell_bar(progression.build())
 	_choice_panel.visible = false
 	_touch.visible = false
 	_arrival_remaining = 2.0
 	_arrival_label.visible = true
 	_incoming_roles.clear()
-	var regular_count := 3 if wave == PROGRESSION.TOTAL_WAVES else mini(2 + int((wave - 1) / 3), 5)
-	for index in range(regular_count):
+	var count: int = [3, 3, 4, 4, 6, 6, 7, 7, 8, 8, 10, 10][wave - 1]
+	for index in range(count):
 		_incoming_roles.append(["chaser", "shooter", "charger"][(wave + index - 1) % 3])
-	if wave == PROGRESSION.TOTAL_WAVES:
-		_incoming_roles.append("boss")
-	for index in range(_incoming_roles.size()):
-		var marker := MeshInstance3D.new()
-		marker.name = "Arrival_%d" % index
-		var ring := TorusMesh.new()
-		ring.inner_radius = 0.65 if _incoming_roles[index] != "boss" else 1.3
-		ring.outer_radius = 0.85 if _incoming_roles[index] != "boss" else 1.55
-		marker.mesh = ring
-		marker.rotation_degrees.x = 90
-		marker.position = SPAWN_POINTS[index] + Vector3.UP * 0.09
-		marker.material_override = _material(_role_color(_incoming_roles[index]), true)
-		add_child(marker)
-		_arrival_markers.append(marker)
+	if wave == 12:
+		_incoming_roles[count - 1] = "boss"
+	var split := ceili(count * 0.5)
+	_spawn_positions.clear()
+	_reinforcement_positions.clear()
+	for index in range(count):
+		var point: Vector3 = SPAWN_POINTS[index] if index < 5 else Vector3(-15 + (index - 5) * 7, 0, 14)
+		if point.distance_to(player.global_position) < 4.0:
+			point = -point
+		if index < split:
+			_spawn_positions.append(point)
+		else:
+			_reinforcement_positions.append(point)
+	_reinforcement_roles.assign(_incoming_roles.slice(split))
+	_incoming_roles.resize(split)
+	_create_arrival_markers(_spawn_positions, _incoming_roles)
+	_reinforcement_remaining = 5.0
+	if wave in [2, 5, 8, 11]:
+		_create_repair()
 	player.call("set_gameplay_enabled", false)
 
 func _begin_wave_combat() -> void:
@@ -629,8 +922,9 @@ func _begin_wave_combat() -> void:
 			marker.queue_free()
 	_arrival_markers.clear()
 	for index in range(_incoming_roles.size()):
-		_spawn_enemy(SPAWN_POINTS[index], _incoming_roles[index])
-	_arrival_label.visible = false
+		_spawn_enemy(_spawn_positions[index], _incoming_roles[index])
+	_create_arrival_markers(_reinforcement_positions, _reinforcement_roles)
+	_arrival_label.visible = not _reinforcement_roles.is_empty()
 	_state = "combat"
 	_update_spell_bar(progression.build())
 	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
@@ -655,14 +949,39 @@ func _spawn_enemy(at: Vector3, role: String) -> void:
 	enemy.call("reset_combat_state")
 	enemy.scale = Vector3.ONE * (1.5 if role == "boss" else 1.18 if role == "charger" else 0.86 if role == "shooter" else 1.0)
 	var readout: Node = enemy.get_node("TargetHealthReadout")
-	readout.call("update_actor_identity", _role_color(role), _role_name(role))
 	var bot := enemy.get_node("TrainingBot")
 	bot.set("survival_role", role)
 	bot.set("training_attack_damage", 36.0 if role == "boss" else (15.0 if role == "charger" else 10.0 if role == "chaser" else 7.0) + 1.2 * float(wave))
 	bot.set("training_attack_interval", 2.6 if role == "boss" else 3.2 if role == "charger" else 1.5 if role == "chaser" else 2.5)
 	enemy.call("set_training_bot_enabled", true)
+	readout.call("update_actor_identity", _role_color(role), _role_name(role))
+	readout.call("set_blaster_charge", false, false, 0.0)
 	enemy.died.connect(_on_enemy_died.bind(enemy))
 	_enemies.append(enemy)
+	state.damage_applied.connect(stats.record_damage)
+	if wave in [3, 6, 9] and _enemies.size() == 1:
+		var elite: String = {3: "double_charge", 6: "spread", 9: "shield"}[wave]
+		bot.set("survival_elite", elite)
+		bot.set("survival_role", {3: "charger", 6: "shooter", 9: "chaser"}[wave])
+		enemy.set_meta("survival_elite", elite)
+		state.max_health *= 1.35
+		enemy.call("reset_combat_state")
+		readout.call("update_actor_identity", Color("#ffe09a"), {3: "ÉLITE · DOUBLE CHARGE", 6: "ÉLITE · ÉVENTAIL", 9: "ÉLITE · BOUCLIER FRONTAL"}[wave])
+		var crown := Label3D.new()
+		crown.text = "ÉLITE"
+		crown.font_size = 28
+		crown.modulate = Color("#ffe09a")
+		crown.position.y = 3.4
+		crown.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		enemy.add_child(crown)
+		if elite == "shield":
+			var shield := MeshInstance3D.new()
+			shield.name = "EliteShield"
+			var shield_mesh := BoxMesh.new()
+			shield_mesh.size = Vector3(1.8, 1.7, 0.10)
+			shield.mesh = shield_mesh
+			shield.material_override = _material(Color("#60cde980"), true)
+			enemy.add_child(shield)
 
 func _on_enemy_died(enemy: StaticBody3D) -> void:
 	if _state != "combat":
@@ -671,11 +990,12 @@ func _on_enemy_died(enemy: StaticBody3D) -> void:
 	if progression.evolutions.passive and progression.equipment.passive == "omnivamp":
 		player.call("heal", 35.0, "omnivamp_kill")
 	defeated += 1
+	stats.kills += 1
 	if defeated >= _enemies.size():
 		call_deferred("_complete_wave")
 
 func _complete_wave() -> void:
-	if _state != "combat" or defeated < _enemies.size():
+	if _state != "combat" or defeated < _enemies.size() or not _reinforcement_roles.is_empty():
 		return
 	player.call("set_gameplay_enabled", false)
 	_touch.call("reset_inputs")
@@ -685,25 +1005,20 @@ func _complete_wave() -> void:
 	_state = "reward"
 	_spell_bar.visible = false
 	get_tree().paused = true
-	_clear_choices()
-	_choice_content.add_child(_label("VAGUE %d TERMINÉE" % wave, 24, Color("#f3ddbb")))
-	_choice_content.add_child(_label("Choisis une amélioration", 16, Color("#c7d2d1")))
-	for choice in progression.reward_choices(wave):
-		var value := "%s\n%s" % [str(choice.title), _reward_description(choice)]
-		var button := _button(value, _choose_reward.bind(choice))
-		button.custom_minimum_size.y = 108
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		_choice_content.add_child(button)
-	_choice_panel.visible = true
+	_enter_reward_music()
+	_choice_panel.visible = false
+	_show_reward_choices()
 	_touch.visible = false
 
 func _choose_reward(choice: Dictionary) -> void:
 	if _state != "reward" or not progression.apply_reward(wave, choice):
 		return
+	_reward_overlay.visible = false
 	get_tree().paused = false
+	_leave_reward_music()
 	player.call("configure_survival_build", progression.build())
-	player.call("heal", 150.0, "wave_reward")
+	if wave % 3 == 0:
+		player.call("heal", 100.0, "wave_reward")
 	_start_wave()
 
 func _on_player_died() -> void:
@@ -714,27 +1029,75 @@ func _show_result(won: bool) -> void:
 	if _state != "combat":
 		return
 	_state = "result"
+	_reward_overlay.visible = false
 	_spell_bar.visible = false
 	player.call("set_gameplay_enabled", false)
 	for enemy in _enemies:
 		if is_instance_valid(enemy):
 			enemy.call("set_training_bot_enabled", false)
 	get_tree().paused = true
-	if _music != null:
-		_music.stop()
+	_stop_all_music()
 	_clear_choices()
-	_choice_content.add_child(_label("VICTOIRE  ·  12 VAGUES" if won else "DÉFAITE  ·  VAGUE %d" % wave, 28, Color("#8fe6aa") if won else Color("#f28a79")))
-	_choice_content.add_child(_label("Arme : %s  ·  Ennemis vaincus : %d" % [LOADOUT.display_name(progression.weapon), _total_defeated()], 17, Color("#f3ddbb")))
-	_choice_content.add_child(_button("RECOMMENCER", Callable(self, "_restart")))
-	_choice_content.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu")))
-	_choice_panel.visible = true
+	_choice_panel.visible = false
+	_arrival_label.visible = false
+	_synergy_label.visible = false
 	_touch.visible = false
+	if player.survival_synergies != null:
+		player.survival_synergies.clear_effects()
+	summary = SUMMARY.new()
+	summary.records_path = records_path
+	_ui_layer.add_child(summary)
+	summary.present(stats.snapshot(won, wave, progression.build()))
+	summary.replay_requested.connect(_restart)
+	summary.menu_requested.connect(_return_menu)
 
 func _total_defeated() -> int:
-	var count := 0
-	for completed in range(1, wave):
-		count += mini(2 + int((completed - 1) / 3), 5)
-	return count + defeated
+	return stats.kills
+
+func _create_arrival_markers(points: Array[Vector3], roles: Array[String]) -> void:
+	for index in range(points.size()):
+		var marker := MeshInstance3D.new()
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.7 if roles[index] != "boss" else 1.3
+		ring.outer_radius = ring.inner_radius + 0.2
+		marker.mesh = ring
+		marker.position = points[index] + Vector3.UP * 0.08
+		marker.material_override = _material(_role_color(roles[index]), true)
+		add_child(marker)
+		_arrival_markers.append(marker)
+
+func _spawn_reinforcements() -> void:
+	if _state != "combat" or _reinforcement_roles.is_empty():
+		return
+	for index in range(_reinforcement_roles.size()):
+		_spawn_enemy(_reinforcement_positions[index], _reinforcement_roles[index])
+	_reinforcement_roles.clear()
+	for marker in _arrival_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	_arrival_markers.clear()
+	_arrival_label.visible = false
+
+func _create_repair() -> void:
+	_repair = Node3D.new()
+	_repair.name = "RepairPickup"
+	add_child(_repair)
+	_repair.position = Vector3(14 if wave % 2 == 0 else -14, 0, 7)
+	var label := Label3D.new()
+	label.text = "+80 PV"
+	label.font_size = 40
+	label.modulate = Color("#75ffad")
+	label.position.y = 1.5
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_repair.add_child(label)
+	for size in [Vector3(1.2, 0.12, 0.35), Vector3(0.35, 0.12, 1.2)]:
+		var visual := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = size
+		visual.mesh = mesh
+		visual.position.y = 0.15
+		visual.material_override = _material(Color("#75ffad"), true)
+		_repair.add_child(visual)
 
 func _pause_run() -> void:
 	if _state != "combat":
@@ -743,6 +1106,8 @@ func _pause_run() -> void:
 	_spell_bar.visible = false
 	get_tree().paused = true
 	_music.stream_paused = true
+	_other_music.stream_paused = true
+	_reward_music.stream_paused = true
 	_touch.call("reset_inputs")
 	_show_pause_content()
 	_pause_overlay.visible = true
@@ -756,11 +1121,19 @@ func _resume_run() -> void:
 	_update_spell_bar(progression.build())
 	get_tree().paused = false
 	_music.stream_paused = false
+	_other_music.stream_paused = false
+	_reward_music.stream_paused = false
 	_pause_overlay.visible = false
 	_pause_panel.visible = false
 	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
 
 func _clear_enemies() -> void:
+	_reinforcement_roles.clear()
+	if is_instance_valid(_repair):
+		_repair.queue_free()
+	_repair = null
+	if player.survival_synergies != null:
+		player.survival_synergies.clear_effects()
 	for marker in _arrival_markers:
 		if is_instance_valid(marker):
 			marker.queue_free()
@@ -794,3 +1167,49 @@ func _reward_description(choice: Dictionary) -> String:
 		"baroud": "Survis brièvement à un coup fatal.",
 		"omnivamp": "Soigne 15 % des dégâts infligés.",
 	}.get(str(choice.id), str(choice.description))
+
+func _reward_card_description(choice: Dictionary) -> String:
+	var identifier := str(choice.id)
+	match str(choice.kind):
+		"item":
+			return {
+				"modulo_drone": "Envoie un drone sur l'ennemi visé et le brûle.",
+				"javelin": "Lance un javelot. Réappuie sur A pour rejoindre la cible touchée.",
+				"magnetic_field": "Pose un mur qui bloque les tirs ennemis.",
+				"static_shield": "Te protège des dégâts, mais bloque tes actions un instant.",
+				"pyro_boots": "Te propulse de quelques mètres dans ta direction.",
+				"bio_injector": "Accélère tes déplacements et tes tirs un instant.",
+				"baroud": "Après un coup fatal, tu peux encore te battre brièvement.",
+				"omnivamp": "Tes dégâts te rendent de la vie.",
+			}.get(identifier, _reward_description(choice))
+		"evolution":
+			return {
+				"blaster": "Tirs renforcés. Ils traversent et touchent un second ennemi.",
+				"shotgun": "Tirs renforcés. Deux projectiles de plus par tir.",
+				"modulo_drone": "Drone renforcé. Il touche aussi un second ennemi.",
+				"javelin": "Javelot renforcé. L'impact blesse les ennemis proches.",
+				"magnetic_field": "Mur renforcé. Il électrocute les ennemis proches.",
+				"static_shield": "Bouclier renforcé. À sa fin, il blesse les ennemis proches.",
+				"pyro_boots": "Dash renforcé. Il laisse une traînée brûlante.",
+				"bio_injector": "Bonus renforcé. L'activation blesse les ennemis proches.",
+				"baroud": "Baroud renforcé. Son activation repousse les ennemis proches.",
+				"omnivamp": "Vol de vie renforcé. Éliminer un ennemi te soigne aussi.",
+			}.get(identifier, _reward_description(choice))
+		"power":
+			return {
+				"blaster": "Tes tirs infligent davantage de dégâts.",
+				"shotgun": "Tes tirs infligent davantage de dégâts.",
+				"modulo_drone": "Ton drone frappe plus fort et brûle plus longtemps.",
+				"javelin": "Ton javelot inflige davantage de dégâts.",
+				"magnetic_field": "Ton mur reste actif plus longtemps.",
+				"static_shield": "Ton bouclier reste actif plus longtemps.",
+				"pyro_boots": "Ton dash va plus loin.",
+				"bio_injector": "Tu te déplaces et tires encore plus vite.",
+				"baroud": "Baroud te laisse plus de temps pour survivre.",
+				"omnivamp": "Tes dégâts te rendent davantage de vie.",
+			}.get(identifier, "Effet renforcé.")
+		"tempo":
+			if str(choice.category) == "passive":
+				return "Tu gagnes plus de vie maximale."
+			return "Tu tires plus souvent." if str(choice.category) == "weapon" else "Ce module se recharge plus vite."
+	return _reward_description(choice)

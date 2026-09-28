@@ -69,7 +69,7 @@ func _initialize() -> void:
 			_failures.append("musique locale du duel absente")
 		else:
 			var music_stream := match_music.stream as AudioStreamWAV
-			if music_stream.resource_path != "res://art/audio/menu_poussiere_et_cambouis.wav" or music_stream.loop_mode != AudioStreamWAV.LOOP_FORWARD or music_stream.loop_begin != 209475 or music_stream.loop_end != 1323000:
+			if music_stream.resource_path != "res://son-musique/musiques/02_tambours_de_guerre_30s.wav" or music_stream.loop_mode != AudioStreamWAV.LOOP_FORWARD or music_stream.loop_begin != 0 or music_stream.loop_end != 1323000:
 				_failures.append("boucle musicale mal configurée")
 			if not match_music.playing:
 				_failures.append("musique non lancée au décompte")

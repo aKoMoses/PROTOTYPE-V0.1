@@ -97,6 +97,13 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 		return 0.0
 	if amount > 0.0 and visibility_state != null:
 		visibility_state.mark_combat_event()
+	if get_meta("survival_elite", "") == "shield" and source_id == "player":
+		var attacker := get_tree().current_scene.get_node_or_null("Player") as Node3D
+		if attacker != null:
+			var incoming := (attacker.global_position - global_position).normalized()
+			var facing: Vector3 = get_meta("shield_facing", Vector3.FORWARD)
+			if incoming.dot(facing) > 0.5:
+				amount *= 0.45
 	return combat_state.apply_damage(amount, source_id, attack_id)
 
 

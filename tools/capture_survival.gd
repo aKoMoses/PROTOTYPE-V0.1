@@ -5,6 +5,7 @@ func _initialize() -> void:
 	var output_path := args[0] if args.size() > 0 else "user://survival.png"
 	var state := args[1] if args.size() > 1 else "selection"
 	var scene: Node3D = load("res://scenes/survival.tscn").instantiate()
+	scene.set("records_path", "user://capture_survival_records.json")
 	root.add_child(scene)
 	current_scene = scene
 	await process_frame
@@ -21,11 +22,12 @@ func _initialize() -> void:
 			player.call("_perform_shotgun_attack")
 			await create_timer(0.16).timeout
 			frames_to_wait = 0
-		if state in ["reward", "evolution"]:
-			var waves_to_complete := 5 if state == "evolution" else 1
+		if state in ["reward", "evolution", "result", "synergy"]:
+			var waves_to_complete := 12 if state == "result" else 5 if state == "evolution" else 2 if state == "synergy" else 1
 			for completed in range(waves_to_complete):
+				scene.call("_spawn_reinforcements")
 				for enemy in scene.call("get_training_targets"):
-					enemy.call("take_damage", 5000.0, "capture", "capture_%d_%s" % [completed, enemy.name])
+					enemy.call("take_damage", 5000.0, "player", "blaster:%d:%s" % [completed, enemy.name])
 				await physics_frame
 				await process_frame
 				if completed < waves_to_complete - 1:
@@ -34,6 +36,9 @@ func _initialize() -> void:
 					scene.call("_begin_wave_combat")
 	for _frame in range(frames_to_wait):
 		await process_frame
+	if state == "result":
+		await scene.get("summary")._export_card()
+		print(scene.get("summary").status.text)
 	await RenderingServer.frame_post_draw
 	var image := get_root().get_viewport().get_texture().get_image()
 	image.save_png(output_path)

@@ -158,6 +158,7 @@ var _magnetic_height := 2.4
 var _magnetic_duration := 2.5
 var _static_duration := 1.5
 var _stasis_remaining := 0.0
+var survival_synergies: Node
 var _magnetic_wall: Area3D
 var _survival_evolutions := {"weapon": false, "offensive": false, "defensive": false, "mobility": false, "passive": false}
 var _survival_trail_clock := 0.0
@@ -732,6 +733,22 @@ func _update_debug_effects() -> void:
 			_direction_debug_label.visible = _direction_debug_enabled
 		if _attack_label != null:
 			_attack_label.text = "DEBUG DIRECTIONS : %s (F8)" % ("ON" if _direction_debug_enabled else "OFF")
+	if not survival_mode and _pressed_once(KEY_G):
+		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
+	if _pressed_once(KEY_A):
+		_perform_offensive_module()
+	if _pressed_once(KEY_E):
+		_activate_defensive_module()
+	if _pressed_once(KEY_R):
+		_activate_mobility_module()
+	if not survival_mode and _consume_touch_action("weapon"):
+		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
+	if _consume_touch_action("offensive"):
+		_perform_offensive_module()
+	if _consume_touch_action("defensive"):
+		_activate_defensive_module()
+	if _consume_touch_action("mobility"):
+		_activate_mobility_module()
 	# Temporary PC-only mannequin probes for P0-102. They do not replace the
 	# future module bindings and are intentionally explicit in the HUD/README.
 	var active_scene := get_tree().current_scene
@@ -758,22 +775,6 @@ func _update_debug_effects() -> void:
 	if _pressed_once(KEY_F7):
 		var bot_enabled := bool(target.call("toggle_training_bot"))
 		_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
-	if not survival_mode and _pressed_once(KEY_G):
-		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
-	if _pressed_once(KEY_A):
-		_perform_offensive_module()
-	if _pressed_once(KEY_E):
-		_activate_defensive_module()
-	if _pressed_once(KEY_R):
-		_activate_mobility_module()
-	if not survival_mode and _consume_touch_action("weapon"):
-		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
-	if _consume_touch_action("offensive"):
-		_perform_offensive_module()
-	if _consume_touch_action("defensive"):
-		_activate_defensive_module()
-	if _consume_touch_action("mobility"):
-		_activate_mobility_module()
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -1134,6 +1135,8 @@ func is_real_dead() -> bool:
 
 
 func apply_loadout(next_loadout: Dictionary) -> void:
+	if survival_synergies != null:
+		survival_synergies.configure({})
 	survival_mode = false
 	_survival_evolutions = {"weapon": false, "offensive": false, "defensive": false, "mobility": false, "passive": false}
 	set_robot(str(next_loadout.get("robot", COMBAT_DATA.DEFAULT_ROBOT)))
@@ -1173,6 +1176,11 @@ func get_robot_id() -> String:
 	return _robot_id
 
 func configure_survival_build(build: Dictionary) -> void:
+	if survival_synergies == null:
+		survival_synergies = preload("res://scripts/survival_synergies.gd").new()
+		survival_synergies.player = self
+		add_child(survival_synergies)
+	survival_synergies.configure(build)
 	_load_weapon_definitions()
 	survival_mode = true
 	_survival_evolutions = build.get("evolutions", {}).duplicate(true)
@@ -1545,9 +1553,9 @@ func _perform_shotgun_attack() -> void:
 		"hits_by_target": {},
 		"credited": {},
 	}
-	var emission_timer := get_tree().create_timer(_shotgun_preparation / attack_speed, true, false, false)
+	var emission_timer := get_tree().create_timer(_shotgun_preparation / attack_speed, false, false, false)
 	emission_timer.timeout.connect(func() -> void: _emit_shotgun_salvo(token, salvo))
-	var finish_timer := get_tree().create_timer((_shotgun_preparation + (0.01 if training_instant_cooldowns else _shotgun_recovery)) / attack_speed, true, false, false)
+	var finish_timer := get_tree().create_timer((_shotgun_preparation + (0.01 if training_instant_cooldowns else _shotgun_recovery)) / attack_speed, false, false, false)
 	finish_timer.timeout.connect(func() -> void: _finish_shotgun_attack(token))
 
 
@@ -1573,7 +1581,10 @@ func _play_shotgun_animation(speed_scale: float) -> void:
 
 
 func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
-	if token != _shotgun_attack_token or not _shotgun_attack_busy:
+	var echo := bool(salvo.get("echo", false))
+	if not _gameplay_enabled or (not echo and (token != _shotgun_attack_token or not _shotgun_attack_busy)):
+		return
+	if echo and (survival_synergies == null or int(salvo.get("generation", -1)) != survival_synergies.generation):
 		return
 	if combat_state != null and combat_state.is_stunned():
 		_cancel_shotgun_attack()
@@ -1604,6 +1615,9 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e") if did_hit else Color("#6e9cab"), 0.025, 0.45)
 		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, pellet_target, salvo, index)
 	_play_shotgun_animation(get_attack_speed_multiplier())
+	if not echo and survival_synergies != null and survival_synergies.consume_double():
+		var second := {"id": token, "hits_by_target": {}, "credited": {}, "echo": true, "generation": survival_synergies.generation, "source": "double", "damage_scale": 0.65 if _survival_evolved("mobility") else 0.45}
+		get_tree().create_timer(0.16, false).timeout.connect(func() -> void: _emit_shotgun_salvo(token, second))
 
 
 func _play_shotgun_cycle_audio(token: int) -> void:
@@ -1660,6 +1674,7 @@ func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vect
 func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
 	var projectile := Node3D.new()
 	projectile.name = "ShotgunPellet"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 	# This node carries damage delivery and must never be culled by a visual budget.
 	get_tree().current_scene.add_child(projectile)
 	projectile.add_to_group("prototype0_gameplay_projectiles")
@@ -1701,12 +1716,12 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: floa
 func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, target: Node, distance: float) -> void:
 	if not did_hit or target == null or not is_instance_valid(target):
 		return
-	var projectile_id := "shotgun:%d:%d" % [int(salvo["id"]), index]
+	var projectile_id := "%s:%d:%d" % [str(salvo.get("source", "shotgun")), int(salvo["id"]), index]
 	var credited: Dictionary = salvo["credited"]
 	if credited.has(projectile_id):
 		return
 	credited[projectile_id] = true
-	var damage := _shotgun_damage_at_distance(distance)
+	var damage := _shotgun_damage_at_distance(distance) * float(salvo.get("damage_scale", 1.0))
 	var effective_damage := float(target.call("take_damage", damage, "player", projectile_id))
 	if effective_damage <= 0.0:
 		return
@@ -1721,9 +1736,9 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 	if int(tally["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(tally["critical_applied"]):
 		tally["critical_applied"] = true
 		var bonus := float(tally["base_damage_sum"]) * (CRIT_MULTIPLIER - 1.0)
-		var bonus_id := "shotgun:%d:critical:%d" % [int(salvo["id"]), target_id]
+		var bonus_id := "%s:%d:critical:%d" % [str(salvo.get("source", "shotgun")), int(salvo["id"]), target_id]
 		target.call("take_damage", bonus, "player", bonus_id)
-		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:shotgun")
+		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND * float(salvo.get("damage_scale", 1.0)), "player:" + str(salvo.get("source", "shotgun")))
 		target.call("flash_impact", true)
 
 
@@ -1904,6 +1919,7 @@ func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> v
 	wall.monitoring = false
 	wall.monitorable = true
 	var collision := CollisionShape3D.new()
+	collision.name = "CollisionShape3D"
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(_magnetic_width, _magnetic_height, 0.14)
 	collision.shape = shape
@@ -2038,6 +2054,8 @@ func _perform_bio_injector() -> void:
 	if _attack_label != null:
 		_attack_label.text = "BIO INJECTOR  •  %.1fs" % _bio_remaining
 	_create_bio_fx()
+	if survival_synergies != null:
+		survival_synergies.arm_double()
 	if _survival_evolved("mobility"):
 		_survival_area_damage(global_position, 4.0, 70.0, "bio_pulse", Color("#73f0bb"))
 
@@ -2051,6 +2069,8 @@ func _update_dash(delta: float) -> void:
 	var step := dash_distance * delta / maxf(0.001, dash_duration)
 	var collision := move_and_collide(_dash_direction * step)
 	global_position.y = 0.0
+	if survival_synergies != null:
+		survival_synergies.pyro_step(global_position)
 	if _survival_evolved("mobility"):
 		_survival_trail_clock += delta
 		if _survival_trail_clock >= 0.12:
@@ -2255,16 +2275,22 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	if token != _module_token or not _module_busy:
 		return
 	var target := _select_drone_target(origin, direction)
-	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _drone_max_range)
+	var excluded: Array[RID] = survival_synergies.drone_exclusions() if survival_synergies != null else []
+	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _drone_max_range, excluded)
+	var hit_excluded: Array[RID] = excluded.duplicate()
+	if target != null:
+		hit_excluded.append(target.get_rid())
 	var did_hit := false
 	if target != null:
 		var target_endpoint: Vector3 = target.global_position
-		if _module_path_clear(origin, target_endpoint, [target.get_rid()]):
+		if _module_path_clear(origin, target_endpoint, hit_excluded):
 			endpoint = target_endpoint
 			did_hit = true
+	var charged: bool = survival_synergies != null and bool(survival_synergies.crosses_field(origin, endpoint))
 	var distance := origin.distance_to(endpoint)
 	var drone := MeshInstance3D.new()
 	drone.name = "ModuloDroneProjectile"
+	drone.process_mode = Node.PROCESS_MODE_PAUSABLE
 	var drone_mesh := SphereMesh.new()
 	drone_mesh.radius = _drone_collision_radius
 	drone_mesh.height = _drone_collision_radius * 2.0
@@ -2274,6 +2300,7 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	_register_fx_budget(drone, "projectile")
 	var visual_start := _module_visual_start(direction)
 	drone.global_position = visual_start
+	var flight: Dictionary = survival_synergies.track_drone(drone) if survival_synergies != null else {"charged": false}
 	drone.look_at(visual_start + direction, Vector3.UP)
 	_decorate_drone_projectile(drone)
 	_create_muzzle_burst(visual_start, direction, Color("#45ddff"), 0.82)
@@ -2284,9 +2311,13 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	tween.tween_callback(func() -> void:
 		if token != _module_token or not is_instance_valid(drone):
 			return
-		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
+		if survival_synergies != null:
+			survival_synergies.update_flight(flight)
+		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, hit_excluded):
 			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
 			if applied > 0.0:
+				if bool(flight.charged) and survival_synergies != null:
+					survival_synergies.drone_hit(target, _drone_damage)
 				if _survival_evolved("offensive"):
 					_survival_secondary_hit(target, _drone_damage * 0.5, 5.0, "drone_chain", false)
 				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:modulo_drone")
@@ -2466,7 +2497,10 @@ func _recast_javelin() -> void:
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
+	var teleport_origin := global_position
 	global_position = destination
+	if survival_synergies != null:
+		survival_synergies.teleport_trail(teleport_origin, destination)
 	target.call("clear_javelin_mark")
 	_javelin_mark_target = null
 	_create_teleport_fx(destination)
@@ -2680,6 +2714,7 @@ func _is_weapon_recoil_running(tweens: Array[Tween]) -> bool:
 func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
 	var projectile := Node3D.new()
 	projectile.name = "BlasterProjectile"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 	# Geometry may be discarded; travel and damage delivery may not.
 	get_tree().current_scene.add_child(projectile)
 	projectile.add_to_group("prototype0_gameplay_projectiles")
@@ -2702,6 +2737,8 @@ func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: floa
 		if did_hit and target != null and is_instance_valid(target) and _blaster_path_clear(target, start, target.global_position):
 			var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
 			if applied > 0.0:
+				if survival_synergies != null:
+					survival_synergies.blaster_hit(target, charge_ratio)
 				if _survival_evolved("weapon"):
 					_survival_secondary_hit(target, damage * 0.6, 9.0, "blaster_pierce", true, shot_direction)
 				target.call("flash_impact", charge_ratio >= 0.99)

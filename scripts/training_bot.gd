@@ -22,6 +22,8 @@ const DODGE_DURATION := 0.34
 const DODGE_COOLDOWN := 3.5
 const DODGE_SPEED := 7.2
 const MOVE_ACCELERATION := 7.0
+const CHARGER_ATTACK_RANGE := 6.0
+const BOSS_ATTACK_RANGE := 8.0
 const SURVIVAL_ARENA_LIMIT := 21.0
 const CHARGE_OBSTACLE_MARGIN := 0.7
 const BOT_COLLISION_MARGIN := 0.04
@@ -35,6 +37,10 @@ const DUEL_FLANK_SPEED := 3.2
 var training_stationary := false
 var training_attack_interval := ATTACK_INTERVAL
 var training_attack_damage := ATTACK_DAMAGE
+var survival_elite := ""
+var boss_phase_two := false
+var _double_charge_pending := false
+var _shield_facing := Vector3.FORWARD
 var survival_role := ""
 var _charge_target := Vector3.ZERO
 var _charge_remaining := 0.0
@@ -102,7 +108,7 @@ func set_enabled(value: bool) -> void:
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_reset_duel_decisions()
-	if _duel_equipment != null:
+	if _duel_equipment != null and survival_role == "":
 		_duel_equipment.call("reset")
 	_charge_remaining = 0.0
 	_charge_hit = false
@@ -139,7 +145,7 @@ func reset_clock() -> void:
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_reset_duel_decisions()
-	if _duel_equipment != null:
+	if _duel_equipment != null and survival_role == "":
 		_duel_equipment.call("reset")
 	_charge_remaining = 0.0
 	_charge_hit = false
@@ -229,6 +235,7 @@ func _physics_process(delta: float) -> void:
 			_windup_remaining = 0.0
 			_windup_player = null
 			_charge_remaining = 0.0
+			_double_charge_pending = false
 			_move_velocity = Vector3.ZERO
 			_update_telegraph()
 			return
@@ -300,12 +307,33 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 	var toward := player.global_position - bot_body.global_position
 	toward.y = 0.0
 	var distance := toward.length()
+	if survival_role == "boss" and not boss_phase_two and float(bot_body.call("get_health")) <= float(bot_body.get("combat_state").max_health) * 0.5:
+		boss_phase_two = true
+		training_attack_interval = 1.8
+		bot_body.get_node("TargetHealthReadout").call("update_actor_identity", Color("#ff8056"), "BROYEUR · SURCHARGE")
+	if survival_elite == "shield" and distance > 0.01:
+		var angle := rotate_toward(atan2(_shield_facing.x, _shield_facing.z), atan2(toward.x, toward.z), delta * 1.6)
+		_shield_facing = Vector3(sin(angle), 0.0, cos(angle))
+		bot_body.set_meta("shield_facing", _shield_facing)
+		var shield := bot_body.get_node_or_null("EliteShield") as Node3D
+		if shield != null:
+			shield.global_position = bot_body.global_position + _shield_facing * 1.1 + Vector3.UP
+			shield.global_rotation.y = atan2(_shield_facing.x, _shield_facing.z)
 	if _charge_remaining > 0.0:
 		_charge_remaining = maxf(0.0, _charge_remaining - delta)
 		_advance_charge(bot_body, delta)
 		if not _charge_hit and bot_body.global_position.distance_to(player.global_position) < (2.0 if survival_role == "boss" else 1.35) and _line_of_sight_clear(bot_body, player):
-			player.call("take_damage", training_attack_damage, "survival_charge", "charge:%d" % _attack_serial)
+			player.call("take_damage", training_attack_damage, "survival_charge", "charge:%d:%d" % [get_instance_id(), _attack_serial])
 			_charge_hit = true
+		if _charge_remaining <= 0.0:
+			_next_attack_at = _elapsed + training_attack_interval
+			if _double_charge_pending:
+				_double_charge_pending = false
+				_attack_serial += 1
+				_charge_target = player.global_position
+				_windup_player = player
+				_windup_remaining = 0.75
+				_update_telegraph()
 		return
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
@@ -316,12 +344,15 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_charge_hit = false
 			elif survival_role == "chaser":
 				if distance < 2.2 and _line_of_sight_clear(bot_body, player):
-					player.call("take_damage", training_attack_damage, "survival_melee", "melee:%d" % _attack_serial)
+					player.call("take_damage", training_attack_damage, "survival_melee", "melee:%d:%d" % [get_instance_id(), _attack_serial])
 			else:
-				if survival_role == "boss":
+				if survival_role == "boss" or survival_elite == "spread":
 					_spawn_attack_visual(player, "boss_spread:%d:center" % _attack_serial)
 					_spawn_attack_visual(player, "boss_spread:%d:left" % _attack_serial, Vector3(-1.6, 0, 0))
 					_spawn_attack_visual(player, "boss_spread:%d:right" % _attack_serial, Vector3(1.6, 0, 0))
+					if boss_phase_two:
+						_spawn_attack_visual(player, "boss_spread:%d:far_left" % _attack_serial, Vector3(-3.2, 0, 0))
+						_spawn_attack_visual(player, "boss_spread:%d:far_right" % _attack_serial, Vector3(3.2, 0, 0))
 				else:
 					_attack_player(player)
 			_next_attack_at = _elapsed + training_attack_interval
@@ -338,11 +369,13 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		var slow := 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95) if bot_body.has_method("get_slow_percent") else 1.0
 		_move_velocity = _move_velocity.move_toward(toward.normalized() * desired_speed * slow, MOVE_ACCELERATION * delta)
 		_move_bot(bot_body, delta)
-	if _elapsed >= _next_attack_at and distance <= (2.1 if survival_role == "chaser" else 12.0) and _line_of_sight_clear(bot_body, player):
+	var attack_range := 2.1 if survival_role == "chaser" else CHARGER_ATTACK_RANGE if survival_role == "charger" else BOSS_ATTACK_RANGE if survival_role == "boss" else 12.0
+	if _elapsed >= _next_attack_at and distance <= attack_range and _line_of_sight_clear(bot_body, player):
 		_attack_serial += 1
+		_double_charge_pending = survival_elite == "double_charge"
 		_charge_target = player.global_position
 		_windup_player = player
-		_windup_remaining = 0.85 if survival_role in ["charger", "boss"] else 0.45
+		_windup_remaining = (0.65 if boss_phase_two else 0.85) if survival_role in ["charger", "boss"] else 0.6 if survival_elite == "spread" else 0.45
 		_update_telegraph()
 
 
@@ -590,7 +623,8 @@ func _recover_bot_from_cover(bot_body: Node3D) -> bool:
 
 
 func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tactics: bool) -> void:
-	if not player.has_method("is_attack_committed") or not bool(player.call("is_attack_committed")) or (duel_tactics and not target_visible):
+	var threatened := _visible_player_threat(bot_body, player, target_visible) if duel_tactics else player.has_method("is_attack_committed") and bool(player.call("is_attack_committed"))
+	if not threatened:
 		_attack_observed_at = -1.0
 		return
 	if _dodge_cooldown_remaining > 0.0:
@@ -686,10 +720,15 @@ func _attack_player(player: Node3D) -> void:
 
 
 func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = Vector3.ZERO) -> void:
+	if survival_role != "":
+		attack_id = "%d:%s" % [get_instance_id(), attack_id]
 	var bot_body := get_parent() as Node3D
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
+	if survival_role != "" and offset != Vector3.ZERO:
+		var toward := (player.global_position - bot_body.global_position).normalized()
+		offset = Vector3(-toward.z, 0.0, toward.x).normalized() * offset.x
 	var impact_position := player.global_position + Vector3.UP * 0.92 + offset
 	var shot_transform := Transform3D(Basis.IDENTITY, bot_body.global_position + Vector3.UP * 1.30)
 	if bot_body.has_method("prepare_training_bot_shot"):
@@ -697,6 +736,7 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 	var start_position := shot_transform.origin
 	var tracer := Node3D.new()
 	tracer.name = "TrainingBotProjectile"
+	tracer.process_mode = Node.PROCESS_MODE_PAUSABLE
 	scene.add_child(tracer)
 	if scene.has_method("register_fx_node"):
 		scene.call("register_fx_node", tracer, "projectile")

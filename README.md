@@ -65,14 +65,13 @@ initiale seulement au démarrage. Niveau du lecteur : -10 dB.
 
 ## Musique du duel
 
-Le match joue aussi « Poussière et cambouis » depuis
-`art/audio/menu_poussiere_et_cambouis.wav`. Le fichier source choisi est conservé dans
-`son-musique/musiques/03_poussiere_et_cambouis_30s.wav` ; la version du jeu possède
-un raccord de fin qui ramène la boucle à 4,75 secondes.
+Le match joue « Tambours de guerre » depuis
+`son-musique/musiques/02_tambours_de_guerre_30s.wav` (30 secondes, stéréo 44,1 kHz).
+La piste choisie est utilisée sans modification et reboucle depuis le début.
 
-La musique
-démarre avec le premier décompte, continue entre les manches, se met en pause avec le jeu
-et s'arrête au résultat final ou au retour au menu. Le niveau est réglé sous les effets sonores.
+La musique démarre avec le premier décompte, continue entre les manches, se met en pause
+avec le jeu et s'arrête au résultat final ou au retour au menu. Le niveau du lecteur
+est réglé à -17 dB, sous les effets sonores.
 
 ## Sons de résultat
 
@@ -490,15 +489,30 @@ récompenses font choisir, dans cet ordre, un module offensif, défensif, de mob
 puis un passif. Les suivantes proposent une évolution propre à l'objet avec gain de puissance, ou du rythme ;
 une fois l'évolution prise, elles proposent puissance ou rythme. Le passif peut aussi
 gagner des PV maximum. Les équipements démarrent affaiblis puis
-peuvent dépasser leurs valeurs de duel. Le joueur récupère 150 PV après chaque choix,
-sans réinitialisation complète entre les vagues. La douzième vague ajoute un ennemi
-plus résistant ; la partie s'achève sur une victoire ou à la mort du joueur.
+peuvent dépasser leurs valeurs de duel. Le joueur récupère 100 PV après les vagues
+3, 6 et 9. Un kit de réparation à usage unique (+80 PV) apparaît aux vagues 2, 5, 8
+et 11 ; il reste au sol si les PV sont pleins. Il disparaît à la vague suivante.
+La partie s'achève sur une victoire après la vague 12 ou à la mort du joueur.
+
+La musique suit les vagues : une variation retenue pour les vagues 1 à 4, « La forge
+s'emballe » pour les vagues 5 à 8, puis une variation plus dense pour les vagues 9 à 12.
+Chaque piste dure une minute ; la boucle revient à 20 secondes pour garder sa montée
+initiale seulement au premier passage. Les transitions ont lieu pendant les choix
+d'amélioration et l'annonce de la vague suivante. Un fond plus calme accompagne les
+choix. La variation finale gagne 1,5 dB pour conserver son niveau perçu. La musique se
+suspend avec la pause et s'arrête au résultat.
 
 L'arène est une casse automobile avec trois épaves servant de couverts, des carcasses
 et des tas de ferraille sur le pourtour. Avant chaque vague, un compte à rebours et des
 cercles colorés annoncent les points d'arrivée. Les ennemis ont trois rôles : poursuivant
 au contact, tireur fragile qui garde ses distances et chargeur dont la trajectoire est
-annoncée au sol. Le broyeur final alterne charge et salve de trois projectiles.
+annoncée au sol. Les vagues comptent 3, 3, 4, 4, 6, 6, 7, 7, 8, 8, 10 puis 10 ennemis,
+répartis en deux groupes : le second arrive après cinq secondes avec des marqueurs
+visibles. Il faut éliminer les deux groupes pour passer au choix suivant. Les élites
+remplacent un ennemi aux vagues 3 (double charge annoncée), 6 (salve en éventail) et
+9 (bouclier frontal réduisant les tirs de 55 %, contournable). Le broyeur final alterne
+charge et salve ; à mi-vie, sa récupération passe de 2,6 à 1,8 s et sa salve de trois
+à cinq projectiles. Les attaques des ennemis ont des identifiants distincts.
 
 Chaque équipement possède une évolution distincte : percée du Blaster, gerbe élargie
 du Shotgun, rebond du Drone, explosion du Javelin, décharges du Champ magnétique,
@@ -507,9 +521,29 @@ Baroud ou soin à l'élimination d'Omnivamp. Les choix affichent les valeurs de 
 ou de la recharge avant et après amélioration.
 
 Les commandes `A`, `E` et `R` deviennent utilisables à mesure que leurs modules sont
-obtenus. Le HUD montre la vague et les cooldowns. Échap ou le bouton PAUSE ouvre
-le build complet avec ses améliorations ; le résultat permet de recommencer ou de revenir au menu.
-Le test de parcours est `tools/test_survival.gd`.
+obtenus. Le HUD montre les vagues, les PV, le build et les cooldowns. Échap ou le bouton
+PAUSE ouvre la pause. Le bilan affiche le temps de combat (hors menus et pauses), les
+éliminations, les vagues terminées, le record local, les dégâts effectifs par source,
+les soins effectifs et le build final avec ses évolutions et synergies. On peut
+rejouer, revenir au menu, conserver un favori de référence ou exporter une carte PNG
+locale (aucun partage automatique). Le favori est rappelé au choix de l'arme et ne
+donne aucun équipement gratuit. Données : `user://survival_records.json`.
+
+Quatre synergies sont activées automatiquement et annoncées sur les cartes :
+- Blaster + Pyro Boots : une traînée brûle les cibles ; un tir chargé à au moins
+  70 % déclenche 55 dégâts autour d'une cible marquée. Rayon 2,7 m, puis 4 m avec
+  l'évolution du Blaster ; durée de brûlure 2 s, puis 3,5 s avec les Boots évoluées.
+- Modulo Drone + Magnetic Field : traverser son propre mur charge le drone ; l'impact
+  produit un arc à 45 % des dégâts vers une cible à 4 m. L'offensif évolué permet
+  deux cibles, la défense évoluée porte le rayon à 6 m. Les autres murs restent bloquants.
+- Shotgun + Bio Injector : pendant l'injecteur, la prochaine salve déclenche une
+  seconde salve après 0,16 s, à 45 % des dégâts (65 % avec la mobilité évoluée),
+  sans cartouche supplémentaire. Une seule activation par injection.
+- Javelin + Pyro Boots : la téléportation laisse un sillage brûlant de 2 s
+  (3,5 s avec les Boots évoluées), à 16 dégâts/s (26 avec le Javelin évolué).
+Les effets sont bornés, cessent entre les vagues, et ne se déclenchent pas eux-mêmes.
+
+Tests : `tools/test_survival.gd` et `tools/test_survival_expansion.gd`.
 
 ## Commandes
 

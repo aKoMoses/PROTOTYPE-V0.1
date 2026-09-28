@@ -1,0 +1,476 @@
+[
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-01.wav",
+    "duration": 0.36,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.04610308259725571,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-A-01.wav",
+    "source_window_seconds": [
+      1.5585,
+      1.8185
+    ],
+    "gain_db": 8.549037333895168
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-02.wav",
+    "duration": 0.36,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.053252700716257095,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-A-02.wav",
+    "source_window_seconds": [
+      1.5535,
+      1.8135
+    ],
+    "gain_db": 14.811157212201984
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-03.wav",
+    "duration": 0.36,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.733673095703125,
+    "rms": 0.05523497611284256,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-A-03.wav",
+    "source_window_seconds": [
+      2.222,
+      2.482
+    ],
+    "gain_db": 9.872731249374002
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-04.wav",
+    "duration": 0.36,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.65081787109375,
+    "rms": 0.05523834377527237,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-A-04.wav",
+    "source_window_seconds": [
+      2.217,
+      2.477
+    ],
+    "gain_db": 16.39954868293213
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-01.wav",
+    "duration": 0.42,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.421295166015625,
+    "rms": 0.05666947364807129,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-B-01.wav",
+    "source_window_seconds": [
+      1.1544,
+      1.4744
+    ],
+    "gain_db": 5.907564136631741
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-02.wav",
+    "duration": 0.42,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.61029052734375,
+    "rms": 0.05660919100046158,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-B-02.wav",
+    "source_window_seconds": [
+      0.022,
+      0.342
+    ],
+    "gain_db": 7.276274656520684
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-03.wav",
+    "duration": 0.42,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.32708740234375,
+    "rms": 0.056690290570259094,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-B-03.wav",
+    "source_window_seconds": [
+      1.1494,
+      1.4694
+    ],
+    "gain_db": 5.044971115134318
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-04.wav",
+    "duration": 0.42,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.295074462890625,
+    "rms": 0.056625887751579285,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\robot-footstep-B-04.wav",
+    "source_window_seconds": [
+      1.1344,
+      1.4544
+    ],
+    "gain_db": 6.513778102151492
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-entry-A.wav",
+    "duration": 0.6,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.53765869140625,
+    "rms": 0.05448117107152939,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-entry-A.wav",
+    "source_window_seconds": [
+      0.88,
+      1.38
+    ],
+    "gain_db": 3.422515076300855
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-entry-B.wav",
+    "duration": 0.72,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.4395751953125,
+    "rms": 0.05560186505317688,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-entry-B.wav",
+    "source_window_seconds": [
+      0.5358,
+      1.1558
+    ],
+    "gain_db": 2.9436250338587744
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-exit-A.wav",
+    "duration": 0.48,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.780029296875,
+    "rms": 0.04804889112710953,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-exit-A.wav",
+    "source_window_seconds": [
+      0.1716,
+      0.5516
+    ],
+    "gain_db": 2.888000559695791
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-exit-B.wav",
+    "duration": 0.58,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.446929931640625,
+    "rms": 0.0544154979288578,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-exit-B.wav",
+    "source_window_seconds": [
+      0.3462,
+      0.8262
+    ],
+    "gain_db": 3.52032492760389
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\loops\\bush-movement-A.wav",
+    "duration": 2.4,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.505401611328125,
+    "rms": 0.03999999910593033,
+    "clipped_ratio": 0.0,
+    "kind": "ambience",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-movement-A.wav",
+    "gain_db": 4.288187393315434,
+    "loop_crossfade_seconds": 0.3,
+    "source_window_seconds": [
+      1.15,
+      3.85
+    ]
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-movement-A.wav",
+    "duration": 4.8,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.505401611328125,
+    "rms": 0.039790891110897064,
+    "clipped_ratio": 0.0,
+    "kind": "ambience",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\loops\\bush-movement-A.wav",
+    "purpose": "Two-cycle audition with start/end fades"
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\loops\\bush-movement-B.wav",
+    "duration": 2.4,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.49346923828125,
+    "rms": 0.04000001400709152,
+    "clipped_ratio": 0.0,
+    "kind": "ambience",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\bush-movement-B.wav",
+    "gain_db": 6.475728228987707,
+    "loop_crossfade_seconds": 0.3,
+    "source_window_seconds": [
+      1.15,
+      3.85
+    ]
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\bush-movement-B.wav",
+    "duration": 4.8,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.49346923828125,
+    "rms": 0.03711449354887009,
+    "clipped_ratio": 0.0,
+    "kind": "ambience",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\loops\\bush-movement-B.wav",
+    "purpose": "Two-cycle audition with start/end fades"
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-shot-A.wav",
+    "duration": 0.52,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.524871826171875,
+    "rms": 0.07486386597156525,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-shot-A.wav",
+    "source_window_seconds": [
+      0.2514,
+      0.6714
+    ],
+    "gain_db": -2.48799500620756
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-shot-B.wav",
+    "duration": 0.58,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.7493896484375,
+    "rms": 0.06899010390043259,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-shot-B.wav",
+    "source_window_seconds": [
+      0.1517,
+      0.6317
+    ],
+    "gain_db": 3.2545320850528308
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-melee-A.wav",
+    "duration": 0.56,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.63836669921875,
+    "rms": 0.06418104469776154,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-melee-A.wav",
+    "source_window_seconds": [
+      0.3761,
+      0.8361
+    ],
+    "gain_db": 9.344737927345472,
+    "audition_adjustment_db": -1.5193920119794817
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-melee-B.wav",
+    "duration": 0.6,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.780029296875,
+    "rms": 0.06418099999427795,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-melee-B.wav",
+    "source_window_seconds": [
+      0.1566,
+      0.6566
+    ],
+    "gain_db": 25.81151626186289
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-charge-warning-A.wav",
+    "duration": 1.05,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.06004128232598305,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-charge-warning-A.wav",
+    "source_window_seconds": [
+      1.9356,
+      2.8856
+    ],
+    "gain_db": 7.0304832147683305
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\enemy-charge-warning-B.wav",
+    "duration": 0.95,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.06474410742521286,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\enemy-charge-warning-B.wav",
+    "source_window_seconds": [
+      0.0,
+      0.85
+    ],
+    "gain_db": 7.557896752204542
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\low-health-A.wav",
+    "duration": 0.95,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.611663818359375,
+    "rms": 0.08040020614862442,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\low-health-A.wav",
+    "source_window_seconds": [
+      0.0,
+      0.85
+    ],
+    "gain_db": 10.429504379982493
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\low-health-B.wav",
+    "duration": 1.05,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.4365234375,
+    "rms": 0.08041153848171234,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\low-health-B.wav",
+    "source_window_seconds": [
+      0.2195,
+      1.1695
+    ],
+    "gain_db": 1.1671706072912453
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\baroud-A.wav",
+    "duration": 1.3,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.056502070277929306,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\baroud-A.wav",
+    "source_window_seconds": [
+      0.015,
+      1.215
+    ],
+    "gain_db": 4.399461822630451
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\baroud-B.wav",
+    "duration": 1.3,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.34747314453125,
+    "rms": 0.056502051651477814,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "source": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\raw\\baroud-B.wav",
+    "source_window_seconds": [
+      0.3542,
+      1.5542
+    ],
+    "gain_db": 1.4199240981149246,
+    "audition_adjustment_db": -4.405155057683075
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\robot-footsteps-A.wav",
+    "duration": 2.74,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.779998779296875,
+    "rms": 0.03812612593173981,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "sources": [
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-01.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-02.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-03.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-A-04.wav"
+    ],
+    "purpose": "Four distinct footstep variations"
+  },
+  {
+    "file": "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\robot-footsteps-B.wav",
+    "duration": 2.74,
+    "sample_rate": 44100,
+    "channels": 2,
+    "finite": true,
+    "peak": 0.61029052734375,
+    "rms": 0.044357746839523315,
+    "clipped_ratio": 0.0,
+    "kind": "accent",
+    "sources": [
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-01.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-02.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-03.wav",
+      "C:\\RomainOpen\\perso\\music-lab\\2026-09-28-movement-enemies-alerts\\previews\\footsteps\\robot-footstep-B-04.wav"
+    ],
+    "purpose": "Four distinct footstep variations"
+  }
+]
