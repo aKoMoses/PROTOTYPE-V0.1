@@ -102,7 +102,7 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 	core.mesh = _mesh("tracer")
 	var core_color := Color("#fff3d2") if shotgun else (Color("#ffe0d8") if enemy else Color("#e8fdff"))
 	core.material_override = _material(core_color, 0.98, true)
-	core.scale = Vector3(0.038 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.026 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.36 if shotgun else (0.62 if enemy else lerpf(0.62, 1.00, charge_curve)))
+	core.scale = Vector3(0.085 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.065 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.55 if shotgun else (0.62 if enemy else lerpf(0.62, 1.00, charge_curve)))
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(core)
 	if not shotgun:
@@ -112,6 +112,14 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 		sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
 		sheath.scale = core.scale * Vector3(2.10 + charge_curve * 0.35, 2.10 + charge_curve * 0.35, 1.28)
 		sheath.position.z = 0.10 + charge_curve * 0.08
+		sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parent.add_child(sheath)
+	else:
+		var sheath := MeshInstance3D.new()
+		sheath.name = "ProjectileSheath"
+		sheath.mesh = core.mesh
+		sheath.material_override = _material(color, 0.48, true)
+		sheath.scale = core.scale * Vector3(1.8, 1.8, 1.2)
 		sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		parent.add_child(sheath)
 

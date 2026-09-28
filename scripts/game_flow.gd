@@ -331,7 +331,7 @@ func _build_menu() -> void:
 	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	box.position = Vector2(136.0, 118.0)
 	box.size = Vector2(422.0, 470.0)
-	box.add_theme_constant_override("separation", 11)
+	box.add_theme_constant_override("separation", 7)
 	_menu_panel.add_child(box)
 	var title := HBoxContainer.new()
 	title.add_theme_constant_override("separation", 0)
@@ -344,7 +344,7 @@ func _build_menu() -> void:
 	title_zero.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	title.add_child(title_zero)
 	box.add_child(title)
-	var subtitle := _label("DUEL DE ROBOTS  •  ARÈNE LOCALE", 16, CYAN)
+	var subtitle := _label("COMBAT DE ROBOTS  •  ARÈNE LOCALE", 16, CYAN)
 	subtitle.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	box.add_child(subtitle)
 	var divider := ColorRect.new()
@@ -352,15 +352,16 @@ func _build_menu() -> void:
 	divider.custom_minimum_size = Vector2(0.0, 2.0)
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(divider)
-	var intro := _label("Choisis ton équipement. Entre dans l’arène. Affronte le bot.", 18, CREAM)
+	var intro := _label("Choisis un duel, une survie ou un entraînement.", 18, CREAM)
 	intro.custom_minimum_size = Vector2(0.0, 56.0)
 	box.add_child(intro)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 10.0)
+	spacer.custom_minimum_size = Vector2(0.0, 2.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 84.0))
-	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 76.0))
-	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 76.0))
+	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
+	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
+	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
+	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
 
 
 func _menu_art_button(text: String, callback: Callable, texture: Texture2D, height: float) -> Control:
@@ -1170,6 +1171,11 @@ func _open_training_ground() -> void:
 	_end_pause(false)
 	_stop_match_music()
 	get_tree().change_scene_to_file("res://scenes/training_ground.tscn")
+
+func _open_survival() -> void:
+	_end_pause(false)
+	_stop_match_music()
+	get_tree().change_scene_to_file("res://scenes/survival.tscn")
 
 func _start_duel() -> void:
 	loadout = LOADOUT.sanitize(loadout)

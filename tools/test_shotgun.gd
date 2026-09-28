@@ -14,10 +14,14 @@ func _initialize() -> void:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
 		player.call("set_weapon", "shotgun")
+		await _test_audio(player, target)
 		await _test_six_of_six(player, target)
 		await _test_five_of_six(player, target)
 		await _test_absorption(player, target, scene)
 		await _test_magazine_and_reload(player, target)
+	current_scene = null
+	scene.queue_free()
+	await process_frame
 
 	if _failures.is_empty():
 		print("P0-104 SHOTGUN TEST: PASS")
@@ -40,6 +44,36 @@ func _prepare(player: Node, target: Node, target_position: Vector3) -> void:
 	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 	target.global_position = target_position
 	target.call("reset_combat_state")
+
+
+func _test_audio(player: Node, target: Node) -> void:
+	_prepare(player, target, Vector3(12.0, 0.0, 0.0))
+	var shot_audio := player.get_node_or_null("ShotgunShotAudio") as AudioStreamPlayer
+	var cycle_audio := player.get_node_or_null("ShotgunCycleAudio") as AudioStreamPlayer
+	var reload_audio := player.get_node_or_null("ShotgunReloadAudio") as AudioStreamPlayer
+	if shot_audio == null or cycle_audio == null or reload_audio == null:
+		_failures.append("audio : lecteurs shotgun introuvables")
+		return
+	if shot_audio.stream.resource_path != "res://art/audio/shotgun-shot-a.wav" or cycle_audio.stream.resource_path != "res://art/audio/shotgun-cycle-a.wav" or reload_audio.stream.resource_path != "res://art/audio/shotgun-reload-a.wav":
+		_failures.append("audio : fichiers shotgun incorrects")
+	player.call("_perform_shotgun_attack")
+	await _wait_seconds(0.16)
+	if not shot_audio.playing:
+		_failures.append("audio : tir non joué à l'émission")
+	await _wait_seconds(0.28)
+	if not cycle_audio.playing:
+		_failures.append("audio : réarmement non joué après le tir")
+	player.call("set_weapon", "blaster")
+	if shot_audio.playing or cycle_audio.playing:
+		_failures.append("audio : tir ou réarmement persiste après changement d'arme")
+	player.call("set_weapon", "shotgun")
+	player.set("_shotgun_ammo", 2)
+	player.call("_start_shotgun_reload")
+	if not reload_audio.playing:
+		_failures.append("audio : recharge non jouée")
+	player.call("set_weapon", "blaster")
+	if reload_audio.playing:
+		_failures.append("audio : recharge persiste après changement d'arme")
 
 
 func _test_six_of_six(player: Node, target: Node) -> void:

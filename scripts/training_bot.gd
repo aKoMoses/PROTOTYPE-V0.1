@@ -23,6 +23,10 @@ const MOVE_ACCELERATION := 7.0
 var training_stationary := false
 var training_attack_interval := ATTACK_INTERVAL
 var training_attack_damage := ATTACK_DAMAGE
+var survival_role := ""
+var _charge_target := Vector3.ZERO
+var _charge_remaining := 0.0
+var _charge_hit := false
 
 var enabled := false
 var _elapsed := 0.0
@@ -72,6 +76,8 @@ func set_enabled(value: bool) -> void:
 	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
+	_charge_remaining = 0.0
+	_charge_hit = false
 	_update_telegraph()
 	set_physics_process(enabled)
 	var owner_3d := get_parent() as Node3D
@@ -104,6 +110,8 @@ func reset_clock() -> void:
 	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
+	_charge_remaining = 0.0
+	_charge_hit = false
 	_update_telegraph()
 
 
@@ -158,6 +166,16 @@ func _physics_process(delta: float) -> void:
 		_windup_remaining = 0.0
 		_update_telegraph()
 		return
+	if survival_role != "":
+		if bot_body.has_method("is_stunned") and bool(bot_body.call("is_stunned")):
+			_windup_remaining = 0.0
+			_windup_player = null
+			_charge_remaining = 0.0
+			_move_velocity = Vector3.ZERO
+			_update_telegraph()
+			return
+		_update_survival_bot(bot_body, player, delta)
+		return
 	if bot_body.has_method("is_stunned") and bool(bot_body.call("is_stunned")):
 		_windup_remaining = 0.0
 		_windup_player = null
@@ -208,6 +226,62 @@ func _physics_process(delta: float) -> void:
 		_next_attack_at = _elapsed + 0.35
 
 
+func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> void:
+	_elapsed += delta
+	_telegraph_clock += delta
+	var toward := player.global_position - bot_body.global_position
+	toward.y = 0.0
+	var distance := toward.length()
+	if _charge_remaining > 0.0:
+		_charge_remaining = maxf(0.0, _charge_remaining - delta)
+		_move_velocity = (_charge_target - bot_body.global_position).normalized() * (18.0 if survival_role == "charger" else 14.0)
+		_move_velocity.y = 0.0
+		_move_bot(bot_body, delta)
+		if not _charge_hit and bot_body.global_position.distance_to(player.global_position) < (2.0 if survival_role == "boss" else 1.35):
+			player.call("take_damage", training_attack_damage, "survival_charge", "charge:%d" % _attack_serial)
+			_charge_hit = true
+		if bot_body.global_position.distance_to(_charge_target) < 0.8:
+			_charge_remaining = 0.0
+		return
+	if _windup_remaining > 0.0:
+		_windup_remaining = maxf(0.0, _windup_remaining - delta)
+		_update_telegraph()
+		if _windup_remaining <= 0.0:
+			if survival_role == "charger" or (survival_role == "boss" and _attack_serial % 2 == 1):
+				_charge_remaining = 0.8
+				_charge_hit = false
+			elif survival_role == "chaser":
+				if distance < 2.2 and _line_of_sight_clear(bot_body, player):
+					player.call("take_damage", training_attack_damage, "survival_melee", "melee:%d" % _attack_serial)
+			else:
+				if survival_role == "boss":
+					_spawn_attack_visual(player, "boss_spread:%d:center" % _attack_serial)
+					_spawn_attack_visual(player, "boss_spread:%d:left" % _attack_serial, Vector3(-1.6, 0, 0))
+					_spawn_attack_visual(player, "boss_spread:%d:right" % _attack_serial, Vector3(1.6, 0, 0))
+				else:
+					_attack_player(player)
+			_next_attack_at = _elapsed + training_attack_interval
+			_update_telegraph()
+		return
+	var desired_speed := 0.0
+	if survival_role == "chaser" or survival_role == "charger":
+		desired_speed = 4.0 if survival_role == "chaser" else 2.4
+	elif survival_role == "boss":
+		desired_speed = 2.2 if distance > 7.0 else -1.0 if distance < 4.0 else 0.0
+	else:
+		desired_speed = 2.5 if distance > 9.0 else -2.2 if distance < 6.0 else 0.0
+	if distance > 0.1:
+		var slow := 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95) if bot_body.has_method("get_slow_percent") else 1.0
+		_move_velocity = _move_velocity.move_toward(toward.normalized() * desired_speed * slow, MOVE_ACCELERATION * delta)
+		_move_bot(bot_body, delta)
+	if _elapsed >= _next_attack_at and distance <= (2.1 if survival_role == "chaser" else 12.0) and _line_of_sight_clear(bot_body, player):
+		_attack_serial += 1
+		_charge_target = player.global_position
+		_windup_player = player
+		_windup_remaining = 0.85 if survival_role in ["charger", "boss"] else 0.45
+		_update_telegraph()
+
+
 func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -> void:
 	var to_player := pursuit_position - bot_body.global_position
 	to_player.y = 0.0
@@ -238,7 +312,7 @@ func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -
 
 
 func _move_bot(bot_body: Node3D, delta: float) -> void:
-	if _move_velocity.length_squared() <= 0.04:
+	if _move_velocity.length_squared() <= 0.0001:
 		_move_velocity = Vector3.ZERO
 	var next_position := bot_body.global_position + _move_velocity * delta
 	var world := bot_body.get_world_3d()
@@ -329,12 +403,12 @@ func _attack_player(player: Node3D) -> void:
 	_spawn_attack_visual(player, "training_bot:%d" % _attack_serial)
 
 
-func _spawn_attack_visual(player: Node3D, attack_id: String) -> void:
+func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = Vector3.ZERO) -> void:
 	var bot_body := get_parent() as Node3D
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
-	var impact_position := player.global_position + Vector3.UP * 0.92
+	var impact_position := player.global_position + Vector3.UP * 0.92 + offset
 	var shot_transform := Transform3D(Basis.IDENTITY, bot_body.global_position + Vector3.UP * 1.30)
 	if bot_body.has_method("prepare_training_bot_shot"):
 		shot_transform = bot_body.call("prepare_training_bot_shot", impact_position)
@@ -485,7 +559,7 @@ func _update_telegraph() -> void:
 	_telegraph_beacon.visible = active
 	if not active:
 		return
-	var target_position := _windup_player.global_position
+	var target_position := _charge_target if survival_role in ["charger", "boss"] and (survival_role == "charger" or _attack_serial % 2 == 1) else _windup_player.global_position
 	var bot_position := bot_body.global_position if bot_body != null else Vector3.ZERO
 	var flat_delta := target_position - bot_position
 	flat_delta.y = 0.0
