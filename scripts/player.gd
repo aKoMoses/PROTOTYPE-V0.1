@@ -6,14 +6,27 @@ signal died
 const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
+const HEAVY_BLASTER_MODEL_PATH := "res://art/player_heavy_blaster.glb"
+const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 const BLASTER_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster-plasma.mp3")
+const STATUS_VFX := preload("res://scripts/status_vfx.gd")
 
 @export var move_speed := 5.0
 @export var attack_interval := 0.55
+@export_category("Weapon Handling")
+@export_range(0.25, 0.50, 0.01) var aim_hold_time := 0.35
+@export_range(0.04, 0.30, 0.01) var aim_raise_time := 0.10
+@export_range(0.08, 0.40, 0.01) var aim_lower_time := 0.18
+@export_category("Debug")
+@export var enable_direction_debug := false
+
+enum WeaponPoseState { IDLE, LOCOMOTION, AIM, FIRE, AIM_HOLD }
+const WEAPON_POSE_NAMES := [&"IDLE", &"LOCOMOTION", &"AIM", &"FIRE", &"AIM_HOLD"]
+const SKELETAL_FIRE_POSE_DURATION := 0.17
 
 # Blaster values are loaded from CombatData so future modules can override them
 # without changing the controller.
@@ -38,6 +51,11 @@ var _blaster_next_attack_ready_at := -10.0
 var _attack_hold_last := false
 
 var aim_direction := Vector3(0.0, 0.0, -1.0)
+var move_direction := Vector3.ZERO
+var weapon_pose_state: WeaponPoseState = WeaponPoseState.IDLE
+var _aim_hold_remaining := 0.0
+var _fire_pose_remaining := 0.0
+var _last_projectile_direction := Vector3.ZERO
 var _last_attack_time := -10.0
 var _combo_step := 0
 var _combo_expires_at := -1.0
@@ -136,13 +154,21 @@ var _axe_pivot: Node3D
 var _axe_pivot_home := Vector3(0.5, 1.0, -0.55)
 var _axe_pivot_home_rotation := Vector3.ZERO
 var _blaster_pivot: Node3D
-var _blaster_tip: Node3D
+var _blaster_pivot_home_transform := Transform3D.IDENTITY
+var _blaster_sway_pivot: Node3D
+var _blaster_recoil_pivot: Node3D
+var _blaster_muzzle: Node3D
+var _blaster_recoil_tweens: Array[Tween] = []
 var _blaster_light: OmniLight3D
 var _blaster_charge_visual: MeshInstance3D
 var _blaster_charge_material: StandardMaterial3D
 var _blaster_shot_audio: AudioStreamPlayer
 var _shotgun_pivot: Node3D
-var _shotgun_tip: Node3D
+var _shotgun_pivot_home_transform := Transform3D.IDENTITY
+var _shotgun_sway_pivot: Node3D
+var _shotgun_recoil_pivot: Node3D
+var _shotgun_muzzle: Node3D
+var _shotgun_recoil_tweens: Array[Tween] = []
 var _shotgun_light: OmniLight3D
 var _robot_visuals: Node3D
 var _locomotion_nodes: Array[Node3D] = []
@@ -155,6 +181,8 @@ var _player_body_material: StandardMaterial3D
 var _player_core_material: StandardMaterial3D
 const COMBAT_READOUT := preload("res://scripts/combat_readout.gd")
 var _health_readout: Node3D
+var _visual_rig: PlayerVisualRig
+var _round_warmup_active := false
 var _world_ui_anchor: Node3D
 var _trail_mesh: MeshInstance3D
 var _trail_material: StandardMaterial3D
@@ -167,9 +195,17 @@ var combat_state
 var _debug_key_latches: Dictionary = {}
 var _touch_move_vector := Vector2.ZERO
 var _touch_aim_vector := Vector2.ZERO
+var _touch_aim_active := false
 var _touch_attack_held := false
 var _touch_actions: Dictionary = {}
 var _gameplay_enabled := true
+var _direction_debug_mesh: MeshInstance3D
+var _direction_debug_geometry: ImmediateMesh
+var _direction_debug_material: StandardMaterial3D
+var _direction_debug_enabled := false
+var _direction_debug_label: Label3D
+var _status_vfx: Node3D
+var _stasis_visual: Node3D
 
 
 func _ready() -> void:
@@ -185,6 +221,10 @@ func _ready() -> void:
 	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
+	_status_vfx = STATUS_VFX.new()
+	_status_vfx.name = "StatusVFX"
+	add_child(_status_vfx)
+	_status_vfx.call("configure", self)
 	_blaster_shot_audio = AudioStreamPlayer.new()
 	_blaster_shot_audio.name = "BlasterShotAudio"
 	_blaster_shot_audio.stream = BLASTER_SHOT_SOUND
@@ -266,11 +306,14 @@ func _physics_process(delta: float) -> void:
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
 	if combat_state != null:
 		combat_state.update(delta, stasis_active)
+	if _status_vfx != null:
+		_status_vfx.call("sync", get_active_effect_types())
 	_update_module_cooldowns(delta)
 	_update_aim()
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
 	_update_movement(delta)
+	_update_weapon_pose_state(delta)
 	_update_robot_motion(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
@@ -294,6 +337,7 @@ func _physics_process(delta: float) -> void:
 func _update_movement(delta: float) -> void:
 	if _stasis_remaining > 0.0:
 		velocity = Vector3.ZERO
+		move_direction = Vector3.ZERO
 		return
 	if _dash_active:
 		_update_dash(delta)
@@ -310,17 +354,19 @@ func _update_movement(delta: float) -> void:
 		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
 			input_vector.y += 1.0
 
-	input_vector = input_vector.normalized()
-	if input_vector.length_squared() > 0.001:
-		_last_move_direction = Vector3(input_vector.x, 0.0, input_vector.y).normalized()
+	input_vector = input_vector.limit_length(1.0)
+	var world_move_direction := _camera_relative_direction(input_vector)
+	if world_move_direction.length_squared() > 0.001:
+		_last_move_direction = world_move_direction
 	if combat_state != null and combat_state.is_stunned():
 		input_vector = Vector2.ZERO
+		world_move_direction = Vector3.ZERO
 	var slow_multiplier := 1.0
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var bio_multiplier := _bio_speed_multiplier if _bio_remaining > 0.0 else 1.0
 	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
-	velocity = Vector3(input_vector.x, 0.0, input_vector.y) * move_speed * bio_multiplier * slow_multiplier * charge_multiplier
+	velocity = world_move_direction * move_speed * bio_multiplier * slow_multiplier * charge_multiplier
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -329,7 +375,10 @@ func _update_robot_motion(delta: float) -> void:
 	if _robot_visuals == null:
 		return
 	_locomotion_clock += delta
-	var desired_amount := clampf(velocity.length() / maxf(move_speed, 0.01), 0.0, 1.0)
+	var visual_velocity := _get_actual_move_velocity()
+	move_direction = visual_velocity.normalized() if visual_velocity.length() > 0.15 else Vector3.ZERO
+	var visual_speed := visual_velocity.length()
+	var desired_amount := clampf(visual_speed / maxf(move_speed, 0.01), 0.0, 1.0)
 	_locomotion_amount = move_toward(_locomotion_amount, desired_amount, delta * 8.0)
 	for node in _locomotion_nodes:
 		if node == null or not is_instance_valid(node):
@@ -348,24 +397,84 @@ func _update_robot_motion(delta: float) -> void:
 		else:
 			node.position = base_position + Vector3(0.0, sin(_locomotion_clock * 9.5 + phase) * 0.045 * _locomotion_amount, 0.0)
 			node.rotation = base_rotation
+	if _visual_rig != null:
+		_update_aim_pose_state()
+		_visual_rig.update_visual_state(move_direction, aim_direction, visual_speed, move_speed, delta, _gameplay_enabled and not is_real_dead())
+	if not _has_skeletal_weapon_attachment():
+		_update_player_debug_vectors()
+
+
+func _get_actual_move_velocity() -> Vector3:
+	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
+		return Vector3.ZERO
+	if _dash_active and _dash_direction.length_squared() > 0.001:
+		var dash_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("pyro_boots", {})
+		var dash_duration := maxf(0.001, float(dash_definition.get("dash_duration", 0.25)))
+		return _dash_direction * float(dash_definition.get("dash_distance", 3.0)) / dash_duration
+	var actual_velocity := get_real_velocity()
+	actual_velocity.y = 0.0
+	return actual_velocity
+
+
+func _camera_relative_direction(input_vector: Vector2) -> Vector3:
+	if input_vector.length_squared() <= 0.001:
+		return Vector3.ZERO
+	var camera := get_viewport().get_camera_3d() if get_viewport() != null else null
+	var camera_right := Vector3.RIGHT
+	var camera_forward := Vector3.FORWARD
+	if camera != null:
+		camera_right = camera.global_basis.x
+		camera_forward = -camera.global_basis.z
+		camera_right.y = 0.0
+		camera_forward.y = 0.0
+		if camera_right.length_squared() > 0.001:
+			camera_right = camera_right.normalized()
+		if camera_forward.length_squared() > 0.001:
+			camera_forward = camera_forward.normalized()
+	var world_direction := camera_right * input_vector.x - camera_forward * input_vector.y
+	world_direction.y = 0.0
+	return world_direction.normalized() if world_direction.length_squared() > 0.001 else Vector3.ZERO
+
+
+func _world_offset_to_visual_local(world_offset: Vector3) -> Vector3:
+	if _visual_rig == null:
+		return world_offset
+	return _visual_rig.global_basis.inverse() * world_offset
 
 
 func _update_weapon_ambient_motion(delta: float) -> void:
 	_weapon_motion_clock += delta
-	if _weapon_id == "blaster" and _blaster_pivot != null and not _blaster_attack_busy and not _blaster_charge_active:
+	if _has_skeletal_weapon_attachment():
+		# Both equipped weapons follow the animated hand, including recovery.
+		if _blaster_sway_pivot != null:
+			_blaster_sway_pivot.transform = Transform3D.IDENTITY
+		if _blaster_recoil_pivot != null:
+			_blaster_recoil_pivot.transform = Transform3D.IDENTITY
+		if _shotgun_sway_pivot != null:
+			_shotgun_sway_pivot.transform = Transform3D.IDENTITY
+		if _shotgun_recoil_pivot != null:
+			_shotgun_recoil_pivot.transform = Transform3D.IDENTITY
+	elif _weapon_id == "blaster" and _blaster_sway_pivot != null and not _blaster_attack_busy and not _blaster_charge_active and not _is_weapon_recoil_running(_blaster_recoil_tweens):
 		var blaster_sway := sin(_weapon_motion_clock * 2.4) * 0.018
-		_blaster_pivot.position = Vector3(0.58, 0.93 + blaster_sway, -0.42 + sin(_weapon_motion_clock * 1.7) * 0.014)
-		_blaster_pivot.rotation = Vector3(0.0, sin(_weapon_motion_clock * 1.9) * 0.025, sin(_weapon_motion_clock * 2.2) * 0.018)
-	if _weapon_id == "shotgun" and _shotgun_pivot != null and not _shotgun_attack_busy and not _shotgun_reloading:
+		var blaster_transform := Transform3D.IDENTITY
+		blaster_transform.origin += Vector3(0.0, blaster_sway, sin(_weapon_motion_clock * 1.7) * 0.014)
+		blaster_transform.basis = blaster_transform.basis * Basis.from_euler(Vector3(0.0, sin(_weapon_motion_clock * 1.9) * 0.025, sin(_weapon_motion_clock * 2.2) * 0.018))
+		_blaster_sway_pivot.transform = blaster_transform
+	if not _has_skeletal_weapon_attachment() and _weapon_id == "shotgun" and _shotgun_sway_pivot != null and not _shotgun_attack_busy and not _shotgun_reloading:
 		var shotgun_sway := sin(_weapon_motion_clock * 2.0 + 0.8) * 0.014
-		_shotgun_pivot.position = Vector3(0.58, 0.88 + shotgun_sway, -0.36 + sin(_weapon_motion_clock * 1.4) * 0.018)
-		_shotgun_pivot.rotation = Vector3(0.0, sin(_weapon_motion_clock * 1.8) * 0.018, sin(_weapon_motion_clock * 2.1) * 0.014)
+		var shotgun_transform := Transform3D.IDENTITY
+		shotgun_transform.origin += Vector3(0.0, shotgun_sway, sin(_weapon_motion_clock * 1.4) * 0.018)
+		shotgun_transform.basis = shotgun_transform.basis * Basis.from_euler(Vector3(0.0, sin(_weapon_motion_clock * 1.8) * 0.018, sin(_weapon_motion_clock * 2.1) * 0.014))
+		_shotgun_sway_pivot.transform = shotgun_transform
 
 
 func _update_aim() -> void:
-	if _touch_aim_vector.length_squared() > 0.04:
-		aim_direction = Vector3(_touch_aim_vector.x, 0.0, _touch_aim_vector.y).normalized()
-		look_at(global_position + aim_direction, Vector3.UP)
+	if _touch_aim_active and _touch_aim_vector.length_squared() > 0.04:
+		_set_aim_direction(_camera_relative_direction(_touch_aim_vector))
+		return
+	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+		if _last_move_direction.length_squared() > 0.001:
+			_set_aim_direction(_last_move_direction)
 		return
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
@@ -382,8 +491,92 @@ func _update_aim() -> void:
 	var flat_direction := aim_point - global_position
 	flat_direction.y = 0.0
 	if flat_direction.length_squared() > 0.04:
-		aim_direction = flat_direction.normalized()
-		look_at(global_position + aim_direction, Vector3.UP)
+		_set_aim_direction(flat_direction.normalized())
+
+
+func _set_aim_direction(direction: Vector3) -> void:
+	direction.y = 0.0
+	if direction.length_squared() > 0.001:
+		aim_direction = direction.normalized()
+	elif _last_move_direction.length_squared() > 0.001:
+		aim_direction = _last_move_direction.normalized()
+	else:
+		aim_direction = Vector3(0.0, 0.0, -1.0)
+
+
+func _normalized_aim_direction() -> Vector3:
+	var direction := aim_direction
+	direction.y = 0.0
+	return direction.normalized() if direction.length_squared() > 0.001 else Vector3(0.0, 0.0, -1.0)
+
+
+func _weapon_pose_uses_aim() -> bool:
+	return weapon_pose_state in [WeaponPoseState.AIM, WeaponPoseState.FIRE, WeaponPoseState.AIM_HOLD]
+
+
+func get_weapon_pose_state_name() -> StringName:
+	return WEAPON_POSE_NAMES[weapon_pose_state]
+
+
+func _set_weapon_pose_state(next_state: WeaponPoseState, restart_hold: bool = false) -> void:
+	weapon_pose_state = next_state
+	if next_state == WeaponPoseState.FIRE:
+		_fire_pose_remaining = SKELETAL_FIRE_POSE_DURATION
+	if next_state == WeaponPoseState.AIM_HOLD and restart_hold:
+		_aim_hold_remaining = aim_hold_time
+	_update_aim_pose_state()
+
+
+func _begin_weapon_aim() -> void:
+	if _weapon_id not in ["blaster", "shotgun"]:
+		return
+	_set_weapon_pose_state(WeaponPoseState.AIM)
+
+
+func _begin_weapon_fire() -> void:
+	if _weapon_id not in ["blaster", "shotgun"]:
+		return
+	_set_weapon_pose_state(WeaponPoseState.FIRE)
+	if _visual_rig != null:
+		_visual_rig.commit_firing_pose(_normalized_aim_direction())
+
+
+func _begin_aim_hold() -> void:
+	if _weapon_id in ["blaster", "shotgun"] and _gameplay_enabled and not is_real_dead():
+		_set_weapon_pose_state(WeaponPoseState.AIM_HOLD, true)
+	else:
+		_reset_weapon_pose_to_locomotion()
+
+
+func _reset_weapon_pose_to_locomotion(immediate: bool = false) -> void:
+	_aim_hold_remaining = 0.0
+	_fire_pose_remaining = 0.0
+	var moving := _get_actual_move_velocity().length() > 0.15
+	weapon_pose_state = WeaponPoseState.LOCOMOTION if moving else WeaponPoseState.IDLE
+	if _visual_rig != null:
+		_visual_rig.set_aim_enabled(false, immediate)
+
+
+func _update_weapon_pose_state(delta: float) -> void:
+	if not _gameplay_enabled or is_real_dead() or _weapon_id not in ["blaster", "shotgun"]:
+		_reset_weapon_pose_to_locomotion(true)
+		return
+	if weapon_pose_state == WeaponPoseState.AIM:
+		if not _blaster_charge_active and not _shotgun_attack_busy:
+			_begin_aim_hold()
+		return
+	if weapon_pose_state == WeaponPoseState.FIRE:
+		_fire_pose_remaining = maxf(0.0, _fire_pose_remaining - delta)
+		if (_visual_rig == null or not _visual_rig.is_shot_kick_active()) and _fire_pose_remaining <= 0.0:
+			_begin_aim_hold()
+		return
+	if weapon_pose_state == WeaponPoseState.AIM_HOLD:
+		_aim_hold_remaining = maxf(0.0, _aim_hold_remaining - delta)
+		if _aim_hold_remaining <= 0.0:
+			_reset_weapon_pose_to_locomotion()
+		return
+	var moving := _get_actual_move_velocity().length() > 0.15
+	_set_weapon_pose_state(WeaponPoseState.LOCOMOTION if moving else WeaponPoseState.IDLE)
 
 
 func _update_attack() -> void:
@@ -407,6 +600,14 @@ func _update_attack() -> void:
 
 
 func _update_debug_effects() -> void:
+	if _pressed_once(KEY_F8):
+		_direction_debug_enabled = not _direction_debug_enabled
+		if _direction_debug_mesh != null:
+			_direction_debug_mesh.visible = _direction_debug_enabled
+		if _direction_debug_label != null:
+			_direction_debug_label.visible = _direction_debug_enabled
+		if _attack_label != null:
+			_attack_label.text = "DEBUG DIRECTIONS : %s (F8)" % ("ON" if _direction_debug_enabled else "OFF")
 	# Temporary PC-only mannequin probes for P0-102. They do not replace the
 	# future module bindings and are intentionally explicit in the HUD/README.
 	var active_scene := get_tree().current_scene
@@ -457,11 +658,20 @@ func _pressed_once(keycode: Key) -> bool:
 
 
 func set_touch_move_vector(value: Vector2) -> void:
-	_touch_move_vector = value.limit_length(1.0)
+	set_move_input(value)
 
 
 func set_touch_aim_vector(value: Vector2) -> void:
+	set_aim_input(value)
+
+
+func set_move_input(value: Vector2) -> void:
+	_touch_move_vector = value.limit_length(1.0)
+
+
+func set_aim_input(value: Vector2) -> void:
 	_touch_aim_vector = value.limit_length(1.0)
+	_touch_aim_active = _touch_aim_vector.length_squared() > 0.04
 
 
 func set_touch_attack_held(value: bool) -> void:
@@ -475,6 +685,7 @@ func trigger_touch_action(action: String) -> void:
 func clear_touch_inputs() -> void:
 	_touch_move_vector = Vector2.ZERO
 	_touch_aim_vector = Vector2.ZERO
+	_touch_aim_active = false
 	_touch_attack_held = false
 	_touch_actions.clear()
 
@@ -482,8 +693,19 @@ func clear_touch_inputs() -> void:
 func set_gameplay_enabled(value: bool) -> void:
 	_gameplay_enabled = value
 	if not value:
+		_reset_weapon_pose_to_locomotion(true)
 		clear_touch_inputs()
 		velocity = Vector3.ZERO
+		if not _round_warmup_active and not is_real_dead():
+			_play_player_animation(&"idle")
+	else:
+		if _round_warmup_active:
+			# The countdown can end before the 18 s source warmup clip. Release
+			# the rig's full-body action lock before the first combat shot.
+			_play_player_animation(&"idle")
+		_round_warmup_active = false
+		_reset_weapon_pose_to_locomotion(true)
+		_update_player_animation()
 
 
 func is_gameplay_enabled() -> bool:
@@ -609,21 +831,10 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 func flash_impact(critical: bool = false) -> void:
 	if _robot_visuals == null:
 		return
-	var color := Color("#fff0a1") if critical else Color("#ff8064")
-	var base_scale := _robot_visuals.scale
-	var tween := create_tween()
-	tween.tween_property(_robot_visuals, "scale", base_scale * Vector3(1.10, 0.92, 1.10), 0.045)
-	tween.tween_property(_robot_visuals, "scale", base_scale, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	if _player_body_material != null:
-		_player_body_material.emission_enabled = true
-		_player_body_material.emission = color
-		_player_body_material.emission_energy_multiplier = 4.5 if critical else 2.8
-		var material_tween := create_tween()
-		material_tween.tween_method(Callable(self, "_clear_player_impact_material"), 0.0, 1.0, 0.16)
-	_spawn_particle_burst(global_position + Vector3.UP * 0.90, color, 16 if critical else 8, 0.30 if critical else 0.22, 4.8 if critical else 3.2, 0.13, -aim_direction, 70.0)
-	var rig := get_tree().current_scene.get_node_or_null("CameraRig") if get_tree().current_scene != null else null
-	if rig != null and rig.has_method("shake"):
-		rig.call("shake", 0.08 if critical else 0.035, 0.12 if critical else 0.05)
+	var vfx := _vfx_manager()
+	if vfx != null:
+		vfx.call("hit_flash", _robot_visuals, critical)
+	_camera_impulse(0.09 if critical else 0.045, 0.065 if critical else 0.025)
 
 
 func _clear_player_impact_material(_unused: float = 0.0) -> void:
@@ -631,47 +842,56 @@ func _clear_player_impact_material(_unused: float = 0.0) -> void:
 		_player_body_material.emission_enabled = false
 
 
-func _create_muzzle_burst(origin: Vector3, direction: Vector3, color: Color, scale: float = 1.0) -> void:
-	var flash := MeshInstance3D.new()
-	var flash_mesh := SphereMesh.new()
-	flash_mesh.radius = 0.16 * scale
-	flash_mesh.height = 0.30 * scale
-	flash.mesh = flash_mesh
-	flash.material_override = _create_fx_material(color, 0.98)
-	get_tree().current_scene.add_child(flash)
-	_register_fx_budget(flash, "burst")
-	flash.global_position = origin
-	flash.look_at(origin + direction, Vector3.UP)
-	var flash_tween := create_tween()
-	flash_tween.set_parallel(true)
-	flash_tween.tween_property(flash, "scale", Vector3(2.8, 1.0, 1.6), 0.07)
-	flash_tween.tween_method(Callable(self, "_set_material_alpha").bind(flash.material_override), 0.98, 0.0, 0.10)
-	flash_tween.set_parallel(false)
-	flash_tween.tween_callback(flash.queue_free)
-	_spawn_particle_burst(origin, color, 12 if scale < 1.2 else 18, 0.22, 5.0 * scale, 0.10 * scale, direction, 38.0)
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.12 * scale
-	ring_mesh.outer_radius = 0.19 * scale
-	ring.mesh = ring_mesh
-	ring.rotation_degrees.x = 90.0
-	ring.material_override = _create_fx_material(Color("#fff4c2"), 0.92)
-	get_tree().current_scene.add_child(ring)
-	_register_fx_budget(ring, "burst")
-	ring.global_position = origin
-	var ring_tween := create_tween()
-	ring_tween.set_parallel(true)
-	ring_tween.tween_property(ring, "scale", Vector3.ONE * 2.2, 0.13)
-	ring_tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.92, 0.0, 0.16)
-	ring_tween.set_parallel(false)
-	ring_tween.tween_callback(ring.queue_free)
+func _vfx_manager() -> Node:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	return scene.get_node_or_null("VFXManager") if scene != null else null
+
+
+func _camera_impulse(duration: float, strength: float) -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	var rig := scene.get_node_or_null("CameraRig") if scene != null else null
+	if rig != null and rig.has_method("shake"):
+		rig.call("shake", duration, strength)
+
+
+func _create_muzzle_burst(_origin: Vector3, _direction: Vector3, _color: Color, scale: float = 1.0, muzzle_anchor: Node3D = null) -> void:
+	var socket := muzzle_anchor if muzzle_anchor != null else _active_muzzle()
+	var vfx := _vfx_manager()
+	if vfx != null and socket != null:
+		vfx.call("muzzle", socket, "shotgun" if socket == _shotgun_muzzle else "blaster", clampf((scale - 1.0) / 0.65, 0.0, 1.0))
+
+
+func _active_muzzle() -> Node3D:
+	return _shotgun_muzzle if _weapon_id == "shotgun" else _blaster_muzzle
+
+
+func _visual_contact(start: Vector3, end: Vector3, target: Node = null) -> Dictionary:
+	var delta := end - start
+	if delta.length_squared() < 0.0001 or get_world_3d() == null:
+		return {}
+	# This query only positions VFX. Assisted combat ranges and hit tests stay unchanged.
+	var query := PhysicsRayQueryParameters3D.create(start, end + delta.normalized() * 0.08, 9)
+	if target is CollisionObject3D:
+		query.collision_mask |= target.collision_layer
+	query.exclude = [get_rid()]
+	query.collide_with_areas = true
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0) -> void:
+	var vfx := _vfx_manager()
+	if vfx == null or contact.is_empty():
+		return
+	var collider := contact.get("collider") as Node
+	if not is_instance_valid(collider):
+		collider = null
+	var surface: String = vfx.call("surface_for", collider)
+	vfx.call("impact", contact["position"], contact["normal"], surface, power, color)
 
 
 func _create_surface_impact_fx(origin: Vector3, direction: Vector3, color: Color = Color("#ff9c52")) -> void:
 	var normal := direction.normalized() if direction.length_squared() > 0.001 else Vector3.UP
-	_create_hit_flash(origin, color, 0.34)
-	_spawn_particle_burst(origin + Vector3.UP * 0.08, color, 10, 0.30, 3.5, 0.11, normal, 55.0)
-	_spawn_particle_burst(origin + Vector3.UP * 0.10, Color("#b78a63"), 8, 0.42, 2.4, 0.14, Vector3.UP, 80.0)
+	_contact_fx(_visual_contact(origin + normal * 0.15, origin - normal * 0.15), color)
 
 
 func _finalize_passive_death() -> void:
@@ -685,7 +905,12 @@ func _finalize_passive_death() -> void:
 func _on_state_died() -> void:
 	if not _gameplay_enabled:
 		return
+	if _status_vfx != null:
+		_status_vfx.call("clear")
+	_round_warmup_active = false
+	_play_player_animation(&"fall", 0.10)
 	_gameplay_enabled = false
+	_update_aim_pose_state()
 	clear_touch_inputs()
 	_cancel_blaster_charge()
 	died.emit()
@@ -822,6 +1047,8 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	if _status_vfx != null:
+		_status_vfx.call("clear")
 	if _health_readout != null:
 		_health_readout.call("clear_damage_numbers")
 	if combat_state != null:
@@ -838,6 +1065,7 @@ func reset_combat_state() -> void:
 	reset_shotgun_state()
 	reset_module_state()
 	_on_health_changed(get_health(), get_max_health())
+	_start_round_warmup_animation()
 
 
 func reset_blaster_state() -> void:
@@ -856,6 +1084,7 @@ func set_weapon(weapon_id: String) -> void:
 	reset_blaster_state()
 	reset_shotgun_state()
 	_weapon_id = weapon_id
+	_reset_weapon_pose_to_locomotion(true)
 	_update_weapon_visuals()
 	if _attack_label != null:
 		_attack_label.text = "ARME : %s" % ("BLASTER" if _weapon_id == "blaster" else "SHOTGUN")
@@ -905,6 +1134,11 @@ func reset_shotgun_state() -> void:
 	_shotgun_reloading = false
 	_shotgun_reload_remaining = 0.0
 	_shotgun_ammo = _shotgun_magazine_size
+	_kill_weapon_recoil_tweens(_shotgun_recoil_tweens)
+	if _shotgun_recoil_pivot != null:
+		_shotgun_recoil_pivot.transform = Transform3D.IDENTITY
+	if _shotgun_light != null:
+		_shotgun_light.light_energy = 0.0
 
 
 func reset_module_state() -> void:
@@ -919,6 +1153,9 @@ func reset_module_state() -> void:
 	_dash_elapsed = 0.0
 	_bio_remaining = 0.0
 	_stasis_remaining = 0.0
+	if is_instance_valid(_stasis_visual):
+		_stasis_visual.queue_free()
+	_stasis_visual = null
 	if _magnetic_wall != null and is_instance_valid(_magnetic_wall):
 		_magnetic_wall.queue_free()
 	_magnetic_wall = null
@@ -946,6 +1183,7 @@ func _perform_shotgun_attack() -> void:
 		_start_shotgun_reload()
 		return
 	_mark_combat_event()
+	_begin_weapon_aim()
 	_shotgun_attack_token += 1
 	var token := _shotgun_attack_token
 	_shotgun_attack_busy = true
@@ -953,7 +1191,7 @@ func _perform_shotgun_attack() -> void:
 	_shotgun_attack_origin = global_position
 	_shotgun_attack_direction = aim_direction.normalized()
 	var attack_speed := get_attack_speed_multiplier()
-	_play_shotgun_animation(attack_speed)
+	# Preparation keeps the live aim pose; kick/flash start with pellet emission.
 	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	var salvo := {
 		"id": token,
@@ -969,31 +1207,24 @@ func _perform_shotgun_attack() -> void:
 
 
 func _play_shotgun_animation(speed_scale: float) -> void:
-	if _shotgun_pivot == null:
-		return
-	var scale := maxf(0.5, speed_scale)
-	_shotgun_pivot.position = Vector3(0.58, 0.88, -0.36)
-	var tween := create_tween()
-	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.18), 0.06 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.47), 0.10 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_shotgun_pivot, "position", Vector3(0.58, 0.88, -0.36), 0.22 / scale).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	var kick_rotation := create_tween()
-	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(-7.0)), 0.06 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(2.0)), 0.12 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	kick_rotation.tween_property(_shotgun_pivot, "rotation", Vector3.ZERO, 0.20 / scale).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if _robot_visuals != null:
-		var recoil := create_tween()
-		recoil.tween_property(_robot_visuals, "position", -aim_direction * 0.16, 0.055 / scale).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.24 / scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		recoil.tween_property(_robot_visuals, "rotation", Vector3(0.0, 0.0, deg_to_rad(-3.5)), 0.05 / scale)
-		recoil.tween_property(_robot_visuals, "rotation", Vector3.ZERO, 0.18 / scale)
+	_kill_weapon_recoil_tweens(_shotgun_recoil_tweens)
+	if _shotgun_recoil_pivot != null:
+		_shotgun_recoil_pivot.transform = Transform3D.IDENTITY
+	if _has_skeletal_weapon_attachment():
+		_update_aim_pose_state()
+		# The same shoulder/arm impulse as a charged blaster, with both hands attached.
+		_visual_rig.play_shot_kick(1.0)
+	elif _shotgun_recoil_pivot != null:
+		var duration_scale := maxf(0.5, speed_scale)
+		var kick := create_tween().set_parallel(true)
+		kick.tween_property(_shotgun_recoil_pivot, "position", Vector3(0.0, 0.0, 0.07), 0.05 / duration_scale)
+		kick.tween_property(_shotgun_recoil_pivot, "rotation", Vector3(deg_to_rad(2.0), 0.0, 0.0), 0.05 / duration_scale)
+		kick.chain().tween_property(_shotgun_recoil_pivot, "position", Vector3.ZERO, 0.12 / duration_scale)
+		kick.parallel().tween_property(_shotgun_recoil_pivot, "rotation", Vector3.ZERO, 0.12 / duration_scale)
+		_shotgun_recoil_tweens.append(kick)
 	if _shotgun_light != null:
-		_shotgun_light.light_energy = 4.0
-		var light_tween := create_tween()
-		light_tween.tween_property(_shotgun_light, "light_energy", 0.0, 0.20 / scale)
-	var rig := get_tree().current_scene.get_node_or_null("CameraRig")
-	if rig != null and rig.has_method("shake"):
-		rig.call("shake", 0.10)
+		_shotgun_light.light_energy = 0.0
+	_camera_impulse(0.105, 0.085)
 
 
 func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
@@ -1002,21 +1233,28 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	if combat_state != null and combat_state.is_stunned():
 		_cancel_shotgun_attack()
 		return
+	# Commit every input scheme from the same live source of truth at emission.
+	_shotgun_attack_origin = global_position
+	_shotgun_attack_direction = _normalized_aim_direction()
+	_last_projectile_direction = _shotgun_attack_direction
+	_begin_weapon_fire()
 	var target := get_tree().current_scene.get_node_or_null("TargetDummy")
-	var visual_start := _blaster_tip.global_position if _blaster_tip != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
-	if _shotgun_tip != null:
-		visual_start = _shotgun_tip.global_position
-	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35)
+	var visual_start := _shotgun_muzzle.global_position if _shotgun_muzzle != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
+	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35, _shotgun_muzzle)
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
+		# Keep the established planar hit cone/falloff; model length must not buff damage.
 		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
 		var shot := _get_shotgun_pellet_result(target, direction)
-		var endpoint: Vector3 = shot["endpoint"]
 		var distance: float = float(shot["distance"])
 		var did_hit: bool = bool(shot["did_hit"])
+		var visual_direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
+		var barrel_advance := (visual_start - _shotgun_attack_origin).dot(direction)
+		var endpoint := visual_start + visual_direction * maxf(0.025, distance - barrel_advance)
 		if _show_debug_hitbox:
 			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e") if did_hit else Color("#6e9cab"), 0.025, 0.45)
 		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, target, salvo, index)
+	_play_shotgun_animation(get_attack_speed_multiplier())
 
 
 func _get_shotgun_pellet_result(target: Node, direction: Vector3) -> Dictionary:
@@ -1067,73 +1305,42 @@ func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vect
 func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
 	var projectile := Node3D.new()
 	projectile.name = "ShotgunPellet"
+	# This node carries damage delivery and must never be culled by a visual budget.
 	get_tree().current_scene.add_child(projectile)
-	_register_fx_budget(projectile, "projectile")
+	projectile.add_to_group("prototype0_gameplay_projectiles")
 	projectile.global_position = start
-	var direction := endpoint - start
-	if direction.length_squared() < 0.001:
-		direction = _shotgun_attack_direction
+	var visual_endpoint := endpoint
+	var hit_direction := visual_endpoint - start
+	hit_direction = hit_direction.normalized() if hit_direction.length_squared() > 0.001 else _shotgun_attack_direction
+	var contact: Dictionary
+	if did_hit:
+		# Gameplay already validated this pellet from the combat origin. Keep its
+		# visual impact on the robot instead of letting the offset muzzle ray stop
+		# on unrelated nearby scenery.
+		contact = {"position": visual_endpoint, "normal": -hit_direction, "collider": target}
 	else:
-		direction = direction.normalized()
+		contact = _visual_contact(start, visual_endpoint)
+	if not contact.is_empty():
+		visual_endpoint = contact["position"]
+	var direction := visual_endpoint - start
+	direction = direction.normalized() if direction.length_squared() > 0.001 else _shotgun_attack_direction
 	projectile.look_at(start + direction, Vector3.UP)
-	var slug := MeshInstance3D.new()
-	var slug_mesh := CylinderMesh.new()
-	slug_mesh.top_radius = 0.035
-	slug_mesh.bottom_radius = 0.18
-	slug_mesh.height = 0.56
-	slug.mesh = slug_mesh
-	slug.rotation_degrees.x = -90.0
-	slug.position = Vector3(0.0, 0.0, -0.08)
-	slug.material_override = _create_fx_material(Color("#ffd98a"), 0.98)
-	projectile.add_child(slug)
-	var core := MeshInstance3D.new()
-	var core_mesh := CylinderMesh.new()
-	core_mesh.top_radius = 0.015
-	core_mesh.bottom_radius = 0.075
-	core_mesh.height = 0.42
-	core.mesh = core_mesh
-	core.rotation_degrees.x = -90.0
-	core.position = Vector3(0.0, 0.0, -0.23)
-	core.material_override = _create_fx_material(Color("#fff4c2"), 0.98)
-	projectile.add_child(core)
-	var trail := MeshInstance3D.new()
-	var trail_mesh := CylinderMesh.new()
-	trail_mesh.top_radius = 0.018
-	trail_mesh.bottom_radius = 0.11
-	trail_mesh.height = 0.78
-	trail.mesh = trail_mesh
-	trail.rotation_degrees.x = -90.0
-	trail.position = Vector3(0.0, 0.0, 0.38)
-	trail.material_override = _create_fx_material(Color("#ff7137"), 0.30)
-	projectile.add_child(trail)
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.09
-	ring_mesh.outer_radius = 0.16
-	ring_mesh.rings = 8
-	ring_mesh.ring_segments = 12
-	ring.mesh = ring_mesh
-	ring.rotation_degrees.x = 90.0
-	ring.position = Vector3(0.0, 0.0, 0.10)
-	ring.material_override = _create_fx_material(Color("#fff0ab"), 0.82)
-	projectile.add_child(ring)
-	var pulse := create_tween()
-	pulse.set_loops(8)
-	pulse.tween_property(slug, "scale", Vector3(1.14, 1.0, 1.14), 0.07).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(slug, "scale", Vector3.ONE, 0.07).set_trans(Tween.TRANS_SINE)
+	var vfx := _vfx_manager()
+	if vfx != null and index % 2 == 0:
+		vfx.call("projectile_visual", projectile, "shotgun", 0.0)
+		vfx.call("tracer", start, start + direction * minf(1.10, start.distance_to(visual_endpoint)), 0.038, Color("#e39a54"), 0.052)
 	var travel_time := maxf(0.025, distance / _shotgun_pellet_speed)
-	var tween := create_tween()
+	var tween := projectile.create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(projectile, "global_position", endpoint, travel_time)
+	tween.tween_property(projectile, "global_position", visual_endpoint, travel_time)
 	tween.tween_callback(func() -> void:
-		if did_hit:
-			_create_hit_flash(endpoint, Color("#fff0a1"), 0.42)
-		else:
-			_create_surface_impact_fx(endpoint, -direction, Color("#ff8a43"))
 		_resolve_shotgun_projectile(salvo, index, did_hit, target, distance)
+		# Three readable impact clusters communicate the six-pellet spread without
+		# washing the target out in six identical flashes.
+		if index % 2 == 0:
+			_contact_fx(contact, Color("#e39a54"), 0.72)
 		projectile.queue_free()
 	)
-
 
 func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, target: Node, distance: float) -> void:
 	if not did_hit or target == null or not is_instance_valid(target):
@@ -1149,7 +1356,6 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		return
 	salvo["valid_hits"] = int(salvo["valid_hits"]) + 1
 	salvo["base_damage_sum"] = float(salvo["base_damage_sum"]) + damage
-	_create_target_hit_fx(target.global_position, false)
 	target.call("flash_impact", false)
 	if int(salvo["valid_hits"]) == _shotgun_pellet_angles.size() and not bool(salvo["critical_applied"]):
 		salvo["critical_applied"] = true
@@ -1158,7 +1364,6 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		target.call("take_damage", bonus, "player", bonus_id)
 		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:shotgun")
 		target.call("flash_impact", true)
-		_create_target_hit_fx(target.global_position, true)
 
 
 func _shotgun_damage_at_distance(distance: float) -> float:
@@ -1172,6 +1377,7 @@ func _finish_shotgun_attack(token: int) -> void:
 	if token != _shotgun_attack_token or not _shotgun_attack_busy:
 		return
 	_shotgun_attack_busy = false
+	_begin_aim_hold()
 	if _shotgun_ammo <= 0:
 		_start_shotgun_reload()
 
@@ -1350,6 +1556,8 @@ func _perform_static_shield() -> void:
 
 
 func _create_stasis_fx() -> void:
+	if is_instance_valid(_stasis_visual):
+		_stasis_visual.queue_free()
 	var shield := MeshInstance3D.new()
 	var shield_mesh := SphereMesh.new()
 	shield_mesh.radius = 1.12
@@ -1358,12 +1566,17 @@ func _create_stasis_fx() -> void:
 	shield.material_override = _create_fx_material(Color("#b18dff"), 0.22)
 	add_child(shield)
 	shield.position = Vector3(0.0, 0.95, 0.0)
-	var tween := create_tween()
+	_stasis_visual = shield
+	var tween := shield.create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(shield, "scale", Vector3.ONE * 1.12, 0.20)
 	tween.tween_method(Callable(self, "_set_material_alpha").bind(shield.material_override), 0.22, 0.0, _static_duration)
 	tween.set_parallel(false)
-	tween.tween_callback(shield.queue_free)
+	tween.tween_callback(func() -> void:
+		if _stasis_visual == shield:
+			_stasis_visual = null
+		shield.queue_free()
+	)
 
 
 func get_bio_remaining() -> float:
@@ -1452,40 +1665,11 @@ func _cancel_dash() -> void:
 
 
 func _create_dash_fx(origin: Vector3) -> void:
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.28
-	ring_mesh.outer_radius = 0.48
-	ring.mesh = ring_mesh
-	ring.rotation_degrees.x = 90.0
-	ring.material_override = _create_fx_material(Color("#ff9a53"), 0.84)
-	get_tree().current_scene.add_child(ring)
-	ring.global_position = origin + Vector3.UP * 0.07
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(ring, "scale", Vector3.ONE * 2.0, 0.18)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.84, 0.0, 0.18)
-	tween.set_parallel(false)
-	tween.tween_callback(ring.queue_free)
-
+	var direction := -_dash_direction if _dash_direction.length_squared() > 0.001 else -aim_direction
+	_spawn_particle_burst(origin + Vector3.UP * 0.15, Color("#d99562"), 10, 0.24, 3.8, 0.10, direction + Vector3.UP * 0.28, 28.0)
 
 func _create_bio_fx() -> void:
-	var pulse := MeshInstance3D.new()
-	var pulse_mesh := TorusMesh.new()
-	pulse_mesh.inner_radius = 0.48
-	pulse_mesh.outer_radius = 0.66
-	pulse.mesh = pulse_mesh
-	pulse.rotation_degrees.x = 90.0
-	pulse.material_override = _create_fx_material(Color("#73f0bb"), 0.80)
-	add_child(pulse)
-	pulse.position = Vector3(0.0, 0.08, 0.0)
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(pulse, "scale", Vector3.ONE * 1.35, 0.35)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(pulse.material_override), 0.80, 0.0, 0.35)
-	tween.set_parallel(false)
-	tween.tween_callback(pulse.queue_free)
-
+	_spawn_particle_burst(global_position + Vector3.UP * 0.85, Color("#85bfa5"), 7, 0.30, 1.2, 0.09, Vector3.UP, 24.0)
 
 func _module_target() -> Node:
 	var active_scene := get_tree().current_scene
@@ -1493,7 +1677,8 @@ func _module_target() -> Node:
 
 
 func _module_visual_start(direction: Vector3) -> Vector3:
-	return _blaster_tip.global_position if _blaster_tip != null else global_position + Vector3.UP * 0.85 + direction * 0.45
+	var muzzle := _active_muzzle()
+	return muzzle.global_position if muzzle != null else global_position + Vector3.UP * 0.85 + direction * 0.45
 
 
 func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID] = []) -> Vector3:
@@ -1590,10 +1775,12 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	_decorate_drone_projectile(drone)
 	_create_muzzle_burst(visual_start, direction, Color("#45ddff"), 0.82)
 	var travel := maxf(0.05, distance / _drone_speed)
-	var tween := create_tween()
+	var tween := drone.create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(drone, "global_position", endpoint, travel)
 	tween.tween_callback(func() -> void:
+		if token != _module_token or not is_instance_valid(drone):
+			return
 		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
 			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
 			if applied > 0.0:
@@ -1709,10 +1896,12 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 	_decorate_javelin_projectile(spear)
 	_create_muzzle_burst(visual_start, direction, Color("#ffe48b"), 0.90)
 	var travel := maxf(0.04, distance / _javelin_speed)
-	var tween := create_tween()
+	var tween := spear.create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(spear, "global_position", endpoint, travel)
 	tween.tween_callback(func() -> void:
+		if token != _javelin_launch_token or not is_instance_valid(spear):
+			return
 		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
 			var applied := float(target.call("take_damage", _javelin_damage, "player", "javelin:%d" % token))
 			if applied > 0.0:
@@ -1810,6 +1999,7 @@ func _begin_blaster_charge(now: float = -1.0) -> void:
 	if now < _blaster_next_attack_ready_at:
 		return
 	_blaster_charge_active = true
+	_begin_weapon_aim()
 	_blaster_charge_started_at = now
 	_blaster_charge_ratio = 0.0
 	_mark_combat_event()
@@ -1848,28 +2038,41 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 		return
 	_mark_combat_event()
 	_blaster_shot_audio.play()
-	look_at(global_position + direction, Vector3.UP)
+	_set_aim_direction(direction)
+	var shot_direction := _normalized_aim_direction()
+	_last_projectile_direction = shot_direction
+	var wait_for_firing_pose := _visual_rig != null and not _visual_rig.is_aim_pose_committed()
+	_begin_weapon_fire()
 	_blaster_attack_token += 1
 	var token := _blaster_attack_token
 	_blaster_attack_busy = true
 	_blaster_next_attack_ready_at = now + _blaster_cooldown
-	var origin := _blaster_tip.global_position if _blaster_tip != null else global_position + Vector3.UP * 0.90 + direction * 0.62
+	_play_blaster_recoil(charge_ratio)
+	_camera_impulse(0.045 + charge_ratio * 0.035, 0.018 + charge_ratio * 0.034)
+	if wait_for_firing_pose and _visual_rig != null and _visual_rig.skeleton != null:
+		# Bone attachments update with the final skeleton pass. Delay only a tap that
+		# began below full aim; charged/held fire emits immediately from the muzzle.
+		await _visual_rig.skeleton.skeleton_updated
+		if token != _blaster_attack_token or _weapon_id != "blaster":
+			return
+	var origin := _blaster_muzzle.global_position if _blaster_muzzle != null else global_position + Vector3.UP * 0.90 + shot_direction * 0.62
 	var target := _module_target()
-	var endpoint := _blaster_obstacle_endpoint(origin, origin + direction * _blaster_max_range)
+	var endpoint := _blaster_obstacle_endpoint(origin, origin + shot_direction * _blaster_max_range)
 	var did_hit := false
 	if target != null and is_instance_valid(target) and float(target.call("get_health")) > 0.0:
 		var collision_origin := global_position + Vector3.UP * 0.82
 		var offset: Vector3 = target.global_position - collision_origin
 		offset.y = 0.0
-		var along := direction.dot(offset)
-		var closest := collision_origin + direction * along
+		var along := shot_direction.dot(offset)
+		var closest := collision_origin + shot_direction * along
 		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
 		var path_clear := _blaster_path_clear(target, origin, target.global_position)
 		if along > 0.0 and along <= _blaster_max_range and lateral <= 0.95 and path_clear:
-			endpoint = target.global_position + Vector3.UP * 0.82
+			var visual_along := clampf((target.global_position - origin).dot(shot_direction), 0.025, _blaster_max_range)
+			endpoint = origin + shot_direction * visual_along
 			did_hit = true
 	var distance := origin.distance_to(endpoint)
-	_create_muzzle_burst(origin, direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65)
+	_create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, _blaster_muzzle)
 	_spawn_blaster_projectile(origin, endpoint, distance, did_hit, target, damage, charge_ratio, token)
 	# The fire lock is governed solely by the 0.45 s cooldown. Projectile travel
 	# may continue visually beyond that window without blocking the next shot.
@@ -1877,70 +2080,81 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	if _attack_label != null:
 		_attack_label.text = "BLASTER  •  TIR %d DÉGÂTS" % roundi(damage)
 	if _blaster_light != null:
-		_blaster_light.light_energy = 5.0 + 5.0 * charge_ratio
-		var light_tween := create_tween()
-		light_tween.tween_property(_blaster_light, "light_energy", 0.0, 0.18)
-	if _robot_visuals != null:
-		var recoil := create_tween()
-		recoil.tween_property(_robot_visuals, "position", -direction * (0.05 + charge_ratio * 0.10), 0.045)
-		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.16).set_trans(Tween.TRANS_BACK)
-	if get_tree().current_scene != null and get_tree().current_scene.has_method("shake"):
-		get_tree().current_scene.call("shake", 0.035 + charge_ratio * 0.055)
+		_blaster_light.light_energy = 0.0
+
+
+func _play_blaster_recoil(charge_ratio: float) -> void:
+	_kill_weapon_recoil_tweens(_blaster_recoil_tweens)
+	if _blaster_sway_pivot != null:
+		_blaster_sway_pivot.transform = Transform3D.IDENTITY
+	if _blaster_recoil_pivot != null:
+		_blaster_recoil_pivot.transform = Transform3D.IDENTITY
+	if _has_skeletal_weapon_attachment():
+		_update_aim_pose_state()
+		_visual_rig.play_shot_kick(charge_ratio)
+		return
+	# The procedural fallback has no bones to absorb the impulse.
+	if _blaster_recoil_pivot == null:
+		return
+	_blaster_recoil_pivot.transform = Transform3D.IDENTITY
+	var recoil_distance := 0.07 + charge_ratio * 0.10
+	var position_tween := create_tween()
+	position_tween.tween_property(_blaster_recoil_pivot, "position", Vector3(0.0, 0.0, recoil_distance), 0.045).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	position_tween.tween_property(_blaster_recoil_pivot, "position", Vector3(0.0, 0.0, -0.025), 0.06).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	position_tween.tween_property(_blaster_recoil_pivot, "position", Vector3.ZERO, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_blaster_recoil_tweens.append(position_tween)
+	var rotation_tween := create_tween()
+	rotation_tween.tween_property(_blaster_recoil_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(-2.4 - charge_ratio * 2.0)), 0.045).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	rotation_tween.tween_property(_blaster_recoil_pivot, "rotation", Vector3(0.0, 0.0, deg_to_rad(0.7)), 0.06).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	rotation_tween.tween_property(_blaster_recoil_pivot, "rotation", Vector3.ZERO, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_blaster_recoil_tweens.append(rotation_tween)
+
+
+func _kill_weapon_recoil_tweens(tweens: Array[Tween]) -> void:
+	for tween in tweens:
+		if tween != null and tween.is_running():
+			tween.kill()
+	tweens.clear()
+
+
+func _is_weapon_recoil_running(tweens: Array[Tween]) -> bool:
+	for tween in tweens:
+		if tween != null and tween.is_running():
+			return true
+	return false
 
 
 func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, damage: float, charge_ratio: float, token: int) -> void:
 	var projectile := Node3D.new()
 	projectile.name = "BlasterProjectile"
+	# Geometry may be discarded; travel and damage delivery may not.
 	get_tree().current_scene.add_child(projectile)
-	_register_fx_budget(projectile, "projectile")
+	projectile.add_to_group("prototype0_gameplay_projectiles")
 	projectile.global_position = start
-	var direction := (endpoint - start).normalized()
+	var contact := _visual_contact(start, endpoint, target if did_hit else null)
+	var visual_endpoint: Vector3 = contact.get("position", endpoint)
+	var direction := visual_endpoint - start
+	direction = direction.normalized() if direction.length_squared() > 0.001 else aim_direction
 	projectile.look_at(start + direction, Vector3.UP)
-	var radius := _blaster_projectile_radius * (1.0 + charge_ratio * 1.8)
-	var shell := MeshInstance3D.new()
-	var shell_mesh := SphereMesh.new()
-	shell_mesh.radius = radius
-	shell_mesh.height = radius * 2.0
-	shell.mesh = shell_mesh
-	shell.material_override = _create_fx_material(Color("#49dfff"), 0.86)
-	projectile.add_child(shell)
-	var core := MeshInstance3D.new()
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = radius * 0.46
-	core_mesh.height = radius * 0.92
-	core.mesh = core_mesh
-	core.material_override = _create_fx_material(Color("#eaffff"), 0.98)
-	projectile.add_child(core)
-	var trail := MeshInstance3D.new()
-	var trail_mesh := CylinderMesh.new()
-	trail_mesh.top_radius = radius * 0.12
-	trail_mesh.bottom_radius = radius * 0.52
-	trail_mesh.height = 0.75 + charge_ratio * 0.95
-	trail.mesh = trail_mesh
-	trail.rotation_degrees.x = -90.0
-	trail.position.z = 0.36 + charge_ratio * 0.14
-	trail.material_override = _create_fx_material(Color("#2aa9db"), 0.28 + charge_ratio * 0.16)
-	projectile.add_child(trail)
-	var pulse := projectile.create_tween().set_loops()
-	pulse.tween_property(shell, "scale", Vector3.ONE * (1.16 + charge_ratio * 0.10), 0.08)
-	pulse.tween_property(shell, "scale", Vector3.ONE, 0.08)
+	var vfx := _vfx_manager()
+	if vfx != null:
+		var shot_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
+		vfx.call("projectile_visual", projectile, "blaster", charge_ratio)
+		vfx.call("tracer", start, start + direction * minf(1.15 + charge_ratio * 0.55, start.distance_to(visual_endpoint)), 0.036 + charge_ratio * 0.034, shot_color, 0.058 + charge_ratio * 0.014)
 	var travel_time := maxf(0.025, distance / _blaster_projectile_speed)
-	var tween := create_tween()
+	var tween := projectile.create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(projectile, "global_position", endpoint, travel_time)
+	tween.tween_property(projectile, "global_position", visual_endpoint, travel_time)
 	tween.tween_callback(func() -> void:
 		if did_hit and target != null and is_instance_valid(target) and _blaster_path_clear(target, start, target.global_position):
 			var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
 			if applied > 0.0:
 				target.call("flash_impact", charge_ratio >= 0.99)
-				_create_target_hit_fx(target.global_position, charge_ratio >= 0.99)
-			_create_hit_flash(endpoint, Color("#b9f8ff"), 0.42 + charge_ratio * 0.25)
-		else:
-			_create_surface_impact_fx(endpoint, -direction, Color("#55dcff"))
+		var impact_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
+		_contact_fx(contact, impact_color, 0.8 + charge_ratio * 0.95)
 		_blaster_attack_busy = false
 		projectile.queue_free()
 	)
-
 
 func _blaster_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
 	var world := get_world_3d()
@@ -1967,12 +2181,14 @@ func _update_blaster_charge_visual(_delta: float) -> void:
 		return
 	_blaster_charge_visual.visible = true
 	var ratio := clampf(_blaster_charge_ratio, 0.0, 1.0)
-	_blaster_charge_visual.scale = Vector3.ONE * (0.65 + ratio * 0.85)
+	var charge_curve := ratio * ratio
+	var pulse := sin(float(Time.get_ticks_msec()) * 0.018) * (0.018 + charge_curve * 0.055)
+	_blaster_charge_visual.scale = Vector3.ONE * (0.28 + ratio * 0.25 + charge_curve * 0.28 + pulse)
 	if _blaster_charge_material != null:
-		_blaster_charge_material.emission_energy_multiplier = 2.5 + ratio * 8.0
-		_blaster_charge_material.albedo_color = Color(0.18 + ratio * 0.28, 0.78 + ratio * 0.18, 1.0, 0.34 + ratio * 0.42)
+		_blaster_charge_material.emission_energy_multiplier = 1.15 + ratio * 1.25 + charge_curve * 1.25
+		_blaster_charge_material.albedo_color = Color(0.30 + ratio * 0.13, 0.76 + ratio * 0.05, 0.92 + ratio * 0.06, 0.20 + ratio * 0.16 + charge_curve * 0.16)
 	if _blaster_light != null:
-		_blaster_light.light_energy = 0.4 + ratio * 2.6
+		_blaster_light.light_energy = 0.0
 	if _attack_label != null:
 		_attack_label.text = "BLASTER  •  CHARGE %d%%" % roundi(ratio * 100.0)
 
@@ -1986,22 +2202,7 @@ func is_blaster_charging() -> bool:
 
 
 func _create_teleport_fx(origin: Vector3) -> void:
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.32
-	ring_mesh.outer_radius = 0.56
-	ring.mesh = ring_mesh
-	ring.rotation_degrees.x = 90.0
-	ring.material_override = _create_fx_material(Color("#ffe48b"), 0.90)
-	get_tree().current_scene.add_child(ring)
-	ring.global_position = origin + Vector3.UP * 0.08
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(ring, "scale", Vector3.ONE * 2.4, 0.32)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(ring.material_override), 0.90, 0.0, 0.32)
-	tween.set_parallel(false)
-	tween.tween_callback(ring.queue_free)
-
+	_spawn_particle_burst(origin + Vector3.UP * 0.45, Color("#dac99a"), 10, 0.25, 2.8, 0.12, Vector3.UP, 48.0)
 
 func _perform_axe_attack() -> void:
 	_mark_combat_event()
@@ -2180,7 +2381,7 @@ func _play_axe_animation(step: int, speed_multiplier: float = 1.0) -> void:
 		tween.tween_property(_axe_pivot, "rotation", _axe_pivot_home_rotation, 0.25 * speed_scale)
 	if _robot_visuals != null:
 		var recoil := create_tween()
-		recoil.tween_property(_robot_visuals, "position", -aim_direction * (0.10 if step < 2 else 0.18), 0.06)
+		recoil.tween_property(_robot_visuals, "position", _world_offset_to_visual_local(-aim_direction * (0.10 if step < 2 else 0.18)), 0.06)
 		recoil.tween_property(_robot_visuals, "position", Vector3.ZERO, 0.18 if step < 2 else 0.28)
 		recoil.tween_property(_robot_visuals, "rotation", Vector3(0.0, 0.0, deg_to_rad(-7.0 if step == 1 else 0.0)), 0.05)
 		recoil.tween_property(_robot_visuals, "rotation", Vector3.ZERO, 0.16)
@@ -2281,7 +2482,7 @@ func _create_fx_material(color: Color, alpha: float = 0.9) -> StandardMaterial3D
 	material.albedo_color = Color(color.r, color.g, color.b, alpha)
 	material.emission_enabled = true
 	material.emission = color
-	material.emission_energy_multiplier = 5.0
+	material.emission_energy_multiplier = 1.6
 	return material
 
 
@@ -2300,29 +2501,9 @@ func _set_material_alpha(alpha: float, material: StandardMaterial3D) -> void:
 
 
 func _create_lightning_arc(start: Vector3, end: Vector3, color: Color, width: float = 0.045, lifetime: float = 0.24) -> void:
-	var arc := MeshInstance3D.new()
-	var mesh := ImmediateMesh.new()
-	var material := _create_fx_material(color, 0.95)
-	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
-	var delta := end - start
-	var perpendicular := Vector3(-delta.z, 0.0, delta.x).normalized()
-	for index in range(7):
-		var t := float(index) / 6.0
-		var jitter := 0.0
-		if index > 0 and index < 6:
-			jitter = randf_range(-0.18, 0.18)
-		mesh.surface_add_vertex(start.lerp(end, t) + perpendicular * jitter + Vector3.UP * (0.03 + width))
-	mesh.surface_end()
-	arc.mesh = mesh
-	get_tree().current_scene.add_child(arc)
-	_register_fx_budget(arc, "burst")
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(arc, "scale", Vector3.ONE * 1.22, lifetime * 0.35)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.95, 0.0, lifetime)
-	tween.set_parallel(false)
-	tween.tween_callback(arc.queue_free)
-
+	var vfx := _vfx_manager()
+	if vfx != null:
+		vfx.call("tracer", start, end, width, color, lifetime)
 
 func _create_axe_lightning(step: int, tip_position: Vector3) -> void:
 	var blade_origin := tip_position
@@ -2344,35 +2525,9 @@ func _get_axe_forward() -> Vector3:
 
 
 func _spawn_particle_burst(origin: Vector3, color: Color, amount: int, lifetime: float, speed: float, particle_scale: float, emission_direction: Vector3 = Vector3.UP, emission_spread: float = 180.0) -> void:
-	var particles := GPUParticles3D.new()
-	particles.amount = amount
-	particles.lifetime = lifetime
-	particles.one_shot = true
-	particles.explosiveness = 1.0
-	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
-	var process_material := ParticleProcessMaterial.new()
-	process_material.direction = Vector3.UP
-	process_material.spread = emission_spread
-	process_material.initial_velocity_min = speed * 0.55
-	process_material.initial_velocity_max = speed
-	process_material.gravity = Vector3(0.0, -10.0, 0.0)
-	process_material.scale_min = particle_scale * 0.55
-	process_material.scale_max = particle_scale
-	particles.process_material = process_material
-	var particle_mesh := SphereMesh.new()
-	particle_mesh.radius = 0.12
-	particle_mesh.height = 0.24
-	particle_mesh.material = _create_fx_material(color, 0.92)
-	particles.draw_pass_1 = particle_mesh
-	get_tree().current_scene.add_child(particles)
-	_register_fx_budget(particles, "particle")
-	particles.global_position = origin
-	if emission_direction != Vector3.UP and emission_direction.length_squared() > 0.001:
-		process_material.direction = Vector3.FORWARD
-		particles.look_at(origin + emission_direction.normalized(), Vector3.UP)
-	particles.emitting = true
-	get_tree().create_timer(lifetime + 0.35).timeout.connect(particles.queue_free)
-
+	var vfx := _vfx_manager()
+	if vfx != null:
+		vfx.call("burst", origin, emission_direction, color, mini(amount, 12), minf(speed, 5.0), minf(lifetime, 0.4), minf(particle_scale * 0.45, 0.06), minf(emission_spread, 75.0))
 
 func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_position: Vector3, tip_forward: Vector3, phase: String = "") -> void:
 	_create_axe_lightning(step, tip_position)
@@ -2407,45 +2562,11 @@ func _play_impact_fx(step: int, impact_point: Vector3, did_hit: bool, tip_positi
 
 
 func _create_hit_flash(origin: Vector3, color: Color, radius: float) -> void:
-	var flash := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.32
-	mesh.height = 0.64
-	flash.mesh = mesh
-	var material := _create_fx_material(color, 0.92)
-	flash.material_override = material
-	get_tree().current_scene.add_child(flash)
-	_register_fx_budget(flash, "burst")
-	flash.global_position = origin + Vector3.UP * 0.9
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(flash, "scale", Vector3.ONE * radius * 3.0, 0.16)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.92, 0.0, 0.18)
-	tween.set_parallel(false)
-	tween.tween_callback(flash.queue_free)
-	_spawn_particle_burst(flash.global_position, color, 12, 0.30, 3.5, 0.12)
-
+	_spawn_particle_burst(origin, color, 6, 0.18, 2.4, minf(radius * 0.10, 0.11), Vector3.UP, 65.0)
 
 func _create_target_hit_fx(origin: Vector3, critical: bool) -> void:
-	var color := Color("#fff0a1") if critical else Color("#ff795e")
-	var pulse := MeshInstance3D.new()
-	var pulse_mesh := TorusMesh.new()
-	pulse_mesh.inner_radius = 0.22 if critical else 0.16
-	pulse_mesh.outer_radius = 0.34 if critical else 0.26
-	pulse.mesh = pulse_mesh
-	var pulse_material := _create_fx_material(color, 0.92)
-	pulse.material_override = pulse_material
-	get_tree().current_scene.add_child(pulse)
-	_register_fx_budget(pulse, "burst")
-	pulse.global_position = origin + Vector3.UP * 0.16
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(pulse, "scale", Vector3.ONE * (3.2 if critical else 2.4), 0.28)
-	tween.tween_method(Callable(self, "_set_material_alpha").bind(pulse_material), 0.92, 0.0, 0.32)
-	tween.set_parallel(false)
-	tween.tween_callback(pulse.queue_free)
-	_spawn_particle_burst(origin + Vector3.UP * 0.75, color, 26 if critical else 16, 0.40 if critical else 0.28, 5.5, 0.16)
-
+	var color := Color("#efd099") if critical else Color("#dca579")
+	_spawn_particle_burst(origin + Vector3.UP * 0.85, color, 9 if critical else 5, 0.23, 3.2, 0.10, -aim_direction, 55.0)
 
 func _create_slash_fan(radius: float, half_angle: float) -> MeshInstance3D:
 	var slash := MeshInstance3D.new()
@@ -2716,12 +2837,69 @@ func _register_locomotion_node(node: Node3D, role: String, phase: float = 0.0) -
 	_locomotion_nodes.append(node)
 
 
+func _play_player_animation(animation_name: StringName, blend_time: float = 0.16, speed_scale: float = 1.0) -> bool:
+	if _visual_rig == null:
+		return false
+	return _visual_rig.play_action(animation_name, blend_time, speed_scale)
+
+
+func _has_skeletal_weapon_attachment() -> bool:
+	return _visual_rig != null and _visual_rig.skeleton != null and _visual_rig.right_hand_attachment != null
+
+
+func _update_aim_pose_state() -> void:
+	if _visual_rig != null:
+		_visual_rig.set_aim_enabled(_weapon_id in ["blaster", "shotgun"] and _gameplay_enabled and not is_real_dead() and _weapon_pose_uses_aim())
+
+
+func _start_round_warmup_animation() -> void:
+	_round_warmup_active = _play_player_animation(&"warm_up", 0.18)
+	if not _round_warmup_active:
+		_update_player_animation()
+
+
+func _update_player_animation() -> void:
+	if _visual_rig == null or not _gameplay_enabled or is_real_dead():
+		return
+	if _round_warmup_active:
+		return
+	_visual_rig.update_locomotion_state(_get_actual_move_velocity().length(), move_speed)
+
+
+func _on_player_animation_finished(animation_name: StringName) -> void:
+	if animation_name == &"fire" and weapon_pose_state == WeaponPoseState.FIRE:
+		_begin_aim_hold()
+	if animation_name == &"warm_up":
+		_round_warmup_active = false
+	if animation_name == &"warm_up":
+		_update_player_animation()
+
+
+func _attach_weapon_pivot_to_hand(pivot: Node3D, weapon_id: StringName, desired_position: Vector3, desired_rotation: Vector3, carry_pitch_degrees: float = 0.0) -> Transform3D:
+	if pivot == null:
+		return Transform3D.IDENTITY
+	if _visual_rig == null or _visual_rig.skeleton == null or _visual_rig.right_hand_attachment == null:
+		_robot_visuals.add_child(pivot)
+		pivot.position = desired_position
+		pivot.rotation = desired_rotation
+		return pivot.transform
+	_visual_rig.equip_weapon(weapon_id, pivot, {
+		"position": desired_position,
+		"rotation": desired_rotation,
+		"scale": Vector3.ONE,
+		"carry_pitch_degrees": carry_pitch_degrees,
+	})
+	return pivot.transform
+
+
 func _build_robot() -> void:
-	var visuals := Node3D.new()
-	visuals.name = "Visuals"
-	visuals.scale = Vector3.ONE * 0.88
+	_visual_rig = PlayerVisualRig.new()
+	_visual_rig.name = "VisualRoot"
+	_visual_rig.scale = Vector3.ONE * 0.88
+	add_child(_visual_rig)
+	_visual_rig.configure_aim_transition(aim_raise_time, aim_lower_time)
+	var visuals := _visual_rig.setup_visual_motion()
 	_robot_visuals = visuals
-	add_child(visuals)
 	_world_ui_anchor = Node3D.new()
 	_world_ui_anchor.name = "WorldUIAnchor"
 	_world_ui_anchor.top_level = true
@@ -2768,6 +2946,9 @@ func _build_robot() -> void:
 	selection_ring.position.y = 0.045
 	selection_ring.material_override = _material(Color("#bdefff"), 0.3, Color("#56dfff"))
 	visuals.add_child(selection_ring)
+	var procedural_body := Node3D.new()
+	procedural_body.name = "ProceduralRobot"
+	visuals.add_child(procedural_body)
 
 	var body := MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
@@ -2777,7 +2958,7 @@ func _build_robot() -> void:
 	body.position.y = 0.8
 	body.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_CREAM_TEXTURE)
 	_player_body_material = body.material_override as StandardMaterial3D
-	visuals.add_child(body)
+	procedural_body.add_child(body)
 	_register_locomotion_node(body, "body")
 
 	var head := MeshInstance3D.new()
@@ -2787,7 +2968,7 @@ func _build_robot() -> void:
 	head.mesh = head_mesh
 	head.position = Vector3(0.0, 1.55, 0.0)
 	head.material_override = _robot_textured_material(Color.WHITE, 0.72, ROBOT_CREAM_TEXTURE)
-	visuals.add_child(head)
+	procedural_body.add_child(head)
 	_register_locomotion_node(head, "head")
 
 	var eye := MeshInstance3D.new()
@@ -2798,7 +2979,7 @@ func _build_robot() -> void:
 	eye.position = Vector3(0.0, 1.58, -0.42)
 	eye.scale = Vector3(1.2, 0.75, 0.45)
 	eye.material_override = _material(Color("#4ee8ff"), 0.25, Color("#21cfff"))
-	visuals.add_child(eye)
+	procedural_body.add_child(eye)
 
 	var chest_plate := MeshInstance3D.new()
 	var chest_mesh := BoxMesh.new()
@@ -2807,7 +2988,7 @@ func _build_robot() -> void:
 	chest_plate.position = Vector3(0.0, 0.88, -0.52)
 	chest_plate.rotation_degrees.x = -7.0
 	chest_plate.material_override = _robot_textured_material(Color.WHITE, 0.70, ROBOT_RUST_TEXTURE)
-	visuals.add_child(chest_plate)
+	procedural_body.add_child(chest_plate)
 	_register_locomotion_node(chest_plate, "body")
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()
@@ -2818,18 +2999,34 @@ func _build_robot() -> void:
 	core.scale = Vector3(1.35, 0.72, 0.48)
 	core.material_override = _material(Color("#49e8f1"), 0.16, Color("#22d8e8"))
 	_player_core_material = core.material_override as StandardMaterial3D
-	visuals.add_child(core)
+	procedural_body.add_child(core)
 	_register_locomotion_node(core, "body")
-	_add_robot_arm(visuals, -1.0)
-	_add_robot_arm(visuals, 1.0)
-	_add_robot_leg(visuals, -1.0)
-	_add_robot_leg(visuals, 1.0)
-	_add_robot_backpack(visuals)
-
+	_add_robot_arm(procedural_body, -1.0)
+	_add_robot_arm(procedural_body, 1.0)
+	_add_robot_leg(procedural_body, -1.0)
+	_add_robot_leg(procedural_body, 1.0)
+	_add_robot_backpack(procedural_body)
+	if _visual_rig.install_animated_model(procedural_body, 2.0):
+		_player_body_material = null
+		_visual_rig.action_finished.connect(_on_player_animation_finished)
 	_blaster_pivot = Node3D.new()
 	_blaster_pivot.name = "BlasterPivot"
-	_blaster_pivot.position = Vector3(0.58, 0.93, -0.42)
-	visuals.add_child(_blaster_pivot)
+	_blaster_pivot_home_transform = _attach_weapon_pivot_to_hand(
+		_blaster_pivot,
+		&"blaster",
+		Vector3(0.58, 0.93, -0.42),
+		Vector3.ZERO,
+		-22.0
+	)
+	_blaster_sway_pivot = Node3D.new()
+	_blaster_sway_pivot.name = "WeaponSway"
+	_blaster_pivot.add_child(_blaster_sway_pivot)
+	_blaster_recoil_pivot = Node3D.new()
+	_blaster_recoil_pivot.name = "WeaponRecoil"
+	_blaster_sway_pivot.add_child(_blaster_recoil_pivot)
+	var procedural_blaster_visual := Node3D.new()
+	procedural_blaster_visual.name = "ProceduralBlasterFallback"
+	_blaster_recoil_pivot.add_child(procedural_blaster_visual)
 	var blaster_grip := MeshInstance3D.new()
 	var blaster_grip_mesh := BoxMesh.new()
 	blaster_grip_mesh.size = Vector3(0.30, 0.34, 0.55)
@@ -2837,14 +3034,14 @@ func _build_robot() -> void:
 	blaster_grip.position = Vector3(0.0, -0.12, 0.22)
 	blaster_grip.rotation_degrees.x = -12.0
 	blaster_grip.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
-	_blaster_pivot.add_child(blaster_grip)
+	procedural_blaster_visual.add_child(blaster_grip)
 	var blaster_receiver := MeshInstance3D.new()
 	var blaster_receiver_mesh := BoxMesh.new()
 	blaster_receiver_mesh.size = Vector3(0.52, 0.42, 0.72)
 	blaster_receiver.mesh = blaster_receiver_mesh
 	blaster_receiver.position = Vector3(0.0, 0.06, -0.16)
 	blaster_receiver.material_override = _robot_textured_material(Color.WHITE, 0.74, ROBOT_RUST_TEXTURE)
-	_blaster_pivot.add_child(blaster_receiver)
+	procedural_blaster_visual.add_child(blaster_receiver)
 	var blaster_barrel := MeshInstance3D.new()
 	var blaster_barrel_mesh := CylinderMesh.new()
 	blaster_barrel_mesh.top_radius = 0.10
@@ -2854,7 +3051,7 @@ func _build_robot() -> void:
 	blaster_barrel.rotation_degrees.x = -90.0
 	blaster_barrel.position = Vector3(0.0, 0.09, -0.92)
 	blaster_barrel.material_override = _robot_textured_material(Color.WHITE, 0.68, ROBOT_STEEL_TEXTURE)
-	_blaster_pivot.add_child(blaster_barrel)
+	procedural_blaster_visual.add_child(blaster_barrel)
 	var blaster_muzzle := MeshInstance3D.new()
 	var blaster_muzzle_mesh := CylinderMesh.new()
 	blaster_muzzle_mesh.top_radius = 0.18
@@ -2864,7 +3061,7 @@ func _build_robot() -> void:
 	blaster_muzzle.rotation_degrees.x = -90.0
 	blaster_muzzle.position = Vector3(0.0, 0.09, -1.58)
 	blaster_muzzle.material_override = _material(Color("#2f3a45"), 0.52, Color("#2ad9ff"))
-	_blaster_pivot.add_child(blaster_muzzle)
+	procedural_blaster_visual.add_child(blaster_muzzle)
 	var blaster_muzzle_ring := MeshInstance3D.new()
 	var blaster_muzzle_ring_mesh := TorusMesh.new()
 	blaster_muzzle_ring_mesh.inner_radius = 0.12
@@ -2873,11 +3070,16 @@ func _build_robot() -> void:
 	blaster_muzzle_ring.rotation_degrees.x = 90.0
 	blaster_muzzle_ring.position = Vector3(0.0, 0.09, -1.78)
 	blaster_muzzle_ring.material_override = _material(Color("#7cf0ff"), 0.22, Color("#2fe1ff"))
-	_blaster_pivot.add_child(blaster_muzzle_ring)
-	_blaster_tip = Node3D.new()
-	_blaster_tip.name = "BlasterTip"
-	_blaster_tip.position = Vector3(0.0, 0.09, -1.86)
-	_blaster_pivot.add_child(_blaster_tip)
+	procedural_blaster_visual.add_child(blaster_muzzle_ring)
+	_blaster_muzzle = Node3D.new()
+	_blaster_muzzle.name = "Muzzle"
+	_blaster_muzzle.set_meta("weapon_forward_axis", Vector3.FORWARD)
+	_blaster_muzzle.position = Vector3(0.0, 0.09, -1.86)
+	_blaster_recoil_pivot.add_child(_blaster_muzzle)
+	var blaster_left_hand_grip := Marker3D.new()
+	blaster_left_hand_grip.name = "LeftHandGrip"
+	blaster_left_hand_grip.position = Vector3(0.0, 0.06, -0.48)
+	_blaster_recoil_pivot.add_child(blaster_left_hand_grip)
 	_blaster_charge_visual = MeshInstance3D.new()
 	_blaster_charge_visual.name = "BlasterChargeGlow"
 	var blaster_charge_mesh := SphereMesh.new()
@@ -2888,77 +3090,53 @@ func _build_robot() -> void:
 	_blaster_charge_visual.material_override = _blaster_charge_material
 	_blaster_charge_visual.position = Vector3(0.0, 0.09, -1.42)
 	_blaster_charge_visual.visible = false
-	_blaster_pivot.add_child(_blaster_charge_visual)
+	_blaster_recoil_pivot.add_child(_blaster_charge_visual)
 	_blaster_light = OmniLight3D.new()
 	_blaster_light.name = "BlasterMuzzleLight"
 	_blaster_light.light_color = Color("#55eaff")
 	_blaster_light.light_energy = 0.0
 	_blaster_light.omni_range = 3.5
 	_blaster_light.position = Vector3(0.0, 0.09, -1.62)
-	_blaster_pivot.add_child(_blaster_light)
+	_blaster_recoil_pivot.add_child(_blaster_light)
+	if ResourceLoader.exists(HEAVY_BLASTER_MODEL_PATH):
+		var heavy_blaster_scene := load(HEAVY_BLASTER_MODEL_PATH) as PackedScene
+		if heavy_blaster_scene != null:
+			var heavy_blaster_model := heavy_blaster_scene.instantiate() as Node3D
+			if heavy_blaster_model != null:
+				procedural_blaster_visual.visible = false
+				var heavy_blaster_mount := Node3D.new()
+				heavy_blaster_mount.name = "ImportedHeavyBlasterMount"
+				heavy_blaster_mount.rotation.y = PI * 0.5
+				heavy_blaster_mount.scale = Vector3.ONE * 1.35
+				heavy_blaster_mount.position = Vector3(0.0, -0.14, -0.20)
+				_blaster_recoil_pivot.add_child(heavy_blaster_mount)
+				heavy_blaster_model.name = "ImportedHeavyBlaster"
+				heavy_blaster_mount.add_child(heavy_blaster_model)
+				_blaster_muzzle.position = Vector3(0.0, 0.08, -0.88)
+				blaster_left_hand_grip.position = Vector3(-0.10, -0.04, -0.20)
+				_blaster_charge_visual.position = Vector3(0.0, 0.08, -0.64)
+				_blaster_light.position = Vector3(0.0, 0.08, -0.86)
+	if _has_skeletal_weapon_attachment():
+		_visual_rig.configure_left_hand_support(&"blaster")
 
 	_shotgun_pivot = Node3D.new()
 	_shotgun_pivot.name = "ShotgunPivot"
-	_shotgun_pivot.position = Vector3(0.58, 0.88, -0.36)
-	visuals.add_child(_shotgun_pivot)
-	var shotgun_stock := MeshInstance3D.new()
-	var stock_mesh := BoxMesh.new()
-	stock_mesh.size = Vector3(0.32, 0.30, 0.72)
-	shotgun_stock.mesh = stock_mesh
-	shotgun_stock.position = Vector3(0.0, 0.0, 0.32)
-	shotgun_stock.rotation_degrees = Vector3(0.0, 0.0, -7.0)
-	shotgun_stock.material_override = _robot_textured_material(Color.WHITE, 0.82, ROBOT_STEEL_TEXTURE)
-	_shotgun_pivot.add_child(shotgun_stock)
-	var shotgun_receiver := MeshInstance3D.new()
-	var receiver_mesh := BoxMesh.new()
-	receiver_mesh.size = Vector3(0.46, 0.36, 0.60)
-	shotgun_receiver.mesh = receiver_mesh
-	shotgun_receiver.position = Vector3(0.0, 0.03, -0.14)
-	shotgun_receiver.rotation_degrees = Vector3(0.0, 0.0, -4.0)
-	shotgun_receiver.material_override = _robot_textured_material(Color.WHITE, 0.75, ROBOT_RUST_TEXTURE)
-	_shotgun_pivot.add_child(shotgun_receiver)
-	var shotgun_barrel := MeshInstance3D.new()
-	var barrel_mesh := CylinderMesh.new()
-	barrel_mesh.top_radius = 0.095
-	barrel_mesh.bottom_radius = 0.14
-	barrel_mesh.height = 1.38
-	shotgun_barrel.mesh = barrel_mesh
-	shotgun_barrel.rotation_degrees.x = -90.0
-	shotgun_barrel.position = Vector3(0.0, 0.06, -0.92)
-	shotgun_barrel.material_override = _robot_textured_material(Color.WHITE, 0.78, ROBOT_STEEL_TEXTURE)
-	_shotgun_pivot.add_child(shotgun_barrel)
-	var shotgun_muzzle := MeshInstance3D.new()
-	var muzzle_mesh := CylinderMesh.new()
-	muzzle_mesh.top_radius = 0.20
-	muzzle_mesh.bottom_radius = 0.10
-	muzzle_mesh.height = 0.42
-	shotgun_muzzle.mesh = muzzle_mesh
-	shotgun_muzzle.rotation_degrees.x = -90.0
-	shotgun_muzzle.position = Vector3(0.0, 0.06, -1.74)
-	shotgun_muzzle.material_override = _robot_textured_material(Color.WHITE, 0.70, ROBOT_RUST_TEXTURE)
-	_shotgun_pivot.add_child(shotgun_muzzle)
-	var muzzle_ring := MeshInstance3D.new()
-	var muzzle_ring_mesh := TorusMesh.new()
-	muzzle_ring_mesh.inner_radius = 0.12
-	muzzle_ring_mesh.outer_radius = 0.21
-	muzzle_ring_mesh.rings = 8
-	muzzle_ring_mesh.ring_segments = 16
-	muzzle_ring.mesh = muzzle_ring_mesh
-	muzzle_ring.rotation_degrees.x = 90.0
-	muzzle_ring.position = Vector3(0.0, 0.06, -1.95)
-	muzzle_ring.material_override = _material(Color("#ffc56e"), 0.20, Color("#ff7a31"))
-	_shotgun_pivot.add_child(muzzle_ring)
-	_shotgun_tip = Node3D.new()
-	_shotgun_tip.name = "ShotgunTip"
-	_shotgun_tip.position = Vector3(0.0, 0.06, -2.04)
-	_shotgun_pivot.add_child(_shotgun_tip)
-	_shotgun_light = OmniLight3D.new()
-	_shotgun_light.name = "ShotgunMuzzleLight"
-	_shotgun_light.light_color = Color("#ff9c4c")
-	_shotgun_light.light_energy = 0.0
-	_shotgun_light.omni_range = 3.0
-	_shotgun_light.position = Vector3(0.0, 0.06, -1.92)
-	_shotgun_pivot.add_child(_shotgun_light)
+	_shotgun_pivot_home_transform = _attach_weapon_pivot_to_hand(
+		_shotgun_pivot,
+		&"shotgun",
+		Vector3(0.58, 0.88, -0.36),
+		Vector3.ZERO
+	)
+	_shotgun_sway_pivot = Node3D.new()
+	_shotgun_sway_pivot.name = "WeaponSway"
+	_shotgun_pivot.add_child(_shotgun_sway_pivot)
+	_shotgun_recoil_pivot = Node3D.new()
+	_shotgun_recoil_pivot.name = "WeaponRecoil"
+	_shotgun_sway_pivot.add_child(_shotgun_recoil_pivot)
+	var shotgun := SHOTGUN_SCENE.instantiate() as Node3D
+	_shotgun_recoil_pivot.add_child(shotgun)
+	_shotgun_muzzle = shotgun.get_node("Muzzle") as Node3D
+	_shotgun_light = shotgun.get_node("Muzzle/ShotgunMuzzleLight") as OmniLight3D
 	_update_weapon_visuals()
 
 	var scarf := MeshInstance3D.new()
@@ -2968,7 +3146,8 @@ func _build_robot() -> void:
 	scarf.position = Vector3(0.0, 1.2, 0.65)
 	scarf.rotation_degrees.x = -18.0
 	scarf.material_override = _material(Color("#a62f25"), 0.9)
-	visuals.add_child(scarf)
+	procedural_body.add_child(scarf)
+	_create_player_direction_debug()
 
 
 func _update_weapon_visuals() -> void:
@@ -2978,6 +3157,82 @@ func _update_weapon_visuals() -> void:
 		_blaster_pivot.visible = _weapon_id == "blaster"
 	if _shotgun_pivot != null:
 		_shotgun_pivot.visible = _weapon_id == "shotgun"
+	if _has_skeletal_weapon_attachment():
+		_visual_rig._cancel_shot_kick()
+		_visual_rig.configure_left_hand_support(StringName(_weapon_id))
+	_update_aim_pose_state()
+
+
+func _create_player_direction_debug() -> void:
+	_direction_debug_enabled = _direction_debug_enabled or enable_direction_debug
+	_direction_debug_geometry = ImmediateMesh.new()
+	_direction_debug_material = StandardMaterial3D.new()
+	_direction_debug_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_direction_debug_material.vertex_color_use_as_albedo = true
+	_direction_debug_material.albedo_color = Color.WHITE
+	_direction_debug_mesh = MeshInstance3D.new()
+	_direction_debug_mesh.name = "PlayerDirectionDebug"
+	_direction_debug_mesh.mesh = _direction_debug_geometry
+	_direction_debug_mesh.material_override = _direction_debug_material
+	_direction_debug_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_direction_debug_mesh.visible = _direction_debug_enabled
+	add_child(_direction_debug_mesh)
+	_direction_debug_label = Label3D.new()
+	_direction_debug_label.name = "MuzzleAimAngleDebug"
+	_direction_debug_label.position = Vector3(0.0, 2.8, 0.0)
+	_direction_debug_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_direction_debug_label.font_size = 28
+	_direction_debug_label.outline_size = 6
+	_direction_debug_label.no_depth_test = true
+	_direction_debug_label.visible = _direction_debug_enabled
+	add_child(_direction_debug_label)
+	if _has_skeletal_weapon_attachment():
+		# Read final modified bones/attachments, after aim support and ShotKick.
+		_visual_rig.skeleton.skeleton_updated.connect(_update_player_debug_vectors)
+	_update_player_debug_vectors()
+
+
+func _update_player_debug_vectors() -> void:
+	if _direction_debug_geometry == null or not _direction_debug_enabled:
+		return
+	_direction_debug_geometry.clear_surfaces()
+	_direction_debug_geometry.surface_begin(Mesh.PRIMITIVE_LINES, _direction_debug_material)
+	_add_debug_direction_line(move_direction, Color("#38a8ff"), 1.8)
+	_add_debug_direction_line(aim_direction, Color("#ff4b45"), 2.0)
+	_add_debug_direction_line(_last_projectile_direction, Color("#d05cff"), 2.25)
+	if _visual_rig != null:
+		_add_debug_direction_line(_visual_rig.get_aim_forward_direction(), Color("#64e572"), 1.65)
+		if _visual_rig.right_hand_attachment != null:
+			var hand_transform := _visual_rig.right_hand_attachment.global_transform
+			var hand_forward := -hand_transform.basis.z.normalized()
+			_add_debug_segment(hand_transform.origin, hand_transform.origin + hand_forward * 0.8, Color("#ffdc58"))
+	var weapon := _blaster_pivot if _weapon_id == "blaster" else _shotgun_pivot
+	if weapon != null:
+		var weapon_forward := -weapon.global_basis.z.normalized()
+		_add_debug_segment(weapon.global_position, weapon.global_position + weapon_forward * 1.2, Color.WHITE)
+	var muzzle := _blaster_muzzle if _weapon_id == "blaster" else _shotgun_muzzle
+	if muzzle != null:
+		var muzzle_forward := _visual_rig.get_weapon_forward_direction(StringName(_weapon_id)) if _visual_rig != null else -muzzle.global_basis.z.normalized()
+		_add_debug_segment(muzzle.global_position, muzzle.global_position + muzzle_forward * 1.0, Color("#48f3ed"))
+		if aim_direction.length_squared() > 0.001:
+			var angle := rad_to_deg(acos(clampf(muzzle_forward.dot(aim_direction.normalized()), -1.0, 1.0)))
+			var projectile_angle := rad_to_deg(acos(clampf(_last_projectile_direction.normalized().dot(aim_direction.normalized()), -1.0, 1.0))) if _last_projectile_direction.length_squared() > 0.001 else 0.0
+			_direction_debug_label.text = "%s  •  Muzzle/Aim %.2f°  •  Projectile/Aim %.2f°" % [get_weapon_pose_state_name(), angle, projectile_angle]
+		else:
+			_direction_debug_label.text = "Muzzle/Aim angle = —"
+	_direction_debug_geometry.surface_end()
+
+
+func _add_debug_direction_line(direction: Vector3, color: Color, length: float) -> void:
+	if direction.length_squared() <= 0.001:
+		return
+	_add_debug_segment(global_position + Vector3.UP * 0.12, global_position + direction.normalized() * length + Vector3.UP * 0.12, color)
+
+
+func _add_debug_segment(from_world: Vector3, to_world: Vector3, color: Color) -> void:
+	_direction_debug_geometry.surface_set_color(color)
+	_direction_debug_geometry.surface_add_vertex(to_local(from_world))
+	_direction_debug_geometry.surface_add_vertex(to_local(to_world))
 
 
 func _add_robot_arm(parent: Node3D, side: float) -> void:

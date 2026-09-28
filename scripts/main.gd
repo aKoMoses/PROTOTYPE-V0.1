@@ -5,6 +5,7 @@ const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
 const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
 const GAME_FLOW_SCRIPT := preload("res://scripts/game_flow.gd")
+const VFX_MANAGER_SCRIPT := preload("res://scripts/vfx_manager.gd")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const METAL_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
@@ -48,6 +49,10 @@ func _process(delta: float) -> void:
 func register_fx_node(node: Node, category: String = "burst") -> void:
 	if node == null or not is_instance_valid(node):
 		return
+	# Projectile nodes own combat callbacks and may only be cleared at round reset.
+	if category == "projectile":
+		node.add_to_group("prototype0_gameplay_projectiles")
+		return
 	_fx_serial += 1
 	node.add_to_group("prototype0_fx_budget")
 	node.set_meta("prototype0_fx_category", category)
@@ -82,6 +87,9 @@ func _trim_fx_budget() -> void:
 
 func _ready() -> void:
 	set_meta("camera_shake_enabled", true)
+	var vfx := VFX_MANAGER_SCRIPT.new()
+	vfx.name = "VFXManager"
+	add_child(vfx)
 	_build_environment()
 	_build_arena()
 	_build_player()
@@ -1703,7 +1711,13 @@ func shift_pause_timers(seconds: float) -> void:
 
 
 func clear_transient_fx() -> void:
+	var vfx := get_node_or_null("VFXManager")
+	if vfx != null:
+		vfx.call("clear")
 	for node in get_tree().get_nodes_in_group("prototype0_fx_budget"):
+		if is_instance_valid(node):
+			node.queue_free()
+	for node in get_tree().get_nodes_in_group("prototype0_gameplay_projectiles"):
 		if is_instance_valid(node):
 			node.queue_free()
 
@@ -1722,6 +1736,7 @@ func _create_box(node_name: String, box_position: Vector3, size: Vector3, color:
 	var body := StaticBody3D.new()
 	body.name = node_name
 	body.position = box_position
+	body.set_meta("vfx_surface", "environment" if texture == SAND_TEXTURE or "Wall" in node_name or "Ground" in node_name else "metal")
 	body.collision_layer = 1
 	body.collision_mask = 0
 

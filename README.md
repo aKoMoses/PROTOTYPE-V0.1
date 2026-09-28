@@ -395,3 +395,29 @@ restent à vérifier séparément.
 `captures/v02_result.png` ont été rendues par la scène Godot avec le renderer Mobile.
 La capture résultat montre une victoire de manche 1–0 ; le bouton de manche suivante
 est volontairement masqué pendant le délai automatique de deux secondes.
+
+## Animation du robot joueur — 27 septembre 2026
+
+- **P0-131 — contrôleur GLB intégré :** le modèle animé est isolé sous `VisualRoot` ;
+  la correction d'axe +Z → -Z n'agit que sur son wrapper. Le root motion horizontal
+  des clips `walk` et `run` est neutralisé dans des bibliothèques dupliquées à l'exécution,
+  en recalant les clés Hips sur la pose de repos. Le `CharacterBody3D` garde seul la
+  position et l'orientation gameplay ; l'orientation visuelle suit la visée et un
+  modificateur sépare l'orientation des jambes de celle du torse.
+- `AnimationTree` sépare maintenant `BasePose` (idle/actions complètes), locomotion
+  (walk/run filtrés sur le bassin et les jambes) et `UpperBodyFire` (OneShot filtré sur
+  43 pistes du torse, des bras et de la tête). Le clip `fire` d'origine contient 53 pistes,
+  dont les hanches et les jambes ; il ne remplace donc plus la course et ne peut plus
+  réinitialiser son cycle. `walk` et `run` ont leur machine d'état dédiée.
+- Les armes suivent `Skeleton3D → mixamorig_RightHand → BoneAttachment3D → WeaponSocket →
+  WeaponRoot`. Les offsets de socket sont calibrés une fois après la pose idle ; le sway
+  et le recul sont limités à des pivots locaux sous l'arme. Le projectile et le flash
+  partent du `Muzzle` porté par cette chaîne, sans transform monde concurrente. Blaster
+  et shotgun exposent aussi un `LeftHandGrip` local pour une future IK, non activée tant
+  que son résultat n'a pas été validé visuellement.
+- Les API `set_move_input(Vector2)` / `set_aim_input(Vector2)` alimentent le même contrôleur
+  que les joysticks tactiles. F8 affiche les vecteurs diagnostic déplacement (bleu), visée
+  (rouge) et orientation du modèle (vert).
+- **Vérification :** `tools/test_player_visual_rig.gd` — 47 contrôles réussis ; suite
+  `tools/test_*.gd` — 15/15 réussis avec Godot 4.7.2 en mode headless. Le rendu en fenêtre
+  et l'essai sur appareil Android restent à contrôler par le testeur.

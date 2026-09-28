@@ -39,6 +39,8 @@ var _dodge_direction := Vector3.ZERO
 var _move_velocity := Vector3.ZERO
 var _last_observed_position := Vector3.ZERO
 var _has_last_observed_position := false
+var _visual_aim_position := Vector3.ZERO
+var _has_visual_aim_position := false
 var _blocked_time := 0.0
 var _avoid_direction := Vector3.ZERO
 
@@ -64,6 +66,7 @@ func set_enabled(value: bool) -> void:
 	_move_velocity = Vector3.ZERO
 	_last_observed_position = Vector3.ZERO
 	_has_last_observed_position = false
+	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_update_telegraph()
@@ -95,6 +98,7 @@ func reset_clock() -> void:
 	_move_velocity = Vector3.ZERO
 	_last_observed_position = Vector3.ZERO
 	_has_last_observed_position = false
+	_has_visual_aim_position = false
 	_blocked_time = 0.0
 	_avoid_direction = Vector3.ZERO
 	_update_telegraph()
@@ -120,6 +124,17 @@ func get_attack_phase() -> String:
 	if not enabled:
 		return "DISABLED"
 	return "WINDUP" if _windup_remaining > 0.0 else "READY"
+
+
+func get_visual_aim_point() -> Vector3:
+	# Presentation remembers only genuinely observed target positions. It must
+	# not read a hidden player's live transform while aiming between attacks.
+	if _has_visual_aim_position:
+		return _visual_aim_position + Vector3.UP * 0.92
+	var bot_body := get_parent() as Node3D
+	if bot_body != null:
+		return bot_body.global_position - bot_body.global_basis.z * 4.0 + Vector3.UP * 0.92
+	return Vector3.FORWARD * 4.0 + Vector3.UP * 0.92
 
 
 func _physics_process(delta: float) -> void:
@@ -153,6 +168,12 @@ func _physics_process(delta: float) -> void:
 	if player_visible and _line_of_sight_clear(bot_body, player):
 		_last_observed_position = player.global_position
 		_has_last_observed_position = true
+	# Keep the existing pursuit decision untouched, and separately gate the
+	# visual target with the player's visibility to this bot.
+	var target_visible := not player.has_method("is_visible_to") or bool(player.call("is_visible_to", bot_body))
+	if target_visible and _line_of_sight_clear(bot_body, player):
+		_visual_aim_position = player.global_position
+		_has_visual_aim_position = true
 	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	if _dodge_remaining > 0.0:
@@ -308,68 +329,34 @@ func _spawn_attack_visual(player: Node3D, attack_id: String) -> void:
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
+	var impact_position := player.global_position + Vector3.UP * 0.92
+	var shot_transform := Transform3D(Basis.IDENTITY, bot_body.global_position + Vector3.UP * 1.30)
+	if bot_body.has_method("prepare_training_bot_shot"):
+		shot_transform = bot_body.call("prepare_training_bot_shot", impact_position)
+	var start_position := shot_transform.origin
 	var tracer := Node3D.new()
 	tracer.name = "TrainingBotProjectile"
-	var start_position := bot_body.global_position + Vector3.UP * 1.30
-	var impact_position := player.global_position + Vector3.UP * 0.92
-	var direction := (impact_position - start_position).normalized()
 	scene.add_child(tracer)
-	_register_fx_budget(tracer, "projectile")
+	if scene.has_method("register_fx_node"):
+		scene.call("register_fx_node", tracer, "projectile")
 	tracer.global_position = start_position
-	tracer.look_at(start_position + direction, Vector3.UP)
-	_spawn_muzzle_visual(scene, start_position, direction)
-	var projectile_mesh := CylinderMesh.new()
-	projectile_mesh.top_radius = 0.035
-	projectile_mesh.bottom_radius = 0.16
-	projectile_mesh.height = 0.48
-	var slug := MeshInstance3D.new()
-	slug.mesh = projectile_mesh
-	slug.rotation_degrees.x = -90.0
-	slug.position = Vector3(0.0, 0.0, -0.10)
-	var projectile_material := StandardMaterial3D.new()
-	projectile_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	projectile_material.albedo_color = Color("#ffb85c")
-	projectile_material.emission_enabled = true
-	projectile_material.emission = Color("#ff4b25")
-	projectile_material.emission_energy_multiplier = 4.0
-	slug.material_override = projectile_material
-	tracer.add_child(slug)
-	var core := MeshInstance3D.new()
-	var core_mesh := CylinderMesh.new()
-	core_mesh.top_radius = 0.018
-	core_mesh.bottom_radius = 0.065
-	core_mesh.height = 0.33
-	core.mesh = core_mesh
-	core.rotation_degrees.x = -90.0
-	core.position = Vector3(0.0, 0.0, -0.25)
-	core.material_override = _fx_material(Color("#fff1b2"), 0.98, Color("#ffb73d"))
-	tracer.add_child(core)
-	var trail := MeshInstance3D.new()
-	var trail_mesh := CylinderMesh.new()
-	trail_mesh.top_radius = 0.015
-	trail_mesh.bottom_radius = 0.09
-	trail_mesh.height = 0.70
-	trail.mesh = trail_mesh
-	trail.rotation_degrees.x = -90.0
-	trail.position = Vector3(0.0, 0.0, 0.34)
-	trail.material_override = _fx_material(Color("#ff5d32"), 0.28, Color("#ff2a1b"))
-	tracer.add_child(trail)
-	var tracer_light := OmniLight3D.new()
-	tracer_light.light_color = Color("#ff6a32")
-	tracer_light.light_energy = 1.2
-	tracer_light.omni_range = 1.8
-	tracer.add_child(tracer_light)
-	var pulse := tracer.create_tween()
-	pulse.set_loops(8)
-	pulse.tween_property(slug, "scale", Vector3(1.18, 1.0, 1.18), 0.08).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(slug, "scale", Vector3.ONE, 0.08).set_trans(Tween.TRANS_SINE)
+	var direction := (impact_position - start_position).normalized()
+	tracer.basis = Basis.looking_at(direction, Vector3.RIGHT if absf(direction.y) > 0.98 else Vector3.UP)
+	var vfx := scene.get_node_or_null("VFXManager")
+	if vfx != null:
+		vfx.call("projectile_visual", tracer, "enemy")
+		var socket := bot_body.find_child("Muzzle", true, false) as Node3D
+		if socket != null:
+			vfx.call("muzzle", socket, "enemy")
+		else:
+			vfx.call("burst", start_position, direction, Color("#ffcf87"), 4, 2.8, 0.10, 0.03, 30.0)
 	var travel := tracer.create_tween()
 	travel.tween_property(tracer, "global_position", impact_position, PROJECTILE_TRAVEL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	travel.tween_callback(Callable(self, "_resolve_projectile").bind(player, scene, impact_position, attack_id))
+	travel.tween_callback(Callable(self, "_resolve_projectile").bind(player, scene, impact_position, attack_id, start_position))
 	travel.tween_callback(tracer.queue_free)
 
 
-func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, attack_id: String) -> void:
+func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, attack_id: String, start_position: Vector3 = Vector3.ZERO) -> void:
 	var bot_body := get_parent() as Node3D
 	var impact_confirmed := false
 	if player != null and is_instance_valid(player) and bot_body != null:
@@ -378,58 +365,22 @@ func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, 
 		impact_confirmed = still_near and _line_of_sight_clear(bot_body, player)
 		if impact_confirmed and player.has_method("take_damage"):
 			player.call("take_damage", ATTACK_DAMAGE, "training_bot", attack_id)
+	if not is_instance_valid(scene):
+		return
+	var vfx := scene.get_node_or_null("VFXManager")
+	if vfx == null:
+		return
+	var normal := (start_position - impact_position).normalized()
 	if impact_confirmed:
-		_spawn_impact_visual(scene, impact_position)
-	else:
-		_spawn_impact_visual(scene, impact_position, true)
-
-
-func _spawn_muzzle_visual(scene: Node, origin: Vector3, direction: Vector3) -> void:
-	var flash := MeshInstance3D.new()
-	var flash_mesh := SphereMesh.new()
-	flash_mesh.radius = 0.16
-	flash_mesh.height = 0.30
-	flash.mesh = flash_mesh
-	flash.material_override = _fx_material(Color("#ffe0a1"), 0.98, Color("#ff4b25"))
-	scene.add_child(flash)
-	_register_fx_budget(flash, "burst")
-	flash.global_position = origin + direction * 0.22
-	var flash_tween := flash.create_tween()
-	flash_tween.set_parallel(true)
-	flash_tween.tween_property(flash, "scale", Vector3(2.2, 1.0, 1.5), 0.08)
-	flash_tween.tween_property(flash.material_override, "albedo_color", Color(1.0, 0.55, 0.30, 0.0), 0.10)
-	flash_tween.set_parallel(false)
-	flash_tween.tween_callback(flash.queue_free)
-	_spawn_particle_burst(scene, origin, Color("#ff8b43"), 10, 3.6, 0.18, direction)
-
-
-func _spawn_particle_burst(scene: Node, origin: Vector3, color: Color, amount: int, speed: float, lifetime: float, direction: Vector3) -> void:
-	var particles := GPUParticles3D.new()
-	particles.name = "TrainingBotBurst"
-	particles.amount = amount
-	particles.lifetime = lifetime
-	particles.one_shot = true
-	particles.explosiveness = 1.0
-	particles.visibility_aabb = AABB(Vector3(-4.0, -4.0, -4.0), Vector3(8.0, 8.0, 8.0))
-	var process_material := ParticleProcessMaterial.new()
-	process_material.direction = direction.normalized()
-	process_material.spread = 40.0
-	process_material.initial_velocity_min = speed * 0.55
-	process_material.initial_velocity_max = speed
-	process_material.gravity = Vector3(0.0, -4.0, 0.0)
-	process_material.scale_min = 0.045
-	process_material.scale_max = 0.09
-	particles.process_material = process_material
-	var spark_mesh := SphereMesh.new()
-	spark_mesh.radius = 0.055
-	spark_mesh.height = 0.11
-	spark_mesh.material = _fx_material(color, 0.95, color)
-	particles.draw_pass_1 = spark_mesh
-	scene.add_child(particles)
-	_register_fx_budget(particles, "particle")
-	particles.global_position = origin
-	particles.emitting = true
-	scene.get_tree().create_timer(lifetime + 0.25).timeout.connect(particles.queue_free)
+		vfx.call("impact", impact_position, normal, "robot", 1.0, Color("#ffbf83"))
+	elif bot_body != null and bot_body.get_world_3d() != null:
+		var query := PhysicsRayQueryParameters3D.create(start_position, impact_position)
+		query.collision_mask = 1 | 8
+		query.collide_with_areas = true
+		query.exclude = [bot_body.get_rid()]
+		var hit := bot_body.get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			vfx.call("impact", hit.position, hit.normal, vfx.call("surface_for", hit.collider), 0.75, Color("#ffbf83"))
 
 
 func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMaterial3D:
@@ -438,86 +389,28 @@ func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMateri
 	material.albedo_color = Color(color.r, color.g, color.b, alpha)
 	material.emission_enabled = true
 	material.emission = emission
-	material.emission_energy_multiplier = 3.5
+	material.emission_energy_multiplier = 0.8
 	if alpha < 0.99:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	return material
-
-
-func _register_fx_budget(node: Node, category: String = "burst") -> void:
-	var scene := get_tree().current_scene if get_tree() != null else null
-	if scene != null and scene.has_method("register_fx_node"):
-		scene.call("register_fx_node", node, category)
-
-
-func _spawn_impact_visual(scene: Node, impact_position: Vector3, blocked: bool = false) -> void:
-	if scene == null or not is_instance_valid(scene):
-		return
-	var flash := OmniLight3D.new()
-	flash.name = "TrainingBotImpactLight"
-	flash.position = impact_position
-	flash.light_color = Color("#8793a3") if blocked else Color("#ff754b")
-	flash.light_energy = 2.8
-	flash.omni_range = 2.2
-	scene.add_child(flash)
-	var impact := MeshInstance3D.new()
-	impact.name = "TrainingBotImpact"
-	var impact_mesh := SphereMesh.new()
-	impact_mesh.radius = 0.18
-	impact_mesh.height = 0.36
-	impact.mesh = impact_mesh
-	var impact_material := StandardMaterial3D.new()
-	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	impact_material.albedo_color = Color("#9aa4b1") if blocked else Color("#ffb15a")
-	impact_material.emission_enabled = true
-	impact_material.emission = Color("#667382") if blocked else Color("#ff4a26")
-	impact_material.emission_energy_multiplier = 2.6
-	impact.material_override = impact_material
-	scene.add_child(impact)
-	_register_fx_budget(impact, "burst")
-	impact.global_position = impact_position
-	var pulse := impact.create_tween()
-	pulse.tween_property(impact, "scale", Vector3.ONE * 2.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	pulse.tween_callback(impact.queue_free)
-	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.22
-	ring_mesh.outer_radius = 0.30
-	ring.mesh = ring_mesh
-	ring.rotation_degrees.x = 90.0
-	ring.material_override = _fx_material(Color("#ffd38b"), 0.92, Color("#ff572f"))
-	scene.add_child(ring)
-	_register_fx_budget(ring, "burst")
-	ring.global_position = impact_position + Vector3.DOWN * 0.18
-	var ring_tween := ring.create_tween()
-	ring_tween.set_parallel(true)
-	ring_tween.tween_property(ring, "scale", Vector3.ONE * 2.0, 0.24)
-	ring_tween.tween_property(ring.material_override, "albedo_color", Color(1.0, 0.45, 0.22, 0.0), 0.24)
-	ring_tween.set_parallel(false)
-	ring_tween.tween_callback(ring.queue_free)
-	_spawn_particle_burst(scene, impact_position, Color("#ff7440"), 18, 4.8, 0.28, Vector3.UP)
-	var fade := flash.create_tween()
-	fade.tween_property(flash, "light_energy", 0.0, 0.18)
-	fade.tween_callback(flash.queue_free)
 
 
 func _build_telegraph() -> void:
 	_telegraph_ring = MeshInstance3D.new()
 	_telegraph_ring.name = "AttackTelegraph"
 	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 1.02
-	ring_mesh.outer_radius = 1.16
+	ring_mesh.inner_radius = 0.77
+	ring_mesh.outer_radius = 0.82
 	ring_mesh.rings = 12
 	ring_mesh.ring_segments = 28
 	_telegraph_ring.mesh = ring_mesh
 	_telegraph_ring.position.y = 0.08
-	_telegraph_ring.rotation_degrees.x = 90.0
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = Color("#ffba58")
 	material.emission_enabled = true
 	material.emission = Color("#ff6b32")
-	material.emission_energy_multiplier = 2.4
+	material.emission_energy_multiplier = 0.8
 	_telegraph_ring.material_override = material
 	_telegraph_ring.visible = false
 	_add_telegraph_node(_telegraph_ring)
@@ -527,7 +420,7 @@ func _build_telegraph() -> void:
 	_telegraph_line = MeshInstance3D.new()
 	_telegraph_line.name = "AttackTelegraphLine"
 	var line_mesh := BoxMesh.new()
-	line_mesh.size = Vector3(0.18, 0.035, 1.0)
+	line_mesh.size = Vector3(0.065, 0.018, 1.0)
 	_telegraph_line.mesh = line_mesh
 	_telegraph_line.top_level = true
 	_telegraph_line.position.y = 0.10
@@ -538,14 +431,13 @@ func _build_telegraph() -> void:
 	_telegraph_target = MeshInstance3D.new()
 	_telegraph_target.name = "AttackTelegraphTarget"
 	var target_mesh := TorusMesh.new()
-	target_mesh.inner_radius = 0.52
-	target_mesh.outer_radius = 0.68
+	target_mesh.inner_radius = 0.49
+	target_mesh.outer_radius = 0.54
 	target_mesh.rings = 10
 	target_mesh.ring_segments = 24
 	_telegraph_target.mesh = target_mesh
 	_telegraph_target.top_level = true
 	_telegraph_target.position.y = 0.11
-	_telegraph_target.rotation_degrees.x = 90.0
 	_telegraph_target.material_override = _fx_material(Color("#ffd17a"), 1.0, Color("#ff4b25"))
 	_telegraph_target.visible = false
 	_add_telegraph_node(_telegraph_target)
@@ -553,9 +445,9 @@ func _build_telegraph() -> void:
 	_telegraph_beacon = MeshInstance3D.new()
 	_telegraph_beacon.name = "AttackTelegraphBeacon"
 	var beacon_mesh := CylinderMesh.new()
-	beacon_mesh.top_radius = 0.05
-	beacon_mesh.bottom_radius = 0.18
-	beacon_mesh.height = 0.42
+	beacon_mesh.top_radius = 0.04
+	beacon_mesh.bottom_radius = 0.09
+	beacon_mesh.height = 0.24
 	beacon_mesh.radial_segments = 8
 	_telegraph_beacon.mesh = beacon_mesh
 	_telegraph_beacon.top_level = true

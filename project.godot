@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Prototype 0"
 run/main_scene="res://scenes/main.tscn"
+config/icon="res://art/icons/blaster-gravure.png"
 config/features=PackedStringArray("4.7")
 
 [display]
