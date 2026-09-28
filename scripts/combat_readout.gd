@@ -41,6 +41,20 @@ func configure(accent: Color, display_name: String = "JOUEUR", damage_side: floa
 	_build()
 
 
+func update_actor_identity(accent: Color, display_name: String) -> void:
+	_accent = accent
+	_display_name = display_name
+	if _viewport == null:
+		return
+	var name_label := _viewport.get_node_or_null("HealthBarUI/ActorName") as Label
+	if name_label != null:
+		name_label.text = display_name
+	for segment in _segments:
+		segment.color = accent
+	if _badge_mark != null:
+		_badge_mark.add_theme_color_override("font_color", accent)
+
+
 func set_health(current: float, maximum: float) -> void:
 	if _health_number == null:
 		return

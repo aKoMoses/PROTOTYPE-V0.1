@@ -11,6 +11,9 @@ const BAROUD_DRAIN_PER_SECOND := 400.0
 const OMNIVAMP_RATE := 0.15
 
 var passive_id := "baroud"
+var baroud_max_health := BAROUD_MAX_HEALTH
+var baroud_duration := BAROUD_DURATION
+var omnivamp_rate := OMNIVAMP_RATE
 var baroud_used := false
 var baroud_active := false
 var baroud_health := 0.0
@@ -19,7 +22,7 @@ var real_dead := false
 
 
 func configure(next_passive_id: String) -> void:
-	passive_id = "omnivamp" if next_passive_id == "omnivamp" else "baroud"
+	passive_id = next_passive_id if next_passive_id in ["baroud", "omnivamp"] else ""
 
 
 func reset() -> void:
@@ -44,8 +47,8 @@ func intercept_damage(amount: float, current_health: float, blocked: bool = fals
 	if passive_id == "baroud" and not baroud_used and current_health > 0.0 and amount >= current_health:
 		baroud_used = true
 		baroud_active = true
-		baroud_health = BAROUD_MAX_HEALTH
-		baroud_remaining = BAROUD_DURATION
+		baroud_health = baroud_max_health
+		baroud_remaining = baroud_duration
 		result["triggered_baroud"] = true
 		return result
 	var effective_normal := minf(amount, maxf(0.0, current_health))
@@ -76,7 +79,7 @@ func can_heal() -> bool:
 func omnivamp_heal_for(effective_damage: float) -> float:
 	if passive_id != "omnivamp" or effective_damage <= 0.0 or real_dead:
 		return 0.0
-	return effective_damage * OMNIVAMP_RATE
+	return effective_damage * omnivamp_rate
 
 
 func _end_baroud_as_death(result: Dictionary) -> void:

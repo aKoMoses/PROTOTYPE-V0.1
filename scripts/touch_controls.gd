@@ -184,7 +184,8 @@ func _draw() -> void:
 	_draw_action(actions["offensive"], _action_radius("offensive"), Color(0.35, 0.78, 0.96, 0.76), "A")
 	_draw_action(actions["defensive"], _action_radius("defensive"), Color(0.38, 0.90, 0.62, 0.76), "E")
 	_draw_action(actions["mobility"], _action_radius("mobility"), Color(0.92, 0.68, 0.30, 0.76), "R")
-	_draw_action(actions["weapon"], _action_radius("weapon"), Color(0.70, 0.44, 0.80, 0.74), "G")
+	if player == null or not bool(player.get("survival_mode")):
+		_draw_action(actions["weapon"], _action_radius("weapon"), Color(0.70, 0.44, 0.80, 0.74), "G")
 	var font := ThemeDB.fallback_font
 	draw_string(font, joystick + Vector2(-30.0 * scale, joystick_radius + 22.0 * scale), "DÉPLACER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(14.0 * scale), Color(0.82, 0.95, 0.97, 0.82))
 	draw_string(font, aim + Vector2(-74.0 * scale, aim_radius + 22.0 * scale), "VISER / TIRER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(14.0 * scale), Color(1.0, 0.88, 0.70, 0.86))
@@ -238,6 +239,8 @@ func _begin_touch(index: int, position: Vector2) -> bool:
 	# Les actions sont testées avant le joystick : leur zone tactile généreuse ne
 	# peut ainsi jamais être interprétée comme un déplacement ou un tir.
 	for action in actions.keys():
+		if action == "weapon" and player != null and bool(player.get("survival_mode")):
+			continue
 		var radius := _action_radius(action) + touch_target_padding * _layout_scale()
 		if position.distance_to(actions[action]) <= radius:
 			_action_touches[index] = action

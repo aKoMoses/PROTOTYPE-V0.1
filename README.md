@@ -448,6 +448,40 @@ fichier vidéo n'est lu.
 Les trois captures Godot sont conservées dans `captures/menu-redesign-preview.png`,
 `captures/menu-redesign-clip-2.png` et `captures/menu-redesign-clip-3.png`.
 
+### Mode Survie
+
+Le bouton **MODE SURVIE** ouvre une partie indépendante du duel et du Training Ground.
+On choisit le Blaster ou le Shotgun au départ. Cette arme est moins puissante qu'en duel
+et reste la seule arme de la partie (`G` est désactivé). Les emplacements de modules et
+le passif commencent vides.
+
+Le mode comprend 12 vagues. Terminer chaque vague de 1 à 11 donne un niveau et un choix
+entre deux récompenses ; le jeu se fige pendant ce choix. Les quatre premières
+récompenses font choisir, dans cet ordre, un module offensif, défensif, de mobilité,
+puis un passif. Les suivantes proposent une évolution propre à l'objet avec gain de puissance, ou du rythme ;
+une fois l'évolution prise, elles proposent puissance ou rythme. Le passif peut aussi
+gagner des PV maximum. Les équipements démarrent affaiblis puis
+peuvent dépasser leurs valeurs de duel. Le joueur récupère 150 PV après chaque choix,
+sans réinitialisation complète entre les vagues. La douzième vague ajoute un ennemi
+plus résistant ; la partie s'achève sur une victoire ou à la mort du joueur.
+
+L'arène est une casse automobile avec trois épaves servant de couverts, des carcasses
+et des tas de ferraille sur le pourtour. Avant chaque vague, un compte à rebours et des
+cercles colorés annoncent les points d'arrivée. Les ennemis ont trois rôles : poursuivant
+au contact, tireur fragile qui garde ses distances et chargeur dont la trajectoire est
+annoncée au sol. Le broyeur final alterne charge et salve de trois projectiles.
+
+Chaque équipement possède une évolution distincte : percée du Blaster, gerbe élargie
+du Shotgun, rebond du Drone, explosion du Javelin, décharges du Champ magnétique,
+onde du Bouclier statique, traînée des Pyro Boots, onde du Bio Injector, riposte de
+Baroud ou soin à l'élimination d'Omnivamp. Les choix affichent les valeurs de l'effet
+ou de la recharge avant et après amélioration.
+
+Les commandes `A`, `E` et `R` deviennent utilisables à mesure que leurs modules sont
+obtenus. Le HUD montre les vagues, les PV, le build et les cooldowns. Échap ou le bouton
+PAUSE ouvre la pause ; le résultat permet de recommencer ou de revenir au menu.
+Le test de parcours est `tools/test_survival.gd`.
+
 ## Commandes
 
 - `ZQSD`, `WASD` ou flèches : déplacement ;
