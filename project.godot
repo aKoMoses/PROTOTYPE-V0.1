@@ -15,6 +15,10 @@ run/main_scene="res://scenes/main.tscn"
 config/icon="res://art/icons/blaster-gravure.png"
 config/features=PackedStringArray("4.7")
 
+[autoload]
+
+GameSfx="*res://scripts/game_sfx.gd"
+
 [display]
 
 window/size/viewport_width=1280

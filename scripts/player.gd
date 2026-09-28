@@ -1027,6 +1027,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	var effective := float(result["effective"])
 	if effective <= 0.0:
 		return 0.0
+	GameSfx.play_event("damage_received")
 	if bool(result["real_death"]):
 		combat_state.apply_damage(combat_state.health, source_id, attack_id)
 	else:
@@ -1099,6 +1100,10 @@ func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0) -> void:
 		collider = null
 	var surface: String = vfx.call("surface_for", collider)
 	vfx.call("impact", contact["position"], contact["normal"], surface, power, color)
+	if surface == "shield" and collider != null and collider.name == "MagneticField":
+		GameSfx.play_event("magnetic_absorb")
+	elif surface != "robot" and surface != "shield":
+		GameSfx.play_event("impact_decor")
 
 
 func _create_surface_impact_fx(origin: Vector3, direction: Vector3, color: Color = Color("#ff9c52")) -> void:
@@ -2027,6 +2032,7 @@ func _perform_pyro_boots() -> void:
 	if _attack_label != null:
 		_attack_label.text = "PYRO BOOTS  •  DASH"
 	_create_dash_fx(global_position)
+	GameSfx.play_event("pyro_dash")
 
 
 func _perform_bio_injector() -> void:
@@ -2470,6 +2476,7 @@ func _recast_javelin() -> void:
 	target.call("clear_javelin_mark")
 	_javelin_mark_target = null
 	_create_teleport_fx(destination)
+	GameSfx.play_event("javelin_teleport")
 	_attack_label.text = "JAVELIN  •  TÉLÉPORTÉ"
 
 
@@ -2832,7 +2839,7 @@ func _resolve_axe_wave(token: int) -> void:
 func _apply_axe_hit(target: Node, impact_point: Vector3, damage: float, slow_duration: float, critical_hit: bool, token: int, phase: int) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	var attack_id := "legacy_attack:%d:%d" % [token, phase]
+	var attack_id := "legacy_attack:%d:%d%s" % [token, phase, ":critical" if critical_hit else ""]
 	var effective_damage := float(target.call("take_damage", damage, "player", attack_id))
 	if critical_hit:
 		target.call("apply_stun", _axe_stun_duration, "legacy_attack")
