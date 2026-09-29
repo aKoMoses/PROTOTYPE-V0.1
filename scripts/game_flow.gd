@@ -10,6 +10,7 @@ const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
+const ROBOT_FORGE_PREVIEW := preload("res://scripts/robot_forge_preview.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
 const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
@@ -715,14 +716,23 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 		info.add_theme_stylebox_override(state, info_style)
 	button.add_child(info)
 	info.pressed.connect(func() -> void: _show_equipment_info(identifier))
-	var icon := TextureRect.new()
-	icon.texture = _equipment_icon(identifier)
-	icon.custom_minimum_size.y = 160 if category == "robot" else 188
-	icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(icon)
+	if category == "robot":
+		var robot_preview := ROBOT_FORGE_PREVIEW.new()
+		robot_preview.name = "RobotPreview"
+		robot_preview.chassis_id = identifier
+		robot_preview.custom_minimum_size.y = 160
+		robot_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		robot_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(robot_preview)
+	else:
+		var icon := TextureRect.new()
+		icon.texture = _equipment_icon(identifier)
+		icon.custom_minimum_size.y = 188
+		icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(icon)
 	var name_label := _label(LOADOUT.display_name(identifier), 19 if category == "robot" else 21, CREAM)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
