@@ -99,12 +99,15 @@ func _test_structure_and_parameters() -> void:
 	var socket := _rig.get_weapon_socket(&"shotgun")
 	var weapon := _weapon_root(&"shotgun")
 	var shotgun := weapon.get_node_or_null("WeaponSway/WeaponRecoil/Shotgun") as Node3D
+	var right_grip := shotgun.get_node_or_null("RightHandGrip") as Marker3D if shotgun != null else null
 	_check(socket != null and socket.get_parent() == _rig.right_hand_attachment and weapon.get_parent() == socket, "shotgun attaches through the right hand and dedicated socket")
 	_check(shotgun != null, "dedicated Shotgun scene is under the existing recoil wrappers")
 	if shotgun == null:
 		return
 	_check(shotgun.get_node_or_null("VisualRoot/ShotgunGLB") is Node3D, "Shotgun scene contains the imported GLB under VisualRoot")
-	_check(shotgun.get_node_or_null("Muzzle") is Marker3D and shotgun.get_node_or_null("LeftHandGrip") is Marker3D, "Shotgun scene exposes muzzle and support markers")
+	_check(shotgun.get_node_or_null("Muzzle") is Marker3D and shotgun.get_node_or_null("LeftHandGrip") is Marker3D and right_grip != null, "Shotgun scene exposes muzzle and both hand-grip markers")
+	_check(right_grip != null and not right_grip.position.is_zero_approx(), "shotgun rear-grip anchor compensates the imported mesh offset")
+	_check(float(_pose.get("right_hand_error", INF)) <= 0.001, "shotgun rear grip is seated on the animated right hand")
 	_check(_rig.get_weapon_muzzle(&"shotgun") == shotgun.get_node_or_null("Muzzle"), "recursive muzzle lookup resolves the nested scene marker")
 	_check(_wrapper_transforms_are_identity(), "weapon, sway, recoil and Shotgun scene roots are identity")
 	_check(_rig.animation_tree.active and _rig.aim_modifier.aiming, "shotgun uses the active AnimationTree when combat aim is requested")
@@ -157,6 +160,7 @@ func _test_pose_case(label: String, movement: Vector3, aim: Vector3) -> void:
 	_check(_rig.play_shot_kick(), label + " accepts skeletal recoil")
 	var maximum_angle := 0.0
 	var maximum_support_error := 0.0
+	var maximum_right_hand_error := 0.0
 	var recovered_alignment := true
 	var wrappers_fixed := true
 	var phase_before := _rig._locomotion_playback.get_current_play_position()
@@ -168,6 +172,7 @@ func _test_pose_case(label: String, movement: Vector3, aim: Vector3) -> void:
 			await _step(STEP)
 		wrappers_fixed = wrappers_fixed and _transforms_equal(fixed_transforms, _weapon_transforms())
 		maximum_support_error = maxf(maximum_support_error, float(_pose.get("hand_error", INF)))
+		maximum_right_hand_error = maxf(maximum_right_hand_error, float(_pose.get("right_hand_error", INF)))
 		maximum_angle = maxf(maximum_angle, _pose_angle())
 		if frame >= 12 and frame in SAMPLE_FRAMES:
 			recovered_alignment = recovered_alignment and _pose_aligned()
@@ -177,6 +182,7 @@ func _test_pose_case(label: String, movement: Vector3, aim: Vector3) -> void:
 			var expected_delta := 6.0 * STEP * float(_rig.animation_tree.get("parameters/Locomotion/run/TimeScale/scale"))
 			phase_advanced = absf(actual_delta - expected_delta) <= 0.005
 	_check(maximum_support_error <= 0.035, label + " left hand stays within 3.5 cm of the support grip")
+	_check(maximum_right_hand_error <= 0.001, label + " rear grip stays attached to the right hand")
 	_check(recovered_alignment and not _rig.is_shot_kick_active(), label + " returns to aligned AimPose after recoil")
 	_check(wrappers_fixed and _wrapper_transforms_are_identity(), label + " skeletal recoil leaves attachment wrappers unchanged")
 	_check(phase_advanced and _player.global_position.is_equal_approx(root_position), label + " recoil preserves locomotion phase and adds no root motion")
@@ -290,12 +296,18 @@ func _capture_final_pose() -> void:
 	var muzzle := _rig.get_weapon_muzzle(weapon_id)
 	var weapon := _weapon_root(weapon_id)
 	var grip := weapon.find_child("LeftHandGrip", true, false) as Node3D if weapon != null else null
+	var right_grip := weapon.find_child("RightHandGrip", true, false) as Node3D if weapon != null else null
 	var left_hand_index := _rig.skeleton.find_bone(String(_rig.left_hand_bone_name))
+	var right_hand_index := _rig.skeleton.find_bone(String(_rig.right_hand_bone_name))
 	var hand_error := INF
+	var right_hand_error := INF
 	if grip != null and left_hand_index >= 0:
 		var hand_world := _rig.skeleton.global_transform * _rig.skeleton.get_bone_global_pose(left_hand_index)
 		hand_error = hand_world.origin.distance_to(grip.global_position)
-	_pose = {"forward": -muzzle.global_basis.z.normalized() if muzzle != null else Vector3.ZERO, "hand_error": hand_error}
+	if right_grip != null and right_hand_index >= 0:
+		var right_hand_world := _rig.skeleton.global_transform * _rig.skeleton.get_bone_global_pose(right_hand_index)
+		right_hand_error = right_hand_world.origin.distance_to(right_grip.global_position)
+	_pose = {"forward": -muzzle.global_basis.z.normalized() if muzzle != null else Vector3.ZERO, "hand_error": hand_error, "right_hand_error": right_hand_error}
 
 
 func _pose_aligned() -> bool:

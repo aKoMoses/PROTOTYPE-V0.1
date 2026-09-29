@@ -15,6 +15,9 @@ func _initialize() -> void:
 	else:
 		target.call("set_training_bot_enabled", false)
 		player.call("set_weapon", "blaster")
+		await _test_desktop_rapid_taps(player, target)
+		await _test_desktop_hold_through_cooldown(player, target)
+		await _test_desktop_full_charge_input(player, target)
 		await _test_normal_shot(player, target)
 		await _test_early_release_audio(player, target)
 		await _test_cooldown(player, target)
@@ -44,6 +47,7 @@ func _initialize() -> void:
 
 
 func _prepare(player: Node, target: Node) -> void:
+	await _set_desktop_attack(false)
 	player.call("set_gameplay_enabled", true)
 	player.global_position = Vector3.ZERO
 	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
@@ -52,6 +56,82 @@ func _prepare(player: Node, target: Node) -> void:
 	target.global_position = Vector3(0.0, 0.0, -4.0)
 	target.call("reset_combat_state")
 	await process_frame
+
+
+func _set_desktop_attack(pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = KEY_SPACE
+	event.physical_keycode = KEY_SPACE
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	await physics_frame
+	# `physics_frame` est émis avant les `_physics_process`; attendre aussi la
+	# frame de rendu garantit que Player a consommé l'état clavier injecté.
+	await process_frame
+
+
+func _test_desktop_hold_through_cooldown(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	var token_before := int(player.get("_blaster_attack_token"))
+	await _set_desktop_attack(true)
+	if not bool(player.call("is_blaster_charging")):
+		_failures.append("PC cadence : le premier maintien ne démarre pas la charge")
+	await _wait_seconds(0.08)
+	await _set_desktop_attack(false)
+	await _wait_seconds(0.08)
+	await _set_desktop_attack(true)
+	if bool(player.call("is_blaster_charging")):
+		_failures.append("PC cadence : la charge contourne le cooldown")
+	var now := Time.get_ticks_msec() / 1000.0
+	var ready_in := maxf(0.0, float(player.get("_blaster_next_attack_ready_at")) - now)
+	await _wait_seconds(ready_in + 0.08)
+	if not bool(player.call("is_blaster_charging")):
+		_failures.append("PC cadence : le maintien commencé pendant le cooldown reste perdu")
+	await _wait_seconds(0.52)
+	var ratio := float(player.call("get_blaster_charge_ratio"))
+	await _set_desktop_attack(false)
+	await _wait_seconds(0.30)
+	if int(player.get("_blaster_attack_token")) != token_before + 2:
+		_failures.append("PC cadence : deux relâchements n'ont pas produit deux tirs")
+	if ratio < 0.45 or ratio > 0.70:
+		_failures.append("PC cadence : charge reprise incorrecte après cooldown (%.2f)" % ratio)
+
+
+func _test_desktop_rapid_taps(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	var token_before := int(player.get("_blaster_attack_token"))
+	await _set_desktop_attack(true)
+	await _wait_seconds(0.06)
+	await _set_desktop_attack(false)
+	await _wait_seconds(0.08)
+	await _set_desktop_attack(true)
+	await _wait_seconds(0.04)
+	await _set_desktop_attack(false)
+	if int(player.get("_blaster_attack_token")) != token_before + 1:
+		_failures.append("PC taps : le tap pendant cooldown a contourné la cadence")
+	var now := Time.get_ticks_msec() / 1000.0
+	var ready_in := maxf(0.0, float(player.get("_blaster_next_attack_ready_at")) - now)
+	await _wait_seconds(ready_in + 0.10)
+	if int(player.get("_blaster_attack_token")) != token_before + 2:
+		_failures.append("PC taps : le tap bref pendant cooldown n'a pas enchaîné le tir suivant")
+
+
+func _test_desktop_full_charge_input(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	var token_before := int(player.get("_blaster_attack_token"))
+	await _set_desktop_attack(true)
+	await _wait_seconds(1.08)
+	if float(player.call("get_blaster_charge_ratio")) < 0.99:
+		_failures.append("PC charge : le maintien n'atteint pas la pleine charge")
+	var direction: Vector3 = player.get("aim_direction")
+	target.global_position = player.global_position + direction.normalized() * 4.0
+	await _set_desktop_attack(false)
+	await _wait_seconds(0.30)
+	if int(player.get("_blaster_attack_token")) != token_before + 1:
+		_failures.append("PC charge : le relâchement n'a pas produit un tir unique")
+	var damage := 1000.0 - float(target.call("get_health"))
+	if absf(damage - 50.0) > 1.2:
+		_failures.append("PC charge : %.2f dégâts au lieu de 50" % damage)
 
 
 func _test_normal_shot(player: Node, target: Node) -> void:

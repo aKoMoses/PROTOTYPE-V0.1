@@ -48,12 +48,14 @@ var _defensive_buffer: Dictionary = {}
 func _ready() -> void:
 	# Sample displacement after TrainingBot's default-priority physics step.
 	process_physics_priority = 10
+	add_to_group("prototype0_combat_bots")
 	collision_layer = 2
 	collision_mask = 0
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	visibility_state = VISIBILITY_STATE.new()
 	combat_state.health_changed.connect(_on_health_changed)
 	combat_state.damage_applied.connect(_on_damage_applied)
+	combat_state.healing_applied.connect(_on_healing_applied)
 	combat_state.effect_changed.connect(_on_effect_changed)
 	combat_state.died.connect(_on_state_died)
 	_build_collision()
@@ -123,6 +125,8 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 		return 0.0
 	if network_proxy:
 		get_node("/root/NetworkSession").send_hit(amount, source_id, attack_id)
+	if _duel_mode and bool(get_meta("duel_static_shield", false)):
+		return 0.0
 	if amount > 0.0 and visibility_state != null:
 		visibility_state.mark_combat_event()
 	if get_meta("survival_elite", "") == "shield" and source_id == "player":
@@ -132,6 +136,17 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 			var facing: Vector3 = get_meta("shield_facing", Vector3.FORWARD)
 			if incoming.dot(facing) > 0.5:
 				amount *= 0.45
+	if _duel_mode and _training_bot != null and _training_bot.has_method("intercept_duel_damage"):
+		var intercepted: Dictionary = _training_bot.call("intercept_duel_damage", amount, combat_state.health)
+		if bool(intercepted.get("triggered_baroud", false)):
+			return 0.0
+		var effective := float(intercepted.get("effective", amount))
+		if not bool(intercepted.get("apply_to_health", true)):
+			return effective
+		if bool(intercepted.get("real_death", false)):
+			combat_state.apply_damage(combat_state.health, source_id, attack_id)
+			return effective
+		amount = effective
 	return combat_state.apply_damage(amount, source_id, attack_id)
 
 
@@ -546,6 +561,16 @@ func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> 
 		attacker.call("_on_damage_dealt", amount)
 
 
+func _on_damage_dealt(effective_damage: float) -> void:
+	if _duel_mode and _training_bot != null and _training_bot.has_method("register_duel_damage"):
+		_training_bot.call("register_duel_damage", effective_damage)
+
+
+func _on_healing_applied(amount: float, _source_id: String) -> void:
+	if _health_readout != null and _health_readout.has_method("show_healing"):
+		_health_readout.call("show_healing", amount)
+
+
 func _on_effect_changed(_effect_type: String, _active: bool) -> void:
 	_update_effect_presentation()
 
@@ -563,6 +588,33 @@ func set_duel_mode(value: bool) -> void:
 func set_duel_profile(value: String) -> void:
 	if _training_bot != null:
 		_training_bot.call("set_duel_profile", value)
+
+
+func set_duel_loadout(value: Dictionary) -> void:
+	if _training_bot != null and _training_bot.has_method("set_duel_loadout"):
+		_training_bot.call("set_duel_loadout", value)
+
+
+func get_duel_loadout() -> Dictionary:
+	return _training_bot.call("get_duel_loadout") if _training_bot != null and _training_bot.has_method("get_duel_loadout") else {"weapon": get_duel_profile()}
+
+
+func set_bot_difficulty(value: String) -> void:
+	if _training_bot != null:
+		_training_bot.call("set_difficulty_profile", value)
+
+
+func get_bot_difficulty() -> String:
+	return str(_training_bot.call("get_difficulty_profile")) if _training_bot != null else "normal"
+
+
+func set_bot_diagnostics_enabled(value: bool) -> void:
+	if _training_bot != null:
+		_training_bot.call("set_diagnostics_enabled", value)
+
+
+func get_bot_diagnostic_snapshot() -> Dictionary:
+	return _training_bot.call("get_diagnostic_snapshot") if _training_bot != null else {}
 
 
 func get_duel_profile() -> String:

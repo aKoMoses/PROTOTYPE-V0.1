@@ -6,6 +6,7 @@ const DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const TOUCH_SCRIPT := preload("res://scripts/touch_controls.gd")
 const METER_SCRIPT := preload("res://scripts/training_meter.gd")
+const VFX_MANAGER_SCRIPT := preload("res://scripts/vfx_manager.gd")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const UI_FONT: FontFile = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
@@ -68,6 +69,9 @@ func _ready() -> void:
 	# Input and menu remain available while combat actors are paused.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_loadout = LOADOUT.load_local()
+	var vfx := VFX_MANAGER_SCRIPT.new()
+	vfx.name = "VFXManager"
+	add_child(vfx)
 	_build_world()
 	_build_player_and_camera()
 	_spawn_dummy("fixed", Vector3(-33.0, 0.0, -11.0), 0.65)
@@ -751,6 +755,9 @@ func _apply_options() -> void:
 	_update_status()
 
 func _reset_trial() -> void:
+	var vfx := get_node_or_null("VFXManager")
+	if vfx != null:
+		vfx.call("clear")
 	for node in get_tree().get_nodes_in_group("prototype0_fx_budget"):
 		if is_instance_valid(node):
 			node.queue_free()

@@ -8,6 +8,15 @@ func _initialize() -> void:
 	current_scene = scene
 	await physics_frame
 	var player := scene.get_node("Player")
+	var vfx := scene.get_node_or_null("VFXManager")
+	_check(vfx != null, "gestionnaire VFX present dans le terrain")
+	if vfx != null:
+		_check(player.call("_vfx_manager") == vfx, "projectiles relies au gestionnaire VFX")
+		var projectile_probe := Node3D.new()
+		scene.add_child(projectile_probe)
+		vfx.call("projectile_visual", projectile_probe, "blaster", 0.0)
+		_check(projectile_probe.get_node_or_null("ProjectileCore") is MeshInstance3D, "geometrie visible ajoutee aux projectiles")
+		projectile_probe.queue_free()
 	var spell_bar := scene.get_node_or_null("TrainingUI/TrainingRoot/SpellBar")
 	_check(spell_bar != null, "barre de sorts presente dans le terrain")
 	if spell_bar != null:

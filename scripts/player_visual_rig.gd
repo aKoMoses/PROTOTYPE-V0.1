@@ -222,16 +222,22 @@ func equip_weapon(weapon_id: StringName, weapon_root: Node3D, profile: Dictionar
 	var local_rotation: Vector3 = profile.get("rotation", Vector3.ZERO)
 	var local_scale: Vector3 = profile.get("scale", Vector3.ONE)
 	var carry_pitch_degrees: float = float(profile.get("carry_pitch_degrees", 0.0))
+	var right_grip := weapon_root.find_child("RightHandGrip", true, false) as Node3D
+	var right_grip_from_root := _descendant_transform_from(weapon_root, right_grip) if right_grip != null else Transform3D.IDENTITY
 	socket.set_meta("weapon_alignment_profile", {
 		"position": local_position,
 		"rotation": local_rotation,
 		"scale": local_scale,
 		"carry_pitch_degrees": carry_pitch_degrees,
+		"right_grip_from_root": right_grip_from_root,
 	})
-	var aim_transform := _get_weapon_socket_transform(local_position, local_rotation, local_scale, weapon_id)
+	var aim_transform := _get_weapon_socket_transform(local_position, local_rotation, local_scale, weapon_id, right_grip_from_root.origin, right_grip != null)
 	var carry_rotation := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(carry_pitch_degrees)), Vector3.ZERO)
+	var grip_pivot := Transform3D(Basis.IDENTITY, right_grip_from_root.origin)
 	socket.set_meta("weapon_aim_transform", aim_transform)
-	socket.set_meta("weapon_carry_transform", aim_transform * carry_rotation)
+	# Lower the weapon around its rear grip, rather than around the imported scene
+	# origin, so the handle cannot peel away from the hand in the ready pose.
+	socket.set_meta("weapon_carry_transform", aim_transform * grip_pivot * carry_rotation * grip_pivot.affine_inverse())
 	socket.transform = _get_weapon_socket_pose(socket)
 	weapon_root.name = "Weapon_%s" % String(weapon_id)
 	weapon_root.transform = Transform3D.IDENTITY
@@ -299,6 +305,21 @@ func clear_pelto_pose() -> void:
 		aim_modifier.clear_pelto_pose()
 
 
+func settle_weapon_attachment_after_transient_pose() -> void:
+	# Transient ability modifiers are cleared during Player._process(), after the
+	# skeleton may already have evaluated their last pose. Re-evaluate once while
+	# the weapon is still hidden so its BoneAttachment cannot be revealed at the
+	# stale Pelto hand position.
+	_update_weapon_socket_poses()
+	if animation_tree != null:
+		animation_tree.advance(0.000001)
+	if skeleton != null:
+		skeleton.advance(0.000001)
+		skeleton.force_update_all_bone_transforms()
+	if right_hand_attachment != null:
+		right_hand_attachment.force_update_transform()
+
+
 func configure_aim_transition(raise_time: float, lower_time: float) -> void:
 	_aim_raise_time = maxf(0.001, raise_time)
 	_aim_lower_time = maxf(0.001, lower_time)
@@ -338,7 +359,15 @@ func _update_aim_blend(delta: float) -> void:
 func _get_weapon_socket_pose(socket: Node3D) -> Transform3D:
 	var aim_transform: Transform3D = socket.get_meta("weapon_aim_transform", socket.transform)
 	var carry_transform: Transform3D = socket.get_meta("weapon_carry_transform", aim_transform)
-	return carry_transform.interpolate_with(aim_transform, _aim_blend_amount)
+	var pose := carry_transform.interpolate_with(aim_transform, _aim_blend_amount)
+	var profile: Dictionary = socket.get_meta("weapon_alignment_profile", {})
+	var right_grip_from_root: Transform3D = profile.get("right_grip_from_root", Transform3D.IDENTITY)
+	# Transform interpolation blends translation and rotation independently. Pin the
+	# common pivot again so the rear grip also remains exact while raising/lowering.
+	var grip_position := right_grip_from_root.origin
+	var grip_anchor := aim_transform * grip_position
+	pose.origin += grip_anchor - pose * grip_position
+	return pose
 
 
 func _update_weapon_socket_poses() -> void:
@@ -601,20 +630,38 @@ func _cancel_shot_kick() -> void:
 		aim_modifier.cancel_shot()
 
 
-func _get_weapon_socket_transform(local_position: Vector3, local_rotation: Vector3, local_scale: Vector3, weapon_id: StringName) -> Transform3D:
+func _get_weapon_socket_transform(local_position: Vector3, local_rotation: Vector3, local_scale: Vector3, weapon_id: StringName, right_grip_position: Vector3 = Vector3.ZERO, has_right_grip: bool = false) -> Transform3D:
 	var desired_basis := Basis.from_euler(local_rotation).scaled(local_scale)
 	# Always calibrate against the cached, evaluated AimPose, even if equipped mid-kick.
 	var hand_pose := _aim_hand_pose
 	var hand_world := skeleton.global_transform * hand_pose
 	var desired_world := visual_motion.global_transform * Transform3D(desired_basis, local_position)
 	if weapon_id == &"blaster":
-		# Align the imported rear grip to the actual firing hand. The old world
-		# offset was calibrated at the idle waist and left the support unreachable.
-		desired_world.origin = hand_world.origin + visual_motion.global_basis * Vector3(0.0, 0.08, -0.08)
-	elif weapon_id == &"shotgun":
-		# The wrapper places its rear grip at its origin, directly in the hand.
+		# Production weapons expose an authored rear-grip marker. Keep the legacy
+		# offset only for minimal fixtures or third-party weapons without one.
 		desired_world.origin = hand_world.origin
+		if not has_right_grip:
+			desired_world.origin += visual_motion.global_basis * Vector3(0.0, 0.08, -0.08)
+	elif weapon_id == &"shotgun":
+		# Anchor the authored rear-grip marker to the wrist instead of assuming the
+		# imported mesh origin is the contact point. This keeps the stock and grip
+		# seated in the hand while preserving the calibrated firing direction.
+		desired_world.origin = hand_world.origin
+	desired_world.origin -= desired_world.basis * right_grip_position
 	return hand_world.affine_inverse() * desired_world
+
+
+func _descendant_transform_from(ancestor: Node3D, descendant: Node3D) -> Transform3D:
+	if ancestor == null or descendant == null:
+		return Transform3D.IDENTITY
+	var result := Transform3D.IDENTITY
+	var current := descendant
+	while current != ancestor:
+		result = current.transform * result
+		current = current.get_parent() as Node3D
+		if current == null:
+			return Transform3D.IDENTITY
+	return result
 
 
 func configure_left_hand_support(weapon_id: StringName) -> void:

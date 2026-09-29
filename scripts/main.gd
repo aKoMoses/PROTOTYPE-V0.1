@@ -7,6 +7,7 @@ const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
 const GAME_FLOW_SCRIPT := preload("res://scripts/game_flow.gd")
 const NETWORK_MATCH_SCRIPT := preload("res://scripts/network_match.gd")
 const VFX_MANAGER_SCRIPT := preload("res://scripts/vfx_manager.gd")
+const REPAIR_KIT_SCENE := preload("res://scenes/repair_kit.tscn")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_FLOOR_TEXTURE: Texture2D = preload("res://art/arena_floor.svg")
 const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
@@ -16,6 +17,8 @@ const BANNER_TEXTURE: Texture2D = preload("res://art/banner_red.svg")
 const ARENA_HALF_EXTENT := 29.0
 const EXTERIOR_SIZE := 128.0
 const BUSH_PLACEMENT_ATTEMPTS := 12
+
+@export_enum("easy", "normal", "hard") var bot_difficulty := "normal"
 
 var player: CharacterBody3D
 var game_flow: CanvasLayer
@@ -164,8 +167,8 @@ func _build_arena() -> void:
 
 	_build_scrap_perimeter()
 
-	# Four future health-kit locations. They are landmarks only until their rules
-	# are defined in the design document.
+	# Four mirrored repair points keep the established arena contract and make
+	# every spawn side travel a comparable distance for healing.
 	_create_health_pad("HealthPadNorth", Vector3(0.0, 0.0, -20.8))
 	_create_health_pad("HealthPadSouth", Vector3(0.0, 0.0, 20.8))
 	_create_health_pad("HealthPadWest", Vector3(-21.0, 0.0, 0.0))
@@ -1470,54 +1473,11 @@ func _create_invisible_limit(node_name: String, limit_position: Vector3, size: V
 
 
 func _create_health_pad(node_name: String, pad_position: Vector3) -> void:
-	var root := Node3D.new()
-	root.name = node_name
-	root.position = pad_position
-	root.add_to_group("health_kit_placeholder")
-	var base := MeshInstance3D.new()
-	var base_mesh := BoxMesh.new()
-	base_mesh.size = Vector3(3.3, 0.12, 3.3)
-	base.mesh = base_mesh
-	base.position.y = 0.06
-	base.material_override = _textured_material(Color("#a6a29b"), 0.88, Color.BLACK, STEEL_DARK_TEXTURE, Vector3(1.0, 1.0, 1.0))
-	base.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(base)
-	for corner_position in [Vector3(-1.42, 0.13, -1.42), Vector3(1.42, 0.13, -1.42), Vector3(-1.42, 0.13, 1.42), Vector3(1.42, 0.13, 1.42)]:
-		var bolt := MeshInstance3D.new()
-		var bolt_mesh := CylinderMesh.new()
-		bolt_mesh.top_radius = 0.11
-		bolt_mesh.bottom_radius = 0.14
-		bolt_mesh.height = 0.10
-		bolt_mesh.radial_segments = 8
-		bolt.mesh = bolt_mesh
-		bolt.position = corner_position
-		bolt.material_override = _material(Color("#8b5b3b"), 0.72)
-		root.add_child(bolt)
-	var screen := MeshInstance3D.new()
-	var screen_mesh := BoxMesh.new()
-	screen_mesh.size = Vector3(1.92, 0.045, 1.92)
-	screen.mesh = screen_mesh
-	screen.position.y = 0.142
-	screen.material_override = _material(Color("#3d7d82"), 0.38, Color("#153e42"))
-	screen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(screen)
-	var cross_x := MeshInstance3D.new()
-	var cross_x_mesh := BoxMesh.new()
-	cross_x_mesh.size = Vector3(1.02, 0.035, 0.20)
-	cross_x.mesh = cross_x_mesh
-	cross_x.position.y = 0.184
-	cross_x.material_override = _material(Color("#d2d7cf"), 0.52, Color("#36575a"))
-	cross_x.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(cross_x)
-	var cross_z := MeshInstance3D.new()
-	var cross_z_mesh := BoxMesh.new()
-	cross_z_mesh.size = Vector3(0.20, 0.035, 1.02)
-	cross_z.mesh = cross_z_mesh
-	cross_z.position.y = 0.184
-	cross_z.material_override = cross_x.material_override
-	cross_z.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(cross_z)
-	add_child(root)
+	var repair_kit := REPAIR_KIT_SCENE.instantiate() as Area3D
+	repair_kit.name = node_name
+	repair_kit.position = pad_position
+	add_child(repair_kit)
+	repair_kit.call("set_collection_active", false)
 
 
 func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale: float) -> void:
@@ -1866,13 +1826,22 @@ func prepare_round(loadout: Dictionary) -> void:
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	target.call("set_duel_mode", true)
-	target.call("set_duel_profile", "shotgun" if game_flow != null and game_flow.round_number % 2 == 0 else "blaster")
+	var round_value := maxi(1, game_flow.round_number if game_flow != null else 1)
+	var bot_loadouts := [
+		{"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "omnivamp"},
+		{"weapon": "shotgun", "offensive": "fulguro_punch", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "baroud"},
+		{"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"},
+		{"weapon": "shotgun", "offensive": "pelto_smash", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "baroud"},
+	]
+	target.call("set_duel_loadout", bot_loadouts[(round_value - 1) % bot_loadouts.size()])
+	target.call("set_bot_difficulty", bot_difficulty)
 	target.call("set_training_bot_enabled", false)
 	target.call("reset_combat_state")
 	player.call("apply_loadout", loadout)
 	player.call("reset_combat_state")
 	player.call("set_gameplay_enabled", false)
 	player.call("clear_touch_inputs")
+	_reset_repair_kits(false)
 
 
 func activate_round() -> void:
@@ -1880,6 +1849,7 @@ func activate_round() -> void:
 		return
 	player.call("set_gameplay_enabled", true)
 	target.call("set_training_bot_enabled", true)
+	_set_repair_kits_active(true)
 
 
 func restart_duel(loadout: Dictionary) -> void:
@@ -1888,6 +1858,7 @@ func restart_duel(loadout: Dictionary) -> void:
 
 func stop_duel() -> void:
 	duel_active = false
+	_set_repair_kits_active(false)
 	if player != null:
 		player.call("set_gameplay_enabled", false)
 		player.call("clear_touch_inputs")
@@ -1935,7 +1906,20 @@ func resolve_round() -> void:
 	if not target_dead:
 		target_dead = float(target.call("get_health")) <= 0.0
 	if player_dead or target_dead:
+		_set_repair_kits_active(false)
 		game_flow.call("resolve_round", player_dead, target_dead)
+
+
+func _reset_repair_kits(collection_active: bool) -> void:
+	for repair_kit in get_tree().get_nodes_in_group("repair_kits"):
+		if repair_kit.has_method("reset_for_round"):
+			repair_kit.call("reset_for_round", collection_active)
+
+
+func _set_repair_kits_active(value: bool) -> void:
+	for repair_kit in get_tree().get_nodes_in_group("repair_kits"):
+		if repair_kit.has_method("set_collection_active"):
+			repair_kit.call("set_collection_active", value)
 
 
 func shift_pause_timers(seconds: float) -> void:

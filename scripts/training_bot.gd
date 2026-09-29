@@ -2,11 +2,11 @@ class_name TrainingBot
 extends Node
 
 const DUEL_EQUIPMENT := preload("res://scripts/duel_bot_equipment.gd")
+const ACTION_GATE := preload("res://scripts/action_gate.gd")
+const AI_PROFILE := preload("res://scripts/bot_ai_profile.gd")
 
-## Lightweight local opponent used for manual combat/visibility testing.
-## It is opt-in (F7), uses a readable wind-up telegraph, and deliberately
-## applies raw damage only: status effects must still come from the player's
-## weapons/modules or explicit diagnostics.
+## Shared bot controller. Duel mode runs three explicit stages: perception,
+## tactical decision and command execution. Survival keeps its cheaper role AI.
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
@@ -39,6 +39,15 @@ const DUEL_RELOAD_REACTION := 0.35
 const DUEL_DODGE_REACTION := 0.20
 const DUEL_PRESS_SPEED := 3.0
 const DUEL_FLANK_SPEED := 3.2
+const REPAIR_SEEK_HEALTH_RATIO := 0.62
+const REPAIR_STOP_HEALTH_RATIO := 0.88
+const REPAIR_SEARCH_INTERVAL := 0.40
+const REPAIR_MOVE_SPEED := 3.4
+const REPAIR_STUCK_TIMEOUT := 1.35
+const OBSERVATION_SAMPLE_INTERVAL := 0.05
+const PROGRESS_SAMPLE_INTERVAL := 0.45
+const CROWD_AVOID_RADIUS := 1.65
+const SURVIVAL_ACTION_ID := "survival_attack"
 var training_stationary := false
 var training_attack_interval := ATTACK_INTERVAL
 var training_attack_damage := ATTACK_DAMAGE
@@ -90,14 +99,44 @@ var _next_fulguro_ready_at := 0.0
 var _pelto_direction := Vector3.FORWARD
 var _next_pelto_ready_at := 0.0
 var _fulguro_charge_audio: AudioStreamPlayer
+var _repair_target: Node3D
+var _next_repair_search_at := 0.0
+var _repair_stuck_time := 0.0
+var _repair_retry_after: Dictionary = {}
+var difficulty_profile := AI_PROFILE.DEFAULT_PROFILE
+var diagnostics_enabled := false
+var _tuning: Dictionary = AI_PROFILE.values(AI_PROFILE.DEFAULT_PROFILE)
+var _perception: Dictionary = {}
+var _observation_samples: Array[Dictionary] = []
+var _next_observation_sample_at := 0.0
+var _visible_since := -1.0
+var _observed_velocity := Vector3.ZERO
+var _previous_reacted_position := Vector3.ZERO
+var _previous_reacted_at := -1.0
+var _current_intent := "search"
+var _intent_reason := "initialisation"
+var _intent_score := 0.0
+var _intent_locked_until := 0.0
+var _next_tactical_decision_at := 0.0
+var _tactical_destination := Vector3.ZERO
+var _has_tactical_destination := false
+var _strafe_sign := 1.0
+var _next_strafe_flip_at := 0.0
+var _progress_anchor := Vector3.ZERO
+var _progress_anchor_at := 0.0
+var _diagnostic_label: Label3D
+var _action_gate = ACTION_GATE.new()
+var _attack_action_token := 0
 
 
 func _ready() -> void:
 	var owner_3d := get_parent() as Node3D
 	if owner_3d != null:
 		_spawn_position = owner_3d.global_position
+		_progress_anchor = owner_3d.global_position
 	_duel_equipment = DUEL_EQUIPMENT.new()
 	_duel_equipment.name = "DuelEquipment"
+	_duel_equipment.call("set_action_gate", _action_gate)
 	add_child(_duel_equipment)
 	_build_telegraph()
 	_fulguro_charge_audio = AudioStreamPlayer.new()
@@ -110,6 +149,8 @@ func _ready() -> void:
 
 
 func set_enabled(value: bool) -> void:
+	_action_gate.reset()
+	_attack_action_token = 0
 	enabled = value
 	_elapsed = 0.0
 	_next_attack_at = 1.0
@@ -136,6 +177,10 @@ func set_enabled(value: bool) -> void:
 	_next_fulguro_ready_at = 0.0
 	_pelto_direction = Vector3.FORWARD
 	_next_pelto_ready_at = 0.0
+	_clear_repair_target()
+	_next_repair_search_at = 0.0
+	_repair_retry_after.clear()
+	_reset_tactical_state()
 	if _fulguro_charge_audio != null:
 		_fulguro_charge_audio.stop()
 	_update_telegraph()
@@ -156,6 +201,8 @@ func toggle() -> bool:
 
 
 func reset_clock() -> void:
+	_action_gate.reset()
+	_attack_action_token = 0
 	_elapsed = 0.0
 	_next_attack_at = 1.0
 	_attack_serial = 0
@@ -181,6 +228,10 @@ func reset_clock() -> void:
 	_next_fulguro_ready_at = 0.0
 	_pelto_direction = Vector3.FORWARD
 	_next_pelto_ready_at = 0.0
+	_clear_repair_target()
+	_next_repair_search_at = 0.0
+	_repair_retry_after.clear()
+	_reset_tactical_state()
 	if _fulguro_charge_audio != null:
 		_fulguro_charge_audio.stop()
 	_update_telegraph()
@@ -210,6 +261,77 @@ func _reset_duel_decisions() -> void:
 	_has_angle_destination = false
 	_threat_serial = 0
 	_projectile_previous.clear()
+
+
+func _reset_tactical_state() -> void:
+	_perception.clear()
+	_observation_samples.clear()
+	_next_observation_sample_at = 0.0
+	_visible_since = -1.0
+	_observed_velocity = Vector3.ZERO
+	_previous_reacted_position = Vector3.ZERO
+	_previous_reacted_at = -1.0
+	_current_intent = "search"
+	_intent_reason = "aucune cible perçue"
+	_intent_score = 0.0
+	_intent_locked_until = 0.0
+	_next_tactical_decision_at = 0.0
+	_has_tactical_destination = false
+	_strafe_sign = 1.0 if get_instance_id() % 2 == 0 else -1.0
+	_next_strafe_flip_at = 0.0
+	_progress_anchor_at = 0.0
+	var body := get_parent() as Node3D
+	_progress_anchor = body.global_position if body != null else Vector3.ZERO
+	_update_diagnostic_label()
+
+
+func set_difficulty_profile(value: String) -> void:
+	difficulty_profile = AI_PROFILE.sanitize(value)
+	_tuning = AI_PROFILE.values(difficulty_profile)
+	_next_tactical_decision_at = 0.0
+
+
+func get_difficulty_profile() -> String:
+	return difficulty_profile
+
+
+func set_duel_loadout(value: Dictionary) -> void:
+	if _duel_equipment != null and _duel_equipment.has_method("set_loadout"):
+		_duel_equipment.call("set_loadout", value)
+
+
+func get_duel_loadout() -> Dictionary:
+	return _duel_equipment.call("get_loadout") if _duel_equipment != null and _duel_equipment.has_method("get_loadout") else {"weapon": get_duel_profile()}
+
+
+func set_diagnostics_enabled(value: bool) -> void:
+	diagnostics_enabled = value
+	if value and _diagnostic_label == null:
+		_diagnostic_label = Label3D.new()
+		_diagnostic_label.name = "BotAIDiagnostic"
+		_diagnostic_label.position = Vector3(0.0, 2.65, 0.0)
+		_diagnostic_label.font_size = 22
+		_diagnostic_label.outline_size = 5
+		_diagnostic_label.modulate = Color("#c7f7ff")
+		_diagnostic_label.no_depth_test = true
+		add_child(_diagnostic_label)
+	if _diagnostic_label != null:
+		_diagnostic_label.visible = value
+	_update_diagnostic_label()
+
+
+func get_diagnostic_snapshot() -> Dictionary:
+	return {
+		"difficulty": difficulty_profile,
+		"intent": _current_intent,
+		"reason": _intent_reason,
+		"target_known": _has_last_observed_position,
+		"target_visible": bool(_perception.get("visible", false)),
+		"target_position": _last_observed_position,
+		"target_age": float(_perception.get("memory_age", INF)),
+		"destination": _tactical_destination if _has_tactical_destination else Vector3.INF,
+		"module_reason": str(_duel_equipment.get("last_module_reason")) if _duel_equipment != null else "",
+	}
 
 
 func set_duel_profile(value: String) -> void:
@@ -255,17 +377,17 @@ func _physics_process(delta: float) -> void:
 	if bot_body == null or player == null or not is_instance_valid(player):
 		return
 	if bot_body.has_method("is_real_dead") and bool(bot_body.call("is_real_dead")):
+		cancel_action()
 		_move_velocity = Vector3.ZERO
-		_windup_remaining = 0.0
-		_update_telegraph()
 		return
 	if player.has_method("is_real_dead") and bool(player.call("is_real_dead")):
+		cancel_action()
 		_move_velocity = Vector3.ZERO
-		_windup_remaining = 0.0
-		_update_telegraph()
 		return
 	if survival_role != "":
 		if bot_body.has_method("is_action_locked") and bool(bot_body.call("is_action_locked")):
+			_action_gate.reset()
+			_attack_action_token = 0
 			_consider_buffered_dodge(bot_body, player)
 			_windup_remaining = 0.0
 			_windup_player = null
@@ -278,6 +400,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if bot_body.has_method("is_action_locked") and bool(bot_body.call("is_action_locked")):
 		_consider_buffered_dodge(bot_body, player)
+		if _duel_equipment != null and survival_role == "":
+			_duel_equipment.call("cancel_action", "interrompu par un effet de statut")
+		_attack_action_token = 0
 		_windup_remaining = 0.0
 		_windup_player = null
 		_move_velocity = Vector3.ZERO
@@ -286,19 +411,31 @@ func _physics_process(delta: float) -> void:
 	_elapsed += delta
 	var duel_tactics := bot_body.has_method("is_duel_mode") and bool(bot_body.call("is_duel_mode"))
 	var target_visible := (not player.has_method("is_visible_to") or bool(player.call("is_visible_to", bot_body))) and _line_of_sight_clear(bot_body, player)
-	if target_visible:
+	var reacted_visible := target_visible
+	if duel_tactics:
+		_update_duel_perception(bot_body, player, target_visible)
+		reacted_visible = bool(_perception.get("visible", false))
+	elif target_visible:
 		_last_observed_position = player.global_position
 		_has_last_observed_position = true
 		_visual_aim_position = player.global_position
 		_has_visual_aim_position = true
 		_last_seen_at = _elapsed
-	elif duel_tactics and _elapsed - _last_seen_at > DUEL_MEMORY_SECONDS:
-		_has_last_observed_position = false
-		_has_visual_aim_position = false
 	if duel_tactics:
-		_observe_duel_reload(player, target_visible)
-		_duel_equipment.call("tick", delta, _elapsed, target_visible, _last_observed_position, bot_body, player, self)
+		_observe_duel_reload(player, reacted_visible)
+		_update_duel_decision(bot_body, player)
+		if _attack_action_token != 0:
+			_advance_shared_attack_windup(bot_body, delta)
+		else:
+			_duel_equipment.call("tick", delta, _elapsed, reacted_visible, _last_observed_position, bot_body, player, self, _perception, _tuning)
+		if bool(_duel_equipment.call("is_action_locked")):
+			_move_velocity = Vector3.ZERO
+			_update_diagnostic_label()
+			return
 	var pursuit_position := _last_observed_position if _has_last_observed_position else _spawn_position
+	var seeking_repair := duel_tactics and not training_stationary and _update_repair_target(bot_body, player)
+	if seeking_repair:
+		_force_intent("seek_heal", "PV bas et kit accessible")
 	_dodge_cooldown_remaining = maxf(0.0, _dodge_cooldown_remaining - delta)
 	_try_interrupt_pelto_pull(bot_body, player)
 	if training_stationary:
@@ -308,16 +445,20 @@ func _physics_process(delta: float) -> void:
 		_move_velocity = _move_velocity.move_toward(_dodge_direction * DODGE_SPEED, MOVE_ACCELERATION * delta)
 		_move_bot(bot_body, delta)
 	else:
-		_try_dodge(bot_body, player, target_visible, duel_tactics)
+		_try_dodge(bot_body, player, reacted_visible, duel_tactics)
 		if _dodge_remaining <= 0.0:
-			if duel_tactics:
+			if seeking_repair:
+				if not _advance_repair_seek(bot_body, delta):
+					_update_duel_movement(bot_body, pursuit_position, reacted_visible, delta)
+			elif duel_tactics:
 				if bool(_duel_equipment.call("is_dashing")):
 					_duel_equipment.call("advance_dash", bot_body, self, delta)
 				else:
-					_update_duel_movement(bot_body, pursuit_position, target_visible, delta)
+					_update_duel_movement(bot_body, pursuit_position, reacted_visible, delta)
 			else:
 				_update_patrol(bot_body, pursuit_position, delta)
 	if duel_tactics:
+		_update_diagnostic_label()
 		return
 	_telegraph_clock += delta
 	if _windup_remaining > 0.0:
@@ -336,6 +477,396 @@ func _physics_process(delta: float) -> void:
 		# Recheck quickly when the player is behind cover instead of locking the
 		# bot into a long empty cooldown.
 		_next_attack_at = _elapsed + 0.35
+
+
+func _advance_shared_attack_windup(bot_body: Node3D, delta: float) -> void:
+	if _attack_action_token == 0 or _windup_remaining <= 0.0:
+		return
+	_windup_remaining = maxf(0.0, _windup_remaining - delta)
+	_update_telegraph()
+	if _windup_remaining > 0.0:
+		return
+	_resolve_attack(bot_body, _windup_player)
+	_windup_player = null
+	_next_attack_at = _elapsed + (maxf(0.1, training_attack_interval - WINDUP_DURATION) if training_stationary else training_attack_interval)
+
+
+func _update_duel_perception(bot_body: Node3D, player: Node3D, raw_visible: bool) -> void:
+	var reaction_delay := float(_tuning.get("reaction_delay", 0.22))
+	if raw_visible:
+		if _visible_since < 0.0:
+			_visible_since = _elapsed
+		if _elapsed >= _next_observation_sample_at:
+			_observation_samples.append({"time": _elapsed, "position": player.global_position})
+			_next_observation_sample_at = _elapsed + OBSERVATION_SAMPLE_INTERVAL
+			while _observation_samples.size() > 16:
+				_observation_samples.pop_front()
+	else:
+		_visible_since = -1.0
+		_observation_samples.clear()
+	var reacted_visible := raw_visible and _visible_since >= 0.0 and _elapsed - _visible_since >= reaction_delay
+	var reacted_sample: Dictionary = {}
+	while not _observation_samples.is_empty() and float(_observation_samples[0].get("time", _elapsed)) <= _elapsed - reaction_delay:
+		reacted_sample = _observation_samples.pop_front()
+	if reacted_visible and not reacted_sample.is_empty():
+		var reacted_position: Vector3 = reacted_sample.get("position", player.global_position)
+		var reacted_at := float(reacted_sample.get("time", _elapsed))
+		if _previous_reacted_at >= 0.0 and reacted_at > _previous_reacted_at + 0.001:
+			_observed_velocity = (reacted_position - _previous_reacted_position) / (reacted_at - _previous_reacted_at)
+			_observed_velocity.y = 0.0
+			if _observed_velocity.length() > 10.0:
+				_observed_velocity = _observed_velocity.normalized() * 10.0
+		_previous_reacted_position = reacted_position
+		_previous_reacted_at = reacted_at
+		_last_observed_position = reacted_position
+		_has_last_observed_position = true
+		_visual_aim_position = reacted_position
+		_has_visual_aim_position = true
+		_last_seen_at = _elapsed
+	elif not raw_visible and _elapsed - _last_seen_at > DUEL_MEMORY_SECONDS:
+		_has_last_observed_position = false
+		_has_visual_aim_position = false
+		_observed_velocity = Vector3.ZERO
+	var memory_age := maxf(0.0, _elapsed - _last_seen_at) if _has_last_observed_position else INF
+	var distance := bot_body.global_position.distance_to(_last_observed_position) if _has_last_observed_position else INF
+	var bot_health_fraction := 1.0
+	if bot_body.has_method("get_health") and bot_body.has_method("get_max_health"):
+		bot_health_fraction = float(bot_body.call("get_health")) / maxf(1.0, float(bot_body.call("get_max_health")))
+	var target_health_fraction := float(_perception.get("target_health_fraction", 1.0))
+	if reacted_visible and player.has_method("get_health") and player.has_method("get_max_health"):
+		target_health_fraction = float(player.call("get_health")) / maxf(1.0, float(player.call("get_max_health")))
+	_perception = {
+		"visible": reacted_visible,
+		"raw_visible": raw_visible,
+		"known": _has_last_observed_position,
+		"position": _last_observed_position,
+		"velocity": _observed_velocity,
+		"memory_age": memory_age,
+		"distance": distance,
+		"line_of_fire": reacted_visible and _weapon_line_of_fire_clear(bot_body, player, _last_observed_position),
+		"target_reloading": reacted_visible and player.has_method("is_shotgun_reloading") and bool(player.call("is_shotgun_reloading")),
+		"target_charging": reacted_visible and player.has_method("is_blaster_charging") and bool(player.call("is_blaster_charging")),
+		"target_weapon": str(player.call("get_weapon_id")) if reacted_visible and player.has_method("get_weapon_id") else "unknown",
+		"target_health_fraction": target_health_fraction,
+		"bot_health_fraction": bot_health_fraction,
+		"bot_reloading": is_duel_reloading(),
+	}
+
+
+func _weapon_line_of_fire_clear(bot_body: Node3D, player: Node3D, target_position: Vector3) -> bool:
+	var world := bot_body.get_world_3d()
+	if world == null:
+		return true
+	var origin := bot_body.global_position + Vector3.UP * 0.90
+	if bot_body.has_method("get_training_bot_muzzle_transform"):
+		origin = (bot_body.call("get_training_bot_muzzle_transform") as Transform3D).origin
+	var query := PhysicsRayQueryParameters3D.create(origin, target_position + Vector3.UP * 0.90)
+	query.collision_mask = 1 | 8
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [bot_body.get_rid(), player.get_rid()]
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _update_duel_decision(bot_body: Node3D, player: Node3D) -> void:
+	if _elapsed < _next_tactical_decision_at:
+		return
+	var interval := float(_tuning.get("decision_interval", 0.23))
+	var stagger := float(get_instance_id() % 5) * 0.008
+	_next_tactical_decision_at = _elapsed + interval + stagger
+	var known := bool(_perception.get("known", false))
+	var visible := bool(_perception.get("visible", false))
+	var distance := float(_perception.get("distance", INF))
+	var health := float(_perception.get("bot_health_fraction", 1.0))
+	var target_health := float(_perception.get("target_health_fraction", 1.0))
+	var aggression := float(_tuning.get("aggression", 0.62))
+	var caution := float(_tuning.get("caution", 0.58))
+	var shotgun := get_duel_profile() == "shotgun"
+	var ideal_min := 1.7 if shotgun else 6.2
+	var ideal_max := 3.8 if shotgun else 9.6
+	var scores := {
+		"search": 1.0,
+		"engage": 0.0,
+		"maintain": 0.0,
+		"pressure": 0.0,
+		"flank": 0.0,
+		"break_line": 0.0,
+		"retreat": 0.0,
+	}
+	if not known:
+		scores["search"] = 10.0
+	elif not visible:
+		scores["search"] = 4.0 + minf(3.0, float(_perception.get("memory_age", 0.0)))
+		scores["flank"] = 8.0 * float(_tuning.get("position_quality", 0.68))
+	else:
+		scores["maintain"] = 4.0 - minf(4.0, absf(distance - (ideal_min + ideal_max) * 0.5))
+		scores["engage"] = maxf(0.0, distance - ideal_max) * (0.8 + aggression)
+		scores["retreat"] = maxf(0.0, ideal_min - distance) * (1.0 + caution)
+		scores["flank"] = (3.6 if not bool(_perception.get("line_of_fire", false)) else 1.4) * float(_tuning.get("position_quality", 0.68))
+		if bool(_perception.get("target_reloading", false)) and _reload_observed_at >= 0.0:
+			scores["pressure"] = 7.0 + aggression * 2.0
+		if target_health < 0.28:
+			scores["pressure"] = maxf(float(scores["pressure"]), 5.0 + aggression * 3.0)
+		if bool(_perception.get("bot_reloading", false)):
+			scores["break_line"] = 6.2 + caution * 2.0
+		if bool(_perception.get("target_charging", false)):
+			scores["break_line"] = maxf(float(scores["break_line"]), 5.8 + caution * 2.0)
+		if health < 0.38:
+			scores["break_line"] = maxf(float(scores["break_line"]), (0.52 - health) * 13.0 + caution * 4.0)
+			scores["retreat"] = maxf(float(scores["retreat"]), (0.45 - health) * 9.0 + caution * 3.0)
+	var best_intent := "search"
+	var best_score := -INF
+	for intent_value in scores.keys():
+		var score := float(scores[intent_value])
+		if score > best_score:
+			best_score = score
+			best_intent = str(intent_value)
+	var reason := _intent_reason_for(best_intent, distance, health)
+	var previous_intent := _current_intent
+	_commit_intent(best_intent, best_score, float(scores.get(_current_intent, 0.0)), reason, health < 0.22)
+	var destination_reached := _has_tactical_destination and bot_body.global_position.distance_to(_tactical_destination) < 0.70
+	if previous_intent != _current_intent or not _has_tactical_destination or destination_reached or _blocked_time > 0.65:
+		_select_tactical_destination(bot_body, player)
+	_perception["intent"] = _current_intent
+
+
+func _intent_reason_for(intent: String, distance: float, health: float) -> String:
+	match intent:
+		"engage": return "hors de la portée favorable"
+		"maintain": return "distance d'arme favorable"
+		"pressure": return "fenêtre de vulnérabilité adverse"
+		"flank": return "ligne de tir bloquée"
+		"break_line": return "exposition trop dangereuse"
+		"retreat": return "menace proche (PV %.0f%%)" % (health * 100.0)
+		_: return "recherche de la dernière position connue" if distance < INF else "aucune cible perçue"
+
+
+func _commit_intent(next_intent: String, next_score: float, current_score: float, reason: String, urgent: bool = false) -> void:
+	if next_intent != _current_intent and not urgent and _elapsed < _intent_locked_until and next_score < current_score + float(_tuning.get("intent_switch_margin", 0.62)):
+		return
+	if next_intent != _current_intent:
+		_current_intent = next_intent
+		_intent_locked_until = _elapsed + float(_tuning.get("intent_minimum_duration", 1.10))
+		_has_tactical_destination = false
+	_intent_score = next_score
+	_intent_reason = reason
+
+
+func _force_intent(next_intent: String, reason: String) -> void:
+	if _current_intent != next_intent:
+		_current_intent = next_intent
+		_has_tactical_destination = false
+	_intent_reason = reason
+	_intent_locked_until = _elapsed + float(_tuning.get("intent_minimum_duration", 1.10))
+
+
+func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
+	if not _has_last_observed_position:
+		# During the reaction delay, hold the current ground. Returning to the
+		# original spawn would leak a large, unmotivated movement before the bot
+		# has perceived anything.
+		_tactical_destination = bot_body.global_position
+		_has_tactical_destination = true
+		return
+	if _current_intent == "flank" or (not bool(_perception.get("visible", false)) and _current_intent == "search"):
+		_select_duel_angle(bot_body, _last_observed_position)
+		if _has_angle_destination:
+			_tactical_destination = _angle_destination
+			_has_tactical_destination = true
+			return
+	var toward := _last_observed_position - bot_body.global_position
+	toward.y = 0.0
+	if toward.length_squared() < 0.01:
+		toward = Vector3.FORWARD
+	var direction := toward.normalized()
+	var side := Vector3(-direction.z, 0.0, direction.x)
+	if _elapsed >= _next_strafe_flip_at:
+		_strafe_sign = -_strafe_sign
+		_next_strafe_flip_at = _elapsed + 1.15 + float(get_instance_id() % 4) * 0.17
+	var candidate_count := int(_tuning.get("candidate_count", 6))
+	var candidates: Array[Vector3] = []
+	for index in range(candidate_count):
+		var sign_value := _strafe_sign if index % 2 == 0 else -_strafe_sign
+		var scale_value := 1.0 + float(index / 2) * 0.45
+		var offset := side * sign_value * 2.2 * scale_value
+		match _current_intent:
+			"engage", "pressure": offset += direction * (2.8 + scale_value * 0.45)
+			"retreat": offset -= direction * (3.0 + scale_value * 0.55)
+			"break_line": offset = side * sign_value * (3.6 + scale_value) - direction * 1.2
+			"search": offset += direction * 2.0
+			_: offset += direction * clampf((toward.length() - (2.8 if get_duel_profile() == "shotgun" else 7.8)) * 0.38, -1.7, 1.7)
+		var candidate := bot_body.global_position + offset
+		candidate.x = clampf(candidate.x, -26.0, 26.0)
+		candidate.z = clampf(candidate.z, -26.0, 26.0)
+		candidate.y = 0.0
+		candidates.append(candidate)
+	var best_score := INF
+	var best := bot_body.global_position
+	for candidate in candidates:
+		var travel := candidate - bot_body.global_position
+		var safe := _safe_bot_motion(bot_body, travel)
+		if travel.length_squared() > 0.04 and safe.length_squared() < travel.length_squared() * 0.90:
+			continue
+		var range_to_target := candidate.distance_to(_last_observed_position)
+		var ideal := 2.8 if get_duel_profile() == "shotgun" else 7.8
+		var exposed := _duel_path_clear(bot_body, candidate, _last_observed_position)
+		var exposure_cost := 0.0
+		if _current_intent in ["retreat", "break_line"]:
+			exposure_cost = 5.0 if exposed else -1.5
+		else:
+			exposure_cost = 0.0 if exposed else 4.5
+		var score := absf(range_to_target - ideal) * 0.75 + travel.length() * 0.12 + exposure_cost + _candidate_crowd_penalty(bot_body, candidate)
+		if score < best_score:
+			best_score = score
+			best = candidate
+	_has_tactical_destination = best_score < INF
+	if _has_tactical_destination:
+		_tactical_destination = best
+
+
+func _candidate_crowd_penalty(bot_body: Node3D, candidate: Vector3) -> float:
+	var penalty := 0.0
+	for other_value in get_tree().get_nodes_in_group("prototype0_combat_bots"):
+		var other := other_value as Node3D
+		if other == null or other == bot_body or not is_instance_valid(other):
+			continue
+		var distance := candidate.distance_to(other.global_position)
+		if distance < CROWD_AVOID_RADIUS * 2.0:
+			penalty += (CROWD_AVOID_RADIUS * 2.0 - distance) * 2.4
+	return penalty
+
+
+func _update_diagnostic_label() -> void:
+	if _diagnostic_label == null or not diagnostics_enabled:
+		return
+	var destination_text := "—"
+	if _has_tactical_destination:
+		destination_text = "%.1f, %.1f" % [_tactical_destination.x, _tactical_destination.z]
+	var target_text := "visible" if bool(_perception.get("visible", false)) else "mémoire %.1fs" % float(_perception.get("memory_age", 0.0)) if _has_last_observed_position else "perdue"
+	var module_reason := str(_duel_equipment.get("last_module_reason")) if _duel_equipment != null else ""
+	_diagnostic_label.text = "%s · %s\nCible %s · Dest %s%s" % [_current_intent.to_upper(), _intent_reason, target_text, destination_text, "\nModule : %s" % module_reason if not module_reason.is_empty() else ""]
+
+
+func get_current_intent() -> String:
+	return _current_intent
+
+
+func get_repair_target() -> Node3D:
+	return _repair_target if _repair_target != null and is_instance_valid(_repair_target) else null
+
+
+func _update_repair_target(bot_body: Node3D, player: Node3D) -> bool:
+	if not bot_body.has_method("get_health") or not bot_body.has_method("get_max_health"):
+		_clear_repair_target()
+		return false
+	var maximum := maxf(1.0, float(bot_body.call("get_max_health")))
+	var ratio := float(bot_body.call("get_health")) / maximum
+	if ratio >= (REPAIR_STOP_HEALTH_RATIO if _repair_target != null else REPAIR_SEEK_HEALTH_RATIO):
+		_clear_repair_target()
+		return false
+	if _repair_target != null and (not is_instance_valid(_repair_target) or not _repair_target.has_method("is_available") or not bool(_repair_target.call("is_available"))):
+		_clear_repair_target()
+	if _elapsed < _next_repair_search_at and _repair_target != null:
+		return true
+	if _elapsed < _next_repair_search_at:
+		return false
+	_next_repair_search_at = _elapsed + REPAIR_SEARCH_INTERVAL
+	var best: Node3D
+	var best_score := INF
+	for candidate_node in get_tree().get_nodes_in_group("repair_kits"):
+		var candidate := candidate_node as Node3D
+		if candidate == null or not candidate.has_method("is_available") or not bool(candidate.call("is_available")):
+			continue
+		var retry_at := float(_repair_retry_after.get(candidate.get_instance_id(), 0.0))
+		if _elapsed < retry_at:
+			continue
+		var travel_distance := bot_body.global_position.distance_to(candidate.global_position)
+		var player_distance := _last_observed_position.distance_to(candidate.global_position) if _has_last_observed_position else 20.0
+		# Prefer short routes, but penalise pads controlled by the opponent or
+		# exposed to a direct firing lane. The bot can still choose a dangerous
+		# pad when it is the only viable repair source.
+		var danger := maxf(0.0, 9.0 - player_distance) * 1.25
+		if _has_last_observed_position and _position_exposed_from_known(bot_body, _last_observed_position, candidate.global_position):
+			danger += 3.5
+		if not _environment_path_clear(bot_body, candidate.global_position):
+			danger += 4.0
+		var score := travel_distance + danger
+		if score < best_score:
+			best_score = score
+			best = candidate
+	if best != _repair_target:
+		_repair_target = best
+		_repair_stuck_time = 0.0
+	return _repair_target != null
+
+
+func _advance_repair_seek(bot_body: Node3D, delta: float) -> bool:
+	if _repair_target == null or not is_instance_valid(_repair_target) or not bool(_repair_target.call("is_available")):
+		_clear_repair_target()
+		return false
+	var before_distance := bot_body.global_position.distance_to(_repair_target.global_position)
+	var collection_distance := float(_repair_target.call("get_collection_radius")) + 0.10
+	if before_distance <= collection_distance:
+		_move_velocity = Vector3.ZERO
+		var applied := float(_repair_target.call("try_collect", bot_body))
+		if applied > 0.0 or not bool(_repair_target.call("is_available")):
+			_clear_repair_target()
+			return true
+		_repair_stuck_time += delta
+	else:
+		var direction := _repair_target.global_position - bot_body.global_position
+		direction.y = 0.0
+		_move_velocity = _move_velocity.move_toward(direction.normalized() * REPAIR_MOVE_SPEED, MOVE_ACCELERATION * delta)
+		_move_bot(bot_body, delta)
+		var after_distance := bot_body.global_position.distance_to(_repair_target.global_position)
+		if after_distance < before_distance - 0.01:
+			_repair_stuck_time = maxf(0.0, _repair_stuck_time - delta * 0.5)
+		else:
+			_repair_stuck_time += delta
+	if _repair_stuck_time >= REPAIR_STUCK_TIMEOUT:
+		_repair_retry_after[_repair_target.get_instance_id()] = _elapsed + 2.5
+		_clear_repair_target()
+		_next_repair_search_at = _elapsed
+		return false
+	return true
+
+
+func _clear_repair_target() -> void:
+	_repair_target = null
+	_repair_stuck_time = 0.0
+
+
+func _environment_path_clear(actor: Node3D, destination: Vector3) -> bool:
+	var world := actor.get_world_3d()
+	if world == null:
+		return false
+	var query := PhysicsRayQueryParameters3D.create(actor.global_position + Vector3.UP * 0.72, destination + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _position_exposed_to_actor(actor: Node3D, position: Vector3) -> bool:
+	var world := actor.get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(actor.global_position + Vector3.UP * 0.72, position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	return world.direct_space_state.intersect_ray(query).is_empty()
+
+
+func _position_exposed_from_known(observer: Node3D, known_threat_position: Vector3, position: Vector3) -> bool:
+	var world := observer.get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsRayQueryParameters3D.create(known_threat_position + Vector3.UP * 0.72, position + Vector3.UP * 0.72)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
 func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> void:
@@ -357,6 +888,11 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 			shield.global_position = bot_body.global_position + _shield_facing * 1.1 + Vector3.UP
 			shield.global_rotation.y = atan2(_shield_facing.x, _shield_facing.z)
 	if _charge_remaining > 0.0:
+		if not _action_gate.owns(_attack_action_token, ACTION_GATE.Kind.WEAPON, SURVIVAL_ACTION_ID):
+			_charge_remaining = 0.0
+			_double_charge_pending = false
+			_attack_action_token = 0
+			return
 		_charge_remaining = maxf(0.0, _charge_remaining - delta)
 		_advance_charge(bot_body, delta)
 		if not _charge_hit and bot_body.global_position.distance_to(player.global_position) < (2.0 if survival_role == "boss" else 1.35) and _line_of_sight_clear(bot_body, player):
@@ -371,8 +907,17 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_windup_player = player
 				_windup_remaining = 0.75
 				_update_telegraph()
+			else:
+				_action_gate.release(_attack_action_token)
+				_attack_action_token = 0
 		return
 	if _windup_remaining > 0.0:
+		if not _action_gate.owns(_attack_action_token, ACTION_GATE.Kind.WEAPON, SURVIVAL_ACTION_ID):
+			_windup_remaining = 0.0
+			_windup_player = null
+			_attack_action_token = 0
+			_update_telegraph()
+			return
 		_windup_remaining = maxf(0.0, _windup_remaining - delta)
 		_update_telegraph()
 		if _windup_remaining <= 0.0:
@@ -392,6 +937,9 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 						_spawn_attack_visual(player, "boss_spread:%d:far_right" % _attack_serial, Vector3(3.2, 0, 0))
 				else:
 					_attack_player(player)
+			if _charge_remaining <= 0.0:
+				_action_gate.release(_attack_action_token)
+				_attack_action_token = 0
 			_next_attack_at = _elapsed + training_attack_interval
 			_update_telegraph()
 		return
@@ -408,6 +956,10 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		_move_bot(bot_body, delta)
 	var attack_range := 2.1 if survival_role == "chaser" else CHARGER_ATTACK_RANGE if survival_role == "charger" else BOSS_ATTACK_RANGE if survival_role == "boss" else 12.0
 	if _elapsed >= _next_attack_at and distance <= attack_range and _line_of_sight_clear(bot_body, player):
+		var action_token: int = _action_gate.try_acquire(ACTION_GATE.Kind.WEAPON, SURVIVAL_ACTION_ID)
+		if action_token == 0:
+			return
+		_attack_action_token = action_token
 		_attack_serial += 1
 		_double_charge_pending = survival_elite == "double_charge"
 		_charge_target = player.global_position
@@ -452,31 +1004,16 @@ func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
 
 
 func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_visible: bool, delta: float) -> void:
-	var desired := pursuit_position
-	var speed := MOVE_SPEED
-	var shotgun := get_duel_profile() == "shotgun"
-	var reloading := is_duel_reloading()
+	var desired := _tactical_destination if _has_tactical_destination else pursuit_position
+	var speed := COMBAT_DATA.MOVE_SPEED * 0.82
 	if target_visible:
 		_has_angle_destination = false
-		var toward := pursuit_position - bot_body.global_position
-		toward.y = 0.0
-		var distance := toward.length()
-		if distance > 0.05:
-			var direction := toward / distance
-			var press_reload := _reload_observed_at >= 0.0 and _elapsed - _reload_observed_at >= DUEL_RELOAD_REACTION
-			var minimum_range := 6.0 if reloading else 1.8 if shotgun else 4.5 if press_reload else 7.0
-			var maximum_range := 8.0 if reloading else 3.0 if shotgun else 6.0 if press_reload else 10.5
-			if distance < minimum_range:
-				desired = bot_body.global_position - direction * 2.2
-			elif distance > maximum_range:
-				desired = bot_body.global_position + direction * 2.0
-			else:
-				var side := Vector3(-direction.z, 0.0, direction.x)
-				desired = bot_body.global_position + side * (1.5 if _attack_serial % 2 == 0 else -1.5)
-			if press_reload:
-				speed = DUEL_PRESS_SPEED
+		if _current_intent == "pressure":
+			speed = COMBAT_DATA.MOVE_SPEED * 0.94
+		elif _current_intent in ["retreat", "break_line"]:
+			speed = COMBAT_DATA.MOVE_SPEED * 0.88
 	elif _has_last_observed_position:
-		if not _has_angle_destination or bot_body.global_position.distance_to(_angle_destination) < 0.65 or (_blocked_time > 0.6 and _elapsed >= _next_angle_at):
+		if not _has_tactical_destination or bot_body.global_position.distance_to(desired) < 0.65 or (_blocked_time > 0.6 and _elapsed >= _next_angle_at):
 			_select_duel_angle(bot_body, pursuit_position)
 			_next_angle_at = _elapsed + DUEL_ANGLE_INTERVAL
 		if _has_angle_destination:
@@ -573,7 +1110,8 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 	if not _recover_bot_from_cover(bot_body):
 		_move_velocity = Vector3.ZERO
 		return
-	var requested_motion := _move_velocity * delta
+	var separation := _bot_separation_velocity(bot_body)
+	var requested_motion := (_move_velocity + separation) * delta
 	var safe_motion := _safe_bot_motion(bot_body, requested_motion)
 	bot_body.global_position += safe_motion
 	if safe_motion.length_squared() + 0.000001 < requested_motion.length_squared():
@@ -597,6 +1135,33 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 	bot_body.global_position.x = clampf(bot_body.global_position.x, -arena_limit, arena_limit)
 	bot_body.global_position.z = clampf(bot_body.global_position.z, -arena_limit, arena_limit)
 	bot_body.global_position.y = 0.0
+	if _elapsed >= _progress_anchor_at + PROGRESS_SAMPLE_INTERVAL:
+		var progressed := bot_body.global_position.distance_to(_progress_anchor)
+		var still_has_route := _has_tactical_destination and bot_body.global_position.distance_to(_tactical_destination) > 0.85
+		if still_has_route and _move_velocity.length() > 0.5 and progressed < 0.08:
+			_blocked_time = maxf(_blocked_time, PROGRESS_SAMPLE_INTERVAL)
+			_has_tactical_destination = false
+			_next_tactical_decision_at = 0.0
+			_strafe_sign = -_strafe_sign
+		_progress_anchor = bot_body.global_position
+		_progress_anchor_at = _elapsed
+
+
+func _bot_separation_velocity(bot_body: Node3D) -> Vector3:
+	var separation := Vector3.ZERO
+	for other_value in get_tree().get_nodes_in_group("prototype0_combat_bots"):
+		var other := other_value as Node3D
+		if other == null or other == bot_body or not is_instance_valid(other):
+			continue
+		if other.has_method("is_training_bot_enabled") and not bool(other.call("is_training_bot_enabled")):
+			continue
+		var away := bot_body.global_position - other.global_position
+		away.y = 0.0
+		var distance := away.length()
+		if distance <= 0.001 or distance >= CROWD_AVOID_RADIUS:
+			continue
+		separation += away / distance * (CROWD_AVOID_RADIUS - distance) / CROWD_AVOID_RADIUS * 2.4
+	return separation.limit_length(2.4)
 
 
 func _bot_shape_query(bot_body: Node3D) -> PhysicsShapeQueryParameters3D:
@@ -682,9 +1247,10 @@ func _try_dodge(bot_body: Node3D, player: Node3D, target_visible: bool, duel_tac
 		if _attack_observed_at < 0.0:
 			_attack_observed_at = _elapsed
 			_threat_serial += 1
-			if _threat_serial % 4 == 0:
+			var evade_cycle := maxi(3, int(round(3.0 + float(_tuning.get("position_quality", 0.68)) * 3.0)))
+			if _threat_serial % evade_cycle == 0:
 				_attack_observed_at = INF
-		if _elapsed - _attack_observed_at < DUEL_DODGE_REACTION:
+		if _elapsed - _attack_observed_at < maxf(DUEL_DODGE_REACTION * 0.65, float(_tuning.get("reaction_delay", DUEL_DODGE_REACTION))):
 			return
 	var away := bot_body.global_position - (_threat_position if duel_tactics else player.global_position)
 	away.y = 0.0
@@ -733,8 +1299,57 @@ func _can_attack(bot_body: Node3D, player: Node3D) -> bool:
 	return _line_of_sight_clear(bot_body, player)
 
 
+func execute_duel_offensive(module_id: String, bot_body: Node3D, player: Node3D, locked_position: Vector3, _visible: bool) -> void:
+	if bot_body == null or player == null or not is_instance_valid(player):
+		return
+	var direction := locked_position - bot_body.global_position
+	direction.y = 0.0
+	if direction.length_squared() < 0.001:
+		return
+	direction = direction.normalized()
+	_attack_serial += 1
+	if module_id == "fulguro_punch":
+		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["fulguro_punch"]
+		var locked_distance := bot_body.global_position.distance_to(locked_position)
+		var ratio := clampf(inverse_lerp(float(definition["range_min"]), float(definition["range_max"]), locked_distance - FULGURO.hit_radius(player)), 0.0, 1.0)
+		var before := float(player.call("get_health")) if player.has_method("get_health") else 0.0
+		var target := FULGURO.resolve_strike(
+			bot_body as CollisionObject3D,
+			[player],
+			direction,
+			lerpf(float(definition["damage_min"]), float(definition["damage_max"]), ratio),
+			lerpf(float(definition["wall_damage_min"]), float(definition["wall_damage_max"]), ratio),
+			float(definition["wall_stun"]),
+			"duel_bot",
+			"duel_bot:fulguro:%d" % _attack_serial,
+			lerpf(float(definition["range_min"]), float(definition["range_max"]), ratio),
+			float(definition["width"])
+		)
+		_fulguro_direction = direction
+		_fulguro_charge_ratio = ratio
+		_spawn_fulguro_strike_visual(bot_body, target as Node3D, lerpf(float(definition["range_min"]), float(definition["range_max"]), ratio))
+		if _duel_equipment != null and player.has_method("get_health"):
+			_duel_equipment.call("register_damage", bot_body, maxf(0.0, before - float(player.call("get_health"))))
+	elif module_id == "pelto_smash":
+		var wave := PELTO_SMASH.new()
+		wave.name = "DuelBotPeltoWave"
+		get_tree().current_scene.add_child(wave)
+		wave.configure(bot_body, bot_body.global_position, direction, "duel_bot", "duel_bot:pelto:%d" % _attack_serial)
+
+
+func intercept_duel_damage(amount: float, current_health: float) -> Dictionary:
+	if _duel_equipment == null or not _duel_equipment.has_method("intercept_damage"):
+		return {"effective": amount, "apply_to_health": true, "triggered_baroud": false, "real_death": false}
+	return _duel_equipment.call("intercept_damage", amount, current_health)
+
+
+func register_duel_damage(effective_damage: float) -> void:
+	var body := get_parent() as Node3D
+	if _duel_equipment != null and body != null:
+		_duel_equipment.call("register_damage", body, effective_damage)
+
+
 func _begin_attack(bot_body: Node3D, player: Node3D) -> void:
-	_windup_player = player
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["fulguro_punch"]
 	var pelto_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"]
 	var to_player := player.global_position - bot_body.global_position
@@ -743,6 +1358,11 @@ func _begin_attack(bot_body: Node3D, player: Node3D) -> void:
 	var can_punch := _elapsed >= _next_fulguro_ready_at and to_player.length() <= float(definition.range_max) + target_radius
 	var can_pelto := not can_punch and _elapsed >= _next_pelto_ready_at and to_player.length() <= float(pelto_definition.max_range) + target_radius
 	_attack_mode = "fulguro" if can_punch else "pelto" if can_pelto else "ranged"
+	var action_kind := ACTION_GATE.Kind.MODULE if can_punch or can_pelto else ACTION_GATE.Kind.WEAPON
+	_attack_action_token = _action_gate.try_acquire(action_kind, _attack_mode)
+	if _attack_action_token == 0:
+		return
+	_windup_player = player
 	if can_punch:
 		_fulguro_direction = FULGURO.flat_direction(to_player)
 		var required_reach := maxf(float(definition.range_min), to_player.length() - target_radius)
@@ -762,7 +1382,10 @@ func _begin_attack(bot_body: Node3D, player: Node3D) -> void:
 
 
 func _resolve_attack(bot_body: Node3D, player: Node3D) -> void:
-	if player == null or not is_instance_valid(player):
+	var expected_kind := ACTION_GATE.Kind.MODULE if _attack_mode in ["fulguro", "pelto"] else ACTION_GATE.Kind.WEAPON
+	if player == null or not is_instance_valid(player) or not _action_gate.owns(_attack_action_token, expected_kind, _attack_mode):
+		_action_gate.release(_attack_action_token)
+		_attack_action_token = 0
 		return
 	if _attack_mode == "fulguro":
 		_resolve_fulguro_attack(bot_body, player)
@@ -770,6 +1393,8 @@ func _resolve_attack(bot_body: Node3D, player: Node3D) -> void:
 		_resolve_pelto_attack(bot_body)
 	elif _can_attack(bot_body, player):
 		_attack_player(player)
+	_action_gate.release(_attack_action_token)
+	_attack_action_token = 0
 	_attack_mode = "ranged"
 	if _fulguro_charge_audio != null:
 		_fulguro_charge_audio.stop()
@@ -855,9 +1480,16 @@ func _try_interrupt_pelto_pull(bot_body: Node3D, player: Node3D) -> void:
 
 
 func cancel_action() -> void:
+	_action_gate.reset()
+	_attack_action_token = 0
+	if _duel_equipment != null and survival_role == "":
+		_duel_equipment.call("cancel_action")
 	_windup_remaining = 0.0
 	_windup_player = null
 	_attack_mode = "ranged"
+	_charge_remaining = 0.0
+	_charge_hit = false
+	_double_charge_pending = false
 	_dodge_remaining = 0.0
 	_move_velocity = Vector3.ZERO
 	if _fulguro_charge_audio != null:

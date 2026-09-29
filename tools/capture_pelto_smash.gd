@@ -5,6 +5,8 @@ func _initialize() -> void:
 	var arguments := OS.get_cmdline_user_args()
 	var output_path := arguments[0] if not arguments.is_empty() else "user://pelto-smash.png"
 	var capture_phase := arguments[1] if arguments.size() > 1 else "outbound"
+	var weapon_id := arguments[2] if arguments.size() > 2 else "blaster"
+	var settle_frames := int(arguments[3]) if arguments.size() > 3 else 12
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -15,7 +17,7 @@ func _initialize() -> void:
 	if interface != null:
 		interface.visible = false
 	var loadout := {
-		"weapon": "blaster",
+		"weapon": weapon_id,
 		"offensive": "pelto_smash",
 		"defensive": "magnetic_field",
 		"mobility": "pyro_boots",
@@ -36,6 +38,9 @@ func _initialize() -> void:
 	player.call("_perform_pelto_smash")
 	if capture_phase == "preparation":
 		await _wait_frames(12)
+	elif capture_phase == "after":
+		await _wait_for_cast_end(player)
+		await _wait_frames(settle_frames)
 	elif capture_phase == "return":
 		await _wait_for_return(scene)
 		await _wait_frames(12)
@@ -53,6 +58,13 @@ func _initialize() -> void:
 func _wait_frames(count: int) -> void:
 	for _frame in range(count):
 		await process_frame
+
+
+func _wait_for_cast_end(player: Node) -> void:
+	for _frame in range(180):
+		await process_frame
+		if str(player.get("_pelto_phase")) == "":
+			return
 
 
 func _wait_for_return(scene: Node) -> void:

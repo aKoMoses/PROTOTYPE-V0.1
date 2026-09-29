@@ -21,8 +21,9 @@ light_energy = 0.0
 omni_range = 3.0
 
 [node name="LeftHandGrip" type="Marker3D" parent="."]
-position = Vector3(-0.10, -0.025, -0.29)
+position = Vector3(-0.10, 0.085, -0.29)
 rotation = Vector3(-1.5707963, 0, 0)
 metadata/orient_hand = true
 
 [node name="RightHandGrip" type="Marker3D" parent="."]
+position = Vector3(0, 0.11, 0)

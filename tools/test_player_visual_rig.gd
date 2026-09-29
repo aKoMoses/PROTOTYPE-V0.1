@@ -171,8 +171,10 @@ func _check_weapon_chain() -> void:
 		if weapon != null:
 			_check(weapon.transform.is_equal_approx(Transform3D.IDENTITY), "%s root stays identity under its fixed socket" % weapon_id)
 			_check(weapon.find_child("LeftHandGrip", true, false) is Marker3D, "%s exposes LeftHandGrip support target" % weapon_id)
+			_check(weapon.find_child("RightHandGrip", true, false) is Marker3D, "%s exposes RightHandGrip attachment target" % weapon_id)
 		_check(_rig.get_weapon_muzzle(weapon_id) != null, "%s exposes a dedicated muzzle" % weapon_id)
 	_check(_rig.aim_modifier != null, "post-animation skeleton modifier owns recoil and hand support")
+	_check(float(_latest_pose.get("right_hand_error", INF)) <= 0.001, "blaster rear grip is seated on the animated right hand")
 	print("[LeftHandSupport] reachable=%s solver_error=%.6f measured_error=%.6f" % [_rig.aim_modifier.left_grip_reachable, _rig.aim_modifier.left_grip_error, _latest_pose.get("hand_error", INF)])
 
 
@@ -208,6 +210,7 @@ func _test_shot_case(label: String, movement: Vector3, aim: Vector3) -> void:
 			hundred_ms_angle = float(sample.angle)
 		if frame in SAMPLE_FRAMES:
 			_check(float(sample.hand_error) <= 0.035, "%s %.2fs left hand stays on support grip" % [label, frame * STEP])
+			_check(float(sample.right_hand_error) <= 0.001, "%s %.2fs rear grip stays attached to the right hand" % [label, frame * STEP])
 			if frame >= 12:
 				_assert_aim(sample, 0.98, 0.05, "%s %.2fs recovered" % [label, frame * STEP])
 			else:
@@ -356,9 +359,14 @@ func _test_weapon_pose_state_machine() -> void:
 	_player.call("_reset_weapon_pose_to_locomotion", true)
 	await _settle(Vector3.RIGHT, Vector3.FORWARD)
 	_check(_player.call("get_weapon_pose_state_name") in [&"IDLE", &"LOCOMOTION"] and not _rig.aim_modifier.aiming, "ready-low state does not enable combat aim")
+	_check(float(_latest_pose.get("right_hand_error", INF)) <= 0.001, "ready-low pose keeps the blaster rear grip in the right hand")
 	_check(_rig.get_aim_forward_direction().dot(Vector3.RIGHT) >= 0.98, "outside combat the character faces movement rather than stale aim")
 	_player.call("_begin_weapon_aim")
-	await _settle(Vector3.RIGHT, Vector3.FORWARD)
+	var maximum_raise_grip_error := 0.0
+	for frame in range(45):
+		await _step(STEP)
+		maximum_raise_grip_error = maxf(maximum_raise_grip_error, float(_latest_pose.get("right_hand_error", INF)))
+	_check(maximum_raise_grip_error <= 0.001, "aim transition keeps the blaster rear grip attached on every frame")
 	_check(_player.call("get_weapon_pose_state_name") == &"AIM" and _rig.aim_modifier.aiming, "attack preparation enters AIM without stopping locomotion")
 	_check(_rig.get_aim_forward_direction().dot(Vector3.FORWARD) >= 0.98, "AIM faces the independent aim direction while moving sideways")
 	_player.call("_begin_weapon_fire")
@@ -399,6 +407,7 @@ func _capture_final_pose() -> void:
 		return
 	var socket := _rig.get_weapon_socket(&"blaster")
 	var grip := socket.get_node_or_null("Weapon_blaster/WeaponSway/WeaponRecoil/LeftHandGrip") as Node3D
+	var right_grip := socket.get_node_or_null("Weapon_blaster/WeaponSway/WeaponRecoil/RightHandGrip") as Node3D
 	var left_hand_index := _rig.skeleton.find_bone(String(_rig.left_hand_bone_name))
 	var hand_error := INF
 	if grip != null and left_hand_index >= 0:
@@ -412,7 +421,8 @@ func _capture_final_pose() -> void:
 			var lower_length := elbow.origin.distance_to(hand_world.origin)
 			print("[GripGeometry] shoulder=%s elbow=%s hand=%s actual_grip=%s solver_grip=%s upper_length=%.6f lower_length=%.6f max_reach=%.6f target_distance=%.6f reachable=%s solver_error=%.6f measured_error=%.6f" % [shoulder.origin, elbow.origin, hand_world.origin, grip.global_position, _rig.aim_modifier.last_grip_world.origin, upper_length, lower_length, upper_length + lower_length, shoulder.origin.distance_to(grip.global_position), _rig.aim_modifier.left_grip_reachable, _rig.aim_modifier.left_grip_error, hand_error])
 	var right_hand_world := _rig.skeleton.global_transform * _rig.skeleton.get_bone_global_pose(_rig.get_right_hand_bone_index())
-	_latest_pose = {"forward": -muzzle.global_basis.z.normalized(), "hand_error": hand_error, "right_hand_position": right_hand_world.origin}
+	var right_hand_error := right_hand_world.origin.distance_to(right_grip.global_position) if right_grip != null else INF
+	_latest_pose = {"forward": -muzzle.global_basis.z.normalized(), "hand_error": hand_error, "right_hand_error": right_hand_error, "right_hand_position": right_hand_world.origin}
 
 
 func _measure(label: String, elapsed: float, log_sample: bool = true) -> Dictionary:
@@ -421,9 +431,9 @@ func _measure(label: String, elapsed: float, log_sample: bool = true) -> Diction
 	var dot3d := clampf(forward.dot(aim), -1.0, 1.0)
 	var angle := rad_to_deg(acos(dot3d))
 	var pitch := rad_to_deg(asin(clampf(forward.y, -1.0, 1.0)))
-	var sample := {"forward": forward, "aim": aim, "dot": dot3d, "pitch": pitch, "angle": angle, "hand_error": _latest_pose.get("hand_error", INF)}
+	var sample := {"forward": forward, "aim": aim, "dot": dot3d, "pitch": pitch, "angle": angle, "hand_error": _latest_pose.get("hand_error", INF), "right_hand_error": _latest_pose.get("right_hand_error", INF)}
 	if log_sample:
-		print("[Muzzle3D] %s t=%.3f muzzle=%s aim=%s dot=%.8f pitch=%.5fdeg angle=%.5fdeg left_grip_error=%.6f" % [label, elapsed, forward, aim, dot3d, pitch, angle, sample.hand_error])
+		print("[Muzzle3D] %s t=%.3f muzzle=%s aim=%s dot=%.8f pitch=%.5fdeg angle=%.5fdeg left_grip_error=%.6f right_grip_error=%.6f" % [label, elapsed, forward, aim, dot3d, pitch, angle, sample.hand_error, sample.right_hand_error])
 	return sample
 
 

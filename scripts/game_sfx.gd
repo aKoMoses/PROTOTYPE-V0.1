@@ -13,6 +13,7 @@ const STREAMS := {
 	"impact_decor": preload("res://art/audio/game-sfx/impact-decor-A.wav"),
 	"impact_critical": preload("res://art/audio/game-sfx/impact-critique-B.wav"),
 	"damage_received": preload("res://art/audio/game-sfx/degats-recus-B.wav"),
+	"repair_pickup": preload("res://art/audio/game-sfx/magnetic-absorb-B.wav"),
 }
 const MIN_INTERVAL_MS := {
 	"magnetic_absorb": 90,
@@ -21,6 +22,7 @@ const MIN_INTERVAL_MS := {
 	"impact_decor": 90,
 	"impact_critical": 80,
 	"damage_received": 120,
+	"repair_pickup": 100,
 }
 
 var _players: Dictionary = {}
@@ -34,6 +36,9 @@ func _ready() -> void:
 		player.stream = STREAMS[event_id]
 		player.max_polyphony = 4
 		player.volume_db = -8.0
+		if event_id == "repair_pickup":
+			player.pitch_scale = 1.22
+			player.volume_db = -6.0
 		add_child(player)
 		_players[event_id] = player
 

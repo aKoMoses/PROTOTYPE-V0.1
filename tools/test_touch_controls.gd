@@ -90,6 +90,28 @@ func _initialize() -> void:
 		push_error("FAIL: interruption tactile interprétée comme un tir")
 		quit(1)
 		return
+	# A second finger rejected during FULGURO must not release the cast owned by
+	# the first finger when that rejected contact is lifted.
+	player.call("apply_loadout", {"weapon": "blaster", "offensive": "fulguro_punch", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
+	player.call("reset_combat_state")
+	controls.call("_begin_touch", 40, centers.offensive)
+	controls.call("_begin_touch", 41, centers.offensive)
+	var action_touches: Dictionary = controls.get("_action_touches")
+	if str(action_touches.get(40, "")) != "offensive" or str(action_touches.get(41, "accepted")) != "":
+		push_error("FAIL: seconde activation FULGURO non marquée comme rejetée")
+		quit(1)
+		return
+	controls.call("_end_touch", 41)
+	if bool(player.get("_fulguro_release_requested")):
+		push_error("FAIL: relâchement rejeté a déclenché FULGURO")
+		quit(1)
+		return
+	controls.call("_end_touch", 40)
+	if not bool(player.get("_fulguro_release_requested")):
+		push_error("FAIL: relâchement propriétaire n'a pas déclenché FULGURO")
+		quit(1)
+		return
+	player.call("_cancel_fulguro_attack", "test")
 	var profile: Dictionary = load("res://scripts/hud_layout.gd").standard()
 	profile.offensive_button.a = profile.move.a.duplicate()
 	profile.offensive_button.d = profile.move.d.duplicate()

@@ -10,6 +10,7 @@ const HEAVY_BLASTER_MODEL_PATH := "res://art/player_heavy_blaster.glb"
 const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
+const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
@@ -61,6 +62,7 @@ var _blaster_charge_started_at := -1.0
 var _blaster_charge_active := false
 var _blaster_attack_busy := false
 var _blaster_attack_token := 0
+var _blaster_action_token := 0
 var _blaster_next_attack_ready_at := -10.0
 var _attack_hold_last := false
 
@@ -78,6 +80,7 @@ var _next_attack_ready_at := -10.0
 # The active weapon path below is exclusively Blaster or Shotgun.
 var _axe_attack_busy := false
 var _axe_attack_token := 0
+var _axe_action_token := 0
 var _axe_attack_step := -1
 var _axe_attack_origin := Vector3.ZERO
 var _axe_attack_direction := Vector3.FORWARD
@@ -113,10 +116,18 @@ var _shotgun_reload_remaining := 0.0
 var _shotgun_reload_token := 0
 var _shotgun_attack_busy := false
 var _shotgun_attack_token := 0
+var _shotgun_action_token := 0
+var _shotgun_attack_emitted := false
 var _shotgun_attack_origin := Vector3.ZERO
 var _shotgun_attack_direction := Vector3.FORWARD
 var _module_cooldowns: Dictionary = {}
 var _module_token := 0
+var _action_gate = ACTION_GATE.new()
+var _active_module_action_token := 0
+var _active_module_id := ""
+var _desktop_attack_rearm_required := false
+var _desktop_blaster_tap_buffered := false
+var _touch_attack_rearm_required := false
 var _drone_preparation := 0.18
 var _drone_max_range := 9.0
 var _drone_speed := 10.0
@@ -180,6 +191,7 @@ var _pelto_lane_mesh: BoxMesh
 var _pelto_impact_audio: AudioStreamPlayer
 var _pelto_waves: Array[Node] = []
 var _pelto_weapon_hidden := false
+var _pelto_weapon_restore_serial := 0
 var _module_busy := false
 var _offensive_module_id := "modulo_drone"
 var _defensive_module_id := "magnetic_field"
@@ -303,6 +315,7 @@ var _direction_debug_enabled := false
 var _direction_debug_label: Label3D
 var _status_vfx: Node3D
 var _stasis_visual: Node3D
+var _static_pulse_token := 0
 var training_invulnerable := false
 var training_instant_cooldowns := false
 var training_unlimited_ammo := false
@@ -390,6 +403,15 @@ func _ready() -> void:
 	_pelto_impact_audio.volume_db = -7.0
 	_pelto_impact_audio.pitch_scale = 0.52
 	add_child(_pelto_impact_audio)
+
+
+func _exit_tree() -> void:
+	_blaster_attack_token += 1
+	_shotgun_attack_token += 1
+	_module_token += 1
+	_javelin_launch_token += 1
+	_static_pulse_token += 1
+	_action_gate.reset()
 
 
 func _load_weapon_definitions() -> void:
@@ -502,25 +524,28 @@ func _physics_process(delta: float) -> void:
 		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
 	_try_execute_defensive_buffer()
 	_update_movement(delta)
+	# Sample action commands while the current cast still owns the frame. This
+	# prevents a held input from slipping through on the exact recovery frame.
+	_update_debug_effects()
+	var cast_locked_before_action_updates := _action_gate.is_kind(ACTION_GATE.Kind.MODULE)
 	_update_fulguro_attack(delta)
 	_update_pelto_attack(delta)
 	_update_weapon_pose_state(delta)
 	_update_robot_motion(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
-	_update_debug_effects()
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and (_blaster_charge_active or _touch_fire_active):
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
+	if combat_state != null and combat_state.is_stunned() and _blaster_attack_busy:
+		_cancel_blaster_attack()
 	if combat_state != null and combat_state.is_stunned() and _shotgun_attack_busy:
 		_cancel_shotgun_attack()
-	if combat_state != null and combat_state.is_stunned() and _module_busy:
-		_module_token += 1
-		_module_busy = false
-		_attack_label.text = "MODULE  •  INTERROMPU"
+	if combat_state != null and combat_state.is_stunned() and _active_module_action_token != 0:
+		_cancel_pending_module_action("MODULE  •  INTERROMPU")
 	_update_shotgun_reload_input()
 	_update_shotgun_reload(delta)
-	_update_attack()
+	_update_attack(cast_locked_before_action_updates)
 	_update_weapon_ambient_motion(delta)
 	_update_shotgun_reload_visual()
 	_update_blaster_charge_visual(delta)
@@ -781,10 +806,115 @@ func _update_weapon_pose_state(delta: float) -> void:
 	_set_weapon_pose_state(WeaponPoseState.LOCOMOTION if moving else WeaponPoseState.IDLE)
 
 
-func _update_attack() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
+func _desktop_attack_input_held() -> bool:
+	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+
+
+func _action_incapacitated() -> bool:
+	return not _gameplay_enabled or is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned())
+
+
+func _try_begin_weapon_action(action_id: String) -> int:
+	if _action_incapacitated() or _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		return 0
+	return _action_gate.try_acquire(ACTION_GATE.Kind.WEAPON, action_id)
+
+
+func _try_begin_module_action(module_id: String) -> int:
+	if _action_incapacitated() or _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		return 0
+	var action_token := 0
+	if _action_gate.is_kind(ACTION_GATE.Kind.WEAPON):
+		action_token = _action_gate.replace_weapon_with_module(module_id)
+	else:
+		action_token = _action_gate.try_acquire(ACTION_GATE.Kind.MODULE, module_id)
+	if action_token == 0:
+		return 0
+	_active_module_action_token = action_token
+	_active_module_id = module_id
+	_interrupt_weapon_for_module()
+	return action_token
+
+
+func _interrupt_weapon_for_module() -> void:
+	_desktop_attack_rearm_required = _desktop_attack_rearm_required or _desktop_attack_input_held()
+	_desktop_blaster_tap_buffered = false
+	_touch_attack_rearm_required = _touch_attack_rearm_required or _touch_fire_active or _touch_attack_held
+	_touch_fire_requests.clear()
+	if _blaster_charge_active or _touch_fire_active or _touch_attack_held:
+		cancel_touch_fire()
+	if _blaster_attack_busy:
+		_cancel_blaster_attack()
+	if _shotgun_attack_busy:
+		_cancel_shotgun_attack()
+	if _axe_attack_busy:
+		_cancel_axe_attack()
+	_attack_hold_last = _desktop_attack_input_held()
+
+
+func _module_action_can_execute(action_token: int, module_id: String) -> bool:
+	return _action_gate.owns(action_token, ACTION_GATE.Kind.MODULE, module_id) and not _action_incapacitated()
+
+
+func _end_module_action(action_token: int, module_id: String) -> bool:
+	if not _action_gate.owns(action_token, ACTION_GATE.Kind.MODULE, module_id):
+		return false
+	_action_gate.release(action_token)
+	if _active_module_action_token == action_token:
+		_active_module_action_token = 0
+		_active_module_id = ""
+	_module_busy = false
+	return true
+
+
+func _cancel_pending_module_action(reason: String = "") -> void:
+	if _active_module_action_token == 0:
 		return
-	var wants_to_attack := _touch_attack_held or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+	var module_id := _active_module_id
+	var action_token := _active_module_action_token
+	_module_token += 1
+	_javelin_launch_token += 1
+	_end_module_action(action_token, module_id)
+	if reason != "" and _attack_label != null:
+		_attack_label.text = reason
+
+
+func _reset_action_ownership() -> void:
+	_action_gate.reset()
+	_active_module_action_token = 0
+	_active_module_id = ""
+	_blaster_action_token = 0
+	_shotgun_action_token = 0
+	_axe_action_token = 0
+	_desktop_attack_rearm_required = _desktop_attack_input_held()
+	_desktop_blaster_tap_buffered = false
+	_touch_attack_rearm_required = false
+
+
+func get_action_owner() -> String:
+	return _action_gate.get_owner_id()
+
+
+func _update_attack(force_action_blocked: bool = false) -> void:
+	var desktop_wants_attack := _desktop_attack_input_held()
+	if force_action_blocked or _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_incapacitated():
+		_desktop_blaster_tap_buffered = false
+		if desktop_wants_attack:
+			_desktop_attack_rearm_required = true
+		if _touch_fire_active or _touch_attack_held:
+			_touch_attack_rearm_required = true
+			cancel_touch_fire()
+		_touch_fire_requests.clear()
+		_attack_hold_last = desktop_wants_attack
+		return
+	if _desktop_attack_rearm_required:
+		if desktop_wants_attack:
+			_attack_hold_last = true
+			desktop_wants_attack = false
+		else:
+			_desktop_attack_rearm_required = false
+			_attack_hold_last = false
+	var wants_to_attack := _touch_attack_held or desktop_wants_attack
 	if _weapon_id == "shotgun":
 		_update_shotgun_attack(wants_to_attack)
 		_attack_hold_last = wants_to_attack
@@ -803,13 +933,32 @@ func _update_attack() -> void:
 	if processed_touch_request:
 		_attack_hold_last = wants_to_attack
 		return
-	var just_pressed := wants_to_attack and not _attack_hold_last
+	if _desktop_blaster_tap_buffered:
+		if wants_to_attack:
+			# Un nouveau maintien remplace le tap en attente et suit le chemin de charge.
+			_desktop_blaster_tap_buffered = false
+		elif now >= _blaster_next_attack_ready_at:
+			_desktop_blaster_tap_buffered = false
+			_fire_blaster_projectile(_blaster_damage, 0.0, aim_direction.normalized())
+			_attack_hold_last = false
+			return
 	var just_released := not wants_to_attack and _attack_hold_last
-	if just_pressed:
+	# Un appui PC peut commencer pendant le cooldown du tir précédent. Dans ce
+	# cas, la première tentative est refusée mais le maintien doit amorcer la
+	# charge dès que l'arme redevient disponible. Le réarmement post-cast a déjà
+	# forcé `desktop_wants_attack` à false plus haut tant qu'aucun relâchement
+	# réel n'a eu lieu, donc cette relance ne mémorise jamais une entrée interdite.
+	if wants_to_attack and not _blaster_charge_active:
 		_begin_blaster_charge(now)
 	_update_active_blaster_charge(now)
-	if just_released and _blaster_charge_active:
-		_release_blaster_charge()
+	if just_released:
+		if _blaster_charge_active:
+			_release_blaster_charge()
+		elif now < _blaster_next_attack_ready_at:
+			# Un tap bref pendant la cadence conserve uniquement un tir normal. Les
+			# entrées de cast passent par la branche bloquée plus haut et effacent ce
+			# tampon, elles ne peuvent donc jamais être rejouées après l'incantation.
+			_desktop_blaster_tap_buffered = true
 	_attack_hold_last = wants_to_attack
 
 
@@ -938,11 +1087,20 @@ func set_aim_input(value: Vector2) -> void:
 
 
 func set_touch_attack_held(value: bool) -> void:
+	if value and (_action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_gate.was_claimed_this_frame() or _action_incapacitated()):
+		_touch_attack_rearm_required = true
+		_touch_attack_held = false
+		return
+	if not value:
+		_touch_attack_rearm_required = false
 	_touch_attack_held = value
 
 
 func begin_touch_fire() -> void:
 	if _touch_fire_active or not _gameplay_enabled or is_real_dead():
+		return
+	if _touch_attack_rearm_required or _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_gate.was_claimed_this_frame() or _action_incapacitated():
+		_touch_attack_rearm_required = true
 		return
 	_touch_fire_active = true
 	_touch_fire_started_at = Time.get_ticks_msec() / 1000.0
@@ -956,6 +1114,12 @@ func begin_touch_fire() -> void:
 func end_touch_fire(final_aim: Vector2 = Vector2.ZERO) -> bool:
 	if final_aim.length_squared() > 0.04:
 		set_aim_input(final_aim)
+	if _touch_attack_rearm_required:
+		_touch_attack_rearm_required = false
+		_touch_fire_active = false
+		_touch_attack_held = false
+		_touch_fire_requests.clear()
+		return false
 	if not _touch_fire_active:
 		return false
 	var released_weapon := _weapon_id
@@ -1005,15 +1169,20 @@ func get_mobile_blaster_input_state() -> StringName:
 	return &"ready" if _blaster_charge_ratio >= 1.0 else &"charging"
 
 
-func trigger_touch_action(action: String) -> void:
+func trigger_touch_action(action: String) -> bool:
+	if _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_gate.was_claimed_this_frame():
+		return false
 	_touch_actions[action] = true
+	return true
 
 
-func begin_touch_action(action: String) -> void:
+func begin_touch_action(action: String) -> bool:
+	if _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_gate.was_claimed_this_frame():
+		return false
 	if action == "offensive" and _offensive_module_id == "fulguro_punch":
 		_begin_fulguro_charge()
-	else:
-		trigger_touch_action(action)
+		return _action_gate.is_kind(ACTION_GATE.Kind.MODULE) and _active_module_id == "fulguro_punch"
+	return trigger_touch_action(action)
 
 
 func end_touch_action(action: String) -> void:
@@ -1033,6 +1202,7 @@ func clear_touch_inputs() -> void:
 	_touch_fire_charge_started = false
 	_touch_attack_held = false
 	_touch_fire_requests.clear()
+	_touch_attack_rearm_required = false
 	# A hidden/inactive touch overlay must not cancel a charge started from the
 	# desktop input path. It only owns a charge it started after a touch hold.
 	if touch_owned_charge and _blaster_charge_active:
@@ -1042,11 +1212,16 @@ func clear_touch_inputs() -> void:
 func set_gameplay_enabled(value: bool) -> void:
 	_gameplay_enabled = value
 	if not value:
+		_static_pulse_token += 1
 		_reset_weapon_pose_to_locomotion(true)
 		clear_touch_inputs()
 		_cancel_fulguro_attack()
 		_cancel_pelto_smash()
+		_cancel_pending_module_action()
 		_cancel_blaster_charge()
+		_cancel_shotgun_attack()
+		_cancel_axe_attack()
+		_reset_action_ownership()
 		velocity = Vector3.ZERO
 		if not _round_warmup_active and not is_real_dead():
 			_play_player_animation(&"idle")
@@ -1089,7 +1264,7 @@ func is_revealed() -> bool:
 
 
 func is_attack_committed() -> bool:
-	return _blaster_charge_active or _blaster_attack_busy or _shotgun_attack_busy or _module_busy or _fulguro_phase != "" or _pelto_phase != ""
+	return _action_gate.is_busy()
 
 
 func is_in_bush() -> bool:
@@ -1279,7 +1454,11 @@ func _on_state_died() -> void:
 	_cancel_pelto_smash()
 	_cancel_pelto_pull()
 	_cancel_blaster_charge()
-	reset_shotgun_state()
+	_cancel_shotgun_attack()
+	_cancel_axe_attack()
+	_cancel_pending_module_action()
+	_static_pulse_token += 1
+	_reset_action_ownership()
 	died.emit()
 
 
@@ -1389,6 +1568,7 @@ func configure_survival_build(build: Dictionary) -> void:
 	reset_blaster_state()
 	reset_shotgun_state()
 	reset_module_state()
+	_reset_action_ownership()
 	_update_weapon_visuals()
 	_sync_weapon_readout()
 
@@ -1528,6 +1708,11 @@ func apply_stun(duration: float, source_id: String = "") -> void:
 		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
 	if duration > 0.0:
 		_cancel_pelto_pull()
+		_cancel_pending_module_action("MODULE  •  INTERROMPU")
+		_cancel_blaster_charge()
+		_cancel_blaster_attack()
+		_cancel_shotgun_attack()
+		_cancel_axe_attack()
 	if combat_state != null:
 		combat_state.apply_stun(duration, source_id)
 
@@ -1563,6 +1748,7 @@ func reset_combat_state() -> void:
 	reset_blaster_state()
 	reset_shotgun_state()
 	reset_module_state()
+	_reset_action_ownership()
 	_on_health_changed(get_health(), get_max_health())
 	_start_round_warmup_animation()
 
@@ -1572,7 +1758,10 @@ func reset_blaster_state() -> void:
 	_blaster_attack_busy = false
 	_blaster_next_attack_ready_at = -10.0
 	_attack_hold_last = false
+	_desktop_blaster_tap_buffered = false
 	cancel_touch_fire()
+	_action_gate.release(_blaster_action_token)
+	_blaster_action_token = 0
 
 
 func set_weapon(weapon_id: String) -> void:
@@ -1604,7 +1793,7 @@ func _cycle_offensive_module() -> void:
 
 
 func _perform_offensive_module() -> void:
-	if _offensive_module_id == "":
+	if _offensive_module_id == "" or _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
 		return
 	if _offensive_module_id == "javelin" and _can_buffer_defensive_action() and _has_live_javelin_mark():
 		_buffer_javelin_recast()
@@ -1620,10 +1809,14 @@ func _perform_offensive_module() -> void:
 
 
 func _activate_defensive_module() -> void:
+	if _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		return
 	_perform_defensive_module()
 
 
 func _activate_mobility_module() -> void:
+	if _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		return
 	if _can_buffer_defensive_action() and _mobility_module_id == "pyro_boots":
 		_buffer_dash()
 		return
@@ -1656,6 +1849,9 @@ func reset_shotgun_state() -> void:
 	_shotgun_attack_token += 1
 	_shotgun_reload_token += 1
 	_shotgun_attack_busy = false
+	_shotgun_attack_emitted = false
+	_action_gate.release(_shotgun_action_token)
+	_shotgun_action_token = 0
 	_shotgun_reloading = false
 	_shotgun_reload_remaining = 0.0
 	_shotgun_ammo = _shotgun_magazine_size
@@ -1676,6 +1872,7 @@ func reset_shotgun_state() -> void:
 func reset_module_state() -> void:
 	_module_token += 1
 	_javelin_launch_token += 1
+	_static_pulse_token += 1
 	_module_cooldowns.clear()
 	_module_busy = false
 	_cancel_fulguro_attack()
@@ -1700,6 +1897,8 @@ func reset_module_state() -> void:
 	if _magnetic_wall != null and is_instance_valid(_magnetic_wall):
 		_magnetic_wall.queue_free()
 	_magnetic_wall = null
+	if _active_module_action_token != 0:
+		_end_module_action(_active_module_action_token, _active_module_id)
 
 
 func _update_shotgun_reload_input() -> void:
@@ -1723,6 +1922,11 @@ func _perform_shotgun_attack() -> void:
 	if _shotgun_ammo <= 0:
 		_start_shotgun_reload()
 		return
+	var action_token := _try_begin_weapon_action("shotgun")
+	if action_token == 0:
+		return
+	_shotgun_action_token = action_token
+	_shotgun_attack_emitted = false
 	_mark_combat_event()
 	_begin_weapon_aim()
 	_shotgun_attack_token += 1
@@ -1737,6 +1941,7 @@ func _perform_shotgun_attack() -> void:
 	_attack_label.text = "SHOTGUN  •  %d/%d CARTOUCHES" % [_shotgun_ammo, _shotgun_magazine_size]
 	var salvo := {
 		"id": token,
+		"action_token": action_token,
 		"hits_by_target": {},
 		"credited": {},
 	}
@@ -1769,7 +1974,10 @@ func _play_shotgun_animation(speed_scale: float) -> void:
 
 func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	var echo := bool(salvo.get("echo", false))
+	var action_token := int(salvo.get("action_token", 0))
 	if not _gameplay_enabled or (not echo and (token != _shotgun_attack_token or not _shotgun_attack_busy)):
+		return
+	if not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "shotgun"):
 		return
 	if echo and (survival_synergies == null or int(salvo.get("generation", -1)) != survival_synergies.generation):
 		return
@@ -1779,6 +1987,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	# Commit every input scheme from the same live source of truth at emission.
 	_shotgun_attack_origin = global_position
 	_shotgun_attack_direction = _normalized_aim_direction()
+	_shotgun_attack_emitted = true
 	_last_projectile_direction = _shotgun_attack_direction
 	_begin_weapon_fire()
 	_shotgun_shot_audio.play()
@@ -1803,7 +2012,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, pellet_target, salvo, index)
 	_play_shotgun_animation(get_attack_speed_multiplier())
 	if not echo and survival_synergies != null and survival_synergies.consume_double():
-		var second := {"id": token, "hits_by_target": {}, "credited": {}, "echo": true, "generation": survival_synergies.generation, "source": "double", "damage_scale": 0.65 if _survival_evolved("mobility") else 0.45}
+		var second := {"id": token, "action_token": action_token, "hits_by_target": {}, "credited": {}, "echo": true, "generation": survival_synergies.generation, "source": "double", "damage_scale": 0.65 if _survival_evolved("mobility") else 0.45}
 		get_tree().create_timer(0.16, false).timeout.connect(func() -> void: _emit_shotgun_salvo(token, second))
 
 
@@ -1940,6 +2149,9 @@ func _finish_shotgun_attack(token: int) -> void:
 	if token != _shotgun_attack_token or not _shotgun_attack_busy:
 		return
 	_shotgun_attack_busy = false
+	_shotgun_attack_emitted = false
+	_action_gate.release(_shotgun_action_token)
+	_shotgun_action_token = 0
 	_begin_aim_hold()
 	if _shotgun_ammo <= 0:
 		_start_shotgun_reload()
@@ -1947,9 +2159,16 @@ func _finish_shotgun_attack(token: int) -> void:
 
 func _cancel_shotgun_attack() -> void:
 	if not _shotgun_attack_busy:
+		_action_gate.release(_shotgun_action_token)
+		_shotgun_action_token = 0
 		return
 	_shotgun_attack_token += 1
+	if not _shotgun_attack_emitted and not training_unlimited_ammo:
+		_shotgun_ammo = mini(_shotgun_magazine_size, _shotgun_ammo + 1)
 	_shotgun_attack_busy = false
+	_shotgun_attack_emitted = false
+	_action_gate.release(_shotgun_action_token)
+	_shotgun_action_token = 0
 	_shotgun_cycle_audio.stop()
 	_attack_label.text = ""
 
@@ -2028,7 +2247,7 @@ func get_module_cooldown(module_id: String) -> float:
 
 
 func is_module_busy() -> bool:
-	return _module_busy
+	return _action_gate.is_kind(ACTION_GATE.Kind.MODULE)
 
 
 func _module_ready(module_id: String) -> bool:
@@ -2062,7 +2281,7 @@ func _perform_defensive_module() -> void:
 
 
 func _perform_magnetic_field() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
 		return
 	var direction := aim_direction.normalized()
 	var origin := global_position
@@ -2070,6 +2289,9 @@ func _perform_magnetic_field() -> void:
 	if not _magnetic_placement_valid(origin, center):
 		if _attack_label != null:
 			_attack_label.text = "MAGNETIC FIELD  •  PLACEMENT REFUSÉ"
+		return
+	var action_token := _try_begin_module_action("magnetic_field")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -2079,7 +2301,7 @@ func _perform_magnetic_field() -> void:
 	if _attack_label != null:
 		_attack_label.text = "MAGNETIC FIELD  •  PRÉPARATION"
 	var timer := get_tree().create_timer(_magnetic_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _create_magnetic_wall(token, center, direction))
+	timer.timeout.connect(func() -> void: _create_magnetic_wall(token, action_token, center, direction))
 
 
 func _magnetic_placement_valid(origin: Vector3, center: Vector3) -> bool:
@@ -2096,8 +2318,8 @@ func _magnetic_placement_valid(origin: Vector3, center: Vector3) -> bool:
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
-func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> void:
-	if token != _module_token or not _module_busy:
+func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direction: Vector3) -> void:
+	if token != _module_token or not _module_action_can_execute(action_token, "magnetic_field"):
 		return
 	var wall := Area3D.new()
 	wall.name = "MagneticField"
@@ -2124,7 +2346,7 @@ func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> v
 	wall.rotation.y = atan2(direction.x, direction.z)
 	_magnetic_wall = wall
 	_survival_magnetic_clock = 0.0
-	_module_busy = false
+	_end_module_action(action_token, "magnetic_field")
 	if _attack_label != null:
 		_attack_label.text = "MAGNETIC FIELD  •  2.5s"
 	var lifetime_timer := get_tree().create_timer(_magnetic_duration, true, false, false)
@@ -2139,30 +2361,29 @@ func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> v
 func _perform_static_shield() -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("static_shield") or (combat_state != null and combat_state.is_stunned()):
 		return
+	var action_token := _try_begin_module_action("static_shield")
+	if action_token == 0:
+		return
 	_cancel_pelto_pull()
 	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
+	_static_pulse_token += 1
+	var pulse_token := _static_pulse_token
 	_stasis_remaining = _static_duration
 	if _blaster_charge_active or _touch_fire_active:
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
-	if _module_busy:
-		_module_token += 1
-		_module_busy = false
-	if _fulguro_phase != "":
-		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
-	if _pelto_phase != "":
-		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
 	if _dash_active:
 		_cancel_dash()
 	if _attack_label != null:
 		_attack_label.text = "STATIC SHIELD  •  %.1fs" % _stasis_remaining
 	_create_stasis_fx()
+	_end_module_action(action_token, "static_shield")
 	if _survival_evolved("defensive"):
 		var pulse_timer := get_tree().create_timer(_static_duration, false)
 		pulse_timer.timeout.connect(func() -> void:
-			if is_inside_tree() and survival_mode and _defensive_module_id == "static_shield":
+			if pulse_token == _static_pulse_token and is_inside_tree() and not is_real_dead() and survival_mode and _defensive_module_id == "static_shield":
 				_survival_area_damage(global_position, 4.0, 70.0, "static_pulse", Color("#ba97ff"))
 		)
 
@@ -2223,11 +2444,14 @@ func _perform_mobility_module() -> void:
 func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
 		return
-	_cancel_pelto_pull()
-	_mark_combat_event()
 	var direction := direction_override if direction_override.length_squared() > 0.001 else _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
 	if direction.length_squared() <= 0.001:
 		return
+	var action_token := _try_begin_module_action("pyro_boots")
+	if action_token == 0:
+		return
+	_cancel_pelto_pull()
+	_mark_combat_event()
 	_dash_token += 1
 	_dash_active = true
 	_dash_direction = direction.normalized()
@@ -2237,10 +2461,14 @@ func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
 		_attack_label.text = "PYRO BOOTS  •  DASH"
 	_create_dash_fx(global_position)
 	get_node("/root/GameSfx").play_event("pyro_dash")
+	_end_module_action(action_token, "pyro_boots")
 
 
 func _perform_bio_injector() -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
+		return
+	var action_token := _try_begin_module_action("bio_injector")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
@@ -2252,6 +2480,7 @@ func _perform_bio_injector() -> void:
 		survival_synergies.arm_double()
 	if _survival_evolved("mobility"):
 		_survival_area_damage(global_position, 4.0, 70.0, "bio_pulse", Color("#73f0bb"))
+	_end_module_action(action_token, "bio_injector")
 
 
 func _update_dash(delta: float) -> void:
@@ -2300,7 +2529,7 @@ func is_fulguro_projected() -> bool:
 
 
 func is_action_locked() -> bool:
-	return is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned())
+	return is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or (combat_state != null and combat_state.is_stunned())
 
 
 func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
@@ -2313,12 +2542,11 @@ func start_fulguro_projection(direction: Vector3, max_distance: float, max_durat
 		_cancel_dash()
 	if _blaster_charge_active or _touch_fire_active:
 		cancel_touch_fire("FULGURO PUNCH  •  PROJETÉ")
+	if _blaster_attack_busy:
+		_cancel_blaster_attack()
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
-	if _module_busy:
-		_module_token += 1
-		_javelin_launch_token += 1
-		_module_busy = false
+	_cancel_pending_module_action()
 	_fulguro_projection_active = true
 	_fulguro_projection_direction = FULGURO.flat_direction(direction)
 	_fulguro_projection_distance_remaining = maxf(0.0, max_distance)
@@ -2659,7 +2887,10 @@ func _perform_fulguro_punch() -> void:
 
 
 func _begin_fulguro_charge() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("fulguro_punch") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("fulguro_punch") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+		return
+	var action_token := _try_begin_module_action("fulguro_punch")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -2705,6 +2936,9 @@ func is_fulguro_charging() -> bool:
 func _update_fulguro_attack(delta: float) -> void:
 	if _fulguro_phase == "":
 		return
+	if not _module_action_can_execute(_active_module_action_token, "fulguro_punch"):
+		_cancel_fulguro_attack()
+		return
 	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
 		return
@@ -2738,6 +2972,9 @@ func _fulguro_power_ratio() -> float:
 
 
 func _commit_fulguro_strike() -> void:
+	if not _module_action_can_execute(_active_module_action_token, "fulguro_punch"):
+		_cancel_fulguro_attack()
+		return
 	_fulguro_charge_ratio = _fulguro_power_ratio()
 	_fulguro_strike_range = lerpf(_fulguro_range, _fulguro_range_max, _fulguro_charge_ratio)
 	_fulguro_strike_damage = lerpf(_fulguro_damage, _fulguro_damage_max, _fulguro_charge_ratio)
@@ -2944,6 +3181,7 @@ func _update_fulguro_pose() -> void:
 
 
 func _finish_fulguro_attack() -> void:
+	var action_token := _active_module_action_token if _active_module_id == "fulguro_punch" else 0
 	_clear_fulguro_telegraph()
 	if _fulguro_charge_audio != null:
 		_fulguro_charge_audio.stop()
@@ -2954,14 +3192,15 @@ func _finish_fulguro_attack() -> void:
 	_fulguro_hit_resolved = false
 	_fulguro_release_requested = false
 	_fulguro_release_at = -1.0
-	_module_busy = false
+	_end_module_action(action_token, "fulguro_punch")
 	_update_aim_pose_state()
 	if _attack_label != null:
 		_attack_label.text = "FULGURO PUNCH  •  CD 8s"
 
 
 func _cancel_fulguro_attack(reason: String = "") -> void:
-	if _fulguro_phase == "":
+	var action_token := _active_module_action_token if _active_module_id == "fulguro_punch" else 0
+	if _fulguro_phase == "" and action_token == 0:
 		_clear_fulguro_telegraph()
 		return
 	_clear_fulguro_telegraph()
@@ -2974,14 +3213,17 @@ func _cancel_fulguro_attack(reason: String = "") -> void:
 	_fulguro_hit_resolved = false
 	_fulguro_release_requested = false
 	_fulguro_release_at = -1.0
-	_module_busy = false
+	_end_module_action(action_token, "fulguro_punch")
 	_update_aim_pose_state()
 	if reason != "" and _attack_label != null:
 		_attack_label.text = reason
 
 
 func _perform_pelto_smash() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("pelto_smash") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("pelto_smash") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+		return
+	var action_token := _try_begin_module_action("pelto_smash")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -2990,6 +3232,7 @@ func _perform_pelto_smash() -> void:
 	_pelto_phase = "preparation"
 	_pelto_elapsed = 0.0
 	_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
+	_pelto_weapon_restore_serial += 1
 	_start_module_cooldown("pelto_smash", float(COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"].cooldown))
 	_create_pelto_telegraph()
 	_set_pelto_weapon_hidden(true)
@@ -3009,6 +3252,9 @@ func get_pelto_preparation_fraction() -> float:
 
 func _update_pelto_attack(delta: float) -> void:
 	if _pelto_phase == "":
+		return
+	if not _module_action_can_execute(_active_module_action_token, "pelto_smash"):
+		_cancel_pelto_smash()
 		return
 	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
@@ -3034,6 +3280,9 @@ func _update_pelto_attack(delta: float) -> void:
 
 
 func _commit_pelto_impact() -> void:
+	if not _module_action_can_execute(_active_module_action_token, "pelto_smash"):
+		_cancel_pelto_smash()
+		return
 	_pelto_phase = "impact"
 	_pelto_elapsed = 0.0
 	_clear_pelto_telegraph()
@@ -3132,28 +3381,29 @@ func _update_pelto_pose() -> void:
 
 
 func _finish_pelto_smash() -> void:
+	var action_token := _active_module_action_token if _active_module_id == "pelto_smash" else 0
 	_clear_pelto_telegraph()
 	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
 		_visual_rig.call("clear_pelto_pose")
-	_set_pelto_weapon_hidden(false)
 	_pelto_phase = ""
 	_pelto_elapsed = 0.0
-	_module_busy = false
-	_update_aim_pose_state()
+	_end_module_action(action_token, "pelto_smash")
+	_update_aim_pose_state(true)
+	_queue_pelto_weapon_restore()
 	if _attack_label != null:
 		_attack_label.text = "PELTO SMASH  •  CD 10s"
 
 
 func _cancel_pelto_smash(reason: String = "") -> void:
+	var action_token := _active_module_action_token if _active_module_id == "pelto_smash" else 0
 	_clear_pelto_telegraph()
 	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
 		_visual_rig.call("clear_pelto_pose")
-	_set_pelto_weapon_hidden(false)
 	_pelto_phase = ""
 	_pelto_elapsed = 0.0
-	if _module_busy and _offensive_module_id == "pelto_smash":
-		_module_busy = false
-	_update_aim_pose_state()
+	_end_module_action(action_token, "pelto_smash")
+	_update_aim_pose_state(true)
+	_queue_pelto_weapon_restore()
 	if reason != "" and _attack_label != null:
 		_attack_label.text = reason
 
@@ -3169,6 +3419,27 @@ func _set_pelto_weapon_hidden(hidden: bool) -> void:
 		_update_weapon_visuals()
 
 
+func _queue_pelto_weapon_restore() -> void:
+	_pelto_weapon_restore_serial += 1
+	_restore_pelto_weapon_after_skeleton(_pelto_weapon_restore_serial)
+
+
+func _restore_pelto_weapon_after_skeleton(restore_serial: int) -> void:
+	# BoneAttachment3D is refreshed after animation and SkeletonModifier3D. Keep
+	# the weapon hidden until two complete frames have replaced the last Pelto
+	# pose; revealing it earlier exposes the attachment at its stale world pose.
+	var scene_tree := get_tree()
+	if scene_tree == null:
+		return
+	for _frame in range(2):
+		await scene_tree.process_frame
+	if restore_serial != _pelto_weapon_restore_serial or _pelto_phase != "" or not is_inside_tree():
+		return
+	if _visual_rig != null and _visual_rig.has_method("settle_weapon_attachment_after_transient_pose"):
+		_visual_rig.call("settle_weapon_attachment_after_transient_pose")
+	_set_pelto_weapon_hidden(false)
+
+
 func _pelto_ground_material(color: Color, alpha: float) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(color.r, color.g, color.b, alpha)
@@ -3181,7 +3452,10 @@ func _pelto_ground_material(color: Color, alpha: float) -> StandardMaterial3D:
 
 
 func _perform_modulo_drone() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
+		return
+	var action_token := _try_begin_module_action("modulo_drone")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -3192,11 +3466,11 @@ func _perform_modulo_drone() -> void:
 	var direction := aim_direction.normalized()
 	_attack_label.text = "MODULO DRONE  •  CD 10s"
 	var timer := get_tree().create_timer(_drone_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, origin, direction))
+	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, action_token, origin, direction))
 
 
-func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void:
-	if token != _module_token or not _module_busy:
+func _emit_modulo_drone(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
+	if token != _module_token or not _module_action_can_execute(action_token, "modulo_drone"):
 		return
 	var target := _select_drone_target(origin, direction)
 	var excluded: Array[RID] = []
@@ -3235,7 +3509,7 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(drone, "global_position", endpoint, travel)
 	tween.tween_callback(func() -> void:
-		if token != _module_token or not is_instance_valid(drone):
+		if not is_instance_valid(drone):
 			return
 		if survival_synergies != null:
 			survival_synergies.update_flight(flight)
@@ -3254,8 +3528,8 @@ func _emit_modulo_drone(token: int, origin: Vector3, direction: Vector3) -> void
 		else:
 			_create_surface_impact_fx(endpoint, -direction, Color("#45ddff"))
 		drone.queue_free()
-		_module_busy = false
 	)
+	_end_module_action(action_token, "modulo_drone")
 
 
 func _decorate_drone_projectile(drone: Node3D) -> void:
@@ -3313,11 +3587,13 @@ func _perform_javelin() -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		return
 	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
-		_mark_combat_event()
 		_recast_javelin()
 		return
 	_javelin_mark_target = null
-	if _module_busy or not _module_ready("javelin"):
+	if not _module_ready("javelin"):
+		return
+	var action_token := _try_begin_module_action("javelin")
+	if action_token == 0:
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -3329,11 +3605,11 @@ func _perform_javelin() -> void:
 	var direction := aim_direction.normalized()
 	_attack_label.text = "JAVELIN  •  CD 12s"
 	var timer := get_tree().create_timer(_javelin_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_javelin(token, origin, direction))
+	timer.timeout.connect(func() -> void: _emit_javelin(token, action_token, origin, direction))
 
 
-func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
-	if token != _javelin_launch_token or not _module_busy:
+func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
+	if token != _javelin_launch_token or not _module_action_can_execute(action_token, "javelin"):
 		return
 	var target := _select_javelin_target(origin, direction)
 	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _javelin_max_range)
@@ -3362,7 +3638,7 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(spear, "global_position", endpoint, travel)
 	tween.tween_callback(func() -> void:
-		if token != _javelin_launch_token or not is_instance_valid(spear):
+		if not is_instance_valid(spear):
 			return
 		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
 			var applied := float(target.call("take_damage", _javelin_damage, "player", "javelin:%d" % token))
@@ -3377,8 +3653,8 @@ func _emit_javelin(token: int, origin: Vector3, direction: Vector3) -> void:
 		else:
 			_create_surface_impact_fx(endpoint, -direction, Color("#ffcf6a"))
 		spear.queue_free()
-		_module_busy = false
 	)
+	_end_module_action(action_token, "javelin")
 
 
 func _decorate_javelin_projectile(spear: Node3D) -> void:
@@ -3421,10 +3697,10 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	if destination == Vector3.INF:
 		_attack_label.text = "JAVELIN  •  DESTINATION BLOQUÉE"
 		return
-	if _blaster_charge_active or _touch_fire_active:
-		cancel_touch_fire("BLASTER  •  INTERROMPU")
-	if _shotgun_attack_busy:
-		_cancel_shotgun_attack()
+	var action_token := _try_begin_module_action("javelin_recast")
+	if action_token == 0:
+		return
+	_mark_combat_event()
 	var teleport_origin := global_position
 	_cancel_pelto_pull()
 	global_position = destination
@@ -3435,6 +3711,7 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	_create_teleport_fx(destination)
 	get_node("/root/GameSfx").play_event("javelin_teleport")
 	_attack_label.text = "JAVELIN  •  TÉLÉPORTÉ"
+	_end_module_action(action_token, "javelin_recast")
 
 
 func _find_javelin_destination(target: Node) -> Vector3:
@@ -3475,6 +3752,10 @@ func _begin_blaster_charge(now: float = -1.0) -> void:
 		now = Time.get_ticks_msec() / 1000.0
 	if now < _blaster_next_attack_ready_at:
 		return
+	var action_token := _try_begin_weapon_action("blaster")
+	if action_token == 0:
+		return
+	_blaster_action_token = action_token
 	_blaster_charge_active = true
 	_begin_weapon_aim()
 	_blaster_charge_started_at = now
@@ -3526,7 +3807,7 @@ func _finish_blaster_charge_audio_stop() -> void:
 	_blaster_charge_hold_audio.volume_db = -10.0
 
 
-func _cancel_blaster_charge(reason: String = "") -> void:
+func _cancel_blaster_charge(reason: String = "", release_action: bool = true) -> void:
 	_stop_blaster_charge_audio()
 	_blaster_charge_active = false
 	_blaster_charge_started_at = -1.0
@@ -3536,8 +3817,19 @@ func _cancel_blaster_charge(reason: String = "") -> void:
 		_blaster_charge_visual.visible = false
 	if _blaster_light != null:
 		_blaster_light.light_energy = 0.0
+	if release_action:
+		_action_gate.release(_blaster_action_token)
+		_blaster_action_token = 0
 	if reason != "" and _attack_label != null:
 		_attack_label.text = reason
+
+
+func _cancel_blaster_attack() -> void:
+	if _blaster_attack_busy:
+		_blaster_attack_token += 1
+		_blaster_attack_busy = false
+	_action_gate.release(_blaster_action_token)
+	_blaster_action_token = 0
 
 
 func _release_blaster_charge() -> void:
@@ -3546,16 +3838,31 @@ func _release_blaster_charge() -> void:
 	var ratio := clampf(_blaster_charge_ratio, 0.0, 1.0)
 	var damage := lerpf(_blaster_damage, _blaster_max_damage, ratio)
 	var direction := aim_direction.normalized()
-	_cancel_blaster_charge()
-	_fire_blaster_projectile(damage, ratio, direction)
+	var action_token := _blaster_action_token
+	_cancel_blaster_charge("", false)
+	_fire_blaster_projectile(damage, ratio, direction, action_token)
 
 
-func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vector3) -> void:
+func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vector3, reserved_action_token: int = 0) -> void:
 	if _weapon_id != "blaster" or _blaster_attack_busy:
+		if reserved_action_token != 0:
+			_action_gate.release(reserved_action_token)
+			if _blaster_action_token == reserved_action_token:
+				_blaster_action_token = 0
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if now < _blaster_next_attack_ready_at:
+		if reserved_action_token != 0:
+			_action_gate.release(reserved_action_token)
+			if _blaster_action_token == reserved_action_token:
+				_blaster_action_token = 0
 		return
+	var action_token := reserved_action_token
+	if action_token == 0:
+		action_token = _try_begin_weapon_action("blaster")
+	if not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "blaster"):
+		return
+	_blaster_action_token = action_token
 	_mark_combat_event()
 	var shot_audio := _blaster_charged_shot_audio if charge_ratio >= 0.85 else _blaster_shot_audio
 	shot_audio.pitch_scale = lerpf(1.05, 0.94, charge_ratio)
@@ -3575,7 +3882,7 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 		# Bone attachments update with the final skeleton pass. Delay only a tap that
 		# began below full aim; charged/held fire emits immediately from the muzzle.
 		await _visual_rig.skeleton.skeleton_updated
-		if token != _blaster_attack_token or _weapon_id != "blaster":
+		if token != _blaster_attack_token or _weapon_id != "blaster" or not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "blaster"):
 			return
 	var origin := _blaster_muzzle.global_position if _blaster_muzzle != null else global_position + Vector3.UP * 0.90 + shot_direction * 0.62
 	var target := _module_target()
@@ -3597,6 +3904,9 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	var distance := origin.distance_to(endpoint)
 	_create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, _blaster_muzzle)
 	_spawn_blaster_projectile(origin, endpoint, distance, did_hit, target, damage, charge_ratio, token, shot_direction)
+	_action_gate.release(action_token)
+	if _blaster_action_token == action_token:
+		_blaster_action_token = 0
 	# The fire lock is governed solely by the 0.45 s cooldown. Projectile travel
 	# may continue visually beyond that window without blocking the next shot.
 	_blaster_attack_busy = false
@@ -3733,6 +4043,10 @@ func _create_teleport_fx(origin: Vector3) -> void:
 	_spawn_particle_burst(origin + Vector3.UP * 0.45, Color("#dac99a"), 10, 0.25, 2.8, 0.12, Vector3.UP, 48.0)
 
 func _perform_axe_attack() -> void:
+	var action_token := _try_begin_weapon_action("legacy_axe")
+	if action_token == 0:
+		return
+	_axe_action_token = action_token
 	_mark_combat_event()
 	var step := _combo_step
 	_combo_step = (_combo_step + 1) % 3
@@ -3762,7 +4076,7 @@ func _perform_axe_attack() -> void:
 
 
 func _attack_token_valid(token: int) -> bool:
-	return is_inside_tree() and _axe_attack_busy and token == _axe_attack_token and not (combat_state != null and combat_state.is_stunned())
+	return is_inside_tree() and _axe_attack_busy and token == _axe_attack_token and _action_gate.owns(_axe_action_token, ACTION_GATE.Kind.WEAPON, "legacy_axe") and not (combat_state != null and combat_state.is_stunned())
 
 
 func _resolve_axe_strike(token: int, step: int) -> void:
@@ -3822,6 +4136,8 @@ func _finish_axe_attack(token: int) -> void:
 		return
 	_axe_attack_busy = false
 	_axe_attack_step = -1
+	_action_gate.release(_axe_action_token)
+	_axe_action_token = 0
 	var now := Time.get_ticks_msec() / 1000.0
 	_combo_expires_at = now + LEGACY_COMBO_WINDOW
 	_next_attack_ready_at = now
@@ -3829,10 +4145,14 @@ func _finish_axe_attack(token: int) -> void:
 
 func _cancel_axe_attack() -> void:
 	if not _axe_attack_busy:
+		_action_gate.release(_axe_action_token)
+		_axe_action_token = 0
 		return
 	_axe_attack_token += 1
 	_axe_attack_busy = false
 	_axe_attack_step = -1
+	_action_gate.release(_axe_action_token)
+	_axe_action_token = 0
 	_combo_step = 0
 	var now := Time.get_ticks_msec() / 1000.0
 	_combo_expires_at = now + LEGACY_COMBO_WINDOW
@@ -4375,10 +4695,10 @@ func _has_skeletal_weapon_attachment() -> bool:
 	return _visual_rig != null and _visual_rig.skeleton != null and _visual_rig.right_hand_attachment != null
 
 
-func _update_aim_pose_state() -> void:
+func _update_aim_pose_state(immediate: bool = false) -> void:
 	if _visual_rig != null:
 		var punch_pose := _fulguro_phase != "" or _pelto_phase != ""
-		_visual_rig.set_aim_enabled(_gameplay_enabled and not is_real_dead() and (punch_pose or (_weapon_id in ["blaster", "shotgun"] and _weapon_pose_uses_aim())))
+		_visual_rig.set_aim_enabled(_gameplay_enabled and not is_real_dead() and (punch_pose or (_weapon_id in ["blaster", "shotgun"] and _weapon_pose_uses_aim())), immediate)
 
 
 func _start_round_warmup_animation() -> void:
@@ -4545,13 +4865,6 @@ func _build_robot() -> void:
 		_visual_rig.action_finished.connect(_on_player_animation_finished)
 	_blaster_pivot = Node3D.new()
 	_blaster_pivot.name = "BlasterPivot"
-	_blaster_pivot_home_transform = _attach_weapon_pivot_to_hand(
-		_blaster_pivot,
-		&"blaster",
-		Vector3(0.58, 0.93, -0.42),
-		Vector3.ZERO,
-		-22.0
-	)
 	_blaster_sway_pivot = Node3D.new()
 	_blaster_sway_pivot.name = "WeaponSway"
 	_blaster_pivot.add_child(_blaster_sway_pivot)
@@ -4614,6 +4927,12 @@ func _build_robot() -> void:
 	blaster_left_hand_grip.name = "LeftHandGrip"
 	blaster_left_hand_grip.position = Vector3(0.0, 0.06, -0.48)
 	_blaster_recoil_pivot.add_child(blaster_left_hand_grip)
+	var blaster_right_hand_grip := Marker3D.new()
+	blaster_right_hand_grip.name = "RightHandGrip"
+	# This is the rear handle contact point, expressed in weapon-root space.
+	# Keeping it explicit lets the socket seat the grip on the animated wrist.
+	blaster_right_hand_grip.position = Vector3(0.0, -0.08, 0.08)
+	_blaster_recoil_pivot.add_child(blaster_right_hand_grip)
 	_blaster_charge_visual = MeshInstance3D.new()
 	_blaster_charge_visual.name = "BlasterChargeGlow"
 	var blaster_charge_mesh := SphereMesh.new()
@@ -4650,17 +4969,18 @@ func _build_robot() -> void:
 				blaster_left_hand_grip.position = Vector3(-0.10, -0.04, -0.20)
 				_blaster_charge_visual.position = Vector3(0.0, 0.08, -0.64)
 				_blaster_light.position = Vector3(0.0, 0.08, -0.86)
+	_blaster_pivot_home_transform = _attach_weapon_pivot_to_hand(
+		_blaster_pivot,
+		&"blaster",
+		Vector3(0.58, 0.93, -0.42),
+		Vector3.ZERO,
+		-22.0
+	)
 	if _has_skeletal_weapon_attachment():
 		_visual_rig.configure_left_hand_support(&"blaster")
 
 	_shotgun_pivot = Node3D.new()
 	_shotgun_pivot.name = "ShotgunPivot"
-	_shotgun_pivot_home_transform = _attach_weapon_pivot_to_hand(
-		_shotgun_pivot,
-		&"shotgun",
-		Vector3(0.58, 0.88, -0.36),
-		Vector3.ZERO
-	)
 	_shotgun_sway_pivot = Node3D.new()
 	_shotgun_sway_pivot.name = "WeaponSway"
 	_shotgun_pivot.add_child(_shotgun_sway_pivot)
@@ -4671,6 +4991,12 @@ func _build_robot() -> void:
 	_shotgun_recoil_pivot.add_child(shotgun)
 	_shotgun_muzzle = shotgun.get_node("Muzzle") as Node3D
 	_shotgun_light = shotgun.get_node("Muzzle/ShotgunMuzzleLight") as OmniLight3D
+	_shotgun_pivot_home_transform = _attach_weapon_pivot_to_hand(
+		_shotgun_pivot,
+		&"shotgun",
+		Vector3(0.58, 0.88, -0.36),
+		Vector3.ZERO
+	)
 	_update_weapon_visuals()
 
 	var scarf := MeshInstance3D.new()

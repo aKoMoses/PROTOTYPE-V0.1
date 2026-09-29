@@ -17,6 +17,7 @@ func _initialize() -> void:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
 		_test_central_values()
+		await _test_shotgun_restores_to_hand(player, target)
 		await _test_multiple_targets_progressively(player, target, scene)
 		await _test_two_passes(player, target)
 		await _test_lateral_exit_avoids_return(player, target)
@@ -43,6 +44,81 @@ func _test_central_values() -> void:
 		_failures.append("Données : le total des deux passages n'est pas 260/1000 PV")
 	if absf(float(values.max_range) - 7.0) > 0.01 or absf(float(values.width) - 2.5) > 0.01 or absf(float(values.front_thickness) - 0.7) > 0.01:
 		_failures.append("Données : portée, largeur ou épaisseur du front incorrecte")
+
+
+func _test_shotgun_restores_to_hand(player: Node, target: Node) -> void:
+	player.call("set_gameplay_enabled", true)
+	player.call("apply_loadout", {
+		"weapon": "shotgun",
+		"offensive": "pelto_smash",
+		"defensive": "magnetic_field",
+		"mobility": "pyro_boots",
+		"passive": "omnivamp",
+	})
+	player.call("reset_combat_state")
+	player.set("training_instant_cooldowns", true)
+	target.call("set_training_bot_enabled", false)
+	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
+	player.call("_reset_weapon_pose_to_locomotion", true)
+	for _frame in range(12):
+		await process_frame
+	var rig := player.get_node("VisualRoot") as PlayerVisualRig
+	var shotgun_pivot := player.get("_shotgun_pivot") as Node3D
+	var right_grip := shotgun_pivot.find_child("RightHandGrip", true, false) as Marker3D
+	var right_hand_index := rig.get_right_hand_bone_index()
+	var shotgun_socket := rig.get_weapon_socket(&"shotgun")
+	var carry_transform: Transform3D = shotgun_socket.get_meta("weapon_carry_transform", shotgun_socket.transform)
+	var resting_hand := rig.skeleton.global_transform * rig.skeleton.get_bone_global_pose(right_hand_index)
+	player.call("_perform_pelto_smash")
+	for _frame in range(12):
+		await process_frame
+	var pelto_hand := rig.skeleton.global_transform * rig.skeleton.get_bone_global_pose(right_hand_index)
+	player.call("_cancel_pelto_smash")
+	var stayed_hidden_until_skeleton_refresh := not shotgun_pivot.visible
+	for _frame in range(3):
+		await process_frame
+	var restored_hand := rig.skeleton.global_transform * rig.skeleton.get_bone_global_pose(right_hand_index)
+	print("[PeltoWeaponRestore] pelto_offset=%.6f restored_offset=%.6f grip_error=%.6f" % [resting_hand.origin.distance_to(pelto_hand.origin), resting_hand.origin.distance_to(restored_hand.origin), restored_hand.origin.distance_to(right_grip.global_position)])
+	if resting_hand.origin.distance_to(pelto_hand.origin) <= 0.02:
+		_failures.append("Visuel shotgun : la pose Pelto de la main droite n'a pas été exercée par le test")
+	if not stayed_hidden_until_skeleton_refresh:
+		_failures.append("Visuel shotgun : l'arme réapparaît avant la mise à jour du squelette")
+	if restored_hand.origin.distance_to(right_grip.global_position) > 0.001:
+		_failures.append("Visuel shotgun : la poignée n'est pas resynchronisée après la pose Pelto")
+	player.call("reset_combat_state")
+	player.call("_reset_weapon_pose_to_locomotion", true)
+	for _frame in range(2):
+		await process_frame
+	player.call("_perform_pelto_smash")
+	var cast_seen := false
+	var hidden_during_cast := true
+	var finished := false
+	var first_visible_socket_restored := false
+	var maximum_visible_grip_error := 0.0
+	var post_cast_frames := 0
+	for _frame in range(240):
+		await process_frame
+		var phase := str(player.get("_pelto_phase"))
+		if phase != "":
+			cast_seen = true
+			hidden_during_cast = hidden_during_cast and not shotgun_pivot.visible
+		elif cast_seen:
+			if not finished:
+				first_visible_socket_restored = shotgun_socket.transform.is_equal_approx(carry_transform)
+			finished = true
+			post_cast_frames += 1
+			var hand_world := rig.skeleton.global_transform * rig.skeleton.get_bone_global_pose(right_hand_index)
+			maximum_visible_grip_error = maxf(maximum_visible_grip_error, hand_world.origin.distance_to(right_grip.global_position))
+			if post_cast_frames >= 12:
+				break
+	if not cast_seen or not hidden_during_cast:
+		_failures.append("Visuel shotgun : l'arme n'est pas restée masquée pendant Pelto Smash")
+	if not finished or not shotgun_pivot.visible:
+		_failures.append("Visuel shotgun : l'arme n'est pas réapparue après Pelto Smash")
+	if not first_visible_socket_restored:
+		_failures.append("Visuel shotgun : l'arme réapparaît avant le rétablissement de sa pose portée")
+	if maximum_visible_grip_error > 0.001:
+		_failures.append("Visuel shotgun : la poignée flotte après Pelto Smash (erreur %.4f m)" % maximum_visible_grip_error)
 
 
 func _prepare(player: Node, target: Node, target_position: Vector3) -> void:

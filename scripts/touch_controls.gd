@@ -356,8 +356,9 @@ func _begin_touch(index: int, position: Vector2) -> bool:
 				player.call("set_touch_attack_held", true)
 			return true
 		var action: String = str(identifier).trim_suffix("_button")
-		_action_touches[index] = action
-		_press_action(action)
+		# Keep the rejected finger owned by this button so it cannot migrate to a
+		# joystick, but never forward its release to an already-running cast.
+		_action_touches[index] = action if _press_action(action) else ""
 		return true
 	return false
 
@@ -400,7 +401,8 @@ func _end_touch(index: int) -> bool:
 		handled = true
 		var action: String = _action_touches[index]
 		_action_touches.erase(index)
-		_release_action(action)
+		if not action.is_empty():
+			_release_action(action)
 	return handled
 
 
@@ -418,11 +420,13 @@ func _update_aim(position: Vector2) -> void:
 		player.call("set_touch_aim_vector", _aim_vector)
 
 
-func _press_action(action: String) -> void:
+func _press_action(action: String) -> bool:
 	if player.has_method("begin_touch_action"):
-		player.call("begin_touch_action", action)
+		return bool(player.call("begin_touch_action", action))
 	elif player.has_method("trigger_touch_action"):
 		player.call("trigger_touch_action", action)
+		return true
+	return false
 
 
 func _release_action(action: String) -> void:

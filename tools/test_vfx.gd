@@ -261,14 +261,17 @@ func _test_round_reset_cleanup() -> void:
 	for module_kind in ["drone", "javelin"]:
 		_target.call("reset_combat_state")
 		var health_before := float(_target.call("get_health"))
+		var module_id := "modulo_drone" if module_kind == "drone" else "javelin"
+		var action_token: int = _player.call("_try_begin_module_action", module_id)
+		_check(action_token != 0, "%s reserves its action before emission" % module_kind)
 		_player.set("_module_busy", true)
 		var token_property := "_module_token" if module_kind == "drone" else "_javelin_launch_token"
 		var token := int(_player.get(token_property))
 		var direction := (_target.position - _player.position).normalized()
 		if module_kind == "drone":
-			_player.call("_emit_modulo_drone", token, _player.position, direction)
+			_player.call("_emit_modulo_drone", token, action_token, _player.position, direction)
 		else:
-			_player.call("_emit_javelin", token, _player.position, direction)
+			_player.call("_emit_javelin", token, action_token, _player.position, direction)
 		_scene.call("clear_transient_fx")
 		_player.call("reset_module_state")
 		await process_frame

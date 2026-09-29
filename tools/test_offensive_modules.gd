@@ -139,5 +139,7 @@ func _test_javelin_blocked_recast(player: Node, target: Node, scene: Node) -> vo
 func _wait_for_module(player: Node) -> void:
 	for _frame in range(240):
 		await process_frame
-		if not bool(player.call("is_module_busy")):
+		# The cast lock ends at projectile emission; the already-emitted gameplay
+		# projectile is deliberately allowed to finish without owning the actor.
+		if not bool(player.call("is_module_busy")) and get_nodes_in_group("prototype0_gameplay_projectiles").is_empty():
 			return

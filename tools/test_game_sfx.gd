@@ -22,7 +22,7 @@ func _initialize() -> void:
 		player.call("_perform_javelin")
 		for _frame in range(240):
 			await process_frame
-			if not bool(player.call("is_module_busy")):
+			if bool(target.call("has_javelin_mark")):
 				break
 		player.call("_perform_javelin")
 		await process_frame
