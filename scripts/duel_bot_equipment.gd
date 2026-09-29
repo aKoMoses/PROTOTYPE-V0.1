@@ -169,15 +169,17 @@ func _fire(body: Node3D, player: Node3D) -> void:
 		ammo -= 1
 	_shot_serial += 1
 	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS[profile]
-	var direction := _aim_position - body.global_position
-	direction.y = 0.0
+	var aim_target := _aim_position + Vector3.UP * 0.9
+	if aim_target.distance_squared_to(body.global_position) < 0.01:
+		return
+	var muzzle := body.global_position + Vector3.UP * 0.9
+	if body.has_method("prepare_training_bot_shot"):
+		var shot_transform: Transform3D = body.call("prepare_training_bot_shot", aim_target)
+		muzzle = shot_transform.origin
+	var direction := aim_target - muzzle
 	if direction.length_squared() < 0.01:
 		return
 	direction = direction.normalized()
-	var muzzle := body.global_position + Vector3.UP * 0.9
-	if body.has_method("prepare_training_bot_shot"):
-		var shot_transform: Transform3D = body.call("prepare_training_bot_shot", _aim_position + Vector3.UP * 0.9)
-		muzzle = shot_transform.origin
 	if profile == "shotgun":
 		var volley := {"hits": 0, "base": 0.0}
 		var angles: Array = definition["pellet_angles"]

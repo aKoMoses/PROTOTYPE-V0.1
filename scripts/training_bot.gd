@@ -634,6 +634,18 @@ func _safe_bot_motion(bot_body: Node3D, motion: Vector3) -> Vector3:
 	return motion.normalized() * maxf(0.0, motion.length() * cast[0] - BOT_CONTACT_GAP)
 
 
+func _navigation_motion_is_clear(bot_body: Node3D, motion: Vector3) -> bool:
+	var world := bot_body.get_world_3d()
+	if world == null or motion.length_squared() <= 0.000001:
+		return true
+	var query := _bot_shape_query(bot_body)
+	if query == null:
+		return false
+	query.motion = motion
+	var travel := world.direct_space_state.cast_motion(query)
+	return travel.is_empty() or travel[0] >= 0.98
+
+
 func _recover_bot_from_cover(bot_body: Node3D) -> bool:
 	var world := bot_body.get_world_3d()
 	if world == null:
