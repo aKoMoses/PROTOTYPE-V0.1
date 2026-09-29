@@ -701,6 +701,7 @@ func _build_visuals() -> void:
 	_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_status_label.font_size = 27
 	_status_label.outline_size = 7
+	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_status_label.modulate = Color("#ffe0ac")
 	add_child(_status_label)
 

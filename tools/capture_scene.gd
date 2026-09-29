@@ -5,6 +5,10 @@ var output_path := ""
 
 func _initialize() -> void:
 	var arguments := OS.get_cmdline_user_args()
+	if arguments.has("ui_ratio_preview"):
+		# UI stress fixture only: the shipped project retains its camera/stretch
+		# configuration. Expand the capture canvas to inspect landscape ratios.
+		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	if arguments.size() > 0:
 		output_path = arguments[0]
 	else:
@@ -21,6 +25,23 @@ func _initialize() -> void:
 	if arguments.size() >= 2 and flow != null:
 		if arguments[1] == "equipment":
 			flow.call("_open_equipment")
+		elif arguments[1].begins_with("equipment_"):
+			flow.call("_open_equipment")
+			flow.call("_open_equipment_category", arguments[1].trim_prefix("equipment_"))
+		elif arguments[1] == "settings":
+			flow.call("_open_settings")
+		elif arguments[1] == "hud_editor":
+			flow.call("_open_settings")
+			flow.call("_open_hud_editor")
+		elif arguments[1] == "pause":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			flow.call("_toggle_pause")
+		elif arguments[1] == "final_result":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			flow.set("player_round_score", 3)
+			flow.call("_show_final_result")
 		elif arguments[1] == "lobby":
 			flow.call("_open_lobby")
 		elif arguments[1] == "duel" or arguments[1] == "duel_live":
@@ -206,5 +227,11 @@ func _initialize() -> void:
 	for _frame in range(settle_frames):
 		await process_frame
 	var image := get_root().get_viewport().get_texture().get_image()
-	image.save_png(output_path)
-	quit()
+	var capture_error := image.save_png(output_path)
+	paused = false
+	var sfx := root.get_node_or_null("GameSfx")
+	if sfx != null and sfx.has_method("clear"):
+		sfx.call("clear")
+	scene.queue_free()
+	await create_timer(0.1).timeout
+	quit(0 if capture_error == OK else 1)

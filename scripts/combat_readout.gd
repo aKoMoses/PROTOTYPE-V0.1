@@ -12,6 +12,7 @@ var _damage_side := 1.0
 var _viewport: SubViewport
 var _sprite: Sprite3D
 var _health_number: Label
+var _identity_weapon: Label
 var _segments: Array[ColorRect] = []
 var _badge: Panel
 var _badge_mark: Label
@@ -48,7 +49,7 @@ func update_actor_identity(accent: Color, display_name: String) -> void:
 		return
 	var name_label := _viewport.get_node_or_null("HealthBarUI/ActorName") as Label
 	if name_label != null:
-		name_label.text = display_name
+		_format_actor_name(name_label, display_name)
 	for segment in _segments:
 		segment.color = accent
 	if _badge_mark != null:
@@ -199,9 +200,18 @@ func _build() -> void:
 	root.add_child(header)
 	var name_label := _label(_display_name, 20, Color("#f5e6d0"))
 	name_label.name = "ActorName"
-	name_label.position = Vector2(29, 13)
-	name_label.size = Vector2(170, 29)
+	name_label.position = Vector2(29, 10)
+	name_label.size = Vector2(160, 32)
+	name_label.clip_text = true
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	root.add_child(name_label)
+	_identity_weapon = _label("", 11, Color("#ceb899"))
+	_identity_weapon.name = "ActorWeapon"
+	_identity_weapon.position = Vector2(29, 25)
+	_identity_weapon.size = Vector2(160, 17)
+	_identity_weapon.clip_text = true
+	root.add_child(_identity_weapon)
+	_format_actor_name(name_label, _display_name)
 	_health_number = _label("", 22, Color("#fff2dc"))
 	_health_number.name = "HealthNumber"
 	_health_number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -237,15 +247,15 @@ func _build() -> void:
 	root.add_child(_badge_mark)
 	_ammo_recess = Panel.new()
 	_ammo_recess.name = "ShotgunAmmoRecess"
-	_ammo_recess.position = Vector2(124, 13)
-	_ammo_recess.size = Vector2(63, 26)
+	_ammo_recess.position = Vector2(124, 83)
+	_ammo_recess.size = Vector2(63, 23)
 	_ammo_recess.add_theme_stylebox_override("panel", _panel_style(Color("#211f1e"), Color("#5d4a3a"), 1, 4))
 	_ammo_recess.visible = false
 	root.add_child(_ammo_recess)
 	for index in range(3):
 		var shell := Panel.new()
 		shell.name = "ShotgunShell%d" % (index + 1)
-		shell.position = Vector2(130 + index * 19, 16)
+		shell.position = Vector2(130 + index * 19, 86)
 		shell.size = Vector2(12, 19)
 		shell.add_theme_stylebox_override("panel", _panel_style(Color("#37393a"), Color("#685f58"), 1, 2))
 		shell.visible = false
@@ -284,14 +294,14 @@ func _build() -> void:
 	_ammo_progress_track.add_child(_ammo_progress_tip)
 	_blaster_coil_recess = Panel.new()
 	_blaster_coil_recess.name = "BlasterCoilRecess"
-	_blaster_coil_recess.position = Vector2(124, 13)
-	_blaster_coil_recess.size = Vector2(63, 26)
+	_blaster_coil_recess.position = Vector2(124, 83)
+	_blaster_coil_recess.size = Vector2(63, 23)
 	_blaster_coil_recess.add_theme_stylebox_override("panel", _panel_style(Color("#1b292c"), Color("#466d70"), 1, 4))
 	_blaster_coil_recess.visible = false
 	root.add_child(_blaster_coil_recess)
 	_blaster_coil = Line2D.new()
 	_blaster_coil.name = "BlasterCoil"
-	_blaster_coil.points = PackedVector2Array([Vector2(141, 18), Vector2(157, 18), Vector2(160, 20), Vector2(157, 22), Vector2(141, 22), Vector2(138, 24), Vector2(141, 26), Vector2(157, 26), Vector2(160, 28), Vector2(157, 30), Vector2(141, 30)])
+	_blaster_coil.points = PackedVector2Array([Vector2(141, 88), Vector2(157, 88), Vector2(160, 90), Vector2(157, 92), Vector2(141, 92), Vector2(138, 94), Vector2(141, 96), Vector2(157, 96), Vector2(160, 98), Vector2(157, 100), Vector2(141, 100)])
 	_blaster_coil.width = 2.0
 	_blaster_coil.default_color = Color("#57bcca")
 	_blaster_coil.begin_cap_mode = Line2D.LINE_CAP_ROUND
@@ -331,6 +341,18 @@ func _build() -> void:
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.shaded = false
 	add_child(_sprite)
+
+
+func _format_actor_name(item: Label, value: String) -> void:
+	# Keep the existing identity and weapon readable without covering health/ammo.
+	# A two-line Label at size 14 has a 43 px minimum height, exceeding this
+	# 34 px header. Separate labels keep both baselines above the health track.
+	var separated := value.contains(" · ")
+	item.text = value.get_slice(" · ", 0) if separated else value
+	item.add_theme_font_size_override("font_size", 14 if separated else 20)
+	item.size = Vector2(160, 20 if separated else 32)
+	_identity_weapon.text = value.substr(value.find(" · ") + 3) if separated else ""
+	_identity_weapon.visible = separated
 
 
 func _label(value: String, font_size: int, color: Color) -> Label:

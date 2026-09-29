@@ -130,6 +130,8 @@ var _editor_player_process_mode := Node.PROCESS_MODE_INHERIT
 var _editor_target_process_mode := Node.PROCESS_MODE_INHERIT
 var _editor_existing_fx: Dictionary = {}
 var _result_actions: Array[Control] = []
+var _navigation_backdrop: TextureRect
+var _touch_scale_label: Label
 
 const BG := Color("#161417")
 const PANEL := Color("#292327")
@@ -148,6 +150,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	touch_controls = touch_node
 	loadout = LOADOUT.load_local()
 	_load_settings()
+	main.set_meta("camera_shake_enabled", bool(_settings.camera_shake))
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_countdown_audio = AudioStreamPlayer.new()
 	_countdown_audio.name = "CountdownAudio"
@@ -219,8 +222,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
-		elif current_screen == Screen.SETTINGS:
-			_show_screen(Screen.MENU)
+		elif current_screen in [Screen.SETTINGS, Screen.EQUIPMENT, Screen.LOBBY]:
+			_open_menu()
+		get_viewport().set_input_as_handled()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _screen_root != null:
+		if _hud_editor != null and _hud_editor.visible:
+			return
+		if current_screen == Screen.COMBAT:
+			_toggle_pause()
+		elif current_screen in [Screen.SETTINGS, Screen.EQUIPMENT, Screen.LOBBY]:
+			_open_menu()
 
 func _build_ui() -> void:
 	_screen_root = Control.new()
@@ -228,6 +241,18 @@ func _build_ui() -> void:
 	_screen_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_screen_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_screen_root)
+	_navigation_backdrop = TextureRect.new()
+	_navigation_backdrop.name = "NavigationBackdrop"
+	_navigation_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_navigation_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([Color("#0b1015a0"), Color("#0b101518")])
+	var backdrop_texture := GradientTexture2D.new()
+	backdrop_texture.gradient = gradient
+	backdrop_texture.fill_from = Vector2(0.0, 0.5)
+	backdrop_texture.fill_to = Vector2(1.0, 0.5)
+	_navigation_backdrop.texture = backdrop_texture
+	_screen_root.add_child(_navigation_backdrop)
 	_build_menu()
 	_build_lobby()
 	_build_equipment()
@@ -236,6 +261,28 @@ func _build_ui() -> void:
 	_build_winner_transition()
 	_build_pause()
 	_build_result()
+	_screen_root.resized.connect(func() -> void: _layout_navigation_panels.call_deferred())
+	_layout_navigation_panels.call_deferred()
+
+func _layout_navigation_panels() -> void:
+	# Scale navigation only. HUD geometry and saved touch layouts use their own
+	# safe-area controller and remain independent of these decorative panels.
+	var viewport_size := _screen_root.size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+	var available := viewport_size - Vector2(32.0, 24.0)
+	for panel in [_menu_panel, _equipment_panel, _settings_panel, _pause_panel, _result_panel]:
+		if panel == null:
+			continue
+		var design: Vector2 = panel.get_meta("navigation_size", panel.custom_minimum_size)
+		design = design.max(panel.get_combined_minimum_size())
+		var factor := minf(1.0, minf(available.x / design.x, available.y / design.y))
+		panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		panel.size = design
+		panel.scale = Vector2.ONE * factor
+		panel.position = (viewport_size - design * factor) * 0.5
+		if panel == _menu_panel:
+			panel.position.x = 16.0 + maxf(0.0, viewport_size.x - 1280.0) * 0.10
 
 func _load_settings() -> void:
 	var config := ConfigFile.new()
@@ -267,6 +314,8 @@ func _label(text: String, size: int, color: Color = CREAM) -> Label:
 	item.text = text
 	item.add_theme_font_size_override("font_size", size)
 	item.add_theme_color_override("font_color", color)
+	if size >= 25:
+		item.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return item
 
@@ -274,7 +323,9 @@ func _button(text: String, callback: Callable, width := 280.0) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(width, 48)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	button.add_theme_color_override("font_color", CREAM)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
 	button.add_theme_color_override("font_pressed_color", Color.WHITE)
@@ -282,13 +333,34 @@ func _button(text: String, callback: Callable, width := 280.0) -> Button:
 	button.add_theme_stylebox_override("hover", _panel_style(Color("#49383c"), CYAN, 8))
 	button.add_theme_stylebox_override("pressed", _panel_style(Color("#1d555b"), CYAN, 8))
 	button.add_theme_stylebox_override("focus", _panel_style(Color("#49383c"), CYAN, 8))
+	for state in ["normal", "hover", "pressed"]:
+		var style := button.get_theme_stylebox(state) as StyleBoxFlat
+		style.content_margin_top = 11
+		style.content_margin_bottom = 11
+	var focus_style := StyleBoxFlat.new()
+	focus_style.bg_color = Color.TRANSPARENT
+	focus_style.border_color = CYAN
+	focus_style.set_border_width_all(2)
+	focus_style.set_corner_radius_all(8)
+	button.add_theme_stylebox_override("focus", focus_style)
 	button.pressed.connect(callback)
 	return button
 
 func _center_panel(width: float, height: float) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(width, height)
-	panel.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#705057"), 14))
+	panel.set_meta("navigation_size", Vector2(width, height))
+	var frame_style := StyleBoxTexture.new()
+	frame_style.texture = EQUIPMENT_FRAME
+	# The source PNG includes transparent padding around the outer metal edge.
+	# Crop it before nine-slicing so content margins refer to the actual plate.
+	frame_style.region_rect = Rect2(48, 40, 1576, 860)
+	frame_style.set_texture_margin_all(64)
+	frame_style.content_margin_left = 32
+	frame_style.content_margin_right = 32
+	frame_style.content_margin_top = 30
+	frame_style.content_margin_bottom = 30
+	panel.add_theme_stylebox_override("panel", frame_style)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.position -= Vector2(width, height) * 0.5
 	return panel
@@ -303,6 +375,10 @@ func _show_screen(screen: Screen) -> void:
 		_result_audio.stop()
 	_set_menu_music_active(screen in [Screen.MENU, Screen.EQUIPMENT, Screen.SETTINGS, Screen.LOBBY])
 	_clear_screen()
+	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if screen == Screen.COMBAT else Control.MOUSE_FILTER_STOP
+	_navigation_backdrop.visible = screen != Screen.COMBAT
+	if touch_controls != null:
+		touch_controls.visible = false
 	if _pause_active and screen != Screen.COMBAT:
 		_end_pause(false)
 	match screen:
@@ -322,13 +398,11 @@ func _show_screen(screen: Screen) -> void:
 				touch_controls.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 		Screen.RESULT:
 			_result_panel.visible = true
-		_:
-			if touch_controls != null:
-				touch_controls.visible = false
 	if main != null and main.has_method("set_menu_mode"):
 		main.call("set_menu_mode", screen != Screen.COMBAT)
 	if main != null and main.has_method("set_menu_showcase_enabled"):
 		main.call("set_menu_showcase_enabled", screen == Screen.MENU)
+	_layout_navigation_panels.call_deferred()
 
 func _touch_preview_requested() -> bool:
 	for argument in OS.get_cmdline_user_args():
@@ -341,6 +415,7 @@ func _build_menu() -> void:
 	_menu_panel = Control.new()
 	_menu_panel.name = "MainMenuPanel"
 	_menu_panel.custom_minimum_size = panel_size
+	_menu_panel.set_meta("navigation_size", panel_size)
 	_menu_panel.size = panel_size
 	_menu_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_menu_panel.position = Vector2(-panel_size.x * 0.5 - 300.0, -panel_size.y * 0.5)
@@ -356,9 +431,9 @@ func _build_menu() -> void:
 	var box := VBoxContainer.new()
 	box.name = "MenuContent"
 	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	box.position = Vector2(136.0, 108.0)
-	box.size = Vector2(422.0, 470.0)
-	box.add_theme_constant_override("separation", 7)
+	box.position = Vector2(136.0, 94.0)
+	box.size = Vector2(422.0, 474.0)
+	box.add_theme_constant_override("separation", 6)
 	_menu_panel.add_child(box)
 	var title := HBoxContainer.new()
 	title.add_theme_constant_override("separation", 0)
@@ -379,17 +454,17 @@ func _build_menu() -> void:
 	divider.custom_minimum_size = Vector2(0.0, 2.0)
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(divider)
-	var intro := _label("Choisis un duel, une survie ou un entraînement.", 18, CREAM)
-	intro.custom_minimum_size = Vector2(0.0, 56.0)
+	var intro := _label("Choisis un duel, une survie ou un entraînement.", 16, CREAM)
+	intro.custom_minimum_size = Vector2(0.0, 38.0)
 	box.add_child(intro)
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0.0, 2.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
-	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
+	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 64.0))
+	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
+	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
+	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
+	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
 
 
 func _build_lobby() -> void:
@@ -428,22 +503,20 @@ func _menu_art_button(text: String, callback: Callable, texture: Texture2D, heig
 	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var focus_style := StyleBoxFlat.new()
+	focus_style.bg_color = Color.TRANSPARENT
+	focus_style.border_color = CYAN
+	focus_style.set_border_width_all(2)
+	focus_style.set_corner_radius_all(8)
+	button.add_theme_stylebox_override("focus", focus_style)
 	button.add_theme_color_override("font_outline_color", Color(0.06, 0.05, 0.05, 0.92))
 	button.add_theme_constant_override("outline_size", 2)
 	button.pressed.connect(callback)
-	button.mouse_entered.connect(func() -> void:
-		art.modulate = Color(1.15, 1.15, 1.15, 1.0)
-	)
-	button.mouse_exited.connect(func() -> void:
-		art.modulate = Color.WHITE
-	)
-	button.button_down.connect(func() -> void:
-		art.modulate = Color(0.82, 0.82, 0.82, 1.0)
-	)
-	button.button_up.connect(func() -> void:
-		art.modulate = Color(1.15, 1.15, 1.15, 1.0)
-	)
+	var update_art := func() -> void:
+		var level := 0.82 if button.button_pressed else 1.15 if button.is_hovered() or button.has_focus() else 1.0
+		art.modulate = Color(level, level, level, 1.0)
+	for state_signal in [button.mouse_entered, button.mouse_exited, button.focus_entered, button.focus_exited, button.button_down, button.button_up]:
+		state_signal.connect(update_art)
 	item.add_child(button)
 	return item
 
@@ -451,6 +524,7 @@ func _build_equipment() -> void:
 	_equipment_panel = Control.new()
 	_equipment_panel.name = "EquipmentPanel"
 	_equipment_panel.custom_minimum_size = Vector2(1170, 650)
+	_equipment_panel.set_meta("navigation_size", Vector2(1170, 650))
 	_equipment_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_equipment_panel.position -= Vector2(585, 325)
 	_screen_root.add_child(_equipment_panel)
@@ -678,13 +752,15 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	info.pressed.connect(func() -> void: _show_equipment_info(identifier))
 	var icon := TextureRect.new()
 	icon.texture = _equipment_icon(identifier)
-	icon.custom_minimum_size.y = 160 if category == "robot" else 188
+	# Multi-line module names still need room for the equipped marker inside
+	# the card. The expanding image takes the remaining space, without overflow.
+	icon.custom_minimum_size.y = 150 if category == "offensive" else 160
 	icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(icon)
-	var name_label := _label(LOADOUT.display_name(identifier), 19 if category == "robot" else 21, CREAM)
+	var name_label := _label(LOADOUT.display_name(identifier), 19 if category in ["robot", "offensive"] else 21, CREAM)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(name_label)
@@ -702,8 +778,7 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 	content.add_child(marker)
 	button.pressed.connect(func() -> void:
 		loadout[category] = identifier
-		if category == "robot":
-			LOADOUT.save_local(loadout)
+		LOADOUT.save_local(loadout)
 		_equipment_info_panel.visible = false
 		_equipment_info_id = ""
 		_refresh_equipment()
@@ -770,10 +845,12 @@ func _build_settings() -> void:
 	box.add_theme_constant_override("separation", 14)
 	_settings_panel.add_child(box)
 	box.add_child(_label("RÉGLAGES", 32, CREAM))
-	box.add_child(_label("Options limitées au prototype", 14, MUTED))
+	box.add_child(_label("CONFORT ET INTERFACE", 14, CYAN))
 	var shake := CheckButton.new()
 	shake.name = "CameraShake"
 	shake.text = "Secousses de caméra"
+	shake.add_theme_font_size_override("font_size", 18)
+	shake.add_theme_color_override("font_color", CREAM)
 	shake.button_pressed = bool(_settings.camera_shake)
 	shake.toggled.connect(func(value: bool) -> void:
 		_settings.camera_shake = value
@@ -794,8 +871,10 @@ func _build_settings() -> void:
 		_save_settings()
 		if touch_controls != null and touch_controls.has_method("set_control_scale"):
 			touch_controls.call("set_control_scale", _settings.touch_scale)
+		_touch_scale_label.text = "Taille des contrôles tactiles  ·  %d %%" % roundi(_settings.touch_scale * 100.0)
 	)
-	box.add_child(_label("Taille des contrôles tactiles", 16, MUTED))
+	_touch_scale_label = _label("Taille des contrôles tactiles  ·  %d %%" % roundi(_settings.touch_scale * 100.0), 16, CREAM)
+	box.add_child(_touch_scale_label)
 	box.add_child(touch)
 	box.add_child(_label("INTERFACE", 18, CYAN))
 	box.add_child(_button("PERSONNALISER L'INTERFACE", Callable(self, "_open_hud_editor"), 300))
@@ -805,6 +884,7 @@ func _build_hud() -> void:
 	_hud = Control.new()
 	_hud.name = "CombatHUD"
 	_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen_root.add_child(_hud)
 	var score_panel := Control.new()
 	score_panel.name = "MatchSummary"
@@ -1301,6 +1381,7 @@ func _on_hud_editor_closed() -> void:
 		touch_controls.visible = _editor_from_pause and (DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested())
 
 func _on_hud_test_started() -> void:
+	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_editor_test_started_msec = Time.get_ticks_msec()
 	_editor_original_player = player
 	_editor_player_process_mode = player.process_mode
@@ -1342,6 +1423,7 @@ func _on_hud_test_started() -> void:
 	_update_hud()
 
 func _on_hud_test_finished() -> void:
+	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if current_screen == Screen.COMBAT else Control.MOUSE_FILTER_STOP
 	if touch_controls != null:
 		touch_controls.call("reset_inputs")
 	if _editor_trial_player != null and is_instance_valid(_editor_trial_player):
@@ -1522,9 +1604,11 @@ func _show_final_result() -> void:
 	_round_resolved = true
 	_result_panel.visible = true
 	_hud.visible = false
+	_navigation_backdrop.visible = true
 	if touch_controls != null:
 		touch_controls.visible = false
 	_set_result_actions_visible(true)
+	_result_actions[0].grab_focus()
 	_hud_labels.result_title.text = "MATCH GAGNÉ" if player_round_score >= 3 else "MATCH PERDU"
 	_hud_labels.result_title.add_theme_color_override("font_color", GREEN if player_round_score >= 3 else RED)
 	_hud_labels.result_detail.text = "Score final  %d — %d" % [player_round_score, bot_round_score]
@@ -1551,12 +1635,19 @@ func _toggle_pause() -> void:
 	else:
 		_pause_active = true
 		_pause_started_msec = Time.get_ticks_msec()
+		if player != null and player.has_method("reset_desktop_inputs"):
+			player.call("reset_desktop_inputs")
 		if touch_controls != null and touch_controls.has_method("reset_inputs"):
 			touch_controls.call("reset_inputs")
 		get_tree().paused = true
 		_countdown_audio.stream_paused = true
 		_match_music.stream_paused = true
+		_set_combat_audio_paused(true)
+		if touch_controls != null:
+			touch_controls.visible = false
+		_navigation_backdrop.visible = true
 		_pause_panel.visible = true
+		_layout_navigation_panels.call_deferred()
 		_update_countdown_overlay()
 
 func _resume() -> void:
@@ -1573,13 +1664,23 @@ func _end_pause(resume_game: bool) -> void:
 	get_tree().paused = false
 	_countdown_audio.stream_paused = false
 	_match_music.stream_paused = false
+	_set_combat_audio_paused(false)
+	if current_screen == Screen.COMBAT:
+		_navigation_backdrop.visible = false
 	if not resume_game:
 		_countdown_audio.stop()
 	if resume_game and round_phase == RoundPhase.LIVE and main != null and main.has_method("shift_pause_timers"):
 		main.call("shift_pause_timers", elapsed)
 	if touch_controls != null and touch_controls.has_method("reset_inputs"):
 		touch_controls.call("reset_inputs")
+		if resume_game and current_screen == Screen.COMBAT and round_phase == RoundPhase.LIVE:
+			touch_controls.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 	_update_countdown_overlay()
+
+func _set_combat_audio_paused(value: bool) -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null and sfx.has_method("set_paused"):
+		sfx.call("set_paused", value)
 
 func _update_pause_labels() -> void:
 	if _hud_labels.has("pause_status"):
