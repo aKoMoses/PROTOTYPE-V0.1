@@ -111,13 +111,27 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose exports/prototype0-android.apk
           apkanalyzer apk summary exports/prototype0-android.apk
 
+      - name: Export Windows game
+        if: github.event_name != 'pull_request'
+        env:
+          GDSYNC_PUBLIC_KEY: ${{ secrets.GDSYNC_PUBLIC_KEY }}
+          GDSYNC_PRIVATE_KEY: ${{ secrets.GDSYNC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          godot --headless --path . --export-release 'Windows Desktop' exports/prototype0-windows.exe
+          test -s exports/prototype0-windows.exe
+          test -s exports/prototype0-windows.pck
+          file exports/prototype0-windows.exe | grep -q 'PE32'
+          zip -j exports/prototype0-windows.zip exports/prototype0-windows.exe exports/prototype0-windows.pck
+          unzip -tq exports/prototype0-windows.zip
+
       - name: Publish test release
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" exports/prototype0-android.apk \
+          gh release create "$RELEASE_TAG" exports/prototype0-android.apk exports/prototype0-windows.zip \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Prototype 0 $RELEASE_TAG" \

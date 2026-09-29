@@ -19,9 +19,10 @@ dans Git, un autre poste qui lance le projet source doit recevoir la même
 configuration par un canal privé ; un joueur qui utilise un export du jeu n'a
 pas à la saisir. Voir [les instructions pour le Codex de l'autre joueur](POUR_LE_CODEX_DE_MON_FRERE.md).
 
-Les APK Android publiés automatiquement utilisent les secrets GitHub Actions
+Les exports Android et Windows publiés automatiquement utilisent les secrets GitHub Actions
 `GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY`, déjà configurés. Le workflow refuse
-la publication si elles manquent. Pour une copie du projet source sur un autre
+la publication s'ils manquent. La release propose un APK Android et un ZIP
+Windows contenant le `.exe` et son `.pck`. Pour une copie du projet source sur un autre
 PC, Romain doit transmettre la même configuration par un canal privé ; ne pas
 mettre la clé privée dans un commit ou un message public.
 

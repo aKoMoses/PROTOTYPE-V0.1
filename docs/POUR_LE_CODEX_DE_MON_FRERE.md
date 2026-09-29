@@ -6,14 +6,15 @@ logements. Dépôt : `https://github.com/aKoMoses/PROTOTYPE-V0.1`, branche `main
 ## Chemin le plus simple : jouer avec un export du jeu
 
 Les clés du projet sont configurées chez Romain et dans GitHub Actions. Les
-anciennes releases Android ne contiennent pas ce mode. Choisir une release de
-test Android publiée **après** la configuration GD-Sync, sur la
+anciennes releases Android ne contiennent pas ce mode. Choisir la dernière
+release de test contenant **l'APK Android et le ZIP Windows**, sur la
 [page des releases](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases).
 
-1. Récupérer **la même version** que celle utilisée par l'hôte : installer le
-   nouvel APK Android ou, si un export Windows est fourni, lancer son
-   exécutable. Le joueur n'a pas besoin de compte GD-Sync, de serveur, de VPN
-   ou d'ouvrir un port sur sa box.
+1. Récupérer **la même release** que celle utilisée par l'hôte. Sur Android,
+   installer `prototype0-android.apk`. Sur PC, décompresser
+   `prototype0-windows.zip` et garder le `.exe` et le `.pck` dans le même
+   dossier, puis lancer le `.exe`. Le joueur n'a pas besoin de compte GD-Sync,
+   de serveur, de VPN ou d'ouvrir un port sur sa box.
 2. Dans le jeu, ouvrir **MULTIJOUEUR**. Attendre la connexion ; la liste des
    salons s'actualise automatiquement. Cliquer sur **REJOINDRE** sur le salon
    créé par l'hôte.
@@ -32,7 +33,8 @@ pas chercher à créer un autre projet GD-Sync.
    Demander à Romain la configuration de **la même clé API** par un canal privé,
    ou utiliser un export déjà configuré. Avec les clés, les saisir dans
    **Projet > Outils > GD-Sync**. Ne jamais ajouter la clé privée à Git, au chat
-   ou à une issue GitHub.
+   ou à une issue GitHub. Cette étape n'est pas nécessaire si le PC utilise le
+   ZIP Windows publié.
 3. Avec la configuration présente, lancer le jeu et suivre le parcours ci-dessus.
 
 ## Nouvelles versions
@@ -44,10 +46,10 @@ session. Pour jouer ensemble après une mise à jour, utilisez tous les deux **l
 même version** du jeu. Un ancien client peut voir le salon d'un nouveau client
 avec la même clé, mais leurs règles réseau peuvent ne plus correspondre.
 
-Pour les APK Android produits automatiquement par GitHub, les secrets Actions
+Pour les exports Android et Windows produits automatiquement par GitHub, les secrets Actions
 `GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY` sont déjà enregistrés. Le workflow
-refuse de publier un nouvel APK s'ils manquent. Un export Windows préparé dans
-Godot utilise les clés configurées localement dans le projet.
+refuse de publier une nouvelle release s'ils manquent. Un export préparé
+manuellement dans Godot utilise les clés configurées localement dans le projet.
 
 État de validation : deux instances Godot sur le PC de Romain se sont connectées
 aux serveurs GD-Sync et ont vérifié le salon, le lancement, les dégâts et le
