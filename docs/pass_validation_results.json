@@ -1,0 +1,688 @@
+{
+  "engine_executable": "C:\\Users\\Ben\\Documents\\Codex\\2026-09-23\\j-ai-x20\\outputs\\PROTOTYPE-0/.godot/pass-runtime/Godot_v4.7.2-stable_win64_console.exe",
+  "project": "C:\\Users\\Ben\\Documents\\Codex\\2026-09-23\\j-ai-x20\\outputs\\PROTOTYPE-0",
+  "tests": 47,
+  "passed": 47,
+  "failed": [],
+  "results": [
+    {
+      "test": "test_arena_contract.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.33,
+      "log": ".godot/pass-logs/final/test_arena_contract.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "ARENA CONTRACT: PASS (48 blockers, 4 health pads, 14 bushes)"
+      ]
+    },
+    {
+      "test": "test_arena_reliability.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.16,
+      "log": ".godot/pass-logs/final/test_arena_reliability.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "ARENA RELIABILITY: PASS (48 blockers, 14 grounded bushes, exterior <= 160 meshes)"
+      ]
+    },
+    {
+      "test": "test_blaster.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 14.5,
+      "log": ".godot/pass-logs/final/test_blaster.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-127 BLASTER TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_bot_obstacle_collision.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 1.78,
+      "log": ".godot/pass-logs/final/test_bot_obstacle_collision.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "BOT OBSTACLE COLLISION TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_bot_tactics.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.31,
+      "log": ".godot/pass-logs/final/test_bot_tactics.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "BOT TACTICS TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_cast_lock.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.36,
+      "log": ".godot/pass-logs/final/test_cast_lock.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "CAST ACTION LOCK TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_combat_state.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 0.77,
+      "log": ".godot/pass-logs/final/test_combat_state.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0-101/102 COMBAT STATE TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_defensive_modules.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 10.59,
+      "log": ".godot/pass-logs/final/test_defensive_modules.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-107 DEFENSIVE MODULES TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_duel_bot.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 12.19,
+      "log": ".godot/pass-logs/final/test_duel_bot.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "DUEL BOT TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_duel_equipment.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 4.48,
+      "log": ".godot/pass-logs/final/test_duel_equipment.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "DUEL EQUIPMENT TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_enemy_droid_visual.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 1.41,
+      "log": ".godot/pass-logs/final/test_enemy_droid_visual.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "ENEMY_DROID_TEST {\"checks\":510,\"failure_count\":0,\"failures\":[],\"measurements\":{\"aim_cases\":216,\"dead_hips_height_source_units\":0.172683864831924,\"independent_240_frame_pose_difference\":0.00000819557499198709,\"maximum_hand_attachment_origin_error_metres\":0.0,\"maximum_hips_horizontal_offset_source_units\":0.0,\"maximum_muzzle_error_degrees\":0.0395646826484525,\"maximum_support_wrist_error_metres\":0.0263306740671396,\"mid_recoil_immediate_reset_shoulder_drift\":0.0,\"seven_shot_recovery_muzzle_error_metres\":0.0,\"seven_shot_recovery_pose_difference\":0.0000000307195300308649,\"seven_shot_recovery_shoulder_drift_source_units\":0.0,\"seven_shot_reset_muzzle_error_metres\":0.0}}"
+      ]
+    },
+    {
+      "test": "test_fulguro_punch.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 10.12,
+      "log": ".godot/pass-logs/final/test_fulguro_punch.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "FULGURO PUNCH INTEGRATION TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_fx_budget.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.36,
+      "log": ".godot/pass-logs/final/test_fx_budget.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-119 FX BUDGET TEST: PASS (42 bursts actifs)"
+      ]
+    },
+    {
+      "test": "test_game_flow.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 4.38,
+      "log": ".godot/pass-logs/final/test_game_flow.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "V02-02 MATCH FLOW TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_game_sfx.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 6.16,
+      "log": ".godot/pass-logs/final/test_game_sfx.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "GAME SFX TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_gui_input_routing.gd",
+      "exit_code": 0,
+      "display": "Windows/Vulkan",
+      "passed": true,
+      "script_error": false,
+      "seconds": 5.62,
+      "log": ".godot/pass-logs/final/test_gui_input_routing.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "INPUT GUI DISPATCH: PASS (13 checks)"
+      ]
+    },
+    {
+      "test": "test_hud_editor_safety.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.25,
+      "log": ".godot/pass-logs/final/test_hud_editor_safety.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "HUD EDITOR/RECOVERY SAFETY: PASS (49 checks)"
+      ]
+    },
+    {
+      "test": "test_hud_layout.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.08,
+      "log": ".godot/pass-logs/final/test_hud_layout.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0 HUD LAYOUT/EDITOR TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_hud_user_save.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 0.75,
+      "log": ".godot/pass-logs/final/test_hud_user_save.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0 HUD USER SAVE TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_input_transition_reliability.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.16,
+      "log": ".godot/pass-logs/final/test_input_transition_reliability.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "INPUT TRANSITION RELIABILITY: PASS (18 checks)"
+      ]
+    },
+    {
+      "test": "test_loadout_state.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 0.75,
+      "log": ".godot/pass-logs/final/test_loadout_state.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0-126 LOADOUT TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_mobility_modules.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.47,
+      "log": ".godot/pass-logs/final/test_mobility_modules.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-106 MOBILITY MODULES TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_mode_pause_reliability.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.31,
+      "log": ".godot/pass-logs/final/test_mode_pause_reliability.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "MODE PAUSE RELIABILITY TEST: PASS (0 échecs)"
+      ]
+    },
+    {
+      "test": "test_mouse_input_routing.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.23,
+      "log": ".godot/pass-logs/final/test_mouse_input_routing.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "MOUSE/TOUCH INPUT ROUTING: PASS (28 checks)"
+      ]
+    },
+    {
+      "test": "test_navigation_reliability.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.42,
+      "log": ".godot/pass-logs/final/test_navigation_reliability.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "NAVIGATION RELIABILITY: PASS (48 checks)"
+      ]
+    },
+    {
+      "test": "test_network_reliability.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 4.38,
+      "log": ".godot/pass-logs/final/test_network_reliability.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "NETWORK RELIABILITY TEST: PASS (0 échecs)"
+      ]
+    },
+    {
+      "test": "test_offensive_modules.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.66,
+      "log": ".godot/pass-logs/final/test_offensive_modules.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-105 OFFENSIVE MODULES TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_passives.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 10.05,
+      "log": ".godot/pass-logs/final/test_passives.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0-108 PASSIVES TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_pelto_smash.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 13.2,
+      "log": ".godot/pass-logs/final/test_pelto_smash.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "PELTO SMASH INTEGRATION TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_player_aim_core.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.86,
+      "log": ".godot/pass-logs/final/test_player_aim_core.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "AIM CORE: PASS | ten alternating normal/charged shots | max_angle=0.742504deg | recovery_drift=0.000017deg | max_hand_error=0.00000013m | fixed_transforms=true"
+      ]
+    },
+    {
+      "test": "test_player_visual_rig.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 13.09,
+      "log": ".godot/pass-logs/final/test_player_visual_rig.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "PASS: AIM faces the independent aim direction while moving sideways",
+        "PASS: committed attack enters FIRE",
+        "PASS: AIM_HOLD keeps the weapon raised through half its configured window",
+        "PASS: a repeated shot restarts the complete AIM_HOLD window",
+        "PASS: expired AIM_HOLD returns to lowered locomotion",
+        "PASS: in-place locomotion never moves CharacterBody",
+        "PASS: ShotKick completion is reported without leaving AimPose",
+        "PLAYER VISUAL RIG REGRESSION TEST: PASS (299 checks)"
+      ]
+    },
+    {
+      "test": "test_presentation_lifecycle.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 0.83,
+      "log": ".godot/pass-logs/final/test_presentation_lifecycle.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "PASS: combat sound exposes pause lifecycle",
+        "PASS: combat sound exposes round/scene cleanup",
+        "PASS: pause suspends the currently playing sound",
+        "PASS: paused combat rejects stale sound requests",
+        "PASS: resume continues the suspended sound",
+        "PASS: scene/round reset stops all sounds and cooldown history",
+        "PASS: new round can play its first event immediately",
+        "PRESENTATION LIFECYCLE: PASS (14 checks, 0 failures)"
+      ]
+    },
+    {
+      "test": "test_repair_kit.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.34,
+      "log": ".godot/pass-logs/final/test_repair_kit.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "REPAIR KIT TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_repair_kit_visual.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 0.84,
+      "log": ".godot/pass-logs/final/test_repair_kit_visual.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "REPAIR KIT VISUAL TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_robot_forge.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.89,
+      "log": ".godot/pass-logs/final/test_robot_forge.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "ROBOT FORGE TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_shotgun.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 9.76,
+      "log": ".godot/pass-logs/final/test_shotgun.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-104 SHOTGUN TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_shotgun_visual.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 11.22,
+      "log": ".godot/pass-logs/final/test_shotgun_visual.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "SHOTGUN GLB VISUAL REGRESSION: PASS (78 checks)"
+      ]
+    },
+    {
+      "test": "test_survival.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 10.95,
+      "log": ".godot/pass-logs/final/test_survival.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "SURVIVAL TEST: PASS (0 échecs)"
+      ]
+    },
+    {
+      "test": "test_survival_expansion.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 5.03,
+      "log": ".godot/pass-logs/final/test_survival_expansion.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "SURVIVAL EXPANSION TEST: PASS (0 échecs)"
+      ]
+    },
+    {
+      "test": "test_survival_music.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 6.97,
+      "log": ".godot/pass-logs/final/test_survival_music.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "SURVIVAL MUSIC TEST: PASS (0 échecs)"
+      ]
+    },
+    {
+      "test": "test_target_dummy.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.16,
+      "log": ".godot/pass-logs/final/test_target_dummy.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-102 TARGET DUMMY TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_touch_controls.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 2.14,
+      "log": ".godot/pass-logs/final/test_touch_controls.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "P0 MOBILE TOUCH LAYOUT/MULTITOUCH TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_training_bot.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.83,
+      "log": ".godot/pass-logs/final/test_training_bot.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-114 TRAINING BOT TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_training_ground.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 4.73,
+      "log": ".godot/pass-logs/final/test_training_ground.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "TRAINING GROUND TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_training_meter.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 3.81,
+      "log": ".godot/pass-logs/final/test_training_meter.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "TRAINING METER TEST: PASS"
+      ]
+    },
+    {
+      "test": "test_vfx.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 8.64,
+      "log": ".godot/pass-logs/final/test_vfx.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": false,
+      "summary": [
+        "PASS: quality 1 all transient effects expire naturally",
+        "PASS: quality 1 clear leaves no active effects",
+        "PASS: quality 0 stress respects effect, decal and particle caps",
+        "PASS: quality 0 pool plateaus over 3 simulated minutes (101 -> 101 nodes)",
+        "PASS: quality 0 all transient effects expire naturally",
+        "PASS: quality 0 clear leaves no active effects",
+        "PASS: real SceneTree frames retire expired transient effects",
+        "VFX INTEGRATION TEST: PASS (73 checks, 0 failures)"
+      ]
+    },
+    {
+      "test": "test_visibility.gd",
+      "exit_code": 0,
+      "display": "headless",
+      "passed": true,
+      "script_error": false,
+      "seconds": 5.67,
+      "log": ".godot/pass-logs/final/test_visibility.log",
+      "certificate_store_warning": true,
+      "shutdown_resource_warning": true,
+      "summary": [
+        "P0-111 VISIBILITY TEST: PASS"
+      ]
+    }
+  ]
+}

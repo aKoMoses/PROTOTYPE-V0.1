@@ -23,12 +23,17 @@ func _run() -> void:
 	var target: Node = scene.get_node_or_null("TargetDummy")
 	if target != null:
 		target.call("set_training_bot_enabled", false)
+	var render_timing_supported := RenderingServer.has_method("viewport_set_measure_render_time")
+	if render_timing_supported:
+		RenderingServer.call("viewport_set_measure_render_time", root.get_viewport_rid(), true)
 	var totals := {
 		"fps": 0.0,
 		"process_ms": 0.0,
 		"physics_ms": 0.0,
 		"draw_calls": 0.0,
 		"primitives": 0.0,
+		"render_cpu_ms": 0.0,
+		"render_gpu_ms": 0.0,
 	}
 	for _frame in range(30):
 		await process_frame
@@ -39,7 +44,15 @@ func _run() -> void:
 		totals.physics_ms += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 		totals.draw_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 		totals.primitives += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+		if render_timing_supported:
+			totals.render_cpu_ms += float(RenderingServer.call("viewport_get_measured_render_time_cpu", root.get_viewport_rid()))
+			totals.render_gpu_ms += float(RenderingServer.call("viewport_get_measured_render_time_gpu", root.get_viewport_rid()))
 	var counts := _count_scene(scene)
+	print("ARENA AUDIT: static_memory_mib=%.2f static_memory_peak_mib=%.2f orphan_nodes=%d" % [
+		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
+		Performance.get_monitor(Performance.MEMORY_STATIC_MAX) / 1048576.0,
+		int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
+	])
 	print("ARENA AUDIT: version=%s renderer=%s display=%s viewport=%s" % [
 		Engine.get_version_info().string,
 		ProjectSettings.get_setting("rendering/renderer/rendering_method", "unknown"),
@@ -64,6 +77,12 @@ func _run() -> void:
 		totals.draw_calls / SAMPLE_FRAMES,
 		totals.primitives / SAMPLE_FRAMES,
 	])
+	print("ARENA AUDIT: viewport_render_timing=%s avg_render_cpu_ms=%.3f avg_render_gpu_ms=%.3f" % [render_timing_supported, totals.render_cpu_ms / SAMPLE_FRAMES, totals.render_gpu_ms / SAMPLE_FRAMES])
+	var sfx := root.get_node_or_null("GameSfx")
+	if sfx != null and sfx.has_method("clear"):
+		sfx.call("clear")
+	scene.queue_free()
+	await create_timer(0.1).timeout
 	quit(0)
 
 

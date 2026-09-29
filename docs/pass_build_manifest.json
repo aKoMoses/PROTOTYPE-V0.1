@@ -1,0 +1,19 @@
+{
+  "source_commit": "2ca157fcfd7975f8de4538939c1bf9bb8a8c5f2a",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "preset": "Windows Desktop",
+  "package": "exports/pass_complete/prototype0-pass-complete.pck",
+  "bytes": 118239648,
+  "sha256": "57d046a7f199c73de9139a911bc6661ceb3a6eec1abc381bdce760b0e9957abe",
+  "standalone_executable": false,
+  "apk_produced": false,
+  "graphics_smoke_passed": true,
+  "packed_transition_cycles_passed": 5,
+  "qa_resources_excluded": true,
+  "cloud_api_keys_available": false,
+  "logs": [
+    ".godot/pass-logs/export_pack.log",
+    ".godot/pass-logs/packed_graphics_smoke.log",
+    ".godot/pass-logs/packed_cycles.log"
+  ]
+}

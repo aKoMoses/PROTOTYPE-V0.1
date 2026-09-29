@@ -1,0 +1,2160 @@
+{
+	"arena_contract": {
+		"bushes": [
+			{
+				"height": 2.9375,
+				"name": "BushEastPocket",
+				"position": [
+					18.5,
+					0.0,
+					-5.4
+				],
+				"radius": 1.6,
+				"scale": [
+					2.0,
+					1.4,
+					1.875
+				]
+			},
+			{
+				"height": 2.115,
+				"name": "BushEastSpine",
+				"position": [
+					8.8,
+					0.0,
+					1.0
+				],
+				"radius": 1.152,
+				"scale": [
+					1.44,
+					1.008,
+					1.35
+				]
+			},
+			{
+				"height": 2.82,
+				"name": "BushNorthCenter",
+				"position": [
+					0.0,
+					0.0,
+					-7.5
+				],
+				"radius": 1.536,
+				"scale": [
+					1.92,
+					1.344,
+					1.8
+				]
+			},
+			{
+				"height": 3.1725,
+				"name": "BushNorthEastCover",
+				"position": [
+					13.8,
+					0.0,
+					-8.0
+				],
+				"radius": 1.728,
+				"scale": [
+					2.16,
+					1.512,
+					2.025
+				]
+			},
+			{
+				"height": 2.35,
+				"name": "BushNorthPad",
+				"position": [
+					-2.8,
+					0.0,
+					-20.5
+				],
+				"radius": 1.28,
+				"scale": [
+					1.6,
+					1.12,
+					1.5
+				]
+			},
+			{
+				"height": 1.88,
+				"name": "BushNorthWest",
+				"position": [
+					-19.5,
+					0.0,
+					-12.6
+				],
+				"radius": 1.024,
+				"scale": [
+					1.28,
+					0.896,
+					1.2
+				]
+			},
+			{
+				"height": 3.1725,
+				"name": "BushNorthWestCover",
+				"position": [
+					-14.0,
+					0.0,
+					-8.0
+				],
+				"radius": 1.728,
+				"scale": [
+					2.16,
+					1.512,
+					2.025
+				]
+			},
+			{
+				"height": 2.82,
+				"name": "BushSouthCenter",
+				"position": [
+					0.0,
+					0.0,
+					9.5
+				],
+				"radius": 1.536,
+				"scale": [
+					1.92,
+					1.344,
+					1.8
+				]
+			},
+			{
+				"height": 1.88,
+				"name": "BushSouthEast",
+				"position": [
+					19.5,
+					0.0,
+					12.6
+				],
+				"radius": 1.024,
+				"scale": [
+					1.28,
+					0.896,
+					1.2
+				]
+			},
+			{
+				"height": 3.1725,
+				"name": "BushSouthEastCover",
+				"position": [
+					14.0,
+					0.0,
+					10.0
+				],
+				"radius": 1.728,
+				"scale": [
+					2.16,
+					1.512,
+					2.025
+				]
+			},
+			{
+				"height": 2.35,
+				"name": "BushSouthPad",
+				"position": [
+					2.8,
+					0.0,
+					20.5
+				],
+				"radius": 1.28,
+				"scale": [
+					1.6,
+					1.12,
+					1.5
+				]
+			},
+			{
+				"height": 3.1725,
+				"name": "BushSouthWestCover",
+				"position": [
+					-13.8,
+					0.0,
+					10.0
+				],
+				"radius": 1.728,
+				"scale": [
+					2.16,
+					1.512,
+					2.025
+				]
+			},
+			{
+				"height": 2.9375,
+				"name": "BushWestPocket",
+				"position": [
+					-18.5,
+					0.0,
+					5.4
+				],
+				"radius": 1.6,
+				"scale": [
+					2.0,
+					1.4,
+					1.875
+				]
+			},
+			{
+				"height": 2.115,
+				"name": "BushWestSpine",
+				"position": [
+					-8.8,
+					0.0,
+					1.0
+				],
+				"radius": 1.152,
+				"scale": [
+					1.44,
+					1.008,
+					1.35
+				]
+			}
+		],
+		"camera": {
+			"fov": 38.0,
+			"position": [
+				0.0,
+				20.5,
+				17.5
+			],
+			"rotation_degrees": [
+				-48.885,
+				0.0,
+				0.0
+			]
+		},
+		"health_pads": [
+			{
+				"name": "HealthPadEast",
+				"position": [
+					21.0,
+					0.0,
+					0.0
+				]
+			},
+			{
+				"name": "HealthPadNorth",
+				"position": [
+					0.0,
+					0.0,
+					-20.8
+				]
+			},
+			{
+				"name": "HealthPadSouth",
+				"position": [
+					0.0,
+					0.0,
+					20.8
+				]
+			},
+			{
+				"name": "HealthPadWest",
+				"position": [
+					-21.0,
+					0.0,
+					0.0
+				]
+			}
+		],
+		"spawns": {
+			"player": [
+				-3.5,
+				0.0,
+				17.0
+			],
+			"target": [
+				3.5,
+				0.0,
+				15.5
+			]
+		},
+		"static_bodies": [
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastLimit",
+				"position": [
+					29.0,
+					1.5,
+					0.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.8,
+							3.0,
+							58.0
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel0",
+				"position": [
+					28.1,
+					1.05,
+					-24.8
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel1",
+				"position": [
+					28.1,
+					1.05,
+					-16.53
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel2",
+				"position": [
+					28.1,
+					1.05,
+					-8.26
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel3",
+				"position": [
+					28.1,
+					1.05,
+					0.01
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel4",
+				"position": [
+					28.1,
+					1.05,
+					8.28
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel5",
+				"position": [
+					28.1,
+					1.05,
+					16.55
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPanel6",
+				"position": [
+					28.1,
+					1.05,
+					24.82
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPocketLong",
+				"position": [
+					18.5,
+					1.0,
+					-8.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							1.8,
+							2.0,
+							5.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastPocketShort",
+				"position": [
+					16.0,
+					1.0,
+					-10.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							4.6,
+							2.0,
+							1.6
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "EastSpine",
+				"position": [
+					7.0,
+					1.1,
+					1.2
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							2.15,
+							2.2,
+							9.6
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthCenterCover",
+				"position": [
+					0.0,
+					0.95,
+					-9.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							10.8,
+							1.9,
+							1.55
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthEastAngle",
+				"position": [
+					12.0,
+					0.95,
+					-6.7
+				],
+				"rotation_degrees": [
+					0.0,
+					25.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							5.0,
+							1.9,
+							1.3
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthEastBlock",
+				"position": [
+					17.8,
+					1.15,
+					-16.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							3.2,
+							2.3,
+							3.2
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthLimit",
+				"position": [
+					0.0,
+					1.5,
+					-29.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							58.0,
+							3.0,
+							0.8
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel0",
+				"position": [
+					-24.8,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel1",
+				"position": [
+					-16.53,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel2",
+				"position": [
+					-8.26,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel3",
+				"position": [
+					0.01,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel4",
+				"position": [
+					8.28,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel5",
+				"position": [
+					16.55,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthPanel6",
+				"position": [
+					24.82,
+					1.05,
+					-28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthWestAngle",
+				"position": [
+					-11.3,
+					1.0,
+					-9.4
+				],
+				"rotation_degrees": [
+					0.0,
+					-24.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							6.2,
+							2.0,
+							1.4
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "NorthWestBlock",
+				"position": [
+					-17.5,
+					1.15,
+					-15.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							4.0,
+							2.3,
+							3.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthCenterCover",
+				"position": [
+					0.0,
+					0.95,
+					11.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							9.5,
+							1.9,
+							1.55
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthEastAngle",
+				"position": [
+					11.3,
+					1.0,
+					10.8
+				],
+				"rotation_degrees": [
+					0.0,
+					-24.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							6.2,
+							2.0,
+							1.4
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthEastBlock",
+				"position": [
+					17.5,
+					1.15,
+					15.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							4.0,
+							2.3,
+							3.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthLimit",
+				"position": [
+					0.0,
+					1.5,
+					29.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							58.0,
+							3.0,
+							0.8
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel0",
+				"position": [
+					24.8,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel1",
+				"position": [
+					16.53,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel2",
+				"position": [
+					8.26,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel3",
+				"position": [
+					-0.01,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel4",
+				"position": [
+					-8.28,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel5",
+				"position": [
+					-16.55,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.1,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthPanel6",
+				"position": [
+					-24.82,
+					1.05,
+					28.1
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							7.5,
+							2.45,
+							0.86
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthWestAngle",
+				"position": [
+					-12.0,
+					0.95,
+					8.1
+				],
+				"rotation_degrees": [
+					0.0,
+					25.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							5.0,
+							1.9,
+							1.3
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "SouthWestBlock",
+				"position": [
+					-17.8,
+					1.15,
+					16.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							3.2,
+							2.3,
+							3.2
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestLimit",
+				"position": [
+					-29.0,
+					1.5,
+					0.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.8,
+							3.0,
+							58.0
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel0",
+				"position": [
+					-28.1,
+					1.05,
+					24.8
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel1",
+				"position": [
+					-28.1,
+					1.05,
+					16.53
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel2",
+				"position": [
+					-28.1,
+					1.05,
+					8.26
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel3",
+				"position": [
+					-28.1,
+					1.05,
+					-0.01
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel4",
+				"position": [
+					-28.1,
+					1.05,
+					-8.28
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel5",
+				"position": [
+					-28.1,
+					1.05,
+					-16.55
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.45,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPanel6",
+				"position": [
+					-28.1,
+					1.05,
+					-24.82
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							0.86,
+							2.1,
+							7.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPocketLong",
+				"position": [
+					-18.5,
+					1.0,
+					8.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							1.8,
+							2.0,
+							5.5
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestPocketShort",
+				"position": [
+					-16.0,
+					1.0,
+					10.0
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							4.6,
+							2.0,
+							1.6
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			},
+			{
+				"collision_layer": 1.0,
+				"collision_mask": 0.0,
+				"name": "WestSpine",
+				"position": [
+					-7.0,
+					1.1,
+					1.2
+				],
+				"rotation_degrees": [
+					0.0,
+					0.0,
+					0.0
+				],
+				"shapes": [
+					{
+						"position": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"rotation_degrees": [
+							0.0,
+							0.0,
+							0.0
+						],
+						"size": [
+							2.15,
+							2.2,
+							9.6
+						],
+						"type": "BoxShape3D"
+					}
+				]
+			}
+		]
+	},
+	"definitions": {
+		"BURN_DAMAGE_PER_SECOND": 20.0,
+		"BURN_DURATION": 3.5,
+		"CHARACTER_VISUAL_SCALE": 1.35,
+		"COMBAT_REVEAL_DURATION": 3.0,
+		"CRIT_MULTIPLIER": 1.5,
+		"DEFAULT_ROBOT": "polyvalent",
+		"EFFECT_BURN": "BURN",
+		"EFFECT_DEFINITIONS": {
+			"BURN": {
+				"color": "ff7347ff",
+				"display_name": "BURN"
+			},
+			"SLOW": {
+				"color": "8fd7ffff",
+				"display_name": "SLOW"
+			},
+			"SPOTTED": {
+				"color": "9ffaffff",
+				"display_name": "SPOTTED"
+			},
+			"STUN": {
+				"color": "ffe16aff",
+				"display_name": "STUN"
+			}
+		},
+		"EFFECT_SLOW": "SLOW",
+		"EFFECT_SPOTTED": "SPOTTED",
+		"EFFECT_STUN": "STUN",
+		"MAX_HEALTH": 1000.0,
+		"MODULE_DEFINITIONS": {
+			"baroud": {
+				"category": "passive"
+			},
+			"bio_injector": {
+				"attack_speed_multiplier": 1.5,
+				"category": "mobility",
+				"cooldown": 18.0,
+				"duration": 3.0,
+				"other_cooldown_rate": 1.42857142857143,
+				"speed_multiplier": 1.4
+			},
+			"fulguro_punch": {
+				"active_window": 0.1,
+				"category": "offensive",
+				"charge_max": 3.0,
+				"charge_min": 0.35,
+				"cooldown": 8.0,
+				"damage": 200.0,
+				"damage_max": 400.0,
+				"damage_min": 200.0,
+				"max_knockback_distance": 4.0,
+				"max_knockback_duration": 0.35,
+				"preparation": 0.35,
+				"range": 2.0,
+				"range_max": 4.0,
+				"range_min": 2.0,
+				"recovery": 0.2,
+				"wall_damage": 150.0,
+				"wall_damage_max": 250.0,
+				"wall_damage_min": 150.0,
+				"wall_stun": 0.75,
+				"width": 0.9
+			},
+			"javelin": {
+				"category": "offensive",
+				"collision_radius": 0.12,
+				"cooldown": 12.0,
+				"damage": 140.0,
+				"mark_duration": 2.5,
+				"max_range": 8.0,
+				"preparation": 0.12,
+				"speed": 20.0,
+				"teleport_distance": 1.4
+			},
+			"magnetic_field": {
+				"category": "defensive",
+				"cooldown": 12.0,
+				"distance": 2.0,
+				"duration": 2.5,
+				"height": 2.4,
+				"preparation": 0.15,
+				"width": 4.0
+			},
+			"modulo_drone": {
+				"burn_duration": 3.5,
+				"category": "offensive",
+				"collision_radius": 0.15,
+				"cone_half_angle": 20.0,
+				"cooldown": 10.0,
+				"damage": 100.0,
+				"max_range": 9.0,
+				"max_turn_rate": 90.0,
+				"preparation": 0.18,
+				"speed": 10.0,
+				"spotted_duration": 5.0
+			},
+			"omnivamp": {
+				"category": "passive"
+			},
+			"pelto_smash": {
+				"category": "offensive",
+				"cooldown": 10.0,
+				"front_thickness": 0.7,
+				"impact_duration": 0.1,
+				"max_range": 7.0,
+				"outbound_damage": 160.0,
+				"outbound_slow_duration": 0.8,
+				"outbound_slow_percent": 20.0,
+				"outbound_speed": 10.0,
+				"preparation": 0.45,
+				"pull_distance": 0.9,
+				"pull_duration": 0.15,
+				"recovery": 0.25,
+				"return_damage": 100.0,
+				"return_pause": 0.12,
+				"return_speed": 12.0,
+				"width": 2.5
+			},
+			"pyro_boots": {
+				"category": "mobility",
+				"cooldown": 6.0,
+				"dash_distance": 3.0,
+				"dash_duration": 0.18
+			},
+			"static_shield": {
+				"category": "defensive",
+				"cooldown": 18.0,
+				"duration": 1.5
+			}
+		},
+		"MOVE_SPEED": 5.0,
+		"ROBOT_DEFINITIONS": {
+			"agile": {
+				"max_health": 800.0,
+				"move_speed": 6.0
+			},
+			"polyvalent": {
+				"max_health": 1000.0,
+				"move_speed": 5.0
+			},
+			"puissant": {
+				"max_health": 1200.0,
+				"move_speed": 4.0
+			}
+		},
+		"WEAPON_DEFINITIONS": {
+			"blaster": {
+				"charge_slow_multiplier": 0.8,
+				"charge_time": 1.0,
+				"cooldown": 0.45,
+				"damage": 20.0,
+				"display_name": "Blaster",
+				"max_damage": 50.0,
+				"max_range": 14.0,
+				"projectile_radius": 0.16,
+				"projectile_speed": 24.0
+			},
+			"shotgun": {
+				"attack_preparation": 0.1,
+				"attack_recovery": 0.6,
+				"display_name": "Shotgun",
+				"falloff_start": 3.0,
+				"hitbox_radius": 0.78,
+				"magazine_size": 3,
+				"max_range": 7.0,
+				"minimum_damage": 8.0,
+				"pellet_angles": [
+					-14.0,
+					-8.0,
+					-3.0,
+					3.0,
+					8.0,
+					14.0
+				],
+				"pellet_damage": 20.0,
+				"pellet_speed": 22.0,
+				"pellets_per_shot": 6,
+				"reload_duration": 1.8
+			}
+		}
+	},
+	"engine": "4.7.2-stable (official)",
+	"physics_ticks_per_second": 60,
+	"renderer": "mobile",
+	"simulation_sha256_normalized": {
+		"res://scripts/action_gate.gd": "d7b6acd48ff33a977cc739b4882db7682bca39884fff63be0dc1d1e846ae6552",
+		"res://scripts/bot_ai_profile.gd": "4b812fd4fd6393b45441d3ed58227e9dc093e6ed7202cbe09b3901984a52df31",
+		"res://scripts/camera_rig.gd": "cae304d0da665cf2ae69114bcdf7d71b17eac7dbed9152564cbe4c48498ed98e",
+		"res://scripts/combat_data.gd": "ff2ada3bbd74a71f4bf7fb171e249d42e28378be52105753616b75c04b3426df",
+		"res://scripts/combat_state.gd": "3e60cf74f02fb30a4cb5203c163ea25e636d9672b2318728ca6796b9bb4c8464",
+		"res://scripts/duel_bot_equipment.gd": "84978773cffdf782a514a7cadc8ee2821c4201ffc48be7a35364e54d142f897e",
+		"res://scripts/fulguro_punch.gd": "e56fda76dad7b7872882e488ffeb01ace78885d0bcbf3e46e2b15669abfb8a7c",
+		"res://scripts/passive_state.gd": "4c11608820514a22bbd05c98902c7c77f90544359c6cdaec2af712254bd138fe",
+		"res://scripts/pelto_smash.gd": "59e55fe667c5416cdaf8154cf987697a8e51ab79a2db05d6834fae97852af80c",
+		"res://scripts/projectile.gd": "ea49883805f952e905267d4c119797df7b19ea0ffc4bab2b1634875980097bd7",
+		"res://scripts/survival_progression.gd": "6bef2520a1c76ccced590553733cbb541ccf525c207ba2a5d1b21a545e84640c",
+		"res://scripts/survival_synergies.gd": "50e7e2ae8a7b649ebc80293e0c39f511f606714f856bf69c4f1fc863dc03854e",
+		"res://scripts/target_dummy.gd": "ac5ed7f7a51fe34d115613637d23af36503e5b0457f4d5485644301be6d8c855",
+		"res://scripts/training_bot.gd": "814bb7fad494932ca0f1d92b2ff122310f26f265be0110dfef2a4c908e89a9cf",
+		"res://scripts/training_dummy.gd": "1f84bd8ecb11cef7f3546b9930b3e55057b402145dc56f2a93e7a1fdf0213411",
+		"res://scripts/visibility_state.gd": "a1e0efd34e6b6f3f9c6bbe1258c52f38af4673056cb2adb48603ab07e9924dfa"
+	}
+}

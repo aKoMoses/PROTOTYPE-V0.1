@@ -1,0 +1,22 @@
+{
+  "reference_commit": "8c05902",
+  "equal": {
+    "arena_contract": true,
+    "definitions": true,
+    "engine": true,
+    "physics_ticks_per_second": true,
+    "renderer": true
+  },
+  "identical_simulation_sources": 15,
+  "changed_source_exceptions": {
+    "res://scripts/target_dummy.gd": "Presentation only: one added Label3D.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM; status contents, timings, visibility, physics and combat code unchanged."
+  },
+  "manual_diff_review": [
+    "player.gd input ownership and cancellation only",
+    "game_flow.gd navigation, persistence, input dispatch and pause cleanup",
+    "survival.gd absolute deadlines shifted by elapsed pause only",
+    "network_session.gd obsolete timer generation guard, existing 3.5/2 second waits unchanged",
+    "repair_kit.gd visual tween cancelled on reset, collection rules unchanged",
+    "main.gd transient visual/audio cleanup, world generation unchanged"
+  ]
+}
