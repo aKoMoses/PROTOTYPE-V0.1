@@ -182,6 +182,8 @@ func _sync_room() -> void:
 	if clients.is_empty():
 		return
 	var host_id := int(_service.get_host())
+	if host_id < 0 or not clients.has(host_id):
+		return
 	var guest_id := 0
 	for id_variant in clients:
 		if int(id_variant) != host_id:

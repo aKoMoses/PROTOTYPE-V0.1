@@ -49,7 +49,7 @@ func _on_rooms(rooms: Array) -> void:
 
 func _on_room(room: Dictionary) -> void:
 	print("TEST %s room %s" % [_role, room])
-	if _role == "host" and not _started and int(room.get("guest_id", 0)) != 0:
+	if _role == "host" and not _started and int(room.get("host_id", -1)) == _session.local_peer_id() and int(room.get("guest_id", 0)) != 0:
 		_started = true
 		_session.start_match()
 

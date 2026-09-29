@@ -5,14 +5,15 @@ logements. Dépôt : `https://github.com/aKoMoses/PROTOTYPE-V0.1`, branche `main
 
 ## Chemin le plus simple : jouer avec un export du jeu
 
-Le code est sur `main`, mais aucun export multijoueur utilisable sur Internet
-n'est encore publié : les clés GD-Sync et le test entre deux logements restent
-à faire. Les anciennes releases Android ne contiennent pas ce mode.
+Les clés du projet sont configurées chez Romain et dans GitHub Actions. Les
+anciennes releases Android ne contiennent pas ce mode. Choisir une release de
+test Android publiée **après** la configuration GD-Sync, sur la
+[page des releases](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases).
 
-1. Quand un nouvel export multijoueur sera fourni, récupérer **la même version**
-   que celle utilisée par l'hôte : installer l'APK Android ou décompresser
-   l'export Windows et lancer l'exécutable. Le joueur n'a pas besoin de compte
-   GD-Sync, de serveur, de VPN ou d'ouvrir un port sur sa box.
+1. Récupérer **la même version** que celle utilisée par l'hôte : installer le
+   nouvel APK Android ou, si un export Windows est fourni, lancer son
+   exécutable. Le joueur n'a pas besoin de compte GD-Sync, de serveur, de VPN
+   ou d'ouvrir un port sur sa box.
 2. Dans le jeu, ouvrir **MULTIJOUEUR**. Attendre la connexion ; la liste des
    salons s'actualise automatiquement. Cliquer sur **REJOINDRE** sur le salon
    créé par l'hôte.
@@ -27,10 +28,11 @@ pas chercher à créer un autre projet GD-Sync.
 
 1. Mettre à jour le dépôt sur `main`, en préservant les éventuelles modifications
    locales. Ouvrir le dossier contenant `project.godot` dans Godot 4.7.2.
-2. Le fichier `addons/GD-Sync/keys.cfg` est volontairement absent du dépôt. Le
-   propriétaire du projet doit fournir la configuration de **la même clé API**
-   par un canal privé, ou fournir un export déjà configuré. Ne jamais
-   ajouter la clé privée à Git, au chat ou à une issue GitHub.
+2. Le fichier `addons/GD-Sync/keys.cfg` est volontairement absent du dépôt.
+   Demander à Romain la configuration de **la même clé API** par un canal privé,
+   ou utiliser un export déjà configuré. Avec les clés, les saisir dans
+   **Projet > Outils > GD-Sync**. Ne jamais ajouter la clé privée à Git, au chat
+   ou à une issue GitHub.
 3. Avec la configuration présente, lancer le jeu et suivre le parcours ci-dessus.
 
 ## Nouvelles versions
@@ -42,13 +44,13 @@ session. Pour jouer ensemble après une mise à jour, utilisez tous les deux **l
 même version** du jeu. Un ancien client peut voir le salon d'un nouveau client
 avec la même clé, mais leurs règles réseau peuvent ne plus correspondre.
 
-Pour les APK Android produits automatiquement par GitHub, le propriétaire du
-dépôt doit enregistrer une fois les secrets Actions `GDSYNC_PUBLIC_KEY` et
-`GDSYNC_PRIVATE_KEY`. Le workflow refuse de publier un nouvel APK si ces clés
-manquent. Un export Windows préparé dans Godot utilise les clés configurées
-localement dans le projet.
+Pour les APK Android produits automatiquement par GitHub, les secrets Actions
+`GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY` sont déjà enregistrés. Le workflow
+refuse de publier un nouvel APK s'ils manquent. Un export Windows préparé dans
+Godot utilise les clés configurées localement dans le projet.
 
-État de validation : création et découverte de salon, lancement et échange de
-dégâts/score vérifiés avec deux instances locales. Le trajet Internet entre les
-deux logements doit encore être validé avec les clés du projet. Voir aussi
+État de validation : deux instances Godot sur le PC de Romain se sont connectées
+aux serveurs GD-Sync et ont vérifié le salon, le lancement, les dégâts et le
+score. Le trajet entre les deux logements reste à essayer sur vos appareils.
+Voir aussi
 [`multijoueur.md`](multijoueur.md).

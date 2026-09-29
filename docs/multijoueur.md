@@ -7,12 +7,11 @@ hébergé GD-Sync : aucun serveur à lancer sur le PC et aucun port de box à ou
 
 ## Configuration unique du projet
 
-1. Créer un projet sur [GD-Sync](https://www.gd-sync.com/) et récupérer ses clés
-   API publique et privée.
-2. Ouvrir ce projet dans Godot, puis **Projet > Outils > GD-Sync** et saisir les
-   deux clés. Le plugin les conserve dans `addons/GD-Sync/keys.cfg`, ignoré par Git.
-3. Exporter le jeu avec les clés configurées et donner la même version à l'autre
-   joueur. Une fois ce réglage fait, le jeu se connecte depuis le menu multijoueur.
+La clé API `PROTOTYPE-V0.1` a été créée sur le compte GD-Sync de Romain. Ses
+deux valeurs sont installées dans `addons/GD-Sync/keys.cfg` sur son PC et dans
+les secrets GitHub Actions du dépôt. Elles ne sont pas dans Git. Il n'y a rien
+à recréer à chaque nouvelle version : exporter le jeu avec cette configuration
+et donner **la même version** aux deux joueurs.
 
 Les clés sont à créer une fois pour ce jeu. Les exports suivants les réutilisent
 tant que la configuration locale est conservée. Le fichier de clés n'étant pas
@@ -20,9 +19,11 @@ dans Git, un autre poste qui lance le projet source doit recevoir la même
 configuration par un canal privé ; un joueur qui utilise un export du jeu n'a
 pas à la saisir. Voir [les instructions pour le Codex de l'autre joueur](POUR_LE_CODEX_DE_MON_FRERE.md).
 
-Les APK Android publiés automatiquement nécessitent aussi les secrets GitHub
-Actions `GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY`, à saisir une fois par le
-propriétaire du dépôt. Le workflow refuse la publication si elles manquent.
+Les APK Android publiés automatiquement utilisent les secrets GitHub Actions
+`GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY`, déjà configurés. Le workflow refuse
+la publication si elles manquent. Pour une copie du projet source sur un autre
+PC, Romain doit transmettre la même configuration par un canal privé ; ne pas
+mettre la clé privée dans un commit ou un message public.
 
 ## Dans le jeu
 
@@ -33,7 +34,7 @@ propriétaire du dépôt. Le workflow refuse la publication si elles manquent.
 
 Cette première version synchronise les positions, PV, dégâts, effets et scores.
 L'adversaire utilise provisoirement l'apparence du robot d'arène existant ; ses
-animations d'attaque exactes ne sont pas encore reproduites à distance. Les tests
-avec deux instances locales passent pour le salon, le lancement et la résolution
-d'une manche. Une connexion réelle entre les deux logements reste à vérifier une
-fois les clés API créées et les deux exemplaires du jeu disponibles.
+animations d'attaque exactes ne sont pas encore reproduites à distance. Deux
+instances Godot sur le PC de Romain ont réussi, via les serveurs GD-Sync, la
+création et découverte du salon, le lancement, les dégâts et le score. Un essai
+sur les deux appareils, depuis les deux logements, reste à faire.
