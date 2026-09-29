@@ -79,6 +79,43 @@ func _initialize() -> void:
 		push_error("FAIL: reset tactile n'annule pas le contact/charge")
 		quit(1)
 		return
+	controls.visible = true
+	controls.call("_begin_touch", 21, aim_center)
+	var canceled := InputEventScreenTouch.new()
+	canceled.index = 21
+	canceled.pressed = false
+	canceled.canceled = true
+	controls.call("_input", canceled)
+	if int(controls.get("_aim_touch")) != -1 or bool(player.get("_touch_fire_active")):
+		push_error("FAIL: interruption tactile interprétée comme un tir")
+		quit(1)
+		return
+	var profile: Dictionary = load("res://scripts/hud_layout.gd").standard()
+	profile.offensive_button.a = profile.move.a.duplicate()
+	profile.offensive_button.d = profile.move.d.duplicate()
+	profile.offensive_button.z = 5
+	controls.call("set_hud_layout", profile)
+	var shared_center: Vector2 = controls.call("_joystick_center")
+	controls.call("_begin_touch", 30, shared_center)
+	if not (controls.get("_action_touches") as Dictionary).has(30):
+		push_error("FAIL: priorité Devant ignorée")
+		quit(1)
+		return
+	controls.call("reset_inputs")
+	profile.move.z = 6
+	controls.call("set_hud_layout", profile)
+	controls.call("_begin_touch", 31, shared_center)
+	if int(controls.get("_joystick_touch")) != 31:
+		push_error("FAIL: priorité du joystick ignorée")
+		quit(1)
+		return
+	controls.call("reset_inputs")
+	controls.call("set_reserved_rects", [Rect2(shared_center - Vector2(40, 40), Vector2(80, 80))])
+	if controls.call("_begin_touch", 32, shared_center) or int(controls.get("_joystick_touch")) != -1:
+		push_error("FAIL: accès Pause/Menu capturé par un joystick")
+		quit(1)
+		return
+	controls.call("set_reserved_rects", [])
 	if not bool(controls.visible) and DisplayServer.is_touchscreen_available():
 		push_error("FAIL: panneau tactile masqué sur une cible tactile")
 		quit(1)

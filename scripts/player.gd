@@ -13,6 +13,9 @@ const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
+const FULGURO := preload("res://scripts/fulguro_punch.gd")
+const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
+const FULGURO_RELEASE_SOUND: AudioStream = preload("res://art/audio/blaster-shot-charged-v2.wav")
 const BLASTER_CHARGE_SOUND: AudioStream = preload("res://art/audio/blaster-charge-v2.wav")
 const BLASTER_CHARGE_HOLD_SOUND: AudioStream = preload("res://art/audio/blaster-charge-hold-v2.wav")
 const BLASTER_READY_SOUND: AudioStream = preload("res://art/audio/blaster-ready-v2.wav")
@@ -21,6 +24,8 @@ const BLASTER_CHARGED_SHOT_SOUND: AudioStream = preload("res://art/audio/blaster
 const SHOTGUN_SHOT_SOUND: AudioStream = preload("res://art/audio/shotgun-shot-a.wav")
 const SHOTGUN_CYCLE_SOUND: AudioStream = preload("res://art/audio/shotgun-cycle-a.wav")
 const SHOTGUN_RELOAD_SOUND: AudioStream = preload("res://art/audio/shotgun-reload-a.wav")
+const PLAYER_BASE_VISUAL_SCALE := 0.88
+const HEALTH_READOUT_BASE_HEIGHT := 2.95
 
 @export var move_speed := 5.0
 var _robot_id := COMBAT_DATA.DEFAULT_ROBOT
@@ -129,6 +134,52 @@ var _javelin_teleport_distance := 1.4
 var _javelin_collision_radius := 0.12
 var _javelin_mark_target: Node
 var _javelin_launch_token := 0
+var _fulguro_preparation := 0.35
+var _fulguro_charge_max := 3.0
+var _fulguro_range := 2.0
+var _fulguro_range_max := 4.0
+var _fulguro_width := 0.9
+var _fulguro_active_window := 0.10
+var _fulguro_recovery := 0.20
+var _fulguro_damage := 200.0
+var _fulguro_damage_max := 400.0
+var _fulguro_wall_damage := 150.0
+var _fulguro_wall_damage_max := 250.0
+var _fulguro_wall_stun := 0.75
+var _fulguro_phase := ""
+var _fulguro_elapsed := 0.0
+var _fulguro_direction := Vector3.FORWARD
+var _fulguro_attack_serial := 0
+var _fulguro_hit_resolved := false
+var _fulguro_release_requested := false
+var _fulguro_release_at := -1.0
+var _fulguro_charge_ratio := 0.0
+var _fulguro_strike_range := 2.0
+var _fulguro_strike_damage := 200.0
+var _fulguro_strike_wall_damage := 150.0
+var _fulguro_flame_clock := 0.0
+var _fulguro_indicator: Node3D
+var _fulguro_fist_visual: MeshInstance3D
+var _fulguro_fist_core: MeshInstance3D
+var _fulguro_flame_tongues: Array[MeshInstance3D] = []
+var _fulguro_lane_mesh: BoxMesh
+var _fulguro_tip_visual: MeshInstance3D
+var _fulguro_flame_light: OmniLight3D
+var _fulguro_charge_audio: AudioStreamPlayer
+var _fulguro_release_audio: AudioStreamPlayer
+var _pelto_preparation := 0.45
+var _pelto_impact_duration := 0.10
+var _pelto_recovery := 0.25
+var _pelto_damage_multiplier := 1.0
+var _pelto_phase := ""
+var _pelto_elapsed := 0.0
+var _pelto_direction := Vector3.FORWARD
+var _pelto_attack_serial := 0
+var _pelto_indicator: Node3D
+var _pelto_lane_mesh: BoxMesh
+var _pelto_impact_audio: AudioStreamPlayer
+var _pelto_waves: Array[Node] = []
+var _pelto_weapon_hidden := false
 var _module_busy := false
 var _offensive_module_id := "modulo_drone"
 var _defensive_module_id := "magnetic_field"
@@ -147,6 +198,22 @@ var _dash_token := 0
 var _dash_direction := Vector3.ZERO
 var _dash_elapsed := 0.0
 var _last_move_direction := Vector3.ZERO
+var _fulguro_projection_active := false
+var _fulguro_projection_direction := Vector3.ZERO
+var _fulguro_projection_distance_remaining := 0.0
+var _fulguro_projection_time_remaining := 0.0
+var _fulguro_projection_speed := 0.0
+var _fulguro_projection_wall_damage := 0.0
+var _fulguro_projection_wall_stun := 0.0
+var _fulguro_projection_source_id := ""
+var _fulguro_projection_attack_id := ""
+var _fulguro_wall_stun_active := false
+var _pelto_pull_active := false
+var _pelto_pull_direction := Vector3.ZERO
+var _pelto_pull_distance_remaining := 0.0
+var _pelto_pull_time_remaining := 0.0
+var _pelto_pull_speed := 0.0
+var _defensive_buffer: Dictionary = {}
 var _bio_remaining := 0.0
 var _bio_speed_multiplier := 1.40
 var _bio_attack_speed_multiplier := 1.50
@@ -258,6 +325,7 @@ func _ready() -> void:
 	_status_vfx = STATUS_VFX.new()
 	_status_vfx.name = "StatusVFX"
 	add_child(_status_vfx)
+	_status_vfx.set("marker_height", 3.30 * COMBAT_DATA.CHARACTER_VISUAL_SCALE)
 	_status_vfx.call("configure", self)
 	_blaster_charge_audio = AudioStreamPlayer.new()
 	_blaster_charge_audio.name = "BlasterChargeAudio"
@@ -304,6 +372,24 @@ func _ready() -> void:
 	_shotgun_reload_audio.stream = SHOTGUN_RELOAD_SOUND
 	_shotgun_reload_audio.volume_db = -2.0
 	add_child(_shotgun_reload_audio)
+	_fulguro_charge_audio = AudioStreamPlayer.new()
+	_fulguro_charge_audio.name = "FulguroChargeAudio"
+	_fulguro_charge_audio.stream = BLASTER_CHARGE_SOUND
+	_fulguro_charge_audio.volume_db = -10.0
+	_fulguro_charge_audio.pitch_scale = 1.35
+	add_child(_fulguro_charge_audio)
+	_fulguro_release_audio = AudioStreamPlayer.new()
+	_fulguro_release_audio.name = "FulguroReleaseAudio"
+	_fulguro_release_audio.stream = FULGURO_RELEASE_SOUND
+	_fulguro_release_audio.volume_db = -5.0
+	_fulguro_release_audio.pitch_scale = 0.88
+	add_child(_fulguro_release_audio)
+	_pelto_impact_audio = AudioStreamPlayer.new()
+	_pelto_impact_audio.name = "PeltoImpactAudio"
+	_pelto_impact_audio.stream = SHOTGUN_SHOT_SOUND
+	_pelto_impact_audio.volume_db = -7.0
+	_pelto_impact_audio.pitch_scale = 0.52
+	add_child(_pelto_impact_audio)
 
 
 func _load_weapon_definitions() -> void:
@@ -346,6 +432,24 @@ func _load_weapon_definitions() -> void:
 	_javelin_mark_duration = float(javelin_definition.get("mark_duration", _javelin_mark_duration))
 	_javelin_teleport_distance = float(javelin_definition.get("teleport_distance", _javelin_teleport_distance))
 	_javelin_collision_radius = float(javelin_definition.get("collision_radius", _javelin_collision_radius))
+	var fulguro_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("fulguro_punch", {})
+	_fulguro_preparation = float(fulguro_definition.get("charge_min", fulguro_definition.get("preparation", _fulguro_preparation)))
+	_fulguro_charge_max = float(fulguro_definition.get("charge_max", _fulguro_charge_max))
+	_fulguro_range = float(fulguro_definition.get("range_min", fulguro_definition.get("range", _fulguro_range)))
+	_fulguro_range_max = float(fulguro_definition.get("range_max", _fulguro_range_max))
+	_fulguro_width = float(fulguro_definition.get("width", _fulguro_width))
+	_fulguro_active_window = float(fulguro_definition.get("active_window", _fulguro_active_window))
+	_fulguro_recovery = float(fulguro_definition.get("recovery", _fulguro_recovery))
+	_fulguro_damage = float(fulguro_definition.get("damage_min", fulguro_definition.get("damage", _fulguro_damage)))
+	_fulguro_damage_max = float(fulguro_definition.get("damage_max", _fulguro_damage_max))
+	_fulguro_wall_damage = float(fulguro_definition.get("wall_damage_min", fulguro_definition.get("wall_damage", _fulguro_wall_damage)))
+	_fulguro_wall_damage_max = float(fulguro_definition.get("wall_damage_max", _fulguro_wall_damage_max))
+	_fulguro_wall_stun = float(fulguro_definition.get("wall_stun", _fulguro_wall_stun))
+	var pelto_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("pelto_smash", {})
+	_pelto_damage_multiplier = 1.0
+	_pelto_preparation = float(pelto_definition.get("preparation", _pelto_preparation))
+	_pelto_impact_duration = float(pelto_definition.get("impact_duration", _pelto_impact_duration))
+	_pelto_recovery = float(pelto_definition.get("recovery", _pelto_recovery))
 	var bio_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("bio_injector", {})
 	_bio_speed_multiplier = float(bio_definition.get("speed_multiplier", _bio_speed_multiplier))
 	_bio_attack_speed_multiplier = float(bio_definition.get("attack_speed_multiplier", _bio_attack_speed_multiplier))
@@ -379,6 +483,8 @@ func _physics_process(delta: float) -> void:
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
 	if combat_state != null:
 		combat_state.update(delta, stasis_active)
+	if _fulguro_wall_stun_active and (combat_state == null or not combat_state.is_stunned()):
+		_fulguro_wall_stun_active = false
 	if _status_vfx != null:
 		_status_vfx.call("sync", get_active_effect_types())
 	_update_module_cooldowns(delta)
@@ -390,7 +496,14 @@ func _physics_process(delta: float) -> void:
 	_update_aim()
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
+	if combat_state != null and combat_state.is_stunned() and _fulguro_phase != "":
+		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
+	if combat_state != null and combat_state.is_stunned() and _pelto_phase != "":
+		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
+	_try_execute_defensive_buffer()
 	_update_movement(delta)
+	_update_fulguro_attack(delta)
+	_update_pelto_attack(delta)
 	_update_weapon_pose_state(delta)
 	_update_robot_motion(delta)
 	_update_world_ui_anchor()
@@ -419,8 +532,14 @@ func _update_movement(delta: float) -> void:
 		velocity = Vector3.ZERO
 		move_direction = Vector3.ZERO
 		return
+	if _fulguro_projection_active:
+		_update_fulguro_projection(delta)
+		return
 	if _dash_active:
 		_update_dash(delta)
+		return
+	if _pelto_pull_active:
+		_update_pelto_pull(delta)
 		return
 	var input_vector := _touch_move_vector
 	if input_vector.length_squared() <= 0.001:
@@ -479,7 +598,8 @@ func _update_robot_motion(delta: float) -> void:
 			node.rotation = base_rotation
 	if _visual_rig != null:
 		_update_aim_pose_state()
-		_visual_rig.update_visual_state(move_direction, aim_direction, visual_speed, move_speed, delta, _gameplay_enabled and not is_real_dead())
+		var visual_aim := _fulguro_direction if _fulguro_phase != "" else aim_direction
+		_visual_rig.update_visual_state(move_direction, visual_aim, visual_speed, move_speed, delta, _gameplay_enabled and not is_real_dead())
 	if not _has_skeletal_weapon_attachment():
 		_update_player_debug_vectors()
 
@@ -487,6 +607,8 @@ func _update_robot_motion(delta: float) -> void:
 func _get_actual_move_velocity() -> Vector3:
 	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return Vector3.ZERO
+	if _fulguro_projection_active:
+		return _fulguro_projection_direction * _fulguro_projection_speed
 	if _dash_active and _dash_direction.length_squared() > 0.001:
 		var dash_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("pyro_boots", {})
 		var dash_duration := maxf(0.001, float(dash_definition.get("dash_duration", 0.25)))
@@ -660,7 +782,7 @@ func _update_weapon_pose_state(delta: float) -> void:
 
 
 func _update_attack() -> void:
-	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		return
 	var wants_to_attack := _touch_attack_held or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
 	if _weapon_id == "shotgun":
@@ -733,9 +855,42 @@ func _update_debug_effects() -> void:
 			_direction_debug_label.visible = _direction_debug_enabled
 		if _attack_label != null:
 			_attack_label.text = "DEBUG DIRECTIONS : %s (F8)" % ("ON" if _direction_debug_enabled else "OFF")
+	# Temporary PC-only mannequin probes for P0-102. They do not replace the
+	# future module bindings and are intentionally explicit in the HUD/README.
+	var active_scene := get_tree().current_scene
+	if active_scene == null:
+		return
+	# Debug mannequin shortcuts only exist in the duel scene. Gameplay module
+	# inputs continue in Survival and Training Ground as well.
+	var target := active_scene.get_node_or_null("TargetDummy") if not active_scene.has_method("get_training_targets") else null
+	if target != null:
+		if _pressed_once(KEY_F1):
+			target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "debug")
+		if _pressed_once(KEY_F2):
+			target.call("apply_slow", 1.5, 30.0, "debug")
+		if _pressed_once(KEY_F3):
+			target.call("apply_stun", 1.5, "debug")
+		if _pressed_once(KEY_F4):
+			target.call("apply_spotted", 5.0, "debug")
+		if _pressed_once(KEY_F5):
+			target.call("reset_combat_state")
+		if _pressed_once(KEY_F6):
+			_show_debug_hitbox = not _show_debug_hitbox
+			_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
+		if _pressed_once(KEY_F7):
+			var bot_enabled := bool(target.call("toggle_training_bot"))
+			_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 	if not survival_mode and _pressed_once(KEY_G):
 		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
-	if _pressed_once(KEY_A):
+	var offensive_down := Input.is_key_pressed(KEY_A)
+	var offensive_was_down := bool(_debug_key_latches.get(KEY_A, false))
+	_debug_key_latches[KEY_A] = offensive_down
+	if _offensive_module_id == "fulguro_punch":
+		if offensive_down and not offensive_was_down:
+			_begin_fulguro_charge()
+		elif not offensive_down and offensive_was_down:
+			_release_fulguro_charge()
+	elif offensive_down and not offensive_was_down:
 		_perform_offensive_module()
 	if _pressed_once(KEY_E):
 		_activate_defensive_module()
@@ -749,32 +904,6 @@ func _update_debug_effects() -> void:
 		_activate_defensive_module()
 	if _consume_touch_action("mobility"):
 		_activate_mobility_module()
-	# Temporary PC-only mannequin probes for P0-102. They do not replace the
-	# future module bindings and are intentionally explicit in the HUD/README.
-	var active_scene := get_tree().current_scene
-	if active_scene == null:
-		return
-	if active_scene.has_method("get_training_targets"):
-		return
-	var target := active_scene.get_node_or_null("TargetDummy")
-	if target == null:
-		return
-	if _pressed_once(KEY_F1):
-		target.call("apply_burn", COMBAT_DATA.BURN_DURATION, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "debug")
-	if _pressed_once(KEY_F2):
-		target.call("apply_slow", 1.5, 30.0, "debug")
-	if _pressed_once(KEY_F3):
-		target.call("apply_stun", 1.5, "debug")
-	if _pressed_once(KEY_F4):
-		target.call("apply_spotted", 5.0, "debug")
-	if _pressed_once(KEY_F5):
-		target.call("reset_combat_state")
-	if _pressed_once(KEY_F6):
-		_show_debug_hitbox = not _show_debug_hitbox
-		_attack_label.text = "DIAGNOSTIC HITBOX : %s" % ("ON" if _show_debug_hitbox else "OFF")
-	if _pressed_once(KEY_F7):
-		var bot_enabled := bool(target.call("toggle_training_bot"))
-		_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -880,6 +1009,18 @@ func trigger_touch_action(action: String) -> void:
 	_touch_actions[action] = true
 
 
+func begin_touch_action(action: String) -> void:
+	if action == "offensive" and _offensive_module_id == "fulguro_punch":
+		_begin_fulguro_charge()
+	else:
+		trigger_touch_action(action)
+
+
+func end_touch_action(action: String) -> void:
+	if action == "offensive" and _offensive_module_id == "fulguro_punch":
+		_release_fulguro_charge()
+
+
 func clear_touch_inputs() -> void:
 	var touch_owned_charge := _touch_fire_charge_started
 	_touch_move_vector = Vector2.ZERO
@@ -903,6 +1044,8 @@ func set_gameplay_enabled(value: bool) -> void:
 	if not value:
 		_reset_weapon_pose_to_locomotion(true)
 		clear_touch_inputs()
+		_cancel_fulguro_attack()
+		_cancel_pelto_smash()
 		_cancel_blaster_charge()
 		velocity = Vector3.ZERO
 		if not _round_warmup_active and not is_real_dead():
@@ -946,7 +1089,7 @@ func is_revealed() -> bool:
 
 
 func is_attack_committed() -> bool:
-	return _blaster_charge_active or _blaster_attack_busy or _shotgun_attack_busy or _module_busy
+	return _blaster_charge_active or _blaster_attack_busy or _shotgun_attack_busy or _module_busy or _fulguro_phase != "" or _pelto_phase != ""
 
 
 func is_in_bush() -> bool:
@@ -1130,6 +1273,11 @@ func _on_state_died() -> void:
 	_gameplay_enabled = false
 	_update_aim_pose_state()
 	clear_touch_inputs()
+	_clear_defensive_buffer()
+	_cancel_fulguro_projection()
+	_cancel_fulguro_attack()
+	_cancel_pelto_smash()
+	_cancel_pelto_pull()
 	_cancel_blaster_charge()
 	reset_shotgun_state()
 	died.emit()
@@ -1157,7 +1305,7 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	var defensive_id := str(next_loadout.get("defensive", "magnetic_field"))
 	var mobility_id := str(next_loadout.get("mobility", "pyro_boots"))
 	var passive_id := str(next_loadout.get("passive", "baroud"))
-	_offensive_module_id = offensive_id if offensive_id in ["modulo_drone", "javelin"] else "modulo_drone"
+	_offensive_module_id = offensive_id if offensive_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"] else "modulo_drone"
 	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield"] else "magnetic_field"
 	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector"] else "pyro_boots"
 	set_passive(passive_id)
@@ -1211,6 +1359,9 @@ func configure_survival_build(build: Dictionary) -> void:
 	var offensive_power := 0.65 + 0.60 * int(offensive_ranks.get("power", 0))
 	_drone_damage *= offensive_power
 	_javelin_damage *= offensive_power
+	_fulguro_damage *= offensive_power
+	_fulguro_wall_damage *= offensive_power
+	_pelto_damage_multiplier = offensive_power
 	_drone_burn_duration *= offensive_power
 	var defensive_ranks: Dictionary = ranks.get("defensive", {})
 	var defensive_power := 0.70 + 0.55 * int(defensive_ranks.get("power", 0))
@@ -1371,6 +1522,12 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if duration > 0.0 and _fulguro_phase != "":
+		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
+	if duration > 0.0 and _pelto_phase != "":
+		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
+	if duration > 0.0:
+		_cancel_pelto_pull()
 	if combat_state != null:
 		combat_state.apply_stun(duration, source_id)
 
@@ -1384,6 +1541,11 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 func reset_combat_state() -> void:
 	clear_touch_inputs()
+	_clear_defensive_buffer()
+	_cancel_fulguro_projection()
+	_cancel_fulguro_attack()
+	_cancel_pelto_smash()
+	_cancel_pelto_pull()
 	if _status_vfx != null:
 		_status_vfx.call("clear")
 	if _health_readout != null:
@@ -1435,16 +1597,24 @@ func get_offensive_module_id() -> String:
 
 
 func _cycle_offensive_module() -> void:
-	_offensive_module_id = "javelin" if _offensive_module_id == "modulo_drone" else "modulo_drone"
+	var choices := ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"]
+	_offensive_module_id = choices[(choices.find(_offensive_module_id) + 1) % choices.size()]
 	if _attack_label != null:
-		_attack_label.text = "OFFENSIF : %s" % ("JAVELIN" if _offensive_module_id == "javelin" else "MODULO DRONE")
+		_attack_label.text = "OFFENSIF : %s" % _offensive_module_id.replace("_", " ").to_upper()
 
 
 func _perform_offensive_module() -> void:
 	if _offensive_module_id == "":
 		return
+	if _offensive_module_id == "javelin" and _can_buffer_defensive_action() and _has_live_javelin_mark():
+		_buffer_javelin_recast()
+		return
 	if _offensive_module_id == "javelin":
 		_perform_javelin()
+	elif _offensive_module_id == "fulguro_punch":
+		_perform_fulguro_punch()
+	elif _offensive_module_id == "pelto_smash":
+		_perform_pelto_smash()
 	else:
 		_perform_modulo_drone()
 
@@ -1454,6 +1624,9 @@ func _activate_defensive_module() -> void:
 
 
 func _activate_mobility_module() -> void:
+	if _can_buffer_defensive_action() and _mobility_module_id == "pyro_boots":
+		_buffer_dash()
+		return
 	_perform_mobility_module()
 
 
@@ -1505,6 +1678,15 @@ func reset_module_state() -> void:
 	_javelin_launch_token += 1
 	_module_cooldowns.clear()
 	_module_busy = false
+	_cancel_fulguro_attack()
+	_cancel_pelto_smash()
+	_cancel_fulguro_projection()
+	_cancel_pelto_pull()
+	_clear_defensive_buffer()
+	for wave in _pelto_waves:
+		if wave != null and is_instance_valid(wave):
+			wave.queue_free()
+	_pelto_waves.clear()
 	_javelin_mark_target = null
 	_dash_token += 1
 	_dash_active = false
@@ -1854,7 +2036,7 @@ func _module_ready(module_id: String) -> bool:
 
 
 func _start_module_cooldown(module_id: String, duration: float) -> void:
-	var category := "offensive" if module_id in ["modulo_drone", "javelin"] else "defensive" if module_id in ["magnetic_field", "static_shield"] else "mobility"
+	var category := "offensive" if module_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"] else "defensive" if module_id in ["magnetic_field", "static_shield"] else "mobility"
 	_module_cooldowns[module_id] = 0.0 if training_instant_cooldowns else maxf(0.0, duration * float(_survival_cooldown_multipliers.get(category, 1.0)))
 
 
@@ -1880,7 +2062,7 @@ func _perform_defensive_module() -> void:
 
 
 func _perform_magnetic_field() -> void:
-	if _stasis_remaining > 0.0 or _module_busy or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
 		return
 	var direction := aim_direction.normalized()
 	var origin := global_position
@@ -1955,8 +2137,9 @@ func _create_magnetic_wall(token: int, center: Vector3, direction: Vector3) -> v
 
 
 func _perform_static_shield() -> void:
-	if _stasis_remaining > 0.0 or not _module_ready("static_shield") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("static_shield") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_cancel_pelto_pull()
 	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
 	_stasis_remaining = _static_duration
@@ -1967,6 +2150,10 @@ func _perform_static_shield() -> void:
 	if _module_busy:
 		_module_token += 1
 		_module_busy = false
+	if _fulguro_phase != "":
+		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
+	if _pelto_phase != "":
+		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
 	if _dash_active:
 		_cancel_dash()
 	if _attack_label != null:
@@ -2033,11 +2220,12 @@ func _perform_mobility_module() -> void:
 		_perform_pyro_boots()
 
 
-func _perform_pyro_boots() -> void:
-	if _stasis_remaining > 0.0 or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
+func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
 		return
+	_cancel_pelto_pull()
 	_mark_combat_event()
-	var direction := _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
+	var direction := direction_override if direction_override.length_squared() > 0.001 else _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
 	if direction.length_squared() <= 0.001:
 		return
 	_dash_token += 1
@@ -2052,7 +2240,7 @@ func _perform_pyro_boots() -> void:
 
 
 func _perform_bio_injector() -> void:
-	if _stasis_remaining > 0.0 or _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _bio_remaining > 0.0 or not _module_ready("bio_injector") or (combat_state != null and combat_state.is_stunned()):
 		return
 	_mark_combat_event()
 	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
@@ -2101,6 +2289,199 @@ func _cancel_dash() -> void:
 	_dash_direction = Vector3.ZERO
 	if _attack_label != null:
 		_attack_label.text = "DASH  •  INTERROMPU"
+
+
+func get_fulguro_hit_radius() -> float:
+	return 0.55
+
+
+func is_fulguro_projected() -> bool:
+	return _fulguro_projection_active
+
+
+func is_action_locked() -> bool:
+	return is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned())
+
+
+func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
+	if is_real_dead() or max_distance <= 0.0 or max_duration <= 0.0:
+		return
+	_cancel_pelto_pull()
+	_cancel_fulguro_attack("FULGURO PUNCH  •  PROJETÉ")
+	_cancel_pelto_smash("PELTO SMASH  •  PROJETÉ")
+	if _dash_active:
+		_cancel_dash()
+	if _blaster_charge_active or _touch_fire_active:
+		cancel_touch_fire("FULGURO PUNCH  •  PROJETÉ")
+	if _shotgun_attack_busy:
+		_cancel_shotgun_attack()
+	if _module_busy:
+		_module_token += 1
+		_javelin_launch_token += 1
+		_module_busy = false
+	_fulguro_projection_active = true
+	_fulguro_projection_direction = FULGURO.flat_direction(direction)
+	_fulguro_projection_distance_remaining = maxf(0.0, max_distance)
+	_fulguro_projection_time_remaining = maxf(0.001, max_duration)
+	_fulguro_projection_speed = _fulguro_projection_distance_remaining / _fulguro_projection_time_remaining
+	_fulguro_projection_wall_damage = maxf(0.0, wall_damage)
+	_fulguro_projection_wall_stun = maxf(0.0, wall_stun)
+	_fulguro_projection_source_id = source_id
+	_fulguro_projection_attack_id = attack_id
+	velocity = Vector3.ZERO
+	_spawn_particle_burst(global_position + Vector3.UP * 0.82, Color("#65e9ff"), 8, 0.22, 3.0, 0.09, _fulguro_projection_direction, 24.0)
+
+
+func _update_fulguro_projection(delta: float) -> void:
+	if not _fulguro_projection_active:
+		return
+	var available_time := minf(maxf(delta, 0.0), _fulguro_projection_time_remaining)
+	var step_distance := minf(_fulguro_projection_distance_remaining, _fulguro_projection_speed * available_time)
+	if step_distance <= 0.0001:
+		_finish_fulguro_projection(false)
+		return
+	var collision := move_and_collide(_fulguro_projection_direction * step_distance)
+	global_position.y = 0.0
+	var travelled := step_distance
+	if collision != null:
+		travelled = collision.get_travel().length()
+	_fulguro_projection_distance_remaining = maxf(0.0, _fulguro_projection_distance_remaining - travelled)
+	_fulguro_projection_time_remaining = maxf(0.0, _fulguro_projection_time_remaining - available_time)
+	if collision != null:
+		var crushing := FULGURO.is_crushing_wall(collision.get_collider(), collision.get_normal(), _fulguro_projection_direction)
+		_finish_fulguro_projection(crushing, collision.get_position(), collision.get_normal())
+		return
+	if _fulguro_projection_distance_remaining <= 0.001 or _fulguro_projection_time_remaining <= 0.001:
+		_finish_fulguro_projection(false)
+
+
+func _finish_fulguro_projection(crushed_wall: bool, impact_position: Vector3 = Vector3.ZERO, impact_normal: Vector3 = Vector3.ZERO) -> void:
+	if not _fulguro_projection_active:
+		return
+	_fulguro_projection_active = false
+	_fulguro_projection_distance_remaining = 0.0
+	_fulguro_projection_time_remaining = 0.0
+	_fulguro_projection_speed = 0.0
+	velocity = Vector3.ZERO
+	if crushed_wall and not is_real_dead():
+		var wall_attack_id := "%s:wall" % _fulguro_projection_attack_id
+		var applied := take_damage(_fulguro_projection_wall_damage, _fulguro_projection_source_id, wall_attack_id)
+		if applied > 0.0 and not is_real_dead():
+			_fulguro_wall_stun_active = true
+			apply_stun(_fulguro_projection_wall_stun, "fulguro_wall")
+			_spawn_fulguro_wall_impact(impact_position, impact_normal)
+	_try_execute_defensive_buffer()
+
+
+func _cancel_fulguro_projection() -> void:
+	_fulguro_projection_active = false
+	_fulguro_projection_direction = Vector3.ZERO
+	_fulguro_projection_distance_remaining = 0.0
+	_fulguro_projection_time_remaining = 0.0
+	_fulguro_projection_speed = 0.0
+	_fulguro_wall_stun_active = false
+
+
+func start_pelto_pull(pull_direction: Vector3, distance: float, duration: float, _source_id: String = "", _attack_id: String = "") -> void:
+	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or (combat_state != null and combat_state.is_stunned()) or distance <= 0.0 or duration <= 0.0:
+		return
+	_pelto_pull_active = true
+	_pelto_pull_direction = PELTO_SMASH.flat_direction(pull_direction)
+	_pelto_pull_distance_remaining = maxf(0.0, distance)
+	_pelto_pull_time_remaining = maxf(0.001, duration)
+	_pelto_pull_speed = _pelto_pull_distance_remaining / _pelto_pull_time_remaining
+
+
+func _update_pelto_pull(delta: float) -> void:
+	if not _pelto_pull_active:
+		return
+	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
+		_cancel_pelto_pull()
+		return
+	var available_time := minf(maxf(delta, 0.0), _pelto_pull_time_remaining)
+	var step_distance := minf(_pelto_pull_distance_remaining, _pelto_pull_speed * available_time)
+	if step_distance <= 0.0001:
+		_cancel_pelto_pull()
+		return
+	var collision := move_and_collide(_pelto_pull_direction * step_distance)
+	global_position.y = 0.0
+	var travelled := collision.get_travel().length() if collision != null else step_distance
+	_pelto_pull_distance_remaining = maxf(0.0, _pelto_pull_distance_remaining - travelled)
+	_pelto_pull_time_remaining = maxf(0.0, _pelto_pull_time_remaining - available_time)
+	if collision != null or _pelto_pull_distance_remaining <= 0.001 or _pelto_pull_time_remaining <= 0.001:
+		_cancel_pelto_pull()
+
+
+func _cancel_pelto_pull() -> void:
+	_pelto_pull_active = false
+	_pelto_pull_direction = Vector3.ZERO
+	_pelto_pull_distance_remaining = 0.0
+	_pelto_pull_time_remaining = 0.0
+	_pelto_pull_speed = 0.0
+
+
+func is_pelto_pulled() -> bool:
+	return _pelto_pull_active
+
+
+func _spawn_fulguro_wall_impact(impact_position: Vector3, impact_normal: Vector3) -> void:
+	var position := impact_position if impact_position != Vector3.ZERO else global_position + Vector3.UP * 0.85
+	var normal := impact_normal if impact_normal.length_squared() > 0.001 else -_fulguro_projection_direction
+	var vfx := _vfx_manager()
+	if vfx != null:
+		vfx.call("impact", position, normal, "environment", 1.65, Color("#ffb34f"))
+	_spawn_particle_burst(position, Color("#ffca63"), 16, 0.34, 5.2, 0.13, normal, 48.0)
+	_camera_impulse(0.14, 0.11)
+
+
+func _can_buffer_defensive_action() -> bool:
+	return not is_real_dead() and (_fulguro_projection_active or _fulguro_wall_stun_active)
+
+
+func _buffer_dash() -> void:
+	var direction := _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction
+	_defensive_buffer = {"type": "dash", "direction": FULGURO.flat_direction(direction)}
+	if _attack_label != null:
+		_attack_label.text = "BUFFER  •  DASH"
+
+
+func _has_live_javelin_mark() -> bool:
+	return _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and _javelin_mark_target.has_method("has_javelin_mark") and bool(_javelin_mark_target.call("has_javelin_mark"))
+
+
+func _buffer_javelin_recast() -> void:
+	if not _has_live_javelin_mark():
+		return
+	var destination := _find_javelin_destination(_javelin_mark_target)
+	_defensive_buffer = {"type": "teleport", "target": _javelin_mark_target, "destination": destination}
+	if _attack_label != null:
+		_attack_label.text = "BUFFER  •  TÉLÉPORTATION"
+
+
+func _try_execute_defensive_buffer() -> void:
+	if _defensive_buffer.is_empty() or is_action_locked():
+		return
+	var command := _defensive_buffer.duplicate()
+	_defensive_buffer.clear()
+	match str(command.get("type", "")):
+		"dash":
+			if _mobility_module_id == "pyro_boots" and _module_ready("pyro_boots"):
+				var direction: Vector3 = command.get("direction", Vector3.ZERO)
+				if direction.length_squared() > 0.001:
+					_perform_pyro_boots(direction)
+		"teleport":
+			var target := command.get("target") as Node
+			var destination: Vector3 = command.get("destination", Vector3.INF)
+			if _offensive_module_id == "javelin" and target == _javelin_mark_target and _has_live_javelin_mark() and destination.is_finite() and _javelin_destination_valid(target, destination):
+				_recast_javelin(destination)
+
+
+func _clear_defensive_buffer() -> void:
+	_defensive_buffer.clear()
+
+
+func get_buffered_defensive_action() -> String:
+	return str(_defensive_buffer.get("type", ""))
 
 
 func _create_dash_fx(origin: Vector3) -> void:
@@ -2262,8 +2643,545 @@ func _select_drone_target(origin: Vector3, direction: Vector3) -> Node:
 	return target
 
 
+func _fulguro_targets() -> Array:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene == null:
+		return []
+	if scene.has_method("get_training_targets"):
+		return scene.call("get_training_targets")
+	var target := scene.get_node_or_null("TargetDummy")
+	return [target] if target != null else []
+
+
+func _perform_fulguro_punch() -> void:
+	_begin_fulguro_charge()
+	_release_fulguro_charge()
+
+
+func _begin_fulguro_charge() -> void:
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("fulguro_punch") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+		return
+	_mark_combat_event()
+	_module_busy = true
+	_module_token += 1
+	_fulguro_attack_serial += 1
+	_fulguro_phase = "preparation"
+	_fulguro_elapsed = 0.0
+	_fulguro_direction = FULGURO.flat_direction(aim_direction)
+	_fulguro_hit_resolved = false
+	_fulguro_release_requested = false
+	_fulguro_release_at = -1.0
+	_fulguro_charge_ratio = 0.0
+	_fulguro_strike_range = _fulguro_range
+	_fulguro_strike_damage = _fulguro_damage
+	_fulguro_strike_wall_damage = _fulguro_wall_damage
+	_fulguro_flame_clock = 0.0
+	_start_module_cooldown("fulguro_punch", float(COMBAT_DATA.MODULE_DEFINITIONS["fulguro_punch"]["cooldown"]))
+	_create_fulguro_telegraph()
+	if _fulguro_charge_audio != null:
+		_fulguro_charge_audio.play()
+	if _attack_label != null:
+		_attack_label.text = "FULGURO PUNCH  •  CHARGE 0.00 / %.1f s" % _fulguro_charge_max
+	_update_fulguro_pose()
+
+
+func _release_fulguro_charge() -> void:
+	if _fulguro_phase != "preparation" or _fulguro_release_requested:
+		return
+	_fulguro_release_requested = true
+	_fulguro_release_at = clampf(maxf(_fulguro_elapsed, _fulguro_preparation), _fulguro_preparation, _fulguro_charge_max)
+
+
+func get_fulguro_charge_fraction() -> float:
+	if _fulguro_phase != "preparation":
+		return 0.0
+	return clampf(_fulguro_elapsed / maxf(0.001, _fulguro_charge_max), 0.0, 1.0)
+
+
+func is_fulguro_charging() -> bool:
+	return _fulguro_phase == "preparation"
+
+
+func _update_fulguro_attack(delta: float) -> void:
+	if _fulguro_phase == "":
+		return
+	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
+		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
+		return
+	if _fulguro_phase == "preparation":
+		var release_time := _fulguro_release_at if _fulguro_release_requested else _fulguro_charge_max
+		_fulguro_elapsed = minf(_fulguro_elapsed + maxf(0.0, delta), release_time)
+		_update_fulguro_telegraph(delta)
+		_update_fulguro_pose()
+		if _attack_label != null:
+			var percent := int(round(_fulguro_power_ratio() * 100.0))
+			_attack_label.text = "FULGURO PUNCH  •  CHARGE %.2f / %.1f s  •  %d%%" % [_fulguro_elapsed, _fulguro_charge_max, percent]
+		if _fulguro_elapsed >= release_time - 0.000001:
+			_commit_fulguro_strike()
+		return
+	var phase_duration := _fulguro_active_window if _fulguro_phase == "active" else _fulguro_recovery
+	_fulguro_elapsed += maxf(0.0, delta)
+	if _fulguro_elapsed >= phase_duration:
+		_fulguro_elapsed = 0.0
+		if _fulguro_phase == "active":
+			_fulguro_phase = "recovery"
+			if _attack_label != null:
+				_attack_label.text = "FULGURO PUNCH  •  RÉCUPÉRATION"
+		else:
+			_finish_fulguro_attack()
+			return
+	_update_fulguro_pose()
+
+
+func _fulguro_power_ratio() -> float:
+	return clampf(inverse_lerp(_fulguro_preparation, _fulguro_charge_max, _fulguro_elapsed), 0.0, 1.0)
+
+
+func _commit_fulguro_strike() -> void:
+	_fulguro_charge_ratio = _fulguro_power_ratio()
+	_fulguro_strike_range = lerpf(_fulguro_range, _fulguro_range_max, _fulguro_charge_ratio)
+	_fulguro_strike_damage = lerpf(_fulguro_damage, _fulguro_damage_max, _fulguro_charge_ratio)
+	_fulguro_strike_wall_damage = lerpf(_fulguro_wall_damage, _fulguro_wall_damage_max, _fulguro_charge_ratio)
+	_fulguro_phase = "active"
+	_fulguro_elapsed = 0.0
+	if _fulguro_charge_audio != null:
+		_fulguro_charge_audio.stop()
+	if _fulguro_release_audio != null:
+		_fulguro_release_audio.pitch_scale = lerpf(1.03, 0.78, _fulguro_charge_ratio)
+		_fulguro_release_audio.play()
+	_clear_fulguro_telegraph()
+	_resolve_fulguro_strike()
+	_spawn_fulguro_strike_fx()
+	if _attack_label != null:
+		_attack_label.text = "FULGURO PUNCH  •  DÉCHARGE INCANDESCENTE  •  %d%%" % int(round(_fulguro_charge_ratio * 100.0))
+	_update_fulguro_pose()
+
+
+func _resolve_fulguro_strike() -> void:
+	if _fulguro_hit_resolved:
+		return
+	_fulguro_hit_resolved = true
+	var attack_id := "fulguro:%d" % _fulguro_attack_serial
+	var target := FULGURO.resolve_strike(self, _fulguro_targets(), _fulguro_direction, _fulguro_strike_damage, _fulguro_strike_wall_damage, _fulguro_wall_stun, "player", attack_id, _fulguro_strike_range, _fulguro_width)
+	if target != null:
+		var impact_position := (target as Node3D).global_position + Vector3.UP * 0.82
+		_create_target_hit_fx(impact_position, false)
+		var vfx := _vfx_manager()
+		if vfx != null:
+			vfx.call("impact", impact_position, -_fulguro_direction, "robot", lerpf(1.15, 1.85, _fulguro_charge_ratio), Color("#ff7a24"))
+		_spawn_particle_burst(impact_position, Color("#fff0a3"), 10 + int(_fulguro_charge_ratio * 10.0), 0.34, 5.0, 0.16, -_fulguro_direction + Vector3.UP * 0.25, 52.0)
+		if _survival_evolved("offensive"):
+			_survival_area_damage((target as Node3D).global_position, 2.25, 45.0, "fulguro_incandescent_wave", Color("#ff8a32"), target)
+
+
+func _create_fulguro_telegraph() -> void:
+	_clear_fulguro_telegraph()
+	var root := Node3D.new()
+	root.name = "FulguroTelegraph"
+	var lane := MeshInstance3D.new()
+	var lane_mesh := BoxMesh.new()
+	lane_mesh.size = Vector3(_fulguro_width, 0.025, _fulguro_range)
+	lane.mesh = lane_mesh
+	lane.position = Vector3(0.0, 0.0, -_fulguro_range * 0.5)
+	lane.material_override = _create_fx_material(Color("#ff7a24"), 0.46)
+	root.add_child(lane)
+	_fulguro_lane_mesh = lane_mesh
+	var tip := MeshInstance3D.new()
+	var tip_mesh := BoxMesh.new()
+	tip_mesh.size = Vector3(_fulguro_width * 0.72, 0.035, 0.24)
+	tip.mesh = tip_mesh
+	tip.position = Vector3(0.0, 0.012, -_fulguro_range + 0.10)
+	tip.rotation.y = PI * 0.25
+	tip.material_override = _create_fx_material(Color("#ffd36a"), 0.82)
+	root.add_child(tip)
+	_fulguro_tip_visual = tip
+	var fist := MeshInstance3D.new()
+	var fist_mesh := SphereMesh.new()
+	fist_mesh.radius = 0.22
+	fist_mesh.height = 0.38
+	fist.mesh = fist_mesh
+	fist.material_override = _create_fx_material(Color("#ff5a16"), 0.78)
+	root.add_child(fist)
+	_fulguro_fist_visual = fist
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.13
+	core_mesh.height = 0.24
+	core.mesh = core_mesh
+	core.material_override = _create_fx_material(Color("#fff2af"), 0.92)
+	root.add_child(core)
+	_fulguro_fist_core = core
+	_fulguro_flame_tongues.clear()
+	for index in range(3):
+		var flame := MeshInstance3D.new()
+		var flame_mesh := SphereMesh.new()
+		flame_mesh.radius = 0.085
+		flame_mesh.height = 0.34
+		flame.mesh = flame_mesh
+		flame.material_override = _create_fx_material(Color("#ff6a1f") if index != 1 else Color("#ffd66b"), 0.68)
+		root.add_child(flame)
+		_fulguro_flame_tongues.append(flame)
+	var light := OmniLight3D.new()
+	light.light_color = Color("#ff7b2f")
+	light.light_energy = 1.2
+	light.omni_range = 2.2
+	light.shadow_enabled = false
+	root.add_child(light)
+	_fulguro_flame_light = light
+	get_tree().current_scene.add_child(root)
+	_fulguro_indicator = root
+	_update_fulguro_telegraph(0.0)
+
+
+func _update_fulguro_telegraph(delta: float = 0.0) -> void:
+	if _fulguro_indicator == null or not is_instance_valid(_fulguro_indicator):
+		return
+	_fulguro_indicator.global_position = global_position + Vector3.UP * 0.055
+	_fulguro_indicator.global_basis = Basis.looking_at(_fulguro_direction, Vector3.UP)
+	var armed := clampf(_fulguro_elapsed / maxf(0.001, _fulguro_preparation), 0.0, 1.0)
+	var power := _fulguro_power_ratio()
+	var live_range := lerpf(_fulguro_range, _fulguro_range_max, power)
+	if _fulguro_lane_mesh != null:
+		_fulguro_lane_mesh.size = Vector3(_fulguro_width, 0.025 + power * 0.018, live_range)
+	var lane := _fulguro_indicator.get_child(0) as MeshInstance3D
+	if lane != null:
+		lane.position = Vector3(0.0, 0.0, -live_range * 0.5)
+	if _fulguro_tip_visual != null:
+		_fulguro_tip_visual.position = Vector3(0.0, 0.012, -live_range + 0.10)
+		_fulguro_tip_visual.scale = Vector3.ONE * (1.0 + power * 0.32 + sin(_fulguro_elapsed * 18.0) * 0.05)
+	if _fulguro_fist_visual != null:
+		var fist_position := Vector3(0.36, 0.88, 0.24 + armed * 0.18)
+		var pulse := sin(_fulguro_elapsed * lerpf(22.0, 48.0, power)) * (0.05 + power * 0.08)
+		_fulguro_fist_visual.position = fist_position
+		_fulguro_fist_visual.scale = Vector3.ONE * (0.74 + armed * 0.34 + power * 0.58 + pulse)
+		var material := _fulguro_fist_visual.material_override as StandardMaterial3D
+		if material != null:
+			material.emission = Color("#ff641c").lerp(Color("#fff1a6"), power * 0.72)
+			material.emission_energy_multiplier = lerpf(1.8, 6.5, power)
+		if _fulguro_fist_core != null:
+			_fulguro_fist_core.position = fist_position + Vector3(0.0, 0.01, -0.025)
+			_fulguro_fist_core.scale = Vector3.ONE * (0.52 + power * 0.46 + sin(_fulguro_elapsed * 55.0) * 0.06)
+		for index in range(_fulguro_flame_tongues.size()):
+			var flame := _fulguro_flame_tongues[index]
+			var angle := _fulguro_elapsed * lerpf(5.0, 9.0, power) + TAU * float(index) / float(_fulguro_flame_tongues.size())
+			flame.position = fist_position + Vector3(cos(angle) * (0.10 + power * 0.07), 0.13 + sin(angle * 1.7) * 0.05, sin(angle) * (0.08 + power * 0.05))
+			flame.scale = Vector3(0.72 + power * 0.35, 1.05 + power * 0.85 + sin(angle * 2.0) * 0.16, 0.72 + power * 0.35)
+		if _fulguro_flame_light != null:
+			_fulguro_flame_light.position = fist_position
+			_fulguro_flame_light.light_energy = lerpf(1.2, 4.8, power) + sin(_fulguro_elapsed * 36.0) * 0.25
+			_fulguro_flame_light.omni_range = lerpf(2.2, 4.1, power)
+		_fulguro_flame_clock -= delta
+		if delta > 0.0 and _fulguro_flame_clock <= 0.0:
+			_fulguro_flame_clock = lerpf(0.16, 0.065, power)
+			var flame_origin := _fulguro_fist_visual.global_position
+			_spawn_particle_burst(flame_origin, Color("#ff7628").lerp(Color("#fff0a0"), power * 0.65), 5 + int(power * 7.0), 0.28, lerpf(1.4, 3.5, power), 0.12, Vector3.UP - _fulguro_direction * 0.20, 42.0)
+
+
+func _clear_fulguro_telegraph() -> void:
+	if _fulguro_indicator != null and is_instance_valid(_fulguro_indicator):
+		_fulguro_indicator.queue_free()
+	_fulguro_indicator = null
+	_fulguro_fist_visual = null
+	_fulguro_fist_core = null
+	_fulguro_flame_tongues.clear()
+	_fulguro_lane_mesh = null
+	_fulguro_tip_visual = null
+	_fulguro_flame_light = null
+
+
+func _spawn_fulguro_strike_fx() -> void:
+	var trail := MeshInstance3D.new()
+	trail.name = "FulguroPunchTrail"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(_fulguro_width * lerpf(0.62, 0.88, _fulguro_charge_ratio), lerpf(0.28, 0.46, _fulguro_charge_ratio), _fulguro_strike_range)
+	trail.mesh = mesh
+	trail.material_override = _create_fx_material(Color("#ff5a18"), 0.64)
+	get_tree().current_scene.add_child(trail)
+	trail.global_position = global_position + _fulguro_direction * (_fulguro_strike_range * 0.5) + Vector3.UP * 0.92
+	trail.global_basis = Basis.looking_at(_fulguro_direction, Vector3.UP)
+	_register_fx_budget(trail, "burst")
+	var core := MeshInstance3D.new()
+	core.name = "FulguroIncandescentCore"
+	var core_mesh := BoxMesh.new()
+	core_mesh.size = Vector3(_fulguro_width * 0.28, 0.13, _fulguro_strike_range * 0.98)
+	core.mesh = core_mesh
+	core.material_override = _create_fx_material(Color("#fff0a0"), 0.90)
+	get_tree().current_scene.add_child(core)
+	core.global_position = trail.global_position
+	core.global_basis = trail.global_basis
+	_register_fx_budget(core, "burst")
+	var discharge_end := global_position + _fulguro_direction * _fulguro_strike_range + Vector3.UP * 0.90
+	_spawn_particle_burst(discharge_end, Color("#ff7928"), 12, 0.36, 5.0, 0.18, _fulguro_direction, 28.0)
+	_spawn_particle_burst(discharge_end, Color("#fff3b0"), 8, 0.24, 4.2, 0.11, _fulguro_direction, 20.0)
+	for index in range(3 + int(_fulguro_charge_ratio * 3.0)):
+		var side := Vector3(-_fulguro_direction.z, 0.0, _fulguro_direction.x) * (float(index) - 2.0) * 0.055
+		_create_lightning_arc(global_position + Vector3.UP * 0.92 + side, discharge_end + side * 0.35, Color("#ffb044") if index % 2 == 0 else Color("#fff0a3"), 0.035 + _fulguro_charge_ratio * 0.025, 0.18)
+	var material := trail.material_override as StandardMaterial3D
+	var core_material := core.material_override as StandardMaterial3D
+	var tween := trail.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(trail, "scale", Vector3(0.55, 0.55, 1.08), _fulguro_active_window)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(material), 0.72, 0.0, _fulguro_active_window + 0.08)
+	tween.tween_property(core, "scale", Vector3(0.48, 0.48, 1.12), _fulguro_active_window)
+	tween.tween_method(Callable(self, "_set_material_alpha").bind(core_material), 0.90, 0.0, _fulguro_active_window + 0.10)
+	tween.set_parallel(false)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(trail):
+			trail.queue_free()
+		if is_instance_valid(core):
+			core.queue_free()
+	)
+
+
+func _update_fulguro_pose() -> void:
+	if _visual_rig == null or not _visual_rig.has_method("set_fulguro_pose"):
+		return
+	var duration := _fulguro_active_window if _fulguro_phase == "active" else _fulguro_recovery
+	var progress := clampf(_fulguro_elapsed / maxf(0.001, duration), 0.0, 1.0)
+	if _fulguro_phase == "preparation":
+		progress = clampf(_fulguro_elapsed / maxf(0.001, _fulguro_preparation), 0.0, 1.0)
+	_visual_rig.call("set_fulguro_pose", _fulguro_phase, progress)
+
+
+func _finish_fulguro_attack() -> void:
+	_clear_fulguro_telegraph()
+	if _fulguro_charge_audio != null:
+		_fulguro_charge_audio.stop()
+	if _visual_rig != null and _visual_rig.has_method("clear_fulguro_pose"):
+		_visual_rig.call("clear_fulguro_pose")
+	_fulguro_phase = ""
+	_fulguro_elapsed = 0.0
+	_fulguro_hit_resolved = false
+	_fulguro_release_requested = false
+	_fulguro_release_at = -1.0
+	_module_busy = false
+	_update_aim_pose_state()
+	if _attack_label != null:
+		_attack_label.text = "FULGURO PUNCH  •  CD 8s"
+
+
+func _cancel_fulguro_attack(reason: String = "") -> void:
+	if _fulguro_phase == "":
+		_clear_fulguro_telegraph()
+		return
+	_clear_fulguro_telegraph()
+	if _fulguro_charge_audio != null:
+		_fulguro_charge_audio.stop()
+	if _visual_rig != null and _visual_rig.has_method("clear_fulguro_pose"):
+		_visual_rig.call("clear_fulguro_pose")
+	_fulguro_phase = ""
+	_fulguro_elapsed = 0.0
+	_fulguro_hit_resolved = false
+	_fulguro_release_requested = false
+	_fulguro_release_at = -1.0
+	_module_busy = false
+	_update_aim_pose_state()
+	if reason != "" and _attack_label != null:
+		_attack_label.text = reason
+
+
+func _perform_pelto_smash() -> void:
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("pelto_smash") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
+		return
+	_mark_combat_event()
+	_module_busy = true
+	_module_token += 1
+	_pelto_attack_serial += 1
+	_pelto_phase = "preparation"
+	_pelto_elapsed = 0.0
+	_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
+	_start_module_cooldown("pelto_smash", float(COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"].cooldown))
+	_create_pelto_telegraph()
+	_set_pelto_weapon_hidden(true)
+	_update_pelto_pose()
+	_update_aim_pose_state()
+	if _attack_label != null:
+		_attack_label.text = "PELTO SMASH  •  PRÉPARATION"
+
+
+func is_pelto_preparing() -> bool:
+	return _pelto_phase == "preparation"
+
+
+func get_pelto_preparation_fraction() -> float:
+	return clampf(_pelto_elapsed / maxf(0.001, _pelto_preparation), 0.0, 1.0) if _pelto_phase == "preparation" else 0.0
+
+
+func _update_pelto_attack(delta: float) -> void:
+	if _pelto_phase == "":
+		return
+	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
+		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
+		return
+	_pelto_elapsed += maxf(0.0, delta)
+	if _pelto_phase == "preparation":
+		_update_pelto_telegraph()
+		_update_pelto_pose()
+		if _pelto_elapsed >= _pelto_preparation:
+			_commit_pelto_impact()
+		return
+	var duration := _pelto_impact_duration if _pelto_phase == "impact" else _pelto_recovery
+	if _pelto_elapsed >= duration:
+		_pelto_elapsed = 0.0
+		if _pelto_phase == "impact":
+			_pelto_phase = "recovery"
+			if _attack_label != null:
+				_attack_label.text = "PELTO SMASH  •  REPRISE"
+		else:
+			_finish_pelto_smash()
+			return
+	_update_pelto_pose()
+
+
+func _commit_pelto_impact() -> void:
+	_pelto_phase = "impact"
+	_pelto_elapsed = 0.0
+	_clear_pelto_telegraph()
+	if _pelto_impact_audio != null:
+		_pelto_impact_audio.play()
+	_camera_impulse(0.12, 0.085)
+	_spawn_particle_burst(global_position + Vector3.UP * 0.08, Color("#c47b43"), 14, 0.30, 3.5, 0.13, _pelto_direction + Vector3.UP * 0.22, 45.0)
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null:
+		var wave := PELTO_SMASH.new()
+		wave.name = "PeltoSmashWave_%d" % _pelto_attack_serial
+		scene.add_child(wave)
+		wave.call("configure", self, global_position, _pelto_direction, "player", "pelto:%d" % _pelto_attack_serial, _pelto_damage_multiplier)
+		_pelto_waves.append(wave)
+		wave.finished.connect(Callable(self, "_on_pelto_wave_finished").bind(wave), CONNECT_ONE_SHOT)
+		_register_fx_budget(wave, "projectile")
+	if _attack_label != null:
+		_attack_label.text = "PELTO SMASH  •  IMPACT"
+	_update_pelto_pose()
+
+
+func _on_pelto_wave_finished(wave: Node) -> void:
+	_pelto_waves.erase(wave)
+
+
+func _on_pelto_hit(target: Node, returning: bool, applied_damage: float) -> void:
+	if not returning or not _survival_evolved("offensive") or target == null or not target is Node3D:
+		return
+	_survival_area_damage((target as Node3D).global_position, 2.5, applied_damage * 0.35, "pelto_aftershock", Color("#d99a5b"), target)
+
+
+func _create_pelto_telegraph() -> void:
+	_clear_pelto_telegraph()
+	var values: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"]
+	var root := Node3D.new()
+	root.name = "PeltoSmashTelegraph"
+	var lane := MeshInstance3D.new()
+	_pelto_lane_mesh = BoxMesh.new()
+	_pelto_lane_mesh.size = Vector3(float(values.width), 0.022, float(values.max_range))
+	lane.mesh = _pelto_lane_mesh
+	lane.position = Vector3(0.0, 0.0, -float(values.max_range) * 0.5)
+	lane.material_override = _pelto_ground_material(Color("#8b593b"), 0.30)
+	root.add_child(lane)
+	for segment in range(1, 7):
+		var ridge := MeshInstance3D.new()
+		var ridge_mesh := BoxMesh.new()
+		ridge_mesh.size = Vector3(float(values.width) * 0.94, 0.035, 0.045)
+		ridge.mesh = ridge_mesh
+		ridge.position = Vector3(0.0, 0.018, -float(values.max_range) * float(segment) / 7.0)
+		ridge.material_override = _pelto_ground_material(Color("#d39a5c"), 0.62)
+		root.add_child(ridge)
+	var strike := MeshInstance3D.new()
+	var strike_mesh := CylinderMesh.new()
+	strike_mesh.top_radius = 0.34
+	strike_mesh.bottom_radius = 0.42
+	strike_mesh.height = 0.035
+	strike_mesh.radial_segments = 16
+	strike.mesh = strike_mesh
+	strike.position = Vector3(0.0, 0.025, -0.28)
+	strike.material_override = _pelto_ground_material(Color("#f0ba6a"), 0.82)
+	root.add_child(strike)
+	_scene_add_child(root)
+	_pelto_indicator = root
+	_update_pelto_telegraph()
+
+
+func _scene_add_child(node: Node) -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	if scene != null:
+		scene.add_child(node)
+	else:
+		add_child(node)
+
+
+func _update_pelto_telegraph() -> void:
+	if _pelto_indicator == null or not is_instance_valid(_pelto_indicator):
+		return
+	_pelto_indicator.global_position = global_position + Vector3.UP * 0.045
+	_pelto_indicator.global_basis = Basis.looking_at(_pelto_direction, Vector3.UP)
+	var progress := clampf(_pelto_elapsed / maxf(0.001, _pelto_preparation), 0.0, 1.0)
+	_pelto_indicator.scale.y = 1.0 + sin(_pelto_elapsed * 22.0) * 0.18 * progress
+
+
+func _clear_pelto_telegraph() -> void:
+	if _pelto_indicator != null and is_instance_valid(_pelto_indicator):
+		_pelto_indicator.queue_free()
+	_pelto_indicator = null
+	_pelto_lane_mesh = null
+
+
+func _update_pelto_pose() -> void:
+	if _visual_rig == null or not _visual_rig.has_method("set_pelto_pose"):
+		return
+	var duration := _pelto_preparation if _pelto_phase == "preparation" else _pelto_impact_duration if _pelto_phase == "impact" else _pelto_recovery
+	_visual_rig.call("set_pelto_pose", _pelto_phase, clampf(_pelto_elapsed / maxf(0.001, duration), 0.0, 1.0))
+
+
+func _finish_pelto_smash() -> void:
+	_clear_pelto_telegraph()
+	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
+		_visual_rig.call("clear_pelto_pose")
+	_set_pelto_weapon_hidden(false)
+	_pelto_phase = ""
+	_pelto_elapsed = 0.0
+	_module_busy = false
+	_update_aim_pose_state()
+	if _attack_label != null:
+		_attack_label.text = "PELTO SMASH  •  CD 10s"
+
+
+func _cancel_pelto_smash(reason: String = "") -> void:
+	_clear_pelto_telegraph()
+	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
+		_visual_rig.call("clear_pelto_pose")
+	_set_pelto_weapon_hidden(false)
+	_pelto_phase = ""
+	_pelto_elapsed = 0.0
+	if _module_busy and _offensive_module_id == "pelto_smash":
+		_module_busy = false
+	_update_aim_pose_state()
+	if reason != "" and _attack_label != null:
+		_attack_label.text = reason
+
+
+func _set_pelto_weapon_hidden(hidden: bool) -> void:
+	_pelto_weapon_hidden = hidden
+	if hidden:
+		if _blaster_pivot != null:
+			_blaster_pivot.visible = false
+		if _shotgun_pivot != null:
+			_shotgun_pivot.visible = false
+	else:
+		_update_weapon_visuals()
+
+
+func _pelto_ground_material(color: Color, alpha: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.roughness = 0.95
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.emission_enabled = true
+	material.emission = color.darkened(0.62)
+	material.emission_energy_multiplier = 0.16
+	return material
+
+
 func _perform_modulo_drone() -> void:
-	if _stasis_remaining > 0.0 or _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _module_busy or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
 		return
 	_mark_combat_event()
 	_module_busy = true
@@ -2392,7 +3310,7 @@ func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
 
 
 func _perform_javelin() -> void:
-	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		return
 	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
 		_mark_combat_event()
@@ -2489,7 +3407,7 @@ func _decorate_javelin_projectile(spear: Node3D) -> void:
 	pulse.tween_property(spear, "scale", Vector3.ONE, 0.14)
 
 
-func _recast_javelin() -> void:
+func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	var target := _javelin_mark_target
 	if target == null or not is_instance_valid(target) or not bool(target.call("has_javelin_mark")):
 		_javelin_mark_target = null
@@ -2497,7 +3415,9 @@ func _recast_javelin() -> void:
 	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_max_range or not _solid_path_clear(global_position, target.global_position, [target.get_rid()]):
 		_attack_label.text = "JAVELIN  •  REACTIVATION REFUSÉE"
 		return
-	var destination := _find_javelin_destination(target)
+	var destination := preferred_destination if preferred_destination.is_finite() else _find_javelin_destination(target)
+	if preferred_destination.is_finite() and not _javelin_destination_valid(target, preferred_destination):
+		destination = Vector3.INF
 	if destination == Vector3.INF:
 		_attack_label.text = "JAVELIN  •  DESTINATION BLOQUÉE"
 		return
@@ -2506,6 +3426,7 @@ func _recast_javelin() -> void:
 	if _shotgun_attack_busy:
 		_cancel_shotgun_attack()
 	var teleport_origin := global_position
+	_cancel_pelto_pull()
 	global_position = destination
 	if survival_synergies != null:
 		survival_synergies.teleport_trail(teleport_origin, destination)
@@ -2524,21 +3445,27 @@ func _find_javelin_destination(target: Node) -> Vector3:
 	var candidates: Array[Vector3] = [base, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(30.0)) * _javelin_teleport_distance, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(-30.0)) * _javelin_teleport_distance]
 	for candidate in candidates:
 		candidate.y = 0.0
-		if absf(candidate.x) > 23.0 or absf(candidate.z) > 23.0:
-			continue
-		if not _solid_path_clear(global_position, candidate):
-			continue
-		var world := get_world_3d()
-		if world != null:
-			var query := PhysicsPointQueryParameters3D.new()
-			query.position = candidate + Vector3.UP * 0.72
-			query.collision_mask = 1
-			query.collide_with_bodies = true
-			query.exclude = [get_rid(), target.get_rid()]
-			if not world.direct_space_state.intersect_point(query, 8).is_empty():
-				continue
-		return candidate
+		if _javelin_destination_valid(target, candidate):
+			return candidate
 	return Vector3.INF
+
+
+func _javelin_destination_valid(target: Node, candidate: Vector3) -> bool:
+	if target == null or not is_instance_valid(target) or not target is CollisionObject3D or not candidate.is_finite():
+		return false
+	if absf(candidate.x) > 23.0 or absf(candidate.z) > 23.0:
+		return false
+	if not _solid_path_clear(global_position, candidate):
+		return false
+	var world := get_world_3d()
+	if world == null:
+		return true
+	var query := PhysicsPointQueryParameters3D.new()
+	query.position = candidate + Vector3.UP * 0.72
+	query.collision_mask = 1
+	query.collide_with_bodies = true
+	query.exclude = [get_rid(), (target as CollisionObject3D).get_rid()]
+	return world.direct_space_state.intersect_point(query, 8).is_empty()
 
 
 func _begin_blaster_charge(now: float = -1.0) -> void:
@@ -3450,7 +4377,8 @@ func _has_skeletal_weapon_attachment() -> bool:
 
 func _update_aim_pose_state() -> void:
 	if _visual_rig != null:
-		_visual_rig.set_aim_enabled(_weapon_id in ["blaster", "shotgun"] and _gameplay_enabled and not is_real_dead() and _weapon_pose_uses_aim())
+		var punch_pose := _fulguro_phase != "" or _pelto_phase != ""
+		_visual_rig.set_aim_enabled(_gameplay_enabled and not is_real_dead() and (punch_pose or (_weapon_id in ["blaster", "shotgun"] and _weapon_pose_uses_aim())))
 
 
 func _start_round_warmup_animation() -> void:
@@ -3496,7 +4424,9 @@ func _attach_weapon_pivot_to_hand(pivot: Node3D, weapon_id: StringName, desired_
 func _build_robot() -> void:
 	_visual_rig = PlayerVisualRig.new()
 	_visual_rig.name = "VisualRoot"
-	_visual_rig.scale = Vector3.ONE * 0.88
+	# Apply the shared presentation multiplier exactly once at the visual root so
+	# the skeleton, weapon attachments, accessories and muzzle markers stay one rig.
+	_visual_rig.scale = Vector3.ONE * PLAYER_BASE_VISUAL_SCALE * COMBAT_DATA.CHARACTER_VISUAL_SCALE
 	add_child(_visual_rig)
 	_visual_rig.configure_aim_transition(aim_raise_time, aim_lower_time)
 	var visuals := _visual_rig.setup_visual_motion()
@@ -3508,7 +4438,7 @@ func _build_robot() -> void:
 	_update_world_ui_anchor()
 
 	_attack_label = Label3D.new()
-	_attack_label.position = Vector3(0.0, 4.15, 0.0)
+	_attack_label.position = Vector3(0.0, 4.15 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, 0.0)
 	_attack_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_attack_label.font_size = 26
 	_attack_label.outline_size = 6
@@ -3519,6 +4449,8 @@ func _build_robot() -> void:
 	_health_readout.name = "PlayerHealthReadout"
 	_health_readout.set_script(COMBAT_READOUT)
 	_world_ui_anchor.add_child(_health_readout)
+	# The plaque keeps its original size; only its anchor rises with the model.
+	_health_readout.position.y = HEALTH_READOUT_BASE_HEIGHT * (COMBAT_DATA.CHARACTER_VISUAL_SCALE - 1.0)
 	_health_readout.call("configure", Color("#42d9e5"), "JOUEUR", -1.0)
 	_on_health_changed(get_health(), get_max_health())
 	_sync_weapon_readout()
@@ -3527,14 +4459,14 @@ func _build_robot() -> void:
 	var baroud_bg_mesh := BoxMesh.new()
 	baroud_bg_mesh.size = Vector3(1.8, 0.14, 0.06)
 	_baroud_bar_bg.mesh = baroud_bg_mesh
-	_baroud_bar_bg.position = Vector3(0.0, 2.52, 0.0)
+	_baroud_bar_bg.position = Vector3(0.0, 2.52 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, 0.0)
 	_baroud_bar_bg.material_override = _material(Color("#2a1820"), 0.2, Color("#3a1824"))
 	_world_ui_anchor.add_child(_baroud_bar_bg)
 	_baroud_bar_fill = MeshInstance3D.new()
 	var baroud_fill_mesh := BoxMesh.new()
 	baroud_fill_mesh.size = Vector3(1.0, 0.10, 0.07)
 	_baroud_bar_fill.mesh = baroud_fill_mesh
-	_baroud_bar_fill.position = Vector3(-0.45, 2.52, -0.01)
+	_baroud_bar_fill.position = Vector3(-0.45, 2.52 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, -0.01)
 	_baroud_bar_fill.material_override = _material(Color("#ef5a6f"), 0.1, Color("#ff4e7a"))
 	_world_ui_anchor.add_child(_baroud_bar_fill)
 	_baroud_bar_bg.visible = false
@@ -3756,9 +4688,9 @@ func _update_weapon_visuals() -> void:
 	if _axe_pivot != null:
 		_axe_pivot.visible = false
 	if _blaster_pivot != null:
-		_blaster_pivot.visible = _weapon_id == "blaster"
+		_blaster_pivot.visible = _weapon_id == "blaster" and not _pelto_weapon_hidden
 	if _shotgun_pivot != null:
-		_shotgun_pivot.visible = _weapon_id == "shotgun"
+		_shotgun_pivot.visible = _weapon_id == "shotgun" and not _pelto_weapon_hidden
 	if _has_skeletal_weapon_attachment():
 		_visual_rig._cancel_shot_kick()
 		_visual_rig.configure_left_hand_support(StringName(_weapon_id))

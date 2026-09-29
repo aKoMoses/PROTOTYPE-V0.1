@@ -12,6 +12,9 @@ const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const METAL_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const STEEL_DARK_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const BANNER_TEXTURE: Texture2D = preload("res://art/banner_red.svg")
+const ARENA_HALF_EXTENT := 29.0
+const EXTERIOR_SIZE := 128.0
+const BUSH_PLACEMENT_ATTEMPTS := 12
 
 var player: CharacterBody3D
 var game_flow: CanvasLayer
@@ -27,6 +30,8 @@ var _menu_showcase_elapsed := 0.0
 var _menu_showcase_clip := -1
 var _material_cache: Dictionary = {}
 var _textured_material_cache: Dictionary = {}
+var _arena_blockers: Array[StaticBody3D] = []
+var _arena_exterior: Node3D
 const FX_MAX_PARTICLES := 24
 const FX_MAX_BURSTS := 42
 const FX_MAX_PROJECTILES := 14
@@ -133,6 +138,7 @@ func _build_environment() -> void:
 
 
 func _build_arena() -> void:
+	_build_arena_exterior()
 	var ground := MeshInstance3D.new()
 	ground.name = "Ground"
 	var ground_mesh := PlaneMesh.new()
@@ -193,11 +199,10 @@ func _build_arena() -> void:
 	# All remaining non-colliding props are suspended from, or mounted directly
 	# onto, the blocking perimeter. The former loose crates, vehicles and scrap
 	# piles looked like traversable obstacles and have deliberately been removed.
-	_create_hanging_lamp("LampNorth", Vector3(-8.0, 3.1, -24.2))
-	_create_hanging_lamp("LampSouth", Vector3(8.0, 3.1, 24.2))
-	_create_hanging_lamp("LampWest", Vector3(-24.2, 3.1, 8.0), 90.0)
-	_create_hanging_lamp("LampEast", Vector3(24.2, 3.1, -8.0), 90.0)
-	_create_spectator_stands()
+	_create_hanging_lamp("LampNorth", Vector3(-8.0, 2.48, -27.58))
+	_create_hanging_lamp("LampSouth", Vector3(8.0, 2.48, 27.58), 180.0)
+	_create_hanging_lamp("LampWest", Vector3(-27.58, 2.48, 8.0), 90.0)
+	_create_hanging_lamp("LampEast", Vector3(27.58, 2.48, -8.0), -90.0)
 	_create_arena_scoreboard()
 	_create_arena_identity_markers()
 
@@ -334,13 +339,31 @@ func _create_hanging_lamp(node_name: String, lamp_position: Vector3, rotation_y:
 	root.name = node_name
 	root.position = lamp_position
 	root.rotation_degrees.y = rotation_y
+	# The mount and arm make the support unambiguous from the gameplay camera.
+	# Local +Z always points from the perimeter wall toward the arena.
+	var mount := MeshInstance3D.new()
+	var mount_mesh := BoxMesh.new()
+	mount_mesh.size = Vector3(0.42, 0.52, 0.14)
+	mount.mesh = mount_mesh
+	mount.material_override = _material(Color("#34383a"), 0.88)
+	root.add_child(mount)
+	var arm := MeshInstance3D.new()
+	var arm_mesh := CylinderMesh.new()
+	arm_mesh.top_radius = 0.055
+	arm_mesh.bottom_radius = 0.075
+	arm_mesh.height = 1.02
+	arm.mesh = arm_mesh
+	arm.position = Vector3(0.0, 0.12, 0.50)
+	arm.rotation_degrees.x = 90.0
+	arm.material_override = _material(Color("#4a3730"), 0.90)
+	root.add_child(arm)
 	var chain := MeshInstance3D.new()
 	var chain_mesh := CylinderMesh.new()
 	chain_mesh.top_radius = 0.035
 	chain_mesh.bottom_radius = 0.035
-	chain_mesh.height = 1.1
+	chain_mesh.height = 0.72
 	chain.mesh = chain_mesh
-	chain.position.y = 0.55
+	chain.position = Vector3(0.0, -0.30, 0.98)
 	chain.material_override = _material(Color("#3e3230"), 0.9)
 	root.add_child(chain)
 	var lantern := MeshInstance3D.new()
@@ -349,7 +372,7 @@ func _create_hanging_lamp(node_name: String, lamp_position: Vector3, rotation_y:
 	lantern_mesh.bottom_radius = 0.25
 	lantern_mesh.height = 0.46
 	lantern.mesh = lantern_mesh
-	lantern.position.y = -0.05
+	lantern.position = Vector3(0.0, -0.82, 0.98)
 	lantern.material_override = _material(Color("#7c4a2e"), 0.72)
 	root.add_child(lantern)
 	var glow := MeshInstance3D.new()
@@ -357,7 +380,7 @@ func _create_hanging_lamp(node_name: String, lamp_position: Vector3, rotation_y:
 	glow_mesh.radius = 0.13
 	glow_mesh.height = 0.24
 	glow.mesh = glow_mesh
-	glow.position.y = -0.05
+	glow.position = lantern.position
 	glow.material_override = _material(Color("#c88f4f"), 0.34, Color("#9f5b2d"))
 	root.add_child(glow)
 	add_child(root)
@@ -604,24 +627,80 @@ func _create_debris_field(field_position: Vector3, count: int, radius: float) ->
 	add_child(root)
 
 
-func _create_spectator_stands() -> void:
-	_create_spectator_side("SpectatorsNorth", Vector3(0.0, 0.0, -29.0), 0.0, Color("#a43832"))
-	_create_spectator_side("SpectatorsSouth", Vector3(0.0, 0.0, 29.0), 180.0, Color("#a43832"))
-	_create_spectator_side("SpectatorsWest", Vector3(-29.0, 0.0, 0.0), 90.0, Color("#3e6670"))
-	_create_spectator_side("SpectatorsEast", Vector3(29.0, 0.0, 0.0), -90.0, Color("#3e6670"))
+func _build_arena_exterior() -> void:
+	_arena_exterior = Node3D.new()
+	_arena_exterior.name = "ArenaExterior"
+	_arena_exterior.add_to_group("arena_exterior")
+	_arena_exterior.set_meta("replaceable_environment", true)
+	add_child(_arena_exterior)
+
+	var terrain := MeshInstance3D.new()
+	terrain.name = "ExteriorDustTerrain"
+	var terrain_mesh := PlaneMesh.new()
+	terrain_mesh.size = Vector2(EXTERIOR_SIZE, EXTERIOR_SIZE)
+	terrain.mesh = terrain_mesh
+	terrain.position.y = -0.06
+	terrain.material_override = _textured_material(Color("#7a6d63"), 1.0, Color.BLACK, SAND_TEXTURE, Vector3(7.0, 7.0, 7.0))
+	terrain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	terrain.set_meta("exterior_ground_size", EXTERIOR_SIZE)
+	_arena_exterior.add_child(terrain)
+
+	# The former stands projected into the playable arena. They now step away
+	# from the outside face of every wall and live in this replaceable branch.
+	_create_spectator_stands(_arena_exterior)
+	for tower_data in [
+		["TowerNorthWest", Vector3(-30.0, 0.0, -30.0), 0.0],
+		["TowerNorthEast", Vector3(30.0, 0.0, -30.0), 90.0],
+		["TowerSouthWest", Vector3(-30.0, 0.0, 30.0), -90.0],
+		["TowerSouthEast", Vector3(30.0, 0.0, 30.0), 180.0],
+	]:
+		_create_perimeter_tower(_arena_exterior, tower_data[0], tower_data[1], tower_data[2])
+
+	var rock_clusters := [
+		[Vector3(-38.0, 0.0, -34.0), 2.1, 12.0],
+		[Vector3(39.0, 0.0, -31.0), 1.7, -18.0],
+		[Vector3(-42.0, 0.0, 15.0), 1.8, 34.0],
+		[Vector3(41.0, 0.0, 20.0), 2.2, -9.0],
+		[Vector3(-13.0, 0.0, 43.0), 1.5, 22.0],
+		[Vector3(17.0, 0.0, -44.0), 1.9, -27.0],
+	]
+	for cluster_data in rock_clusters:
+		_create_exterior_rock_cluster(_arena_exterior, cluster_data[0], cluster_data[1], cluster_data[2])
+	for scrap_data in [
+		[Vector3(-35.0, 0.0, -6.0), 18.0],
+		[Vector3(35.5, 0.0, 7.0), -21.0],
+		[Vector3(-7.0, 0.0, -37.0), -8.0],
+		[Vector3(10.0, 0.0, 38.0), 14.0],
+	]:
+		_create_exterior_scrap_cluster(_arena_exterior, scrap_data[0], scrap_data[1])
+	for silhouette_data in [
+		[Vector3(-48.0, 0.0, -18.0), 7.0, Color("#303638")],
+		[Vector3(47.0, 0.0, -12.0), 5.5, Color("#493a35")],
+		[Vector3(-34.0, 0.0, 47.0), 6.2, Color("#34393a")],
+		[Vector3(36.0, 0.0, 45.0), 7.8, Color("#403733")],
+	]:
+		_create_exterior_industrial_silhouette(_arena_exterior, silhouette_data[0], silhouette_data[1], silhouette_data[2])
 
 
-func _create_spectator_side(node_name: String, side_position: Vector3, rotation_y: float, banner_color: Color) -> void:
+func _create_spectator_stands(parent: Node3D) -> void:
+	_create_spectator_side(parent, "SpectatorsNorth", Vector3(0.0, 0.0, -30.5), 0.0, Color("#8d3732"))
+	_create_spectator_side(parent, "SpectatorsSouth", Vector3(0.0, 0.0, 30.5), 180.0, Color("#8d3732"))
+	_create_spectator_side(parent, "SpectatorsWest", Vector3(-30.5, 0.0, 0.0), 90.0, Color("#3b5a60"))
+	_create_spectator_side(parent, "SpectatorsEast", Vector3(30.5, 0.0, 0.0), -90.0, Color("#3b5a60"))
+
+
+func _create_spectator_side(parent: Node3D, node_name: String, side_position: Vector3, rotation_y: float, banner_color: Color) -> void:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = side_position
 	root.rotation_degrees.y = rotation_y
+	root.set_meta("decorative_exterior", true)
 	for tier in range(3):
 		var stand := MeshInstance3D.new()
 		var stand_mesh := BoxMesh.new()
 		stand_mesh.size = Vector3(43.0, 0.58, 1.10)
 		stand.mesh = stand_mesh
-		stand.position = Vector3(0.0, 0.30 + float(tier) * 0.62, 0.46 + float(tier) * 0.82)
+		stand.position = Vector3(0.0, 0.30 + float(tier) * 0.62, -0.72 - float(tier) * 0.82)
 		stand.material_override = _material(Color("#292e30") if tier == 0 else Color("#35383a"), 0.96)
 		root.add_child(stand)
 	# A few broad silhouettes provide scale beyond the wall without becoming a
@@ -629,7 +708,7 @@ func _create_spectator_side(node_name: String, side_position: Vector3, rotation_
 	for index in range(4):
 		var local_x := -15.0 + float(index) * 10.0
 		var audience := Node3D.new()
-		audience.position = Vector3(local_x, 1.08 + float(index % 2) * 0.48, 0.35 + float(index % 3) * 0.60)
+		audience.position = Vector3(local_x, 1.08 + float(index % 2) * 0.48, -0.85 - float(index % 3) * 0.60)
 		var body := MeshInstance3D.new()
 		var body_mesh := CylinderMesh.new()
 		body_mesh.top_radius = 0.18
@@ -656,10 +735,99 @@ func _create_spectator_side(node_name: String, side_position: Vector3, rotation_
 		var flag_mesh := BoxMesh.new()
 		flag_mesh.size = Vector3(3.1, 0.82, 0.05)
 		flag.mesh = flag_mesh
-		flag.position = Vector3(-12.0 + float(flag_index) * 24.0, 2.18, 0.18)
+		flag.position = Vector3(-12.0 + float(flag_index) * 24.0, 2.18, -1.05)
 		flag.material_override = _material(banner_color, 0.96)
 		root.add_child(flag)
-	add_child(root)
+	parent.add_child(root)
+
+
+func _create_exterior_rock_cluster(parent: Node3D, cluster_position: Vector3, cluster_scale: float, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = "ExteriorRockCluster"
+	root.position = cluster_position
+	root.rotation_degrees.y = rotation_y
+	root.set_meta("decorative_exterior", true)
+	var offsets := [Vector3(-1.1, 0.0, 0.2), Vector3(0.7, 0.0, -0.5), Vector3(1.45, 0.0, 0.8)]
+	for index in range(offsets.size()):
+		var rock := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = 0.72 + float(index) * 0.12
+		mesh.height = 1.0 + float(index % 2) * 0.35
+		mesh.radial_segments = 7
+		mesh.rings = 4
+		rock.mesh = mesh
+		var rock_scale := Vector3(1.25 + float(index % 2) * 0.25, 0.62 + float(index) * 0.08, 0.9 + float((index + 1) % 2) * 0.20) * cluster_scale
+		rock.scale = rock_scale
+		rock.position = offsets[index] * cluster_scale
+		rock.position.y = mesh.height * rock_scale.y * 0.46
+		rock.rotation_degrees.y = float(index) * 47.0
+		rock.material_override = _material(Color("#5e4b43") if index != 1 else Color("#6f5948"), 1.0)
+		root.add_child(rock)
+	parent.add_child(root)
+
+
+func _create_exterior_scrap_cluster(parent: Node3D, cluster_position: Vector3, rotation_y: float) -> void:
+	var root := Node3D.new()
+	root.name = "ExteriorScrapCluster"
+	root.position = cluster_position
+	root.rotation_degrees.y = rotation_y
+	root.set_meta("decorative_exterior", true)
+	var pieces := [
+		[Vector3(-1.35, 0.0, 0.15), Vector3(2.9, 0.34, 1.15), Vector3(7.0, 12.0, -5.0), Color("#5a4a43")],
+		[Vector3(0.75, 0.0, -0.45), Vector3(2.25, 0.48, 1.45), Vector3(-8.0, -17.0, 9.0), Color("#81472f")],
+		[Vector3(1.55, 0.0, 0.65), Vector3(1.55, 0.30, 2.20), Vector3(5.0, 28.0, 12.0), Color("#3f4545")],
+	]
+	for piece_data in pieces:
+		var piece := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = piece_data[1]
+		piece.mesh = mesh
+		piece.position = piece_data[0]
+		piece.rotation_degrees = piece_data[2]
+		piece.position.y = _grounded_box_center_y(piece, mesh.size) - 0.035
+		piece.material_override = _material(piece_data[3], 0.96)
+		root.add_child(piece)
+	parent.add_child(root)
+
+
+func _grounded_box_center_y(box: Node3D, size: Vector3) -> float:
+	var half := size * 0.5
+	return absf(box.basis.x.y) * half.x + absf(box.basis.y.y) * half.y + absf(box.basis.z.y) * half.z
+
+
+func _create_exterior_industrial_silhouette(parent: Node3D, silhouette_position: Vector3, height: float, color: Color) -> void:
+	var root := Node3D.new()
+	root.name = "ExteriorIndustrialSilhouette"
+	root.position = silhouette_position
+	root.set_meta("decorative_exterior", true)
+	var tank := MeshInstance3D.new()
+	var tank_mesh := CylinderMesh.new()
+	tank_mesh.top_radius = 1.15
+	tank_mesh.bottom_radius = 1.45
+	tank_mesh.height = height
+	tank_mesh.radial_segments = 10
+	tank.mesh = tank_mesh
+	tank.position.y = height * 0.5
+	tank.material_override = _material(color, 0.98)
+	root.add_child(tank)
+	var chimney := MeshInstance3D.new()
+	var chimney_mesh := CylinderMesh.new()
+	chimney_mesh.top_radius = 0.25
+	chimney_mesh.bottom_radius = 0.38
+	chimney_mesh.height = height * 0.72
+	chimney_mesh.radial_segments = 8
+	chimney.mesh = chimney_mesh
+	chimney.position = Vector3(1.65, chimney_mesh.height * 0.5, 0.55)
+	chimney.material_override = _material(Color("#272d2f"), 1.0)
+	root.add_child(chimney)
+	var accent := MeshInstance3D.new()
+	var accent_mesh := BoxMesh.new()
+	accent_mesh.size = Vector3(2.5, 0.22, 0.12)
+	accent.mesh = accent_mesh
+	accent.position = Vector3(0.0, height * 0.64, -1.15)
+	accent.material_override = _material(Color("#78352f"), 0.96)
+	root.add_child(accent)
+	parent.add_child(root)
 
 
 func _create_arena_scoreboard() -> void:
@@ -997,10 +1165,6 @@ func _build_scrap_perimeter() -> void:
 		_create_scrap_barrier("SouthPanel%d" % index, Vector3(-offset, 1.05, 28.1), Vector3(7.5, 2.1 + float((index + 1) % 2) * 0.35, 0.86))
 		_create_scrap_barrier("WestPanel%d" % index, Vector3(-28.1, 1.05, -offset), Vector3(0.86, 2.1 + float(index % 2) * 0.35, 7.5))
 		_create_scrap_barrier("EastPanel%d" % index, Vector3(28.1, 1.05, offset), Vector3(0.86, 2.1 + float((index + 1) % 2) * 0.35, 7.5))
-	_create_perimeter_tower("TowerNorthWest", Vector3(-26.4, 0.0, -26.4), 0.0)
-	_create_perimeter_tower("TowerNorthEast", Vector3(26.4, 0.0, -26.4), 90.0)
-	_create_perimeter_tower("TowerSouthWest", Vector3(-26.4, 0.0, 26.4), -90.0)
-	_create_perimeter_tower("TowerSouthEast", Vector3(26.4, 0.0, 26.4), 180.0)
 
 
 func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: Vector3, rotation_y: float = 0.0) -> StaticBody3D:
@@ -1239,11 +1403,12 @@ func _create_pipe_clutter(node_name: String, clutter_position: Vector3, rotation
 	add_child(root)
 
 
-func _create_perimeter_tower(node_name: String, tower_position: Vector3, rotation_y: float) -> void:
+func _create_perimeter_tower(parent: Node3D, node_name: String, tower_position: Vector3, rotation_y: float) -> void:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = tower_position
 	root.rotation_degrees.y = rotation_y
+	root.set_meta("decorative_exterior", true)
 	for x_offset in [-0.85, 0.85]:
 		var post := MeshInstance3D.new()
 		var post_mesh := BoxMesh.new()
@@ -1267,7 +1432,7 @@ func _create_perimeter_tower(node_name: String, tower_position: Vector3, rotatio
 	flag.position = Vector3(0.0, 1.62, -0.16)
 	flag.material_override = _material(Color("#874038"), 0.94)
 	root.add_child(flag)
-	add_child(root)
+	parent.add_child(root)
 
 
 func _create_invisible_limit(node_name: String, limit_position: Vector3, size: Vector3) -> void:
@@ -1276,12 +1441,19 @@ func _create_invisible_limit(node_name: String, limit_position: Vector3, size: V
 	body.position = limit_position
 	body.collision_layer = 1
 	body.collision_mask = 0
+	body.add_to_group("arena_solid")
+	body.set_meta("invisible_safety_limit", true)
+	body.set_meta("blocks_navigation", true)
+	body.set_meta("blocks_projectiles", true)
+	body.set_meta("blocks_line_of_sight", true)
 	var collision := CollisionShape3D.new()
+	collision.name = "Collision"
 	var shape := BoxShape3D.new()
 	shape.size = size
 	collision.shape = shape
 	body.add_child(collision)
 	add_child(body)
+	_arena_blockers.append(body)
 
 
 func _create_health_pad(node_name: String, pad_position: Vector3) -> void:
@@ -1339,40 +1511,118 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = bush_position
-	# Preserve the exact visibility volume while reducing the visual patch to a
-	# sparse, flexible silhouette that cannot be mistaken for a solid obstacle.
+	# Visibility keeps its established gameplay centre. The rendered plant base
+	# receives a nearby, validated foothold; foliage may still brush a wall.
 	root.scale = Vector3(bush_scale * 1.60, bush_scale * 1.12, bush_scale * 1.50)
 	root.add_to_group("bush_placeholder")
+	root.add_to_group("arena_passable_decor")
 	root.set_meta("bush_radius", 1.28 * bush_scale)
 	root.set_meta("bush_height", 2.35 * bush_scale)
-	var colors := [Color("#34453e"), Color("#4e5b4b"), Color("#6f6549"), Color("#796047")]
-	for index in range(12):
+	var base_radius := 0.70 * bush_scale
+	var visual_world_position := _resolve_bush_visual_position(node_name, bush_position, base_radius)
+	root.set_meta("bush_base_radius", base_radius)
+	root.set_meta("bush_visual_position", visual_world_position)
+	var visual_root := Node3D.new()
+	visual_root.name = "GroundedVegetation"
+	visual_root.position = Vector3(
+		(visual_world_position.x - bush_position.x) / root.scale.x,
+		-0.035,
+		(visual_world_position.z - bush_position.z) / root.scale.z
+	)
+	visual_root.rotation_degrees.y = float(absi(node_name.hash()) % 37) - 18.0
+	root.add_child(visual_root)
+	var colors := [Color("#39463c"), Color("#505747"), Color("#6a6145"), Color("#78573d")]
+	var group_offsets := [Vector3(-0.28, 0.0, -0.12), Vector3(0.24, 0.0, -0.05), Vector3(0.02, 0.0, 0.28)]
+	for index in range(15):
 		var blade := MeshInstance3D.new()
 		var blade_mesh := BoxMesh.new()
-		blade_mesh.size = Vector3(0.10 + float(index % 3) * 0.03, 1.0, 0.045)
+		blade_mesh.size = Vector3(0.09 + float(index % 3) * 0.025, 1.0, 0.04)
 		blade.mesh = blade_mesh
-		var angle := TAU * float(index) / 12.0 + float(index % 4) * 0.11
-		var radius := 0.18 + float((index * 5) % 7) * 0.14
-		var blade_height := 0.92 + float((index * 3) % 5) * 0.22
-		blade.position = Vector3(cos(angle) * radius, blade_height * 0.5, sin(angle) * radius)
+		var group_index := index % group_offsets.size()
+		var angle := float(index) * 2.17 + float(group_index) * 0.31
+		var radius := 0.08 + float((index * 5) % 5) * 0.075
+		var blade_height := 0.82 + float((index * 3) % 5) * 0.18
+		blade.position = group_offsets[group_index] + Vector3(cos(angle) * radius, blade_height * 0.43, sin(angle) * radius)
 		blade.scale = Vector3(1.0, blade_height, 1.0)
-		blade.rotation_degrees = Vector3(-8.0 + float(index % 4) * 6.0, rad_to_deg(angle), -18.0 + float(index % 5) * 9.0)
+		blade.rotation_degrees = Vector3(-7.0 + float(index % 4) * 5.0, rad_to_deg(angle), -16.0 + float(index % 5) * 8.0)
 		blade.material_override = _material(colors[index % colors.size()], 1.0)
-		root.add_child(blade)
-	for index in range(4):
+		visual_root.add_child(blade)
+	for index in range(6):
 		var leaf := MeshInstance3D.new()
 		var leaf_mesh := BoxMesh.new()
-		leaf_mesh.size = Vector3(0.20 + float(index % 2) * 0.05, 1.0, 0.055)
+		leaf_mesh.size = Vector3(0.18 + float(index % 2) * 0.05, 1.0, 0.05)
 		leaf.mesh = leaf_mesh
-		var angle := TAU * float(index) / 4.0 + 0.28
-		var radius := 0.34 + float(index % 2) * 0.18
-		var leaf_height := 0.88 + float(index % 3) * 0.18
-		leaf.position = Vector3(cos(angle) * radius, leaf_height * 0.46, sin(angle) * radius)
+		var group_index := index % group_offsets.size()
+		var angle := float(index) * 2.39 + 0.28
+		var radius := 0.18 + float(index % 2) * 0.12
+		var leaf_height := 0.78 + float(index % 3) * 0.16
+		leaf.position = group_offsets[group_index] + Vector3(cos(angle) * radius, leaf_height * 0.41, sin(angle) * radius)
 		leaf.scale = Vector3(1.0, leaf_height, 1.0)
-		leaf.rotation_degrees = Vector3(-12.0 + float(index % 3) * 8.0, rad_to_deg(angle), -22.0 + float(index) * 13.0)
+		leaf.rotation_degrees = Vector3(-10.0 + float(index % 3) * 7.0, rad_to_deg(angle), -20.0 + float(index) * 9.0)
 		leaf.material_override = _material(colors[(index + 1) % colors.size()], 1.0)
-		root.add_child(leaf)
+		visual_root.add_child(leaf)
 	add_child(root)
+
+
+func _resolve_bush_visual_position(node_name: String, preferred: Vector3, base_radius: float) -> Vector3:
+	var manual_fallbacks := {
+		"BushNorthCenter": Vector3(0.0, 0.0, -6.9),
+		"BushSouthCenter": Vector3(0.0, 0.0, 8.9),
+		"BushWestSpine": Vector3(-9.2, 0.0, 1.0),
+		"BushEastSpine": Vector3(9.2, 0.0, 1.0),
+		"BushNorthWestCover": Vector3(-14.8, 0.0, -6.3),
+		"BushNorthEastCover": Vector3(15.0, 0.0, -5.0),
+		"BushSouthWestCover": Vector3(-13.0, 0.0, 12.2),
+		"BushSouthEastCover": Vector3(14.9, 0.0, 12.3),
+		"BushWestPocket": Vector3(-16.3, 0.0, 4.9),
+		"BushEastPocket": Vector3(16.3, 0.0, -4.9),
+	}
+	var candidates: Array[Vector3] = [preferred]
+	if manual_fallbacks.has(node_name):
+		candidates.append(manual_fallbacks[node_name])
+	var phase := deg_to_rad(float(absi(node_name.hash()) % 360))
+	while candidates.size() < BUSH_PLACEMENT_ATTEMPTS:
+		var attempt := candidates.size() - 1
+		var ring := 0.55 + float(attempt / 4) * 0.60
+		var angle := phase + float(attempt % 4) * PI * 0.5
+		candidates.append(preferred + Vector3(cos(angle) * ring, 0.0, sin(angle) * ring))
+	for candidate in candidates:
+		if _bush_base_is_clear(candidate, base_radius):
+			return candidate
+	push_warning("Bush placement fallback exhausted for %s; keeping its authored position" % node_name)
+	return preferred
+
+
+func _bush_base_is_clear(candidate: Vector3, base_radius: float) -> bool:
+	if absf(candidate.x) > ARENA_HALF_EXTENT - 1.1 or absf(candidate.z) > ARENA_HALF_EXTENT - 1.1:
+		return false
+	for body in _arena_blockers:
+		if body == null or not is_instance_valid(body):
+			continue
+		for child in body.get_children():
+			if not child is CollisionShape3D:
+				continue
+			var collision := child as CollisionShape3D
+			if not collision.shape is BoxShape3D:
+				continue
+			var shape := collision.shape as BoxShape3D
+			var relative := Vector2(candidate.x - body.position.x, candidate.z - body.position.z)
+			relative = relative.rotated(deg_to_rad(-body.rotation_degrees.y))
+			if absf(relative.x) <= shape.size.x * 0.5 + base_radius + 0.08 and absf(relative.y) <= shape.size.z * 0.5 + base_radius + 0.08:
+				return false
+	var reserved_zones := [
+		[Vector2(0.0, -20.8), Vector2(1.72, 1.72)],
+		[Vector2(0.0, 20.8), Vector2(1.72, 1.72)],
+		[Vector2(-21.0, 0.0), Vector2(1.72, 1.72)],
+		[Vector2(21.0, 0.0), Vector2(1.72, 1.72)],
+	]
+	for zone in reserved_zones:
+		var zone_position: Vector2 = zone[0]
+		var zone_half_size: Vector2 = zone[1]
+		var delta: Vector2 = Vector2(candidate.x, candidate.z) - zone_position
+		if absf(delta.x) <= zone_half_size.x + base_radius and absf(delta.y) <= zone_half_size.y + base_radius:
+			return false
+	return true
 
 
 func _create_tire_stack(node_name: String, tire_position: Vector3, count: int) -> void:
@@ -1713,8 +1963,13 @@ func _create_box(node_name: String, box_position: Vector3, size: Vector3, color:
 	body.set_meta("vfx_surface", "environment" if texture == SAND_TEXTURE or "Wall" in node_name or "Ground" in node_name else "metal")
 	body.collision_layer = 1
 	body.collision_mask = 0
+	body.add_to_group("arena_solid")
+	body.set_meta("blocks_navigation", true)
+	body.set_meta("blocks_projectiles", true)
+	body.set_meta("blocks_line_of_sight", true)
 
 	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "CollisionMatchedVisual"
 	var box_mesh := BoxMesh.new()
 	box_mesh.size = size
 	mesh_instance.mesh = box_mesh
@@ -1722,11 +1977,13 @@ func _create_box(node_name: String, box_position: Vector3, size: Vector3, color:
 	body.add_child(mesh_instance)
 
 	var collision := CollisionShape3D.new()
+	collision.name = "Collision"
 	var shape := BoxShape3D.new()
 	shape.size = size
 	collision.shape = shape
 	body.add_child(collision)
 	add_child(body)
+	_arena_blockers.append(body)
 	return body
 
 

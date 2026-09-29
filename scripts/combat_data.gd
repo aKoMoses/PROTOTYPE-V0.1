@@ -13,6 +13,9 @@ const ROBOT_DEFINITIONS := {
 	"polyvalent": {"max_health": MAX_HEALTH, "move_speed": MOVE_SPEED},
 	"puissant": {"max_health": 1200.0, "move_speed": 4.0},
 }
+## Presentation-only multiplier shared by the player and every bot visual root.
+## Keep gameplay roots, collisions and camera settings outside this scale.
+const CHARACTER_VISUAL_SCALE := 1.35
 const CRIT_MULTIPLIER := 1.5
 const BURN_DAMAGE_PER_SECOND := 20.0
 const BURN_DURATION := 3.5
@@ -85,6 +88,52 @@ const MODULE_DEFINITIONS := {
 		"mark_duration": 2.5,
 		"teleport_distance": 1.4,
 		"cooldown": 12.0,
+	},
+	"fulguro_punch": {
+		"category": "offensive",
+		"charge_min": 0.35,
+		"charge_max": 3.0,
+		"range_min": 2.0,
+		"range_max": 4.0,
+		"damage_min": 200.0,
+		"damage_max": 400.0,
+		"wall_damage_min": 150.0,
+		"wall_damage_max": 250.0,
+		# Compatibility aliases used by generic module displays and older tests.
+		"preparation": 0.35,
+		"range": 2.0,
+		"width": 0.9,
+		"active_window": 0.10,
+		"recovery": 0.20,
+		"max_knockback_distance": 4.0,
+		"max_knockback_duration": 0.35,
+		# Prototype 0 uses 1 000 PV. These fixed values preserve the requested
+		# 20/15 proportions from a 100-PV reference without percentage damage.
+		"damage": 200.0,
+		"wall_damage": 150.0,
+		"wall_stun": 0.75,
+		"cooldown": 8.0,
+	},
+	"pelto_smash": {
+		"category": "offensive",
+		"preparation": 0.45,
+		"max_range": 7.0,
+		"width": 2.5,
+		"front_thickness": 0.7,
+		"outbound_speed": 10.0,
+		"return_pause": 0.12,
+		"return_speed": 12.0,
+		# Prototype 0 uses 1 000 PV. These values preserve the requested
+		# 16 + 10 damage split from a 100-PV reference.
+		"outbound_damage": 160.0,
+		"outbound_slow_percent": 20.0,
+		"outbound_slow_duration": 0.8,
+		"return_damage": 100.0,
+		"pull_distance": 0.9,
+		"pull_duration": 0.15,
+		"impact_duration": 0.10,
+		"recovery": 0.25,
+		"cooldown": 10.0,
 	},
 	"pyro_boots": {
 		"category": "mobility",

@@ -6,12 +6,13 @@ class_name EnemyDroidVisual
 const MODEL_PATH := "res://art/enemy_droid.glb"
 const WEAPON_PATH := "res://art/player_heavy_blaster.glb"
 const POSE_SOLVER := preload("res://scripts/enemy_droid_pose.gd")
+const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const MODEL_SCALE := 1.9
 const WEAPON_SCALE := 0.75
 const AIM_SAMPLE := 1.45
 const EXPECTED_CLIPS := [&"turn", &"idle", &"warm_up", &"walk", &"wait", &"look_around", &"cast_a_spell", &"run", &"fall", &"fire"]
-const WALK_SPEED := 0.713336 * MODEL_SCALE
-const RUN_SPEED := 2.599736 * MODEL_SCALE
+const WALK_SPEED := 0.713336 * MODEL_SCALE * COMBAT_DATA.CHARACTER_VISUAL_SCALE
+const RUN_SPEED := 2.599736 * MODEL_SCALE * COMBAT_DATA.CHARACTER_VISUAL_SCALE
 
 var skeleton: Skeleton3D
 var animation_player: AnimationPlayer
@@ -46,6 +47,9 @@ var _ready_ok := false
 
 
 func setup() -> bool:
+	# This root is the single presentation scale boundary. Its origin remains at
+	# ground level; skeleton, hand socket, weapon and muzzle all inherit it once.
+	scale = Vector3.ONE * COMBAT_DATA.CHARACTER_VISUAL_SCALE
 	var packed := load(MODEL_PATH) as PackedScene
 	var blaster := load(WEAPON_PATH) as PackedScene
 	if packed == null or blaster == null:

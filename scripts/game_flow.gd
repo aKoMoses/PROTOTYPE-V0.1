@@ -9,6 +9,11 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
+const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
+const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
+const TRIAL_PLAYER_SCRIPT := preload("res://scripts/player.gd")
+const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
+const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
@@ -110,6 +115,18 @@ var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
 var _settings_panel: PanelContainer
+var _hud_controller
+var _hud_editor
+var _editor_from_pause := false
+var _editor_test_started_msec := 0
+var _editor_test_target_position := Vector3.ZERO
+var _editor_test_target_enabled := false
+var _editor_trial_player: CharacterBody3D
+var _editor_trial_target: StaticBody3D
+var _editor_original_player: Node
+var _editor_player_process_mode := Node.PROCESS_MODE_INHERIT
+var _editor_target_process_mode := Node.PROCESS_MODE_INHERIT
+var _editor_existing_fx: Dictionary = {}
 var _result_actions: Array[Control] = []
 
 const BG := Color("#161417")
@@ -160,6 +177,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_result_audio.volume_db = -6.0
 	add_child(_result_audio)
 	_build_ui()
+	_setup_hud_editor()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
 	_show_screen(Screen.MENU)
@@ -189,11 +207,13 @@ func _process(delta: float) -> void:
 			_show_round_result()
 	if _pause_active:
 		_update_pause_labels()
-	if current_screen == Screen.COMBAT:
+	if current_screen == Screen.COMBAT or (_hud_editor != null and _hud_editor.visible and _hud_editor.test_mode):
 		_update_hud()
 		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _hud_editor != null and _hud_editor.visible:
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
@@ -725,7 +745,7 @@ func _equipment_preview_style(active: bool) -> StyleBoxFlat:
 	return style
 
 func _build_settings() -> void:
-	_settings_panel = _center_panel(620, 390)
+	_settings_panel = _center_panel(620, 470)
 	_screen_root.add_child(_settings_panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
@@ -758,6 +778,8 @@ func _build_settings() -> void:
 	)
 	box.add_child(_label("Taille des contrôles tactiles", 16, MUTED))
 	box.add_child(touch)
+	box.add_child(_label("INTERFACE", 18, CYAN))
+	box.add_child(_button("PERSONNALISER L'INTERFACE", Callable(self, "_open_hud_editor"), 300))
 	box.add_child(_button("RETOUR", Callable(self, "_open_menu"), 300))
 
 func _build_hud() -> void:
@@ -772,6 +794,13 @@ func _build_hud() -> void:
 	score_panel.size = Vector2(460, 60)
 	score_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(score_panel)
+	var vitals := Control.new()
+	vitals.name = "PlayerVitals"
+	vitals.set_script(HUD_VITALS_SCRIPT)
+	vitals.position = Vector2(22, 102)
+	vitals.size = Vector2(280, 90)
+	vitals.call("set_player", player)
+	_hud.add_child(vitals)
 	var score_backdrop := TextureRect.new()
 	score_backdrop.texture = MATCH_SUMMARY_FRAME
 	score_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1048,6 +1077,7 @@ func _build_pause() -> void:
 	_hud_labels.pause_status = _label("", 14, MUTED)
 	box.add_child(_hud_labels.pause_status)
 	box.add_child(_button("REPRENDRE", Callable(self, "_resume"), 300))
+	box.add_child(_button("PERSONNALISER L'INTERFACE", Callable(self, "_open_hud_editor"), 300))
 	box.add_child(_button("RECOMMENCER", Callable(self, "_restart"), 300))
 	box.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu"), 300))
 
@@ -1102,8 +1132,12 @@ func _update_hud() -> void:
 		_hud_labels[key].text = LOADOUT.display_name(identifier)
 		_hud_labels["%s_icon" % key].texture = _equipment_icons.get_icon(identifier)
 		var recast_active: bool = key == "offensive" and identifier == "javelin" and _javelin_recast_display_fraction > 0.0
+		var fulguro_charging: bool = key == "offensive" and identifier == "fulguro_punch" and player.has_method("is_fulguro_charging") and bool(player.call("is_fulguro_charging"))
+		var fulguro_charge := float(player.call("get_fulguro_charge_fraction")) if fulguro_charging else 0.0
+		var pelto_preparing: bool = key == "offensive" and identifier == "pelto_smash" and player.has_method("is_pelto_preparing") and bool(player.call("is_pelto_preparing"))
+		var pelto_preparation := float(player.call("get_pelto_preparation_fraction")) if pelto_preparing else 0.0
 		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
-		_hud_labels["%s_ring" % key].set_cooldown(cooldown, float(definition.get("cooldown", 1.0)), recast_active)
+		_hud_labels["%s_ring" % key].set_cooldown(0.0 if fulguro_charging or pelto_preparing else cooldown, float(definition.get("cooldown", 1.0)), recast_active)
 		if key == "offensive":
 			_hud_labels.offensive_recast_frame.visible = recast_active
 			_hud_labels.offensive_recast_track.visible = recast_active
@@ -1115,6 +1149,16 @@ func _update_hud() -> void:
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
+		elif fulguro_charging:
+			_hud_labels["%s_status" % key].text = "CHARGE %d%%" % int(round(fulguro_charge * 100.0))
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#ffb34f"))
+			_hud_labels[key].add_theme_color_override("font_color", Color("#fff0b0"))
+			_hud_labels["%s_icon" % key].modulate = Color("#ffcb78")
+		elif pelto_preparing:
+			_hud_labels["%s_status" % key].text = "FRAPPE %d%%" % int(round(pelto_preparation * 100.0))
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#d9a060"))
+			_hud_labels[key].add_theme_color_override("font_color", Color("#f4d4a2"))
+			_hud_labels["%s_icon" % key].modulate = Color("#e3b06e")
 		elif cooldown > 0.0:
 			_hud_labels["%s_status" % key].text = "%.1f s" % cooldown
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
@@ -1177,6 +1221,142 @@ func _open_equipment() -> void:
 
 func _open_settings() -> void:
 	_show_screen(Screen.SETTINGS)
+
+func _setup_hud_editor() -> void:
+	_hud_controller = Node.new()
+	_hud_controller.name = "HudLayoutController"
+	_hud_controller.set_script(HUD_CONTROLLER)
+	add_child(_hud_controller)
+	_hud_controller.bind_touch(touch_controls as Control)
+	_hud_controller.register("match_summary", _hud.get_node("MatchSummary"))
+	_hud_controller.register("player_vitals", _hud.get_node("PlayerVitals"))
+	_hud_controller.register("pause", _hud.get_node("PauseButton"))
+	_hud_controller.register("spell_bar", _hud.get_node("SpellBar"))
+	for category in ["offensive", "defensive", "mobility"]:
+		_hud_controller.register("%s_slot" % category, _hud.get_node("SpellBar/%sSlot" % category.capitalize()))
+	_hud_editor = Control.new()
+	_hud_editor.name = "HudEditor"
+	_hud_editor.set_script(HUD_EDITOR)
+	add_child(_hud_editor)
+	_hud_editor.saved.connect(_on_hud_saved)
+	_hud_editor.closed.connect(_on_hud_editor_closed)
+	_hud_editor.test_started.connect(_on_hud_test_started)
+	_hud_editor.test_finished.connect(_on_hud_test_finished)
+
+func _open_hud_editor() -> void:
+	if _hud_editor == null or _hud_editor.visible:
+		return
+	_editor_from_pause = _pause_active
+	if touch_controls != null and touch_controls.has_method("reset_inputs"):
+		touch_controls.call("reset_inputs")
+	if _editor_from_pause:
+		_pause_panel.visible = false
+	else:
+		_settings_panel.visible = false
+		if main != null and main.has_method("set_menu_showcase_enabled"):
+			main.call("set_menu_showcase_enabled", false)
+	_hud.visible = true
+	_update_hud()
+	if not _editor_from_pause:
+		_hud_labels.match.text = "1 — 2"
+		_hud_labels.match_round.text = "MANCHE 3"
+		_hud_labels.phase.text = "COMBAT"
+		_hud.get_node("PlayerVitals").call("set_example", true)
+		_hud_labels.defensive_status.text = "2.4 s"
+	_hud_editor.begin(_hud_controller)
+
+func _on_hud_saved(_layout: Dictionary) -> void:
+	_hud_controller.apply()
+
+func _on_hud_editor_closed() -> void:
+	_hud.get_node("PlayerVitals").call("set_example", false)
+	if _editor_from_pause:
+		_pause_panel.visible = true
+		get_tree().paused = true
+	else:
+		_hud.visible = false
+		_settings_panel.visible = true
+		if main != null and main.has_method("set_menu_mode"):
+			main.call("set_menu_mode", true)
+	if touch_controls != null:
+		touch_controls.visible = _editor_from_pause and (DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested())
+
+func _on_hud_test_started() -> void:
+	_editor_test_started_msec = Time.get_ticks_msec()
+	_editor_original_player = player
+	_editor_player_process_mode = player.process_mode
+	_editor_target_process_mode = target.process_mode
+	_editor_test_target_position = (target as Node3D).global_position
+	_editor_test_target_enabled = bool(target.call("is_training_bot_enabled"))
+	_editor_existing_fx.clear()
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			_editor_existing_fx[node.get_instance_id()] = node.process_mode
+			node.process_mode = Node.PROCESS_MODE_DISABLED
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	(player as Node3D).visible = false
+	(target as Node3D).global_position = Vector3(5000, 0, 5000)
+	target.call("set_training_bot_enabled", false)
+	target.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor_trial_player = CharacterBody3D.new()
+	_editor_trial_player.name = "HudTrialPlayer"
+	_editor_trial_player.set_script(TRIAL_PLAYER_SCRIPT)
+	_editor_trial_player.position = (player as Node3D).global_position if _editor_from_pause else Vector3.ZERO
+	main.add_child(_editor_trial_player)
+	_editor_trial_player.call("apply_loadout", loadout)
+	_editor_trial_player.call("set_training_options", true, false, true)
+	_editor_trial_player.call("set_gameplay_enabled", true)
+	_editor_trial_target = StaticBody3D.new()
+	_editor_trial_target.name = "HudTrialTarget"
+	_editor_trial_target.set_script(TRIAL_DUMMY_SCRIPT)
+	_editor_trial_target.position = _editor_trial_player.position + Vector3(5, 0, -5)
+	main.add_child(_editor_trial_target)
+	player = _editor_trial_player
+	touch_controls.call("set_player", _editor_trial_player)
+	_hud.get_node("PlayerVitals").call("set_player", player)
+	_hud.get_node("PlayerVitals").call("set_example", false)
+	var rig := main.get_node_or_null("CameraRig")
+	if rig != null:
+		rig.call("set_target", _editor_trial_player)
+	get_tree().paused = false
+	_hud.visible = true
+	_update_hud()
+
+func _on_hud_test_finished() -> void:
+	if touch_controls != null:
+		touch_controls.call("reset_inputs")
+	if _editor_trial_player != null and is_instance_valid(_editor_trial_player):
+		_editor_trial_player.call("set_gameplay_enabled", false)
+		_editor_trial_player.queue_free()
+	_editor_trial_player = null
+	if _editor_trial_target != null and is_instance_valid(_editor_trial_target):
+		_editor_trial_target.queue_free()
+	_editor_trial_target = null
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			if _editor_existing_fx.has(node.get_instance_id()):
+				node.process_mode = _editor_existing_fx[node.get_instance_id()]
+			else:
+				node.queue_free()
+	_editor_existing_fx.clear()
+	player = _editor_original_player
+	touch_controls.call("set_player", player)
+	_hud.get_node("PlayerVitals").call("set_player", player)
+	_hud.get_node("PlayerVitals").call("set_example", not _editor_from_pause)
+	(player as Node3D).visible = true
+	player.process_mode = _editor_player_process_mode
+	(target as Node3D).global_position = _editor_test_target_position
+	target.call("set_training_bot_enabled", _editor_test_target_enabled)
+	target.process_mode = _editor_target_process_mode
+	var rig := main.get_node_or_null("CameraRig")
+	if rig != null:
+		rig.call("set_target", player)
+	if _editor_from_pause:
+		get_tree().paused = true
+	else:
+		main.call("set_menu_mode", true)
+	_hud.visible = true
+	_update_hud()
 
 func _open_training_ground() -> void:
 	_end_pause(false)

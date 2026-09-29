@@ -13,6 +13,9 @@ const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recas
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
+const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
+const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const CREAM := Color("#f3ddbb")
 const MUTED := Color("#bda995")
@@ -34,6 +37,7 @@ var _menu: PanelContainer
 var _menu_dim: ColorRect
 var _menu_count: Label
 var _status: Label
+var _vitals: Control
 var _tool_mode := ""
 var _place_size_index := 1
 var _preview: MeshInstance3D
@@ -48,6 +52,17 @@ var _placement_blockers: Array[Rect2] = []
 var _spell_bar: Control
 var _spell_labels: Dictionary = {}
 var _menu_opened_at_msec := 0
+var _ui_layer: CanvasLayer
+var _hud_controller
+var _hud_editor
+var _editor_original_player: CharacterBody3D
+var _editor_trial_player: CharacterBody3D
+var _editor_trial_target: StaticBody3D
+var _editor_test_modes: Dictionary = {}
+var _editor_test_positions: Dictionary = {}
+var _editor_test_fx_modes: Dictionary = {}
+var _reset_button: Button
+var _training_menu_button: Button
 
 func _ready() -> void:
 	# Input and menu remain available while combat actors are paused.
@@ -61,6 +76,7 @@ func _ready() -> void:
 	_moving_target = _spawn_dummy("moving", Vector3(0.0, 0.0, -23.0), 1.0)
 	_shooter_target = _spawn_dummy("shooter", Vector3(24.0, 0.0, -11.0), 1.0)
 	_build_ui()
+	_setup_hud_editor()
 	_apply_loadout()
 	_apply_options()
 	_update_status()
@@ -300,6 +316,7 @@ func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "TrainingUI"
 	add_child(layer)
+	_ui_layer = layer
 	var ui := Control.new()
 	ui.name = "TrainingRoot"
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -311,18 +328,27 @@ func _build_ui() -> void:
 	header.size = Vector2(1080, 58)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(header)
-	var top := HBoxContainer.new()
-	top.position = Vector2(18, 16)
-	top.size = Vector2(1070, 48)
-	top.add_theme_constant_override("separation", 10)
-	ui.add_child(top)
 	_status = Label.new()
-	_status.custom_minimum_size = Vector2(760, 44)
 	_status.add_theme_font_size_override("font_size", 15)
 	_status.add_theme_color_override("font_color", Color("#f3e8d1"))
-	top.add_child(_status)
-	top.add_child(_button("RESET  F5", _reset_trial, "secondary", 46))
-	top.add_child(_button("MENU  TAB", _toggle_menu, "secondary", 46))
+	_status.position = Vector2(18, 16)
+	_status.size = Vector2(760, 44)
+	ui.add_child(_status)
+	_vitals = Control.new()
+	_vitals.name = "PlayerVitals"
+	_vitals.set_script(HUD_VITALS_SCRIPT)
+	_vitals.position = Vector2(22, 100)
+	_vitals.size = Vector2(280, 90)
+	_vitals.call("set_player", player)
+	ui.add_child(_vitals)
+	_reset_button = _button("RESET  F5", _reset_trial, "secondary", 46)
+	_reset_button.position = Vector2(790, 16)
+	_reset_button.size = Vector2(120, 46)
+	ui.add_child(_reset_button)
+	_training_menu_button = _button("MENU  TAB", _toggle_menu, "secondary", 46)
+	_training_menu_button.position = Vector2(920, 16)
+	_training_menu_button.size = Vector2(150, 46)
+	ui.add_child(_training_menu_button)
 	_build_spell_bar(ui)
 	_meter = Control.new()
 	_meter.name = "TrainingMeter"
@@ -445,6 +471,7 @@ func _build_ui() -> void:
 	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(footer_spacer)
 	footer.add_child(_button("Menu principal", _return_to_main_menu, "secondary", 50))
+	footer.add_child(_button("Personnaliser l'interface", _open_hud_editor, "secondary", 50))
 	var resume := _button("REPRENDRE  TAB", _toggle_menu, "primary", 50)
 	resume.name = "ResumeButton"
 	resume.custom_minimum_size.x = 235
@@ -669,6 +696,9 @@ func _toggle_meter() -> void:
 func _on_meter_expanded_changed(expanded: bool) -> void:
 	if _meter_toggle_button != null:
 		_meter_toggle_button.text = "KIKIMÈTRE  K  %s" % ("ON" if expanded else "OFF")
+	if _hud_controller != null:
+		(_meter.get_node("MeterPanel") as Control).visible = expanded and bool(_hud_controller.layout.training_meter.v)
+		(_meter.get_node("MeterChip") as Control).visible = not expanded and bool(_hud_controller.layout.training_meter_chip.v)
 
 func _label(value: String, size: int) -> Label:
 	var label := Label.new()
@@ -749,13 +779,129 @@ func _half_health() -> void:
 		player.call("set_gameplay_enabled", true)
 	_update_status()
 
+func _setup_hud_editor() -> void:
+	var settings := ConfigFile.new()
+	if settings.load("user://prototype0_settings.cfg") == OK:
+		_touch_controls.call("set_control_scale", clampf(float(settings.get_value("settings", "touch_scale", 1.0)), 0.85, 1.15))
+	_hud_controller = Node.new()
+	_hud_controller.name = "HudLayoutController"
+	_hud_controller.set_script(HUD_CONTROLLER)
+	add_child(_hud_controller)
+	_hud_controller.bind_touch(_touch_controls)
+	_hud_controller.register("training_status", _status)
+	_hud_controller.register("player_vitals", _vitals)
+	_hud_controller.register("training_reset", _reset_button)
+	_hud_controller.register("training_menu", _training_menu_button)
+	_hud_controller.register("spell_bar", _spell_bar, true)
+	for category in ["offensive", "defensive", "mobility"]:
+		_hud_controller.register("%s_slot" % category, _spell_bar.get_node("%sSlot" % category.capitalize()))
+	_hud_controller.register("training_meter", _meter.get_node("MeterPanel"), true)
+	_hud_controller.register("training_meter_chip", _meter.get_node("MeterChip"), true)
+	_hud_editor = Control.new()
+	_hud_editor.name = "HudEditor"
+	_hud_editor.set_script(HUD_EDITOR)
+	_ui_layer.add_child(_hud_editor)
+	_hud_editor.closed.connect(_on_hud_editor_closed)
+	_hud_editor.test_started.connect(_on_hud_test_started)
+	_hud_editor.test_finished.connect(_on_hud_test_finished)
+
+func _open_hud_editor() -> void:
+	if _hud_editor == null or _hud_editor.visible:
+		return
+	_menu.visible = false
+	_menu_dim.visible = false
+	_spell_bar.visible = true
+	_vitals.call("set_example", true)
+	_meter.visible = true
+	_update_spell_bar()
+	_hud_editor.begin(_hud_controller)
+
+func _on_hud_editor_closed() -> void:
+	_vitals.call("set_example", false)
+	_menu.visible = true
+	_menu_dim.visible = true
+	_spell_bar.visible = false
+	_meter.visible = false
+	_touch_controls.visible = false
+	get_tree().paused = true
+
+func _on_hud_test_started() -> void:
+	_editor_test_fx_modes.clear()
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			_editor_test_fx_modes[node.get_instance_id()] = node.process_mode
+			node.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor_original_player = player
+	_editor_test_modes[player] = player.process_mode
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	player.visible = false
+	_editor_test_positions.clear()
+	for dummy in get_training_targets():
+		_editor_test_positions[dummy] = dummy.global_position
+		_editor_test_modes[dummy] = dummy.process_mode
+		dummy.global_position = Vector3(5000, 0, 5000)
+		dummy.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor_trial_player = CharacterBody3D.new()
+	_editor_trial_player.name = "HudTrialPlayer"
+	_editor_trial_player.set_script(PLAYER_SCRIPT)
+	_editor_trial_player.position = player.global_position
+	add_child(_editor_trial_player)
+	_editor_trial_player.call("apply_loadout", _loadout)
+	_editor_trial_player.call("set_training_options", true, false, true)
+	_editor_trial_player.call("set_gameplay_enabled", true)
+	_editor_trial_target = StaticBody3D.new()
+	_editor_trial_target.name = "HudTrialTarget"
+	_editor_trial_target.set_script(DUMMY_SCRIPT)
+	_editor_trial_target.position = _editor_trial_player.position + Vector3(5, 0, -5)
+	add_child(_editor_trial_target)
+	player = _editor_trial_player
+	_touch_controls.call("set_player", player)
+	_vitals.call("set_player", player)
+	_vitals.call("set_example", false)
+	get_node("CameraRig").call("set_target", player)
+	get_tree().paused = false
+
+func _on_hud_test_finished() -> void:
+	_touch_controls.call("reset_inputs")
+	get_tree().paused = true
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			if _editor_test_fx_modes.has(node.get_instance_id()):
+				node.process_mode = _editor_test_fx_modes[node.get_instance_id()]
+			else:
+				node.queue_free()
+	_editor_test_fx_modes.clear()
+	if _editor_trial_player != null and is_instance_valid(_editor_trial_player):
+		_editor_trial_player.call("set_gameplay_enabled", false)
+		_editor_trial_player.queue_free()
+	_editor_trial_player = null
+	if _editor_trial_target != null and is_instance_valid(_editor_trial_target):
+		_editor_trial_target.queue_free()
+	_editor_trial_target = null
+	player = _editor_original_player
+	_touch_controls.call("set_player", player)
+	_vitals.call("set_player", player)
+	_vitals.call("set_example", true)
+	player.visible = true
+	player.process_mode = _editor_test_modes[player]
+	get_node("CameraRig").call("set_target", player)
+	for dummy in _editor_test_positions.keys():
+		if is_instance_valid(dummy):
+			dummy.global_position = _editor_test_positions[dummy]
+			dummy.process_mode = _editor_test_modes[dummy]
+	_editor_test_positions.clear()
+	_editor_test_modes.clear()
+	_update_spell_bar()
+
 func _toggle_menu() -> void:
+	if _hud_editor != null and _hud_editor.visible:
+		return
 	if _tool_mode != "":
 		_cancel_tool()
 	_menu.visible = not _menu.visible
 	_menu_dim.visible = _menu.visible
 	_meter.visible = not _menu.visible
-	_spell_bar.visible = not _menu.visible
+	_spell_bar.visible = not _menu.visible and (_hud_controller == null or bool(_hud_controller.layout.spell_bar.v))
 	if _menu.visible:
 		_menu_opened_at_msec = Time.get_ticks_msec()
 	elif _menu_opened_at_msec > 0:
@@ -822,6 +968,8 @@ func _remove_all_fixed() -> void:
 	_update_status()
 
 func _input(event: InputEvent) -> void:
+	if _hud_editor != null and _hud_editor.visible:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_TAB:
@@ -850,6 +998,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _hud_editor != null and _hud_editor.visible:
+		return
 	if _tool_mode == "":
 		return
 	if event is InputEventMouseMotion:

@@ -275,6 +275,30 @@ func is_shot_kick_active() -> bool:
 	return aim_modifier != null and aim_modifier.is_shot_active()
 
 
+func set_fulguro_pose(phase: String, progress: float) -> void:
+	if aim_modifier != null:
+		aim_modifier.set_fulguro_pose(phase, progress)
+	_aim_requested = true
+	_refresh_aim_state()
+
+
+func clear_fulguro_pose() -> void:
+	if aim_modifier != null:
+		aim_modifier.clear_fulguro_pose()
+
+
+func set_pelto_pose(phase: String, progress: float) -> void:
+	if aim_modifier != null:
+		aim_modifier.set_pelto_pose(phase, progress)
+	_aim_requested = true
+	_refresh_aim_state()
+
+
+func clear_pelto_pose() -> void:
+	if aim_modifier != null:
+		aim_modifier.clear_pelto_pose()
+
+
 func configure_aim_transition(raise_time: float, lower_time: float) -> void:
 	_aim_raise_time = maxf(0.001, raise_time)
 	_aim_lower_time = maxf(0.001, lower_time)
@@ -802,7 +826,7 @@ func _configure_aim_modifier() -> void:
 	aim_modifier.name = "AimPoseShotKickSupport"
 	aim_modifier.spine_index = _spine_bone_index
 	aim_modifier.right_hand_index = _right_hand_bone_index
-	var bone_fields := {"spine2": "spine2_index", "rightshoulder": "right_shoulder_index", "rightarm": "right_arm_index", "rightforearm": "right_forearm_index", "leftarm": "left_arm_index", "leftforearm": "left_forearm_index", "lefthand": "left_hand_index"}
+	var bone_fields := {"hips": "hips_index", "leftupleg": "left_up_leg_index", "rightupleg": "right_up_leg_index", "spine2": "spine2_index", "rightshoulder": "right_shoulder_index", "rightarm": "right_arm_index", "rightforearm": "right_forearm_index", "leftarm": "left_arm_index", "leftforearm": "left_forearm_index", "lefthand": "left_hand_index"}
 	for index in range(skeleton.get_bone_count()):
 		var normalized := _normalize_bone_name(skeleton.get_bone_name(index))
 		if normalized in bone_fields:

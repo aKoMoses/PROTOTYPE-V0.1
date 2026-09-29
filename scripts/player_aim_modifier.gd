@@ -11,6 +11,9 @@ const RECOVERY_TIME := 0.12
 var aiming := false
 var spine_index := -1
 var spine_basis := Basis.IDENTITY
+var hips_index := -1
+var left_up_leg_index := -1
+var right_up_leg_index := -1
 var spine2_index := -1
 var right_shoulder_index := -1
 var right_arm_index := -1
@@ -30,6 +33,10 @@ var last_grip_world := Transform3D.IDENTITY
 var shot_time := KICK_TIME + RECOVERY_TIME
 var shot_strength := 1.0
 var recoil_weight := 0.0
+var punch_phase := ""
+var punch_progress := 0.0
+var pelto_phase := ""
+var pelto_progress := 0.0
 
 
 func trigger_shot(charge_ratio: float) -> void:
@@ -46,10 +53,44 @@ func is_shot_active() -> bool:
 	return shot_time < KICK_TIME + RECOVERY_TIME
 
 
+func set_fulguro_pose(phase: String, progress: float) -> void:
+	punch_phase = phase
+	punch_progress = clampf(progress, 0.0, 1.0)
+
+
+func clear_fulguro_pose() -> void:
+	punch_phase = ""
+	punch_progress = 0.0
+
+
+func set_pelto_pose(phase: String, progress: float) -> void:
+	pelto_phase = phase
+	pelto_progress = clampf(progress, 0.0, 1.0)
+
+
+func clear_pelto_pose() -> void:
+	pelto_phase = ""
+	pelto_progress = 0.0
+
+
+func is_fulguro_pose_active() -> bool:
+	return punch_phase != ""
+
+
 func _process_modification_with_delta(delta: float) -> void:
 	var rig_skeleton := get_skeleton()
-	if rig_skeleton == null or not aiming or spine_index < 0 or right_hand_index < 0:
+	if rig_skeleton == null or (not aiming and punch_phase == "" and pelto_phase == "") or spine_index < 0 or right_hand_index < 0:
 		cancel_shot()
+		return
+	if punch_phase != "":
+		cancel_shot()
+		_apply_fulguro_pose(rig_skeleton)
+		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		return
+	if pelto_phase != "":
+		cancel_shot()
+		_apply_pelto_pose(rig_skeleton)
+		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
 		return
 	var was_active := is_shot_active()
 	shot_time = minf(shot_time + delta, KICK_TIME + RECOVERY_TIME)
@@ -81,6 +122,41 @@ func _process_modification_with_delta(delta: float) -> void:
 		shot_finished.emit()
 
 
+func _apply_fulguro_pose(rig_skeleton: Skeleton3D) -> void:
+	var windup := smoothstep(0.0, 1.0, punch_progress) if punch_phase == "preparation" else 0.0
+	var extension := smoothstep(0.0, 1.0, punch_progress) if punch_phase == "active" else 1.0 - smoothstep(0.0, 1.0, punch_progress) if punch_phase == "recovery" else 0.0
+	_set_global_basis(rig_skeleton, spine_index, spine_basis)
+	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.UP, -14.0 * windup + 10.0 * extension)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -28.0 * windup + 30.0 * extension)
+	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, 42.0 * windup - 24.0 * extension)
+	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 58.0 * windup - 46.0 * extension)
+	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, -16.0 * windup + 9.0 * extension)
+	if right_shoulder_index >= 0:
+		var parent := rig_skeleton.get_bone_parent(right_shoulder_index)
+		if parent >= 0:
+			var parent_basis := rig_skeleton.get_bone_global_pose(parent).basis
+			var world_offset := Vector3(0.0, 0.0, -0.035 * windup + 0.055 * extension)
+			rig_skeleton.set_bone_pose_position(right_shoulder_index, rig_skeleton.get_bone_pose_position(right_shoulder_index) + parent_basis.inverse() * world_offset)
+
+
+func _apply_pelto_pose(rig_skeleton: Skeleton3D) -> void:
+	var prepare := smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "preparation" else 0.0
+	var strike := smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "impact" else 0.0
+	var recover := 1.0 - smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "recovery" else 0.0
+	var crouch := prepare * 0.72 + strike + recover * 0.62
+	_set_global_basis(rig_skeleton, spine_index, spine_basis)
+	if hips_index >= 0:
+		rig_skeleton.set_bone_pose_position(hips_index, rig_skeleton.get_bone_pose_position(hips_index) + Vector3(0.0, -0.035 * crouch, 0.018 * strike))
+	_rotate_global_axis(rig_skeleton, left_up_leg_index, Vector3.RIGHT, 8.0 * crouch)
+	_rotate_global_axis(rig_skeleton, right_up_leg_index, Vector3.RIGHT, 8.0 * crouch)
+	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.RIGHT, -16.0 * prepare + 38.0 * strike + 24.0 * recover)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.RIGHT, -48.0 * prepare + 72.0 * strike + 48.0 * recover)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -24.0 * prepare + 16.0 * strike)
+	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, -62.0 * prepare + 104.0 * strike + 68.0 * recover)
+	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 38.0 * prepare - 70.0 * strike - 42.0 * recover)
+	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, -18.0 * prepare + 34.0 * strike + 20.0 * recover)
+
+
 func _set_global_basis(rig_skeleton: Skeleton3D, bone: int, desired: Basis) -> void:
 	if bone < 0:
 		return
@@ -92,6 +168,11 @@ func _set_global_basis(rig_skeleton: Skeleton3D, bone: int, desired: Basis) -> v
 func _rotate_global(rig_skeleton: Skeleton3D, bone: int, degrees: float) -> void:
 	if bone >= 0:
 		_set_global_basis(rig_skeleton, bone, Basis(Vector3.RIGHT, deg_to_rad(degrees)) * rig_skeleton.get_bone_global_pose(bone).basis)
+
+
+func _rotate_global_axis(rig_skeleton: Skeleton3D, bone: int, axis: Vector3, degrees: float) -> void:
+	if bone >= 0 and absf(degrees) > 0.001:
+		_set_global_basis(rig_skeleton, bone, Basis(axis.normalized(), deg_to_rad(degrees)) * rig_skeleton.get_bone_global_pose(bone).basis)
 
 
 func _solve_support_arm(rig_skeleton: Skeleton3D) -> void:

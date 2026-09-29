@@ -177,6 +177,18 @@ téléphone Android.
   BURN/SPOTTED, absorption, cooldown), Javelin (140 dégâts, marque, recast sans
   dégâts ni second cooldown, destination bloquée). Capture Mobile réelle inspectée
   pour `prototype0_drone.png` et `prototype0_javelin.png`.
+- **FULGURO PUNCH :** troisième choix offensif du menu et du terrain d’entraînement.
+  La visée est verrouillée au début de la charge. Un tap arme le coup pendant au
+  moins 0,35 s ; maintenir A ou le bouton tactile offensif le charge jusqu’à 3 s.
+  Portée et dégâts progressent linéairement de 2 à 4 m et de 200 à 400 dégâts
+  directs ; l’écrasement mural progresse de 150 à 250 dégâts et applique 0,75 s de
+  STUN. Le poing, l’indicateur et le HUD s’intensifient jusqu’à la décharge de feu.
+  La frappe peut partir pendant Pyro Boots sans modifier son trajet ni sa durée. Un
+  dash ou un recast Javelin demandé pendant la projection/le STUN mural est mémorisé
+  sans coût, revalidé puis exécuté à la première frame libre. Le bot emploie le même
+  résolveur de frappe et le même contrôle projeté. Test dédié :
+  `tools/test_fulguro_punch.gd` (frappe libre, murs frontal/oblique, balayage basse
+  fréquence, occlusion, dash, buffers, mort et bot).
 - **P0-106 — implémenté, à tester manuellement :** slot mobilité R avec Pyro Boots
   (dash 3 m en 0,18 s, arrêt aux obstacles, cooldown 6 s, interruption par STUN) et
   Bio Injector (buff 3 s, +40 % déplacement, +50 % vitesse d'attaque, accélération des

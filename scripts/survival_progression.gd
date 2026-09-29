@@ -5,7 +5,7 @@ const TOTAL_WAVES := 12
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const REWARD_ORDER := ["offensive", "defensive", "mobility", "passive", "weapon", "offensive", "defensive", "mobility", "passive", "weapon", "offensive"]
 const CATEGORY_OPTIONS := {
-	"offensive": ["modulo_drone", "javelin"],
+	"offensive": ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"],
 	"defensive": ["magnetic_field", "static_shield"],
 	"mobility": ["pyro_boots", "bio_injector"],
 	"passive": ["baroud", "omnivamp"],
@@ -62,6 +62,8 @@ func _evolution_description(item_id: String) -> String:
 		"magnetic_field": "Le mur électrocute les ennemis à 3 m : 35 dégâts toutes les 0,8 s.",
 		"static_shield": "La fin du bouclier émet une onde de 70 dégâts dans un rayon de 4 m.",
 		"pyro_boots": "Le dash laisse une traînée brûlante qui blesse les ennemis traversés.",
+		"fulguro_punch": "La décharge libère une onde de feu incandescent autour de la cible projetée.",
+		"pelto_smash": "Le retour arrache une secousse qui blesse les ennemis proches de la cible.",
 		"bio_injector": "L'activation libère une onde de 70 dégâts dans un rayon de 4 m.",
 		"baroud": "Le déclenchement de Baroud repousse les ennemis avec une onde de 90 dégâts.",
 		"omnivamp": "Chaque ennemi éliminé rend 35 PV supplémentaires.",

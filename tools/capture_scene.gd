@@ -42,6 +42,26 @@ func _initialize() -> void:
 				chain_target.call("take_damage", 50.0, "capture:shot", "chain_1")
 				chain_target.call("take_damage", 60.0, "capture:burn", "chain_2")
 				chain_target.call("take_damage", 70.0, "capture:module", "chain_3")
+		elif arguments[1] in ["arena_north", "arena_south", "arena_west", "arena_east", "arena_corner"]:
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			var arena_player := scene.get_node_or_null("Player") as Node3D
+			var arena_target := scene.get_node_or_null("TargetDummy") as Node3D
+			var arena_positions := {
+				"arena_north": Vector3(0.0, 0.0, -24.0),
+				"arena_south": Vector3(0.0, 0.0, 24.0),
+				"arena_west": Vector3(-24.0, 0.0, 0.0),
+				"arena_east": Vector3(24.0, 0.0, 0.0),
+				"arena_corner": Vector3(-23.5, 0.0, -23.5),
+			}
+			if arena_player != null:
+				arena_player.position = arena_positions[arguments[1]]
+				var arena_rig := scene.get_node_or_null("CameraRig")
+				if arena_rig != null:
+					arena_rig.call("set_target", arena_player)
+			if arena_target != null:
+				arena_target.position = Vector3(5.0, 0.0, -20.0)
+				arena_target.call("set_training_bot_enabled", false)
 		elif arguments[1] == "shotgun_damage":
 			flow.call("_start_duel")
 			flow.call("_begin_live_round")

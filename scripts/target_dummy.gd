@@ -8,6 +8,8 @@ const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 const TRAINING_BOT := preload("res://scripts/training_bot.gd")
 const ENEMY_DROID_VISUAL := preload("res://scripts/enemy_droid_visual.gd")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
+const FULGURO := preload("res://scripts/fulguro_punch.gd")
+const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
 
 var combat_state
 var visibility_state
@@ -24,6 +26,22 @@ var _training_bot: Node
 var _last_visual_position := Vector3.ZERO
 var _duel_mode := false
 var _duel_paused := false
+var _fulguro_projection_active := false
+var _fulguro_projection_direction := Vector3.ZERO
+var _fulguro_projection_distance_remaining := 0.0
+var _fulguro_projection_time_remaining := 0.0
+var _fulguro_projection_speed := 0.0
+var _fulguro_projection_wall_damage := 0.0
+var _fulguro_projection_wall_stun := 0.0
+var _fulguro_projection_source_id := ""
+var _fulguro_projection_attack_id := ""
+var _fulguro_wall_stun_active := false
+var _pelto_pull_active := false
+var _pelto_pull_direction := Vector3.ZERO
+var _pelto_pull_distance_remaining := 0.0
+var _pelto_pull_time_remaining := 0.0
+var _pelto_pull_speed := 0.0
+var _defensive_buffer: Dictionary = {}
 
 
 func _ready() -> void:
@@ -54,6 +72,9 @@ func _process(delta: float) -> void:
 		visibility_state.update(delta)
 	if combat_state != null and not _resetting and not _duel_paused:
 		combat_state.update(delta)
+	if _fulguro_wall_stun_active and (combat_state == null or not combat_state.is_stunned()):
+		_fulguro_wall_stun_active = false
+	_try_execute_defensive_buffer()
 	if _javelin_mark_until >= 0.0 and Time.get_ticks_msec() / 1000.0 >= _javelin_mark_until:
 		_javelin_mark_until = -1.0
 	_update_effect_presentation()
@@ -61,6 +82,10 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _fulguro_projection_active and not _duel_paused:
+		_update_fulguro_projection(delta)
+	elif _pelto_pull_active and not _duel_paused:
+		_update_pelto_pull(delta)
 	var displacement := global_position - _last_visual_position
 	_last_visual_position = global_position
 	if _visual_rig == null or delta <= 0.0:
@@ -124,6 +149,8 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if duration > 0.0:
+		_cancel_pelto_pull()
 	if combat_state != null:
 		combat_state.apply_stun(duration, source_id)
 
@@ -139,6 +166,9 @@ func reset_combat_state() -> void:
 	if _health_readout != null:
 		_health_readout.call("clear_damage_numbers")
 	_resetting = false
+	_cancel_fulguro_projection()
+	_cancel_pelto_pull()
+	_defensive_buffer.clear()
 	_javelin_mark_until = -1.0
 	if combat_state != null:
 		combat_state.reset()
@@ -188,6 +218,204 @@ func get_max_health() -> float:
 
 func is_stunned() -> bool:
 	return combat_state != null and combat_state.is_stunned()
+
+
+func get_fulguro_hit_radius() -> float:
+	return 0.70 * maxf(absf(scale.x), absf(scale.z))
+
+
+func is_fulguro_projected() -> bool:
+	return _fulguro_projection_active
+
+
+func is_action_locked() -> bool:
+	return is_real_dead() or _resetting or _fulguro_projection_active or is_stunned()
+
+
+func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
+	if is_real_dead() or _resetting or max_distance <= 0.0 or max_duration <= 0.0:
+		return
+	if _training_bot != null and _training_bot.has_method("cancel_action"):
+		_training_bot.call("cancel_action")
+	_cancel_pelto_pull()
+	_fulguro_projection_active = true
+	_fulguro_projection_direction = FULGURO.flat_direction(direction)
+	_fulguro_projection_distance_remaining = maxf(0.0, max_distance)
+	_fulguro_projection_time_remaining = maxf(0.001, max_duration)
+	_fulguro_projection_speed = _fulguro_projection_distance_remaining / _fulguro_projection_time_remaining
+	_fulguro_projection_wall_damage = maxf(0.0, wall_damage)
+	_fulguro_projection_wall_stun = maxf(0.0, wall_stun)
+	_fulguro_projection_source_id = source_id
+	_fulguro_projection_attack_id = attack_id
+	_spawn_fulguro_motion_visual(Color("#65e9ff"), 0.70)
+
+
+func _update_fulguro_projection(delta: float) -> void:
+	if not _fulguro_projection_active:
+		return
+	if is_real_dead() or _resetting:
+		_cancel_fulguro_projection()
+		return
+	var available_time := minf(maxf(delta, 0.0), _fulguro_projection_time_remaining)
+	var step_distance := minf(_fulguro_projection_distance_remaining, _fulguro_projection_speed * available_time)
+	if step_distance <= 0.0001:
+		_finish_fulguro_projection(false)
+		return
+	var radius := get_fulguro_hit_radius()
+	var height := 1.8 * maxf(0.1, absf(scale.y))
+	var result := FULGURO.sweep_static_body(self, _fulguro_projection_direction * step_distance, radius, height)
+	var travel: Vector3 = result.get("travel", Vector3.ZERO)
+	global_position += travel
+	global_position.y = 0.0
+	_fulguro_projection_distance_remaining = maxf(0.0, _fulguro_projection_distance_remaining - travel.length())
+	_fulguro_projection_time_remaining = maxf(0.0, _fulguro_projection_time_remaining - available_time)
+	if bool(result.get("collided", false)):
+		var normal: Vector3 = result.get("normal", Vector3.ZERO)
+		var crushing := FULGURO.is_crushing_wall(result.get("collider", null), normal, _fulguro_projection_direction)
+		_finish_fulguro_projection(crushing, result.get("position", global_position), normal)
+		return
+	if _fulguro_projection_distance_remaining <= 0.001 or _fulguro_projection_time_remaining <= 0.001:
+		_finish_fulguro_projection(false)
+
+
+func _finish_fulguro_projection(crushed_wall: bool, impact_position: Vector3 = Vector3.ZERO, impact_normal: Vector3 = Vector3.ZERO) -> void:
+	if not _fulguro_projection_active:
+		return
+	_fulguro_projection_active = false
+	_fulguro_projection_distance_remaining = 0.0
+	_fulguro_projection_time_remaining = 0.0
+	_fulguro_projection_speed = 0.0
+	if crushed_wall and not is_real_dead():
+		var applied := take_damage(_fulguro_projection_wall_damage, _fulguro_projection_source_id, "%s:wall" % _fulguro_projection_attack_id)
+		if applied > 0.0 and not is_real_dead():
+			_fulguro_wall_stun_active = true
+			apply_stun(_fulguro_projection_wall_stun, "fulguro_wall")
+			_spawn_fulguro_wall_visual(impact_position, impact_normal)
+	_try_execute_defensive_buffer()
+
+
+func _cancel_fulguro_projection() -> void:
+	_fulguro_projection_active = false
+	_fulguro_projection_direction = Vector3.ZERO
+	_fulguro_projection_distance_remaining = 0.0
+	_fulguro_projection_time_remaining = 0.0
+	_fulguro_projection_speed = 0.0
+	_fulguro_wall_stun_active = false
+
+
+func start_pelto_pull(pull_direction: Vector3, distance: float, duration: float, _source_id: String = "", _attack_id: String = "") -> void:
+	if is_real_dead() or _resetting or _fulguro_projection_active or is_stunned() or distance <= 0.0 or duration <= 0.0:
+		return
+	_pelto_pull_active = true
+	_pelto_pull_direction = PELTO_SMASH.flat_direction(pull_direction)
+	_pelto_pull_distance_remaining = maxf(0.0, distance)
+	_pelto_pull_time_remaining = maxf(0.001, duration)
+	_pelto_pull_speed = _pelto_pull_distance_remaining / _pelto_pull_time_remaining
+
+
+func _update_pelto_pull(delta: float) -> void:
+	if not _pelto_pull_active:
+		return
+	if is_real_dead() or _resetting or _fulguro_projection_active or is_stunned():
+		_cancel_pelto_pull()
+		return
+	var available_time := minf(maxf(delta, 0.0), _pelto_pull_time_remaining)
+	var step_distance := minf(_pelto_pull_distance_remaining, _pelto_pull_speed * available_time)
+	if step_distance <= 0.0001:
+		_cancel_pelto_pull()
+		return
+	var result := FULGURO.sweep_static_body(self, _pelto_pull_direction * step_distance, get_fulguro_hit_radius(), 1.8 * maxf(0.1, absf(scale.y)))
+	var travel: Vector3 = result.get("travel", Vector3.ZERO)
+	global_position += travel
+	global_position.y = 0.0
+	_pelto_pull_distance_remaining = maxf(0.0, _pelto_pull_distance_remaining - travel.length())
+	_pelto_pull_time_remaining = maxf(0.0, _pelto_pull_time_remaining - available_time)
+	if bool(result.get("collided", false)) or _pelto_pull_distance_remaining <= 0.001 or _pelto_pull_time_remaining <= 0.001:
+		_cancel_pelto_pull()
+
+
+func _cancel_pelto_pull() -> void:
+	_pelto_pull_active = false
+	_pelto_pull_direction = Vector3.ZERO
+	_pelto_pull_distance_remaining = 0.0
+	_pelto_pull_time_remaining = 0.0
+	_pelto_pull_speed = 0.0
+
+
+func is_pelto_pulled() -> bool:
+	return _pelto_pull_active
+
+
+func request_defensive_dodge(direction: Vector3) -> bool:
+	var flat := FULGURO.flat_direction(direction)
+	if _fulguro_projection_active or _fulguro_wall_stun_active:
+		_defensive_buffer = {"type": "dash", "direction": flat}
+		return true
+	if is_action_locked() or _training_bot == null or not _training_bot.has_method("execute_buffered_dodge"):
+		return false
+	_cancel_pelto_pull()
+	return bool(_training_bot.call("execute_buffered_dodge", flat))
+
+
+func _try_execute_defensive_buffer() -> void:
+	if _defensive_buffer.is_empty() or is_action_locked():
+		return
+	var command := _defensive_buffer.duplicate()
+	_defensive_buffer.clear()
+	if str(command.get("type", "")) != "dash" or _training_bot == null or not _training_bot.has_method("execute_buffered_dodge"):
+		return
+	var direction: Vector3 = command.get("direction", Vector3.ZERO)
+	if direction.length_squared() > 0.001:
+		_training_bot.call("execute_buffered_dodge", direction)
+
+
+func get_buffered_defensive_action() -> String:
+	return str(_defensive_buffer.get("type", ""))
+
+
+func _spawn_fulguro_motion_visual(color: Color, alpha: float) -> void:
+	var ring := MeshInstance3D.new()
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = 0.62
+	mesh.outer_radius = 0.78
+	mesh.rings = 10
+	mesh.ring_segments = 28
+	ring.mesh = mesh
+	ring.position = Vector3(0.0, 0.12, 0.0)
+	ring.material_override = _fulguro_material(color, alpha)
+	add_child(ring)
+	var tween := ring.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector3.ONE * 1.65, 0.28)
+	tween.tween_method(Callable(self, "_set_fulguro_material_alpha").bind(ring.material_override), alpha, 0.0, 0.28)
+	tween.set_parallel(false)
+	tween.tween_callback(ring.queue_free)
+
+
+func _spawn_fulguro_wall_visual(impact_position: Vector3, impact_normal: Vector3) -> void:
+	var scene := get_tree().current_scene if get_tree() != null else null
+	var vfx := scene.get_node_or_null("VFXManager") if scene != null else null
+	var normal := impact_normal if impact_normal.length_squared() > 0.001 else -_fulguro_projection_direction
+	var position := impact_position if impact_position != Vector3.ZERO else global_position + Vector3.UP * 0.85
+	if vfx != null:
+		vfx.call("impact", position, normal, "environment", 1.65, Color("#ffb34f"))
+	_spawn_fulguro_motion_visual(Color("#ffb34f"), 0.92)
+
+
+func _fulguro_material(color: Color, alpha: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = 1.15
+	return material
+
+
+func _set_fulguro_material_alpha(alpha: float, material: StandardMaterial3D) -> void:
+	if material != null:
+		material.albedo_color.a = alpha
 
 
 func is_spotted() -> bool:
@@ -355,6 +583,11 @@ func _on_state_died() -> void:
 		return
 	_resetting = true
 	get_node("/root/GameSfx").play_event("robot_destruction")
+	_cancel_fulguro_projection()
+	_cancel_pelto_pull()
+	_defensive_buffer.clear()
+	if _training_bot != null and _training_bot.has_method("cancel_action"):
+		_training_bot.call("cancel_action")
 	if _visual_rig != null:
 		_visual_rig.call("play_death")
 	_update_status("")
@@ -395,11 +628,12 @@ func _build_visuals() -> void:
 	_health_readout.name = "TargetHealthReadout"
 	_health_readout.set_script(COMBAT_READOUT)
 	add_child(_health_readout)
+	_health_readout.position.y = 2.95 * (COMBAT_DATA.CHARACTER_VISUAL_SCALE - 1.0)
 	_health_readout.call("configure", Color("#ee6b4e"), "BOT")
 
 	_status_label = Label3D.new()
 	_status_label.name = "StatusReadout"
-	_status_label.position = Vector3(1.35, 3.75, 0.0)
+	_status_label.position = Vector3(1.35, 3.75 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, 0.0)
 	_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_status_label.font_size = 27
 	_status_label.outline_size = 7
@@ -408,12 +642,13 @@ func _build_visuals() -> void:
 
 	_status_vfx = STATUS_VFX.new()
 	add_child(_status_vfx)
+	_status_vfx.set("marker_height", 3.30 * COMBAT_DATA.CHARACTER_VISUAL_SCALE)
 	_status_vfx.call("configure", self)
 
 	_javelin_mark_label = Label3D.new()
 	_javelin_mark_label.name = "JavelinMark"
 	_javelin_mark_label.text = "JAVELIN"
-	_javelin_mark_label.position = Vector3(0.0, 3.62, 0.0)
+	_javelin_mark_label.position = Vector3(0.0, 3.62 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, 0.0)
 	_javelin_mark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_javelin_mark_label.font_size = 32
 	_javelin_mark_label.outline_size = 7

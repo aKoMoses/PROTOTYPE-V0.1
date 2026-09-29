@@ -25,7 +25,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
-	if training_kind == "moving" and get_health() > 0.0:
+	if training_kind == "moving" and get_health() > 0.0 and not is_action_locked():
 		training_clock += delta
 		position.x = training_origin.x + sin(training_clock * 1.25) * 4.0
 

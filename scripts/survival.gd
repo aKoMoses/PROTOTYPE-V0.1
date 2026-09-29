@@ -10,6 +10,10 @@ const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
+const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
+const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
+const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
+const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const REWARD_CARD_ART: Texture2D = preload("res://art/ui/industrial-reward-card.png")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
@@ -48,6 +52,7 @@ var _state := "selection"
 var _ui_layer: CanvasLayer
 var _hud: Control
 var _wave_label: Label
+var _vitals: Control
 var _spell_slots: Dictionary = {}
 var _spell_bar: Control
 var _equipment_icons = EQUIPMENT_ICONS.new()
@@ -71,6 +76,14 @@ var _arrival_label: Label
 var _arrival_markers: Array[Node3D] = []
 var _incoming_roles: Array[String] = []
 var _arrival_remaining := 0.0
+var _hud_controller
+var _hud_editor
+var _editor_test_positions: Dictionary = {}
+var _editor_test_modes: Dictionary = {}
+var _editor_original_player: CharacterBody3D
+var _editor_trial_player: CharacterBody3D
+var _editor_trial_target: StaticBody3D
+var _editor_test_fx_modes: Dictionary = {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -86,6 +99,7 @@ func _ready() -> void:
 	_synergy_label = _label("", 13, Color("#efba6c"))
 	_synergy_label.position = Vector2(24, 62)
 	_hud.add_child(_synergy_label)
+	_setup_hud_editor()
 	_build_music()
 	_show_weapon_choice()
 
@@ -107,7 +121,7 @@ func _process(delta: float) -> void:
 			if float(player.call("heal", 80.0, "repair_pickup")) > 0.0:
 				_repair.queue_free()
 				_repair = null
-	_pause_button.visible = _state == "combat"
+	_pause_button.visible = (_state == "combat" or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.pause.v))
 	if _state == "incoming":
 		_arrival_remaining = maxf(0.0, _arrival_remaining - delta)
 		_arrival_label.text = "VAGUE %d DANS %.1f s" % [wave, _arrival_remaining]
@@ -125,6 +139,8 @@ func _process(delta: float) -> void:
 	_update_spell_bar(build)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _hud_editor != null and _hud_editor.visible:
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if _state == "combat":
 			_pause_run()
@@ -458,15 +474,23 @@ func _build_ui() -> void:
 	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_layer.add_child(_hud)
 	var bar := ColorRect.new()
+	bar.name = "WavePanel"
 	bar.color = Color("#151d25df")
 	bar.position = Vector2(10, 8)
 	bar.size = Vector2(204, 50)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(bar)
+	_vitals = Control.new()
+	_vitals.name = "PlayerVitals"
+	_vitals.set_script(HUD_VITALS_SCRIPT)
+	_vitals.position = Vector2(22, 102)
+	_vitals.size = Vector2(280, 90)
+	_vitals.call("set_player", player)
+	_hud.add_child(_vitals)
 	_wave_label = _label("", 21, Color("#f3ddbb"))
-	_wave_label.position = Vector2(24, 18)
+	_wave_label.position = Vector2(14, 10)
 	_wave_label.size = Vector2(185, 32)
-	_hud.add_child(_wave_label)
+	bar.add_child(_wave_label)
 	_pause_button = _button("PAUSE", Callable(self, "_pause_run"))
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_pause_button.position = Vector2(-140, 15)
@@ -716,7 +740,7 @@ func _build_spell_bar() -> void:
 		_spell_slots[category] = {"icon": icon, "ring": ring, "name": name_label, "status": status}
 
 func _update_spell_bar(build: Dictionary) -> void:
-	_spell_bar.visible = wave > 0 and _state in ["incoming", "combat"]
+	_spell_bar.visible = ((wave > 0 and _state in ["incoming", "combat"]) or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.spell_bar.v))
 	if not _spell_bar.visible:
 		return
 	var multipliers: Dictionary = player.get("_survival_cooldown_multipliers")
@@ -841,11 +865,127 @@ func _show_pause_content() -> void:
 	for entry in [["weapon", "ARME"], ["offensive", "OFFENSIF"], ["defensive", "DÉFENSIF"], ["mobility", "MOBILITÉ"], ["passive", "PASSIF"]]:
 		grid.add_child(_pause_build_card(str(entry[0]), str(entry[1]), build))
 	_pause_content.add_child(_pause_action("REPRENDRE", Callable(self, "_resume_run"), true))
+	_pause_content.add_child(_pause_action("PERSONNALISER L'INTERFACE", Callable(self, "_open_hud_editor")))
 	var secondary := HBoxContainer.new()
 	secondary.add_theme_constant_override("separation", 10)
 	secondary.add_child(_pause_action("RECOMMENCER", Callable(self, "_restart")))
 	secondary.add_child(_pause_action("RETOUR AU MENU", Callable(self, "_return_menu")))
 	_pause_content.add_child(secondary)
+
+func _setup_hud_editor() -> void:
+	var settings := ConfigFile.new()
+	if settings.load("user://prototype0_settings.cfg") == OK:
+		_touch.call("set_control_scale", clampf(float(settings.get_value("settings", "touch_scale", 1.0)), 0.85, 1.15))
+	_hud_controller = Node.new()
+	_hud_controller.name = "HudLayoutController"
+	_hud_controller.set_script(HUD_CONTROLLER)
+	add_child(_hud_controller)
+	_hud_controller.bind_touch(_touch)
+	_hud_controller.register("wave", _hud.get_node("WavePanel"))
+	_hud_controller.register("player_vitals", _vitals)
+	_hud_controller.register("arrival", _arrival_label, true)
+	_hud_controller.register("pause", _pause_button)
+	_hud_controller.register("spell_bar", _spell_bar, true)
+	for category in ["offensive", "defensive", "mobility"]:
+		_hud_controller.register("%s_slot" % category, _spell_bar.get_node("%sSlot" % category.capitalize()))
+	_hud_editor = Control.new()
+	_hud_editor.name = "HudEditor"
+	_hud_editor.set_script(HUD_EDITOR)
+	_ui_layer.add_child(_hud_editor)
+	_hud_editor.closed.connect(_on_hud_editor_closed)
+	_hud_editor.test_started.connect(_on_hud_test_started)
+	_hud_editor.test_finished.connect(_on_hud_test_finished)
+
+func _open_hud_editor() -> void:
+	if _hud_editor == null or _hud_editor.visible:
+		return
+	_pause_overlay.visible = false
+	_pause_panel.visible = false
+	_spell_bar.visible = true
+	_vitals.call("set_example", true)
+	_arrival_label.visible = _hud_controller == null or bool(_hud_controller.layout.arrival.v)
+	_arrival_label.text = "VAGUE %d DANS 3.0 s" % maxi(1, wave)
+	_hud_editor.begin(_hud_controller)
+
+func _on_hud_editor_closed() -> void:
+	_vitals.call("set_example", false)
+	_pause_overlay.visible = true
+	_pause_panel.visible = true
+	_arrival_label.visible = false
+	_spell_bar.visible = false
+	_touch.visible = false
+	get_tree().paused = true
+
+func _on_hud_test_started() -> void:
+	_editor_test_fx_modes.clear()
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			_editor_test_fx_modes[node.get_instance_id()] = node.process_mode
+			node.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor_original_player = player
+	_editor_test_modes[player] = player.process_mode
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	player.visible = false
+	_editor_test_positions.clear()
+	for enemy in _enemies:
+		if is_instance_valid(enemy):
+			_editor_test_positions[enemy] = enemy.global_position
+			_editor_test_modes[enemy] = enemy.process_mode
+			enemy.global_position = Vector3(5000, 0, 5000)
+			enemy.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor_trial_player = CharacterBody3D.new()
+	_editor_trial_player.name = "HudTrialPlayer"
+	_editor_trial_player.set_script(PLAYER_SCRIPT)
+	_editor_trial_player.position = player.global_position
+	add_child(_editor_trial_player)
+	_editor_trial_player.call("configure_survival_build", progression.build())
+	_editor_trial_player.call("set_training_options", true, false, true)
+	_editor_trial_player.call("set_gameplay_enabled", true)
+	_editor_trial_target = StaticBody3D.new()
+	_editor_trial_target.name = "HudTrialTarget"
+	_editor_trial_target.set_script(TRIAL_DUMMY_SCRIPT)
+	_editor_trial_target.position = _editor_trial_player.position + Vector3(5, 0, -5)
+	add_child(_editor_trial_target)
+	player = _editor_trial_player
+	_touch.call("set_player", player)
+	_vitals.call("set_player", player)
+	_vitals.call("set_example", false)
+	get_node("CameraRig").call("set_target", player)
+	_arrival_label.visible = false
+	get_tree().paused = false
+
+func _on_hud_test_finished() -> void:
+	_touch.call("reset_inputs")
+	get_tree().paused = true
+	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
+		for node in get_tree().get_nodes_in_group(group):
+			if _editor_test_fx_modes.has(node.get_instance_id()):
+				node.process_mode = _editor_test_fx_modes[node.get_instance_id()]
+			else:
+				node.queue_free()
+	_editor_test_fx_modes.clear()
+	if _editor_trial_player != null and is_instance_valid(_editor_trial_player):
+		_editor_trial_player.call("set_gameplay_enabled", false)
+		_editor_trial_player.queue_free()
+	_editor_trial_player = null
+	if _editor_trial_target != null and is_instance_valid(_editor_trial_target):
+		_editor_trial_target.queue_free()
+	_editor_trial_target = null
+	player = _editor_original_player
+	_touch.call("set_player", player)
+	_vitals.call("set_player", player)
+	_vitals.call("set_example", true)
+	player.visible = true
+	player.process_mode = _editor_test_modes[player]
+	get_node("CameraRig").call("set_target", player)
+	for enemy in _editor_test_positions.keys():
+		if is_instance_valid(enemy):
+			enemy.global_position = _editor_test_positions[enemy]
+			enemy.process_mode = _editor_test_modes[enemy]
+	_editor_test_positions.clear()
+	_editor_test_modes.clear()
+	_arrival_label.visible = true
+	_spell_bar.visible = true
 
 func _show_weapon_choice() -> void:
 	_state = "selection"
@@ -888,7 +1028,7 @@ func _start_wave() -> void:
 	_choice_panel.visible = false
 	_touch.visible = false
 	_arrival_remaining = 2.0
-	_arrival_label.visible = true
+	_arrival_label.visible = _hud_controller == null or bool(_hud_controller.layout.arrival.v)
 	_incoming_roles.clear()
 	var count: int = [3, 3, 4, 4, 6, 6, 7, 7, 8, 8, 10, 10][wave - 1]
 	for index in range(count):
@@ -1160,6 +1300,7 @@ func _reward_description(choice: Dictionary) -> String:
 	return {
 		"modulo_drone": "Tir guidé. Brûle et révèle la cible.",
 		"javelin": "Lance un javelot. Réappui pour te téléporter.",
+		"pelto_smash": "Vague de terre aller-retour. Ralentit puis tracte.",
 		"magnetic_field": "Mur qui absorbe les tirs pendant 2,5 s.",
 		"static_shield": "Invulnérable 1,5 s. Actions bloquées.",
 		"pyro_boots": "Ruée de 3 m. Recharge : 6 s.",
