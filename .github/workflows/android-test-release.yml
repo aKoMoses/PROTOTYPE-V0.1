@@ -110,6 +110,7 @@ jobs:
           test -s exports/prototype0-android.apk
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose exports/prototype0-android.apk
           apkanalyzer apk summary exports/prototype0-android.apk
+          apkanalyzer manifest permissions exports/prototype0-android.apk | grep -Fq 'android.permission.INTERNET'
 
       - name: Export Windows game
         if: github.event_name != 'pull_request'
