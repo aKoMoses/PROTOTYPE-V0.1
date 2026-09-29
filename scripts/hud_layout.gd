@@ -203,8 +203,12 @@ static func save_document(all: Dictionary, primary: String, backup: String, temp
 	var backup_absolute := ProjectSettings.globalize_path(backup)
 	if FileAccess.file_exists(primary):
 		var previous := JSON.new()
-		if previous.parse(FileAccess.get_file_as_string(primary)) == OK and previous.data is Dictionary and (previous.data.get("version") is float or previous.data.get("version") is int) and int(previous.data.version) == VERSION:
-			if DirAccess.copy_absolute(active_absolute, backup_absolute) != OK:
+		if previous.parse(FileAccess.get_file_as_string(primary)) == OK and previous.data is Dictionary and (previous.data.get("version") is float or previous.data.get("version") is int):
+			var old_version := int(previous.data.version)
+			var readable := (old_version == VERSION and previous.data.get("families") is Dictionary) or (old_version == 0 and previous.data.get("layout") is Dictionary)
+			# Match the supported loader schemas, including the legacy layout.
+			# A parseable but unreadable primary must not replace a good backup.
+			if readable and DirAccess.copy_absolute(active_absolute, backup_absolute) != OK:
 				return false
 		if DirAccess.remove_absolute(active_absolute) != OK:
 			return false

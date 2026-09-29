@@ -45,6 +45,8 @@ func _touch_preview_requested() -> bool:
 
 
 func set_player(value: Node) -> void:
+	if player != value:
+		reset_inputs()
 	player = value
 
 
@@ -63,7 +65,7 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
-	var suspended := not visible or get_tree().paused
+	var suspended := not _can_accept_inputs()
 	if suspended and not _inputs_suspended:
 		reset_inputs()
 	_inputs_suspended = suspended
@@ -71,6 +73,14 @@ func _process(delta: float) -> void:
 		return
 	_fire_feedback_remaining = maxf(0.0, _fire_feedback_remaining - delta)
 	queue_redraw()
+
+
+func _can_accept_inputs() -> bool:
+	if not is_visible_in_tree() or get_tree().paused or player == null or not is_instance_valid(player):
+		return false
+	if player.has_method("is_gameplay_enabled") and not bool(player.call("is_gameplay_enabled")):
+		return false
+	return not (player.has_method("is_real_dead") and bool(player.call("is_real_dead")))
 
 
 func _viewport_size() -> Vector2:
@@ -176,6 +186,10 @@ func set_control_scale(value: float) -> void:
 
 
 func reset_inputs() -> void:
+	if player != null and is_instance_valid(player) and player.has_method("cancel_touch_action"):
+		for action in _action_touches.values():
+			if not str(action).is_empty():
+				player.call("cancel_touch_action", action)
 	_joystick_touch = -1
 	_aim_touch = -1
 	_action_touches.clear()
@@ -303,7 +317,7 @@ func _draw_action(center: Vector2, radius: float, color: Color, label: String, i
 
 
 func _input(event: InputEvent) -> void:
-	if not visible or _editor_editing or player == null or not is_instance_valid(player) or get_tree().paused:
+	if _editor_editing or not _can_accept_inputs():
 		return
 	var handled := false
 	if event is InputEventScreenTouch:

@@ -28,7 +28,7 @@ var _gesture_before: Dictionary = {}
 var _dragging := false
 var _slider_before: Dictionary = {}
 var _panel_side := 1
-var _top: HBoxContainer
+var _top: HFlowContainer
 var _top_backdrop: ColorRect
 var _side: PanelContainer
 var _test_bar: PanelContainer
@@ -57,6 +57,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
+	_top.minimum_size_changed.connect(_place_ui)
 	get_viewport().size_changed.connect(_place_ui)
 	_place_ui()
 	visible = false
@@ -109,8 +110,9 @@ func _build_ui() -> void:
 	_top_backdrop.color = DARK
 	_top_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_top_backdrop)
-	_top = HBoxContainer.new()
-	_top.add_theme_constant_override("separation", 5)
+	_top = HFlowContainer.new()
+	_top.add_theme_constant_override("h_separation", 5)
+	_top.add_theme_constant_override("v_separation", 5)
 	add_child(_top)
 	_top.add_child(_button("Enregistrer", _save))
 	_top.add_child(_button("Tester", _start_test))
@@ -151,6 +153,7 @@ func _build_ui() -> void:
 	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_side.add_child(side_scroll)
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 6)
 	side_scroll.add_child(column)
 	var side_header := HBoxContainer.new()
@@ -158,10 +161,12 @@ func _build_ui() -> void:
 	side_header.add_child(_label("Éléments", 20))
 	side_header.add_child(_button("↔", _swap_panel))
 	_elements = OptionButton.new()
+	_elements.fit_to_longest_item = false
 	_elements.custom_minimum_size.x = 240
 	_elements.item_selected.connect(_on_element_selected)
 	column.add_child(_elements)
 	_name_label = _label("Aucun élément", 17)
+	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_name_label)
 	_size_label = _label("Taille : 100 %", 15)
 	column.add_child(_size_label)
@@ -203,6 +208,7 @@ func _build_ui() -> void:
 	column.add_child(_button("Tout réinitialiser", func() -> void: _reset_dialog.popup_centered()))
 	column.add_child(_button("Annuler le brouillon", func() -> void: _discard_dialog.popup_centered()))
 	_conflict_label = _label("", 13)
+	_conflict_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_conflict_label)
 	_test_bar = PanelContainer.new()
 	_test_bar.add_theme_stylebox_override("panel", style)
@@ -250,14 +256,16 @@ func _label(value: String, font_size: int) -> Label:
 	return label
 
 func _place_ui() -> void:
-	var viewport := get_viewport_rect().size
+	var safe := LAYOUT.safe_rect(get_viewport())
+	_top.position = safe.position
+	_top.size = Vector2(safe.size.x, maxf(50.0, _top.get_combined_minimum_size().y))
 	_top_backdrop.position = Vector2.ZERO
-	_top_backdrop.size = Vector2(viewport.x, 62)
-	_top.position = Vector2(8, 7)
-	_top.size = Vector2(maxf(0, viewport.x - 16), 50)
-	_side.position = Vector2(8.0 if _panel_side == 0 else maxf(8.0, viewport.x - 298.0), 70.0)
-	_side.size = Vector2(290, minf(640, viewport.y - 80))
-	_test_bar.position = Vector2(viewport.x * 0.5 - 105, 7)
+	_top_backdrop.size = Vector2(get_viewport_rect().size.x, _top.position.y + _top.size.y + 8.0)
+	var side_width := minf(290.0, safe.size.x)
+	var side_y := _top.position.y + _top.size.y + 12.0
+	_side.position = Vector2(safe.position.x if _panel_side == 0 else safe.end.x - side_width, side_y)
+	_side.size = Vector2(side_width, minf(640.0, maxf(1.0, safe.end.y - side_y)))
+	_test_bar.position = Vector2(safe.get_center().x - 105, safe.position.y)
 	_test_bar.size = Vector2(210, 54)
 	queue_redraw()
 

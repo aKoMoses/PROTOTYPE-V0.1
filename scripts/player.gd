@@ -127,6 +127,8 @@ var _active_module_action_token := 0
 var _active_module_id := ""
 var _desktop_attack_rearm_required := false
 var _desktop_blaster_tap_buffered := false
+var _desktop_mouse_attack_held := false
+var _desktop_fulguro_charge_held := false
 var _touch_attack_rearm_required := false
 var _drone_preparation := 0.18
 var _drone_max_range := 9.0
@@ -806,8 +808,41 @@ func _update_weapon_pose_state(delta: float) -> void:
 	_set_weapon_pose_state(WeaponPoseState.LOCOMOTION if moving else WeaponPoseState.IDLE)
 
 
+func _input(event: InputEvent) -> void:
+	# Releases can arrive over a GUI control after a valid combat press.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION and not event.pressed:
+		_desktop_mouse_attack_held = false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Touch-to-mouse emulation is needed by menus, but must never create a
+	# second combat command. GUI presses also stop before this input stage.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION and event.pressed:
+		if _gameplay_enabled and not get_tree().paused and not is_real_dead():
+			_desktop_mouse_attack_held = true
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		reset_desktop_inputs()
+
+
+func reset_desktop_inputs() -> void:
+	_desktop_mouse_attack_held = false
+	_desktop_blaster_tap_buffered = false
+	_desktop_attack_rearm_required = Input.is_key_pressed(KEY_SPACE)
+	_attack_hold_last = false
+	if _blaster_charge_active and not _touch_fire_charge_started:
+		_cancel_blaster_charge()
+	if _desktop_fulguro_charge_held and is_fulguro_charging():
+		_cancel_fulguro_attack()
+	_desktop_fulguro_charge_held = false
+
+
 func _desktop_attack_input_held() -> bool:
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_desktop_mouse_attack_held = false
+	return _desktop_mouse_attack_held or Input.is_key_pressed(KEY_SPACE)
 
 
 func _action_incapacitated() -> bool:
@@ -887,6 +922,8 @@ func _reset_action_ownership() -> void:
 	_shotgun_action_token = 0
 	_axe_action_token = 0
 	_desktop_attack_rearm_required = _desktop_attack_input_held()
+	_desktop_mouse_attack_held = false
+	_desktop_fulguro_charge_held = false
 	_desktop_blaster_tap_buffered = false
 	_touch_attack_rearm_required = false
 
@@ -1036,9 +1073,12 @@ func _update_debug_effects() -> void:
 	_debug_key_latches[KEY_A] = offensive_down
 	if _offensive_module_id == "fulguro_punch":
 		if offensive_down and not offensive_was_down:
+			var was_charging := is_fulguro_charging()
 			_begin_fulguro_charge()
+			_desktop_fulguro_charge_held = not was_charging and is_fulguro_charging()
 		elif not offensive_down and offensive_was_down:
 			_release_fulguro_charge()
+			_desktop_fulguro_charge_held = false
 	elif offensive_down and not offensive_was_down:
 		_perform_offensive_module()
 	if _pressed_once(KEY_E):
@@ -1188,6 +1228,14 @@ func begin_touch_action(action: String) -> bool:
 func end_touch_action(action: String) -> void:
 	if action == "offensive" and _offensive_module_id == "fulguro_punch":
 		_release_fulguro_charge()
+
+
+func cancel_touch_action(action: String) -> void:
+	# Losing the finger is an interruption, not a release requesting a strike.
+	# TouchControls calls this only for contacts it owns; keyboard casts remain
+	# governed by the existing action state and interruption rules.
+	if action == "offensive" and _offensive_module_id == "fulguro_punch" and is_fulguro_charging():
+		_cancel_fulguro_attack()
 
 
 func clear_touch_inputs() -> void:
