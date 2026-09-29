@@ -197,10 +197,12 @@ func _build() -> void:
 	header.size = Vector2(278, 34)
 	header.add_theme_stylebox_override("panel", _panel_style(Color("#322b29"), Color("#5c4a3c"), 1, 7))
 	root.add_child(header)
-	var name_label := _label(_display_name, 20, Color("#f5e6d0"))
+	var name_label := _label(_display_name, 17, Color("#f5e6d0"))
 	name_label.name = "ActorName"
 	name_label.position = Vector2(29, 13)
-	name_label.size = Vector2(170, 29)
+	name_label.size = Vector2(90, 29)
+	name_label.clip_text = true
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	root.add_child(name_label)
 	_health_number = _label("", 22, Color("#fff2dc"))
 	_health_number.name = "HealthNumber"

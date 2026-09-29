@@ -118,6 +118,7 @@ func prepare_training_bot_shot(aim_point: Vector3) -> Transform3D:
 		query.exclude = [get_rid()]
 		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
 			shot.origin = origin
+			shot.basis = Basis.looking_at((aim_point - origin).normalized(), Vector3.UP)
 		return shot
 	return Transform3D(Basis.IDENTITY, global_position + Vector3.UP * 1.30)
 
@@ -601,6 +602,8 @@ func set_duel_mode(value: bool) -> void:
 func set_duel_profile(value: String) -> void:
 	if _training_bot != null:
 		_training_bot.call("set_duel_profile", value)
+	if _visual_rig != null:
+		_visual_rig.call("set_weapon", value)
 
 
 func set_duel_loadout(value: Dictionary) -> void:
@@ -612,6 +615,8 @@ func set_duel_loadout(value: Dictionary) -> void:
 	_replace_combat_state(state)
 	if _training_bot != null and _training_bot.has_method("set_duel_loadout"):
 		_training_bot.call("set_duel_loadout", value)
+	if _visual_rig != null:
+		_visual_rig.call("set_weapon", str(value.get("weapon", "blaster")))
 
 
 func get_duel_loadout() -> Dictionary:

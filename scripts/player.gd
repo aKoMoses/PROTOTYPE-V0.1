@@ -765,12 +765,18 @@ func _set_weapon_pose_state(next_state: WeaponPoseState, restart_hold: bool = fa
 func _begin_weapon_aim() -> void:
 	if _weapon_id not in ["blaster", "shotgun"]:
 		return
+	if _round_warmup_active and _gameplay_enabled:
+		_play_player_animation(&"idle")
+		_round_warmup_active = false
 	_set_weapon_pose_state(WeaponPoseState.AIM)
 
 
 func _begin_weapon_fire() -> void:
 	if _weapon_id not in ["blaster", "shotgun"]:
 		return
+	if _round_warmup_active and _gameplay_enabled:
+		_play_player_animation(&"idle")
+		_round_warmup_active = false
 	_set_weapon_pose_state(WeaponPoseState.FIRE)
 	if _visual_rig != null:
 		_visual_rig.commit_firing_pose(_normalized_aim_direction())
@@ -2051,16 +2057,22 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	_shotgun_attack_emitted = true
 	_last_projectile_direction = _shotgun_attack_direction
 	_begin_weapon_fire()
+	if _has_skeletal_weapon_attachment():
+		# The preparation timer runs after physics. Read the next final skeletal
+		# pose, not the lowered attachment left by the preceding tick.
+		await _visual_rig.skeleton.skeleton_updated
+		if not _gameplay_enabled or not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "shotgun") or (not echo and token != _shotgun_attack_token):
+			return
+		_shotgun_attack_direction = _visual_rig.get_aim_forward_direction()
+		_last_projectile_direction = _shotgun_attack_direction
 	_shotgun_shot_audio.play()
 	var cycle_timer := get_tree().create_timer(0.26 / get_attack_speed_multiplier(), true, false, false)
 	cycle_timer.timeout.connect(func() -> void: _play_shotgun_cycle_audio(token))
 	var visual_start := _shotgun_muzzle.global_position if _shotgun_muzzle != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
 	visual_start = _safe_projectile_origin(visual_start)
 	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35, _shotgun_muzzle)
-	# Converge the offset muzzle toward the crosshair before applying the spread.
-	# The pellets still fly straight and only hit a body they cross in flight.
-	var crosshair := _shotgun_attack_origin + Vector3.UP * 0.9 + _shotgun_attack_direction * 2.2
-	var center_direction := (crosshair - visual_start).normalized()
+	# Spread is symmetric around the evaluated barrel/aim axis, at every range.
+	var center_direction := _shotgun_attack_direction
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
 		var direction := center_direction.rotated(Vector3.UP, angle).normalized()
@@ -3939,13 +3951,9 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 		if token != _blaster_attack_token or _weapon_id != "blaster" or not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "blaster"):
 			return
 	var origin := _blaster_muzzle.global_position if _blaster_muzzle != null else global_position + Vector3.UP * 0.90 + shot_direction * 0.62
-	# A freshly raised skeletal weapon can still report a low carry-pose muzzle
-	# during this frame. Keep the projectile above the floor and at target height.
-	origin.y = maxf(origin.y, global_position.y + 0.85)
 	origin = _safe_projectile_origin(origin)
-	var flight_direction := _blaster_flight_direction(origin, shot_direction)
 	_create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, _blaster_muzzle)
-	_spawn_blaster_projectile(origin, damage, charge_ratio, token, flight_direction)
+	_spawn_blaster_projectile(origin, damage, charge_ratio, token, shot_direction)
 	_action_gate.release(action_token)
 	if _blaster_action_token == action_token:
 		_blaster_action_token = 0
@@ -4006,23 +4014,6 @@ func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
 	query.collide_with_areas = true
 	query.exclude = [get_rid()]
 	return origin if not get_world_3d().direct_space_state.intersect_ray(query).is_empty() else muzzle
-
-
-func _blaster_flight_direction(start: Vector3, aim: Vector3) -> Vector3:
-	# Preserve the existing small aim assist as an initial direction only. A hit
-	# is now decided by the projectile's live collision, after the target moves.
-	var target := _module_target()
-	if target == null or not is_instance_valid(target) or not target.has_method("get_health") or float(target.call("get_health")) <= 0.0:
-		return aim
-	var offset: Vector3 = target.global_position - global_position
-	offset.y = 0.0
-	var along := aim.dot(offset)
-	var lateral := (offset - aim * along).length()
-	var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else 0.95
-	if along <= 0.0 or along > _blaster_max_range or lateral > hit_radius or not _blaster_path_clear(target, start, target.global_position):
-		return aim
-	var aim_point: Vector3 = target.global_position + Vector3.UP * 0.9
-	return (aim_point - start).normalized()
 
 
 func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
@@ -5064,7 +5055,8 @@ func _build_robot() -> void:
 		_shotgun_pivot,
 		&"shotgun",
 		Vector3(0.58, 0.88, -0.36),
-		Vector3.ZERO
+		Vector3.ZERO,
+		-22.0
 	)
 	_update_weapon_visuals()
 

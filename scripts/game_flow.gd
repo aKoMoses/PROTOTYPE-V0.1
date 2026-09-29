@@ -20,7 +20,6 @@ const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
-const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
 const EQUIPMENT_CATEGORIES := [
@@ -876,6 +875,8 @@ func _build_hud() -> void:
 	vitals.size = Vector2(280, 90)
 	vitals.call("set_player", player)
 	_hud.add_child(vitals)
+	# Health/ammo already follow the player in the arena. Keep the optional fixed
+	# duplicate available in the HUD editor, without cluttering the default duel.
 	var score_backdrop := TextureRect.new()
 	score_backdrop.texture = MATCH_SUMMARY_FRAME
 	score_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -918,9 +919,9 @@ func _build_hud() -> void:
 	spell_frame.name = "SpellBar"
 	spell_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spell_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	spell_frame.offset_left = -284.0
+	spell_frame.offset_left = -124.0
 	spell_frame.offset_top = -82.0
-	spell_frame.offset_right = 284.0
+	spell_frame.offset_right = 124.0
 	spell_frame.offset_bottom = -10.0
 	_hud.add_child(spell_frame)
 	var spell_slots := [
@@ -933,20 +934,18 @@ func _build_hud() -> void:
 		var module_id: String = slot["id"]
 		var slot_content := Control.new()
 		slot_content.name = "%sSlot" % module_id.capitalize()
-		slot_content.position = Vector2(float(index) * 192.0, 0.0)
-		slot_content.size = Vector2(184.0, 72.0)
-		slot_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_content.position = Vector2(float(index) * 86.0, 0.0)
+		slot_content.size = Vector2(76.0, 72.0)
+		slot_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		spell_frame.add_child(slot_content)
-		var slot_backdrop := TextureRect.new()
-		slot_backdrop.texture = SPELL_BAR_FRAME
+		var slot_backdrop := Panel.new()
+		slot_backdrop.add_theme_stylebox_override("panel", _panel_style(Color("#171d20ee"), Color("#80694e"), 7))
 		slot_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		slot_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		slot_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
 		slot_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(slot_backdrop)
 		var placeholder := TextureRect.new()
-		placeholder.position = Vector2(13.0, 12.0)
-		placeholder.size = Vector2(42.0, 48.0)
+		placeholder.position = Vector2(14.0, 8.0)
+		placeholder.size = Vector2(48.0, 48.0)
 		placeholder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		placeholder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -955,14 +954,14 @@ func _build_hud() -> void:
 		var cooldown_ring := Control.new()
 		cooldown_ring.name = "CooldownRing"
 		cooldown_ring.set_script(COOLDOWN_RING)
-		cooldown_ring.position = Vector2(10.0, 9.0)
-		cooldown_ring.size = Vector2(48.0, 54.0)
+		cooldown_ring.position = Vector2(11.0, 5.0)
+		cooldown_ring.size = Vector2(54.0, 54.0)
 		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(cooldown_ring)
 		_hud_labels["%s_ring" % module_id] = cooldown_ring
 		var key_label := _label(get_node("/root/GamePreferences").key_label(module_id), 13, AMBER)
-		key_label.position = Vector2(63.0, 9.0)
-		key_label.size = Vector2(23.0, 23.0)
+		key_label.position = Vector2(3.0, 50.0)
+		key_label.size = Vector2(23.0, 20.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -976,11 +975,12 @@ func _build_hud() -> void:
 		module_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		module_label.clip_text = true
 		module_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		module_label.visible = false
 		slot_content.add_child(module_label)
 		_hud_labels[module_id] = module_label
 		var status := _label("", 13, CYAN)
-		status.position = Vector2(63.0, 39.0)
-		status.size = Vector2(112.0, 22.0)
+		status.position = Vector2(25.0, 51.0)
+		status.size = Vector2(48.0, 19.0)
 		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		status.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -989,8 +989,8 @@ func _build_hud() -> void:
 		if module_id == "offensive":
 			var recast_frame := Panel.new()
 			recast_frame.name = "JavelinRecastFrame"
-			recast_frame.position = Vector2(10.0, 9.0)
-			recast_frame.size = Vector2(48.0, 54.0)
+			recast_frame.position = Vector2(11.0, 5.0)
+			recast_frame.size = Vector2(54.0, 54.0)
 			recast_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var frame_style := StyleBoxFlat.new()
 			frame_style.bg_color = Color.TRANSPARENT
@@ -1003,8 +1003,8 @@ func _build_hud() -> void:
 			_hud_labels.offensive_recast_frame = recast_frame
 			var recast_track := ColorRect.new()
 			recast_track.name = "JavelinRecastTrack"
-			recast_track.position = Vector2(12.0, 66.0)
-			recast_track.size = Vector2(160.0, 3.0)
+			recast_track.position = Vector2(7.0, 68.0)
+			recast_track.size = Vector2(62.0, 2.0)
 			recast_track.color = Color("#5f4737")
 			recast_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			recast_track.visible = false
@@ -1207,6 +1207,7 @@ func _update_hud() -> void:
 		_hud_labels["%s_key" % key].text = get_node("/root/GamePreferences").key_label(key)
 		var cooldown := float(player.call("get_module_cooldown", identifier))
 		_hud_labels[key].text = LOADOUT.display_name(identifier)
+		_hud_labels[key].get_parent().tooltip_text = LOADOUT.display_name(identifier) + "\n" + LOADOUT.category_description(identifier)
 		_hud_labels["%s_icon" % key].texture = _equipment_icons.get_icon(identifier)
 		var recast_active: bool = key == "offensive" and identifier == "javelin" and _javelin_recast_display_fraction > 0.0
 		var fulguro_charging: bool = key == "offensive" and identifier == "fulguro_punch" and player.has_method("is_fulguro_charging") and bool(player.call("is_fulguro_charging"))
@@ -1219,7 +1220,7 @@ func _update_hud() -> void:
 			_hud_labels.offensive_recast_frame.visible = recast_active
 			_hud_labels.offensive_recast_track.visible = recast_active
 			if recast_active:
-				_hud_labels.offensive_recast_fill.size = Vector2(160.0 * _javelin_recast_display_fraction, 3.0)
+				_hud_labels.offensive_recast_fill.size = Vector2(62.0 * _javelin_recast_display_fraction, 2.0)
 		if recast_active:
 			_hud_labels["%s_status" % key].text = get_node("/root/GamePreferences").key_label("offensive") + " →"
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER)
@@ -1227,12 +1228,12 @@ func _update_hud() -> void:
 			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 		elif fulguro_charging:
-			_hud_labels["%s_status" % key].text = "CHARGE %d%%" % int(round(fulguro_charge * 100.0))
+			_hud_labels["%s_status" % key].text = "%d%%" % int(round(fulguro_charge * 100.0))
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#ffb34f"))
 			_hud_labels[key].add_theme_color_override("font_color", Color("#fff0b0"))
 			_hud_labels["%s_icon" % key].modulate = Color("#ffcb78")
 		elif pelto_preparing:
-			_hud_labels["%s_status" % key].text = "FRAPPE %d%%" % int(round(pelto_preparation * 100.0))
+			_hud_labels["%s_status" % key].text = "%d%%" % int(round(pelto_preparation * 100.0))
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#d9a060"))
 			_hud_labels[key].add_theme_color_override("font_color", Color("#f4d4a2"))
 			_hud_labels["%s_icon" % key].modulate = Color("#e3b06e")
@@ -1242,7 +1243,7 @@ func _update_hud() -> void:
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color("#b7aaa0")
 		else:
-			_hud_labels["%s_status" % key].text = "PRÊT"
+			_hud_labels["%s_status" % key].text = ""
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE

@@ -700,10 +700,11 @@ func _fire(body: Node3D, player: Node3D) -> void:
 		_release_weapon_action()
 		return
 	var muzzle := body.global_position + Vector3.UP * 0.9
+	var muzzle_direction := (aim_target - muzzle).normalized()
 	if body.has_method("prepare_training_bot_shot"):
 		var shot_transform: Transform3D = body.call("prepare_training_bot_shot", aim_target)
 		muzzle = shot_transform.origin
-	var muzzle_direction := aim_target - muzzle
+		muzzle_direction = -shot_transform.basis.z.normalized()
 	if muzzle_direction.length_squared() < 0.01:
 		_release_weapon_action()
 		return

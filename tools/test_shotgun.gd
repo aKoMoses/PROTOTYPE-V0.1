@@ -93,7 +93,8 @@ func _test_six_of_six(player: Node, target: Node) -> void:
 
 
 func _test_four_of_six(player: Node, target: Node) -> void:
-	_prepare(player, target, Vector3(0.20, 0.0, -2.98))
+	# Offset target: the two leftmost pellets miss the new barrel-centred cone.
+	_prepare(player, target, Vector3(0.80, 0.0, -2.98))
 	player.call("_perform_shotgun_attack")
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)

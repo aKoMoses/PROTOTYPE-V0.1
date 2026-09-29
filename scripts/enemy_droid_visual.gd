@@ -6,6 +6,7 @@ class_name EnemyDroidVisual
 const MODEL_PATH := "res://art/enemy_droid.glb"
 const WEAPON_PATH := "res://art/player_heavy_blaster.glb"
 const POSE_SOLVER := preload("res://scripts/enemy_droid_pose.gd")
+const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const MODEL_SCALE := 1.9
 const WEAPON_SCALE := 0.75
@@ -44,6 +45,8 @@ var _ambient_index := 0
 var _death_clock := 0.0
 var _preview := false
 var _ready_ok := false
+var weapon_id := "blaster"
+var _weapon_hand_pose := Transform3D.IDENTITY
 
 
 func setup() -> bool:
@@ -84,11 +87,12 @@ func setup() -> bool:
 	animation_player.seek(AIM_SAMPLE, true)
 	skeleton.force_update_all_bone_transforms()
 	_aim_spine = skeleton.get_bone_global_pose(_spine).basis.orthonormalized()
-	_build_weapon(blaster)
+	_weapon_hand_pose = skeleton.get_bone_global_pose(_right_hand)
+	_build_weapon_socket()
 	animation_player.stop(true)
 	_build_tree(model)
 	pose_solver = POSE_SOLVER.new()
-	pose_solver.configure(skeleton, weapon_socket.transform, support_grip.position, muzzle.position, _aim_spine)
+	set_weapon("blaster")
 	_ready_ok = true
 	reset_visual()
 	return true
@@ -159,7 +163,7 @@ func _close_cycle(clip: Animation) -> void:
 			clip.track_set_key_value(track, key, value.slerp(first, weight) if type == Animation.TYPE_ROTATION_3D else value.lerp(first, weight))
 
 
-func _build_weapon(blaster: PackedScene) -> void:
+func _build_weapon_socket() -> void:
 	hand_attachment = BoneAttachment3D.new()
 	hand_attachment.name = "RightHandAttachment"
 	skeleton.add_child(hand_attachment)
@@ -168,29 +172,47 @@ func _build_weapon(blaster: PackedScene) -> void:
 	weapon_socket = Node3D.new()
 	weapon_socket.name = "WeaponSocket"
 	hand_attachment.add_child(weapon_socket)
-	var hand := skeleton.get_bone_global_pose(_right_hand)
-	# The imported rear grip is calibrated against the wrist, in metres.
-	# Counter model scale once; the blaster keeps a fixed world scale thereafter.
-	var desired := Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * WEAPON_SCALE / MODEL_SCALE), hand.origin + Vector3(0.0, 0.045, 0.045) / MODEL_SCALE)
-	weapon_socket.transform = hand.affine_inverse() * desired
-	var weapon := Node3D.new()
-	weapon.name = "Blaster"
+
+
+func set_weapon(identifier: String) -> void:
+	if weapon_socket == null:
+		return
+	weapon_id = "shotgun" if identifier == "shotgun" else "blaster"
+	for child in weapon_socket.get_children():
+		weapon_socket.remove_child(child)
+		child.queue_free()
+	var weapon: Node3D
+	var right_grip := Vector3.ZERO
+	if weapon_id == "shotgun":
+		weapon = SHOTGUN_SCENE.instantiate() as Node3D
+		muzzle = weapon.get_node("Muzzle") as Marker3D
+		support_grip = weapon.get_node("LeftHandGrip") as Marker3D
+		right_grip = (weapon.get_node("RightHandGrip") as Marker3D).position
+	else:
+		weapon = Node3D.new()
+		weapon.name = "Blaster"
+		var mount := Node3D.new()
+		mount.name = "ImportedBlasterAlignment"
+		mount.rotation.y = PI * 0.5
+		mount.scale = Vector3.ONE * 1.35
+		mount.position = Vector3(0, -0.14, -0.20)
+		weapon.add_child(mount)
+		mount.add_child((load(WEAPON_PATH) as PackedScene).instantiate())
+		muzzle = Marker3D.new()
+		muzzle.name = "Muzzle"
+		muzzle.position = Vector3(0, 0.08, -0.88)
+		weapon.add_child(muzzle)
+		support_grip = Marker3D.new()
+		support_grip.name = "LeftHandGrip"
+		support_grip.position = Vector3(-0.08, -0.06, -0.14)
+		weapon.add_child(support_grip)
+		right_grip = Vector3(0.0, -0.08, 0.08)
 	weapon_socket.add_child(weapon)
-	var mount := Node3D.new()
-	mount.name = "ImportedBlasterAlignment"
-	mount.rotation.y = PI * 0.5 # Source barrel +X -> weapon -Z.
-	mount.scale = Vector3.ONE * 1.35
-	mount.position = Vector3(0, -0.14, -0.20)
-	weapon.add_child(mount)
-	mount.add_child(blaster.instantiate())
-	muzzle = Marker3D.new()
-	muzzle.name = "Muzzle"
-	muzzle.position = Vector3(0, 0.08, -0.88)
-	weapon.add_child(muzzle)
-	support_grip = Marker3D.new()
-	support_grip.name = "LeftHandGrip"
-	support_grip.position = Vector3(-0.045, -0.06, -0.18)
-	weapon.add_child(support_grip)
+	var basis := Basis(Vector3.UP, PI).scaled(Vector3.ONE * WEAPON_SCALE / MODEL_SCALE)
+	var desired := Transform3D(basis, _weapon_hand_pose.origin - basis * right_grip)
+	weapon_socket.transform = _weapon_hand_pose.affine_inverse() * desired
+	if pose_solver != null:
+		pose_solver.configure(skeleton, weapon_socket.transform, support_grip.position, muzzle.position, _aim_spine)
 	_refresh_attachment()
 
 
@@ -350,7 +372,8 @@ func prepare_shot(aim_point: Vector3) -> Transform3D:
 		rotation.y = atan2(-flat.x, -flat.z)
 	aim_weight = 1.0
 	animation_tree.set("parameters/Armed/blend_amount", 1.0)
-	animation_tree.advance(0.0)
+	# A zero step can retain the previous unarmed blend on the first shot.
+	animation_tree.advance(0.000001)
 	_solve_pose()
 	var shot_transform := get_muzzle_transform()
 	# The projectile leaves the evaluated barrel, then the supplied upper-body

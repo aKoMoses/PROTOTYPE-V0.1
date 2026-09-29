@@ -40,8 +40,8 @@ static func size_limits(identifier: String) -> Vector2:
 		return Vector2(0.70, 1.45)
 	return Vector2(0.65, 1.60)
 
-static func _item(ax: float, ay: float, dx: float, dy: float) -> Dictionary:
-	return {"a": [ax, ay], "d": [dx, dy], "s": 1.0, "o": 1.0, "v": true, "l": false, "z": 0}
+static func _item(ax: float, ay: float, dx: float, dy: float, shown: bool = true) -> Dictionary:
+	return {"a": [ax, ay], "d": [dx, dy], "s": 1.0, "o": 1.0, "v": shown, "l": false, "z": 0}
 
 static func standard() -> Dictionary:
 	return {
@@ -53,7 +53,7 @@ static func standard() -> Dictionary:
 		"weapon_button": _item(1.0, 0.0, -0.067, 0.078),
 		"match_summary": _item(0.5, 0.0, 0.0, 0.058),
 		"pause": _item(1.0, 0.0, -0.078, 0.056),
-		"player_vitals": _item(0.0, 0.0, 0.22, 0.205),
+		"player_vitals": _item(0.0, 0.0, 0.22, 0.080, false),
 		"spell_bar": _item(0.5, 1.0, 0.0, -0.064),
 		"offensive_slot": _item(0.0, 0.0, 0.0, 0.0),
 		"defensive_slot": _item(0.0, 0.0, 0.0, 0.0),
@@ -116,7 +116,9 @@ static func sanitize(raw: Variant) -> Dictionary:
 
 static func safe_rect(viewport: Viewport) -> Rect2:
 	var rect := Rect2(Vector2.ZERO, viewport.get_visible_rect().size)
-	var display_safe := DisplayServer.get_display_safe_area()
+	# Desktop display safe areas use monitor coordinates, not window coordinates.
+	# Applying them to a window offsets the entire HUD (e.g. below a taskbar).
+	var display_safe := DisplayServer.get_display_safe_area() if OS.has_feature("mobile") else Rect2i()
 	var window_size := DisplayServer.window_get_size()
 	if display_safe.size.x > 0 and display_safe.size.y > 0 and window_size.x > 0 and window_size.y > 0:
 		var scaled := Rect2(Vector2(display_safe.position) * rect.size / Vector2(window_size), Vector2(display_safe.size) * rect.size / Vector2(window_size))
