@@ -15,13 +15,18 @@ func _initialize() -> void:
 		_failures.append("Player or TargetDummy missing")
 	else:
 		root.get_node("GameSfx").connect("event_played", func(event_id: String) -> void: _heard.append(event_id))
+		player.call("set_gameplay_enabled", true)
+		target.call("set_training_bot_enabled", false)
 		player.global_position = Vector3.ZERO
 		player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 		player.set("_offensive_module_id", "javelin")
 		target.global_position = Vector3(0.0, 0.0, -2.0)
+		player.set_physics_process(false)
+		await physics_frame
+		await physics_frame
 		player.call("_perform_javelin")
 		for _frame in range(240):
-			await process_frame
+			await physics_frame
 			if bool(target.call("has_javelin_mark")):
 				break
 		player.call("_perform_javelin")

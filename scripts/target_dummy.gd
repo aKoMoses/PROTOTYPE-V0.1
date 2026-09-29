@@ -3,6 +3,7 @@ extends StaticBody3D
 signal died
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const DUEL_STATE := preload("res://scripts/duel_bot_state.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
 const TRAINING_BOT := preload("res://scripts/training_bot.gd")
@@ -109,7 +110,15 @@ func _physics_process(delta: float) -> void:
 
 func prepare_training_bot_shot(aim_point: Vector3) -> Transform3D:
 	if _visual_rig != null:
-		return _visual_rig.call("prepare_shot", aim_point)
+		var shot: Transform3D = _visual_rig.call("prepare_shot", aim_point)
+		var origin := global_position + Vector3.UP * 0.9
+		var query := PhysicsRayQueryParameters3D.create(origin, shot.origin)
+		query.collision_mask = 1 | 2 | 4 | 8
+		query.collide_with_areas = true
+		query.exclude = [get_rid()]
+		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			shot.origin = origin
+		return shot
 	return Transform3D(Basis.IDENTITY, global_position + Vector3.UP * 1.30)
 
 
@@ -136,7 +145,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 			var facing: Vector3 = get_meta("shield_facing", Vector3.FORWARD)
 			if incoming.dot(facing) > 0.5:
 				amount *= 0.45
-	if _duel_mode and _training_bot != null and _training_bot.has_method("intercept_duel_damage"):
+	if _duel_mode and combat_state.get_script() != DUEL_STATE and _training_bot != null and _training_bot.has_method("intercept_duel_damage"):
 		var intercepted: Dictionary = _training_bot.call("intercept_duel_damage", amount, combat_state.health)
 		if bool(intercepted.get("triggered_baroud", false)):
 			return 0.0
@@ -193,6 +202,8 @@ func reset_combat_state() -> void:
 	if _health_readout != null:
 		_health_readout.call("clear_damage_numbers")
 	_resetting = false
+	# Revived targets can be hit again after their corpse stopped intercepting shots.
+	collision_layer = 2
 	_cancel_fulguro_projection()
 	_cancel_pelto_pull()
 	_defensive_buffer.clear()
@@ -558,7 +569,7 @@ func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> 
 		return
 	var attacker := get_tree().current_scene.get_node_or_null("Player") if get_tree().current_scene != null else null
 	if attacker != null and is_instance_valid(attacker):
-		attacker.call("_on_damage_dealt", amount)
+		attacker.call("_on_damage_dealt", amount, self)
 
 
 func _on_damage_dealt(effective_damage: float) -> void:
@@ -576,6 +587,8 @@ func _on_effect_changed(_effect_type: String, _active: bool) -> void:
 
 
 func set_duel_mode(value: bool) -> void:
+	if (not value or network_proxy) and combat_state != null and combat_state.get_script() == DUEL_STATE:
+		_replace_combat_state(COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH))
 	_duel_mode = value
 	if not value:
 		_duel_paused = false
@@ -591,6 +604,12 @@ func set_duel_profile(value: String) -> void:
 
 
 func set_duel_loadout(value: Dictionary) -> void:
+	var robot_id: String = str(value.get("robot", COMBAT_DATA.DEFAULT_ROBOT))
+	var definition: Dictionary = COMBAT_DATA.ROBOT_DEFINITIONS.get(robot_id, COMBAT_DATA.ROBOT_DEFINITIONS[COMBAT_DATA.DEFAULT_ROBOT])
+	var state := DUEL_STATE.new(float(definition.max_health))
+	state.passive.configure(str(value.get("passive", "baroud")))
+	state.blocked = Callable(self, "is_duel_stasis")
+	_replace_combat_state(state)
 	if _training_bot != null and _training_bot.has_method("set_duel_loadout"):
 		_training_bot.call("set_duel_loadout", value)
 
@@ -615,6 +634,19 @@ func set_bot_diagnostics_enabled(value: bool) -> void:
 
 func get_bot_diagnostic_snapshot() -> Dictionary:
 	return _training_bot.call("get_diagnostic_snapshot") if _training_bot != null else {}
+
+
+func _replace_combat_state(state: Object) -> void:
+	combat_state = state
+	combat_state.health_changed.connect(_on_health_changed)
+	combat_state.damage_applied.connect(_on_damage_applied)
+	combat_state.healing_applied.connect(_on_healing_applied)
+	combat_state.effect_changed.connect(_on_effect_changed)
+	combat_state.died.connect(_on_state_died)
+
+
+func is_duel_stasis() -> bool:
+	return _duel_mode and not network_proxy and bool(get_meta("duel_static_shield", false))
 
 
 func get_duel_profile() -> String:
@@ -646,6 +678,8 @@ func _on_state_died() -> void:
 	if _resetting:
 		return
 	_resetting = true
+	# Keep the death visual, but let later projectiles pass through the corpse.
+	collision_layer = 0
 	get_node("/root/GameSfx").play_event("robot_destruction")
 	_cancel_fulguro_projection()
 	_cancel_pelto_pull()
@@ -668,7 +702,7 @@ func _reset_target() -> void:
 
 func _update_label() -> void:
 	if _health_readout != null and combat_state != null:
-		_health_readout.call("set_health", combat_state.health, combat_state.max_health)
+		_health_readout.call("set_health", combat_state.display_health() if combat_state.has_method("display_health") else combat_state.health, combat_state.display_max_health() if combat_state.has_method("display_max_health") else combat_state.max_health)
 
 
 func _build_collision() -> void:

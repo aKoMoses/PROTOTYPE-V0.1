@@ -4,6 +4,7 @@ class_name PlayerVisualRig
 signal action_finished(animation_name: StringName)
 
 const PLAYER_MODEL_PATH := "res://art/player_mecha_animated.glb"
+const CHASSIS_VISUALS := preload("res://scripts/robot_chassis_visuals.gd")
 const LOWER_BODY_MODIFIER_SCRIPT := preload("res://scripts/player_lower_body_direction_modifier.gd")
 const AIM_MODIFIER_SCRIPT := preload("res://scripts/player_aim_modifier.gd")
 const MODEL_AXIS_CORRECTION_YAW := PI
@@ -67,6 +68,24 @@ var _right_hand_bone_index := -1
 var _hips_bone_index := -1
 var _spine_bone_index := -1
 var _animation_library_names: Array[StringName] = []
+var _chassis_visuals := CHASSIS_VISUALS.new()
+var _chassis_base_scale := Vector3.ZERO
+var _chassis_scale_factor := 1.0
+
+
+func set_chassis_appearance(identifier: String) -> void:
+	if _chassis_base_scale == Vector3.ZERO:
+		_chassis_base_scale = scale
+	var next_factor: float = CHASSIS_VISUALS.SCALE_FACTORS.get(identifier, 1.0)
+	scale = _chassis_base_scale * next_factor
+	# Keep the existing stride-to-speed matching correct after uniform resizing.
+	var stride_ratio := next_factor / _chassis_scale_factor
+	for state in _locomotion_reference_speeds:
+		_locomotion_reference_speeds[state] *= stride_ratio
+	_chassis_scale_factor = next_factor
+	if model_axis_correction != null:
+		var imported_model := model_axis_correction.get_node_or_null("ImportedAnimatedModel") as Node3D
+		_chassis_visuals.apply(imported_model, identifier)
 
 
 func setup_visual_motion() -> Node3D:

@@ -43,4 +43,5 @@ static func save_records(records: Dictionary, path: String = RECORDS_PATH) -> Er
 	return file.get_error()
 
 static func label_for(id: String) -> String:
-	return LABELS.get(id, preload("res://scripts/loadout_state.gd").display_name(id))
+	var aspects := {"rail": "Lance plasma", "arc": "Arc électrique", "heavy_slug": "Briseur · projectile lourd", "battering_ram": "Bélier · onde frontale", "hunter": "Drone chasseur", "sentry": "Drone sentinelle", "javelin_recall": "Javelin · rappel", "shield_counter": "Bouclier · riposte", "magnetic_discharge": "Condensateur · décharge", "metabolism": "Métabolisme", "harvest": "Moisson vitale", "baroud_rescue": "Baroud · sauvetage"}
+	return aspects.get(id, LABELS.get(id, preload("res://scripts/loadout_state.gd").display_name(id)))

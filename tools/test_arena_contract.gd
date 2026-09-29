@@ -7,6 +7,9 @@ const CONTRACT_PATH := "res://docs/arena_gameplay_contract.json"
 
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	call_deferred("_run")
 
 

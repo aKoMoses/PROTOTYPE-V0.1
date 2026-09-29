@@ -2,6 +2,10 @@ extends CharacterBody3D
 
 signal bush_state_changed(in_bush: bool, bush_name: String)
 signal died
+signal effective_damage_taken(amount: float, source_id: String, attack_id: String)
+
+var _external_damage_pending := false
+var _received_attack_ids: Dictionary = {}
 
 const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
@@ -9,6 +13,7 @@ const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const HEAVY_BLASTER_MODEL_PATH := "res://art/player_heavy_blaster.glb"
 const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
@@ -238,6 +243,7 @@ var _magnetic_duration := 2.5
 var _static_duration := 1.5
 var _stasis_remaining := 0.0
 var survival_synergies: Node
+var survival_evolution_effects: Node
 var _magnetic_wall: Area3D
 var _survival_evolutions := {"weapon": false, "offensive": false, "defensive": false, "mobility": false, "passive": false}
 var _survival_trail_clock := 0.0
@@ -322,6 +328,7 @@ var training_unlimited_ammo := false
 
 
 func _ready() -> void:
+	get_node("/root/GamePreferences").bindings_changed.connect(_refresh_control_bindings)
 	collision_layer = 4
 	collision_mask = 1
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
@@ -569,13 +576,13 @@ func _update_movement(delta: float) -> void:
 	var input_vector := _touch_move_vector
 	if input_vector.length_squared() <= 0.001:
 		input_vector = Vector2.ZERO
-		if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
+		if Input.is_action_pressed("game_move_left"):
 			input_vector.x -= 1.0
-		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+		if Input.is_action_pressed("game_move_right"):
 			input_vector.x += 1.0
-		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_UP):
+		if Input.is_action_pressed("game_move_up"):
 			input_vector.y -= 1.0
-		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+		if Input.is_action_pressed("game_move_down"):
 			input_vector.y += 1.0
 
 	input_vector = input_vector.limit_length(1.0)
@@ -590,7 +597,8 @@ func _update_movement(delta: float) -> void:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var bio_multiplier := _bio_speed_multiplier if _bio_remaining > 0.0 else 1.0
 	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
-	velocity = world_move_direction * move_speed * bio_multiplier * slow_multiplier * charge_multiplier
+	var evolution_speed: float = survival_evolution_effects.movement_multiplier() if survival_mode and survival_evolution_effects != null else 1.0
+	velocity = world_move_direction * move_speed * bio_multiplier * slow_multiplier * charge_multiplier * evolution_speed
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -807,7 +815,7 @@ func _update_weapon_pose_state(delta: float) -> void:
 
 
 func _desktop_attack_input_held() -> bool:
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_SPACE)
+	return Input.is_action_pressed("game_attack")
 
 
 func _action_incapacitated() -> bool:
@@ -1029,11 +1037,11 @@ func _update_debug_effects() -> void:
 		if _pressed_once(KEY_F7):
 			var bot_enabled := bool(target.call("toggle_training_bot"))
 			_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
-	if not survival_mode and _pressed_once(KEY_G):
+	if not survival_mode and _pressed_action_once("weapon"):
 		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
-	var offensive_down := Input.is_key_pressed(KEY_A)
-	var offensive_was_down := bool(_debug_key_latches.get(KEY_A, false))
-	_debug_key_latches[KEY_A] = offensive_down
+	var offensive_down := Input.is_action_pressed("game_offensive")
+	var offensive_was_down := bool(_debug_key_latches.get("game_offensive", false))
+	_debug_key_latches["game_offensive"] = offensive_down
 	if _offensive_module_id == "fulguro_punch":
 		if offensive_down and not offensive_was_down:
 			_begin_fulguro_charge()
@@ -1041,9 +1049,9 @@ func _update_debug_effects() -> void:
 			_release_fulguro_charge()
 	elif offensive_down and not offensive_was_down:
 		_perform_offensive_module()
-	if _pressed_once(KEY_E):
+	if _pressed_action_once("defensive"):
 		_activate_defensive_module()
-	if _pressed_once(KEY_R):
+	if _pressed_action_once("mobility"):
 		_activate_mobility_module()
 	if not survival_mode and _consume_touch_action("weapon"):
 		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
@@ -1053,6 +1061,19 @@ func _update_debug_effects() -> void:
 		_activate_defensive_module()
 	if _consume_touch_action("mobility"):
 		_activate_mobility_module()
+
+
+func _refresh_control_bindings() -> void:
+	_debug_key_latches.clear()
+	cancel_touch_fire()
+
+
+func _pressed_action_once(action: String) -> bool:
+	var mapped := StringName("game_" + action)
+	var is_down := Input.is_action_pressed(mapped)
+	var was_down := bool(_debug_key_latches.get(mapped, false))
+	_debug_key_latches[mapped] = is_down
+	return is_down and not was_down
 
 
 func _pressed_once(keycode: Key) -> bool:
@@ -1334,19 +1355,33 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 		return 0.0
 	if combat_state == null or passive_state == null:
 		return 0.0
+	if survival_mode and survival_evolution_effects != null:
+		amount = survival_evolution_effects.receive_damage(amount, attack_id)
+		if amount <= 0.0:
+			return 0.0
+	if amount <= 0.0 or (attack_id != "" and _received_attack_ids.has(attack_id)):
+		return 0.0
+	if attack_id != "":
+		_received_attack_ids[attack_id] = true
 	if amount > 0.0 and visibility_state != null:
 		visibility_state.mark_combat_event()
 	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
 	if bool(result["triggered_baroud"]):
+		if survival_mode and survival_evolution_effects != null:
+			combat_state.health = 1.0
+			combat_state.health_changed.emit(combat_state.health, combat_state.max_health)
+			survival_evolution_effects.start_baroud()
 		if _survival_evolved("passive") and _passive_id == "baroud":
 			_survival_area_damage(global_position, 4.0, 90.0, "baroud_pulse", Color("#f17285"))
-		if _attack_label != null:
+		if _attack_label != null and not survival_mode:
 			_attack_label.text = "BAROUD D'HONNEUR  •  2.5s"
 		return 0.0
 	var effective := float(result["effective"])
 	if effective <= 0.0:
 		return 0.0
 	get_node("/root/GameSfx").play_event("damage_received")
+	effective_damage_taken.emit(effective, source_id, attack_id)
+	_external_damage_pending = true
 	if bool(result["real_death"]):
 		combat_state.apply_damage(combat_state.health, source_id, attack_id)
 	else:
@@ -1356,6 +1391,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 				_attack_label.text = "BAROUD  •  %d PV" % int(round(passive_state.baroud_health))
 		else:
 			combat_state.apply_damage(effective, source_id, attack_id)
+	_external_damage_pending = false
 	flash_impact(bool(result["real_death"]))
 	return effective
 
@@ -1467,6 +1503,10 @@ func is_real_dead() -> bool:
 
 
 func apply_loadout(next_loadout: Dictionary) -> void:
+	if survival_evolution_effects != null:
+		survival_evolution_effects.clear_transients()
+		survival_evolution_effects.queue_free()
+		survival_evolution_effects = null
 	if survival_synergies != null:
 		survival_synergies.configure({})
 	survival_mode = false
@@ -1496,6 +1536,8 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 
 func set_robot(identifier: String) -> void:
 	_robot_id = identifier if COMBAT_DATA.ROBOT_DEFINITIONS.has(identifier) else COMBAT_DATA.DEFAULT_ROBOT
+	if _visual_rig != null:
+		_visual_rig.set_chassis_appearance(_robot_id)
 	var definition: Dictionary = COMBAT_DATA.ROBOT_DEFINITIONS[_robot_id]
 	move_speed = float(definition.move_speed)
 	if combat_state != null:
@@ -1528,11 +1570,18 @@ func configure_survival_build(build: Dictionary) -> void:
 	_blaster_damage *= weapon_power
 	_blaster_max_damage *= weapon_power
 	_blaster_cooldown *= weapon_tempo
+	# Survival needs a reliable ranged opening alongside the close-range shotgun.
+	_blaster_damage *= 1.6
+	_blaster_max_damage *= 2.0
+	_blaster_cooldown *= 0.82
+	_blaster_charge_time *= 0.70
+	_blaster_charge_slow_multiplier = 1.0
+	_blaster_projectile_speed *= 1.35
 	_shotgun_pellet_damage *= weapon_power
 	_shotgun_minimum_damage *= weapon_power
 	_shotgun_recovery *= weapon_tempo
 	_shotgun_reload_duration *= weapon_tempo
-	if _survival_evolved("weapon") and _weapon_id == "shotgun":
+	if int(build.get("aspects", {}).get("weapon", {}).get("rank", 0)) == 0 and bool(_survival_evolutions.get("weapon", false)) and _weapon_id == "shotgun":
 		_shotgun_pellet_angles = [-16.0, -12.0, -8.0, -4.0, 4.0, 8.0, 12.0, 16.0]
 	var offensive_ranks: Dictionary = ranks.get("offensive", {})
 	var offensive_power := 0.65 + 0.60 * int(offensive_ranks.get("power", 0))
@@ -1570,6 +1619,11 @@ func configure_survival_build(build: Dictionary) -> void:
 	reset_module_state()
 	_reset_action_ownership()
 	_update_weapon_visuals()
+	if survival_evolution_effects == null:
+		survival_evolution_effects = preload("res://scripts/survival_evolution_effects.gd").new()
+		survival_evolution_effects.player = self
+		add_child(survival_evolution_effects)
+	survival_evolution_effects.configure(build)
 	_sync_weapon_readout()
 
 func set_training_options(invulnerable: bool, instant_cooldowns: bool, unlimited_ammo: bool) -> void:
@@ -1616,7 +1670,7 @@ func _update_baroud_presentation() -> void:
 	_baroud_bar_fill.visible = visible
 	if not visible:
 		return
-	var fraction: float = clampf(float(passive_state.baroud_health) / PASSIVE_STATE.BAROUD_MAX_HEALTH, 0.0, 1.0)
+	var fraction: float = clampf(float(passive_state.baroud_health) / maxf(1.0, float(passive_state.baroud_max_health)), 0.0, 1.0)
 	var width: float = 1.8 * fraction
 	_baroud_bar_fill.scale = Vector3(width, 1.0, 1.0)
 	_baroud_bar_fill.position.x = -0.9 + width * 0.5
@@ -1647,12 +1701,16 @@ func get_baroud_health() -> float:
 	return passive_state.baroud_health if passive_state != null else 0.0
 
 
-func _on_damage_dealt(effective_damage: float) -> void:
+func _on_damage_dealt(effective_damage: float, target: Node3D = null) -> void:
 	if passive_state == null:
 		return
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.dealt_damage(effective_damage, target)
 	var amount: float = float(passive_state.omnivamp_heal_for(effective_damage))
 	if amount > 0.0:
-		heal(amount, "omnivamp")
+		var actual := heal(amount, "omnivamp")
+		if survival_mode and survival_evolution_effects != null:
+			survival_evolution_effects.overflow_heal(amount - actual)
 
 
 func get_health() -> float:
@@ -1673,6 +1731,8 @@ func _on_health_changed(current: float, maximum: float) -> void:
 
 
 func _on_damage_applied(amount: float, _source_id: String, _attack_id: String) -> void:
+	if not _external_damage_pending:
+		effective_damage_taken.emit(amount, _source_id, _attack_id)
 	if _health_readout != null:
 		_health_readout.call("show_damage", amount)
 
@@ -1725,6 +1785,7 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	_received_attack_ids.clear()
 	clear_touch_inputs()
 	_clear_defensive_buffer()
 	_cancel_fulguro_projection()
@@ -1902,7 +1963,7 @@ func reset_module_state() -> void:
 
 
 func _update_shotgun_reload_input() -> void:
-	if _weapon_id == "shotgun" and _pressed_once(KEY_T):
+	if _weapon_id == "shotgun" and _pressed_action_once("reload"):
 		_start_shotgun_reload()
 
 
@@ -1993,26 +2054,25 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	_shotgun_shot_audio.play()
 	var cycle_timer := get_tree().create_timer(0.26 / get_attack_speed_multiplier(), true, false, false)
 	cycle_timer.timeout.connect(func() -> void: _play_shotgun_cycle_audio(token))
-	var target := _module_target()
 	var visual_start := _shotgun_muzzle.global_position if _shotgun_muzzle != null else _shotgun_attack_origin + Vector3.UP * 0.85 + _shotgun_attack_direction * 0.45
+	visual_start = _safe_projectile_origin(visual_start)
 	_create_muzzle_burst(visual_start, _shotgun_attack_direction, Color("#ff9d4e"), 1.35, _shotgun_muzzle)
+	# Converge the offset muzzle toward the crosshair before applying the spread.
+	# The pellets still fly straight and only hit a body they cross in flight.
+	var crosshair := _shotgun_attack_origin + Vector3.UP * 0.9 + _shotgun_attack_direction * 2.2
+	var center_direction := (crosshair - visual_start).normalized()
 	for index in range(_shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(_shotgun_pellet_angles[index]))
-		# Keep the established planar hit cone/falloff; model length must not buff damage.
-		var direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
-		var pellet_target := _best_training_target(_shotgun_attack_origin, direction, _shotgun_max_range, 1.0) if get_tree().current_scene.has_method("get_training_targets") else target
-		var shot := _get_shotgun_pellet_result(pellet_target, direction)
-		var distance: float = float(shot["distance"])
-		var did_hit: bool = bool(shot["did_hit"])
-		var visual_direction := _shotgun_attack_direction.rotated(Vector3.UP, angle).normalized()
-		var barrel_advance := (visual_start - _shotgun_attack_origin).dot(direction)
-		var endpoint := visual_start + visual_direction * maxf(0.025, distance - barrel_advance)
+		var direction := center_direction.rotated(Vector3.UP, angle).normalized()
+		var endpoint := visual_start + direction * _shotgun_max_range
 		if _show_debug_hitbox:
-			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e") if did_hit else Color("#6e9cab"), 0.025, 0.45)
-		_spawn_shotgun_projectile(visual_start, endpoint, distance, did_hit, pellet_target, salvo, index)
+			_create_lightning_arc(visual_start, endpoint, Color("#ffc56e"), 0.025, 0.45)
+		_spawn_shotgun_projectile(visual_start, endpoint, salvo, index)
+	if not echo and survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.shotgun_salvo(visual_start, _shotgun_attack_direction)
 	_play_shotgun_animation(get_attack_speed_multiplier())
 	if not echo and survival_synergies != null and survival_synergies.consume_double():
-		var second := {"id": token, "action_token": action_token, "hits_by_target": {}, "credited": {}, "echo": true, "generation": survival_synergies.generation, "source": "double", "damage_scale": 0.65 if _survival_evolved("mobility") else 0.45}
+		var second := {"id": token, "action_token": action_token, "hits_by_target": {}, "credited": {}, "echo": true, "generation": survival_synergies.generation, "source": "double", "damage_scale": 0.65 if bool(survival_synergies.evolved.get("mobility", false)) else 0.45}
 		get_tree().create_timer(0.16, false).timeout.connect(func() -> void: _emit_shotgun_salvo(token, second))
 
 
@@ -2021,93 +2081,37 @@ func _play_shotgun_cycle_audio(token: int) -> void:
 		_shotgun_cycle_audio.play()
 
 
-func _get_shotgun_pellet_result(target: Node, direction: Vector3) -> Dictionary:
-	var start := _shotgun_attack_origin
-	var max_endpoint := start + direction * _shotgun_max_range
-	var endpoint := _shotgun_obstacle_endpoint(start, max_endpoint)
-	var travel_distance: float = start.distance_to(endpoint)
-	var did_hit := false
-	if target != null and is_instance_valid(target):
-		var target_offset: Vector3 = target.global_position - start
-		target_offset.y = 0.0
-		var along := direction.dot(target_offset)
-		var closest := start + direction * along
-		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
-		var target_distance := Vector3(target_offset.x, 0.0, target_offset.z).length()
-		var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else _shotgun_hitbox_radius
-		if along > 0.0 and along <= _shotgun_max_range and lateral <= hit_radius and _shotgun_path_clear(target, start, target.global_position):
-			did_hit = true
-			endpoint = target.global_position
-			travel_distance = target_distance
-	return {"endpoint": endpoint, "distance": travel_distance, "did_hit": did_hit}
-
-
-func _shotgun_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
-	var world := get_world_3d()
-	if world == null:
-		return end
-	var query := PhysicsRayQueryParameters3D.create(start + Vector3.UP * 0.72, end + Vector3.UP * 0.72)
-	query.collision_mask = 9
-	query.collide_with_areas = true
-	query.collide_with_bodies = true
-	query.exclude = [get_rid()]
-	var result := world.direct_space_state.intersect_ray(query)
-	return result["position"] if not result.is_empty() else end
-
-
-func _shotgun_path_clear(target: Node, from_position: Vector3, to_position: Vector3) -> bool:
-	var world := get_world_3d()
-	if world == null:
-		return true
-	var query := PhysicsRayQueryParameters3D.create(from_position + Vector3.UP * 0.72, to_position + Vector3.UP * 0.72)
-	query.collision_mask = 9
-	query.collide_with_areas = true
-	query.collide_with_bodies = true
-	query.exclude = [get_rid(), target.get_rid()]
-	return world.direct_space_state.intersect_ray(query).is_empty()
-
-
-func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
-	var projectile := Node3D.new()
+func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, salvo: Dictionary, index: int) -> void:
+	var projectile := LIVE_PROJECTILE.new()
 	projectile.name = "ShotgunPellet"
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
-	# This node carries damage delivery and must never be culled by a visual budget.
 	get_tree().current_scene.add_child(projectile)
 	projectile.add_to_group("prototype0_gameplay_projectiles")
 	projectile.global_position = start
-	var visual_endpoint := endpoint
-	var hit_direction := visual_endpoint - start
-	hit_direction = hit_direction.normalized() if hit_direction.length_squared() > 0.001 else _shotgun_attack_direction
-	var contact: Dictionary
-	if did_hit:
-		# Gameplay already validated this pellet from the combat origin. Keep its
-		# visual impact on the robot instead of letting the offset muzzle ray stop
-		# on unrelated nearby scenery.
-		contact = {"position": visual_endpoint, "normal": -hit_direction, "collider": target}
-	else:
-		contact = _visual_contact(start, visual_endpoint)
-	if not contact.is_empty():
-		visual_endpoint = contact["position"]
-	var direction := visual_endpoint - start
+	var direction := endpoint - start
 	direction = direction.normalized() if direction.length_squared() > 0.001 else _shotgun_attack_direction
 	projectile.look_at(start + direction, Vector3.UP)
+	var excluded: Array[RID] = [get_rid()]
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	projectile.configure(direction, _shotgun_pellet_speed, _shotgun_max_range, 1 | 2 | 8, excluded)
+	projectile.finished.connect(_on_shotgun_pellet_finished.bind(salvo, index))
 	var vfx := _vfx_manager()
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "shotgun", 0.0)
 		if index % 2 == 0:
-			vfx.call("tracer", start, start + direction * minf(2.2, start.distance_to(visual_endpoint)), 0.055, Color("#ffc077"), 0.11)
-	var travel_time := maxf(0.025, distance / _shotgun_pellet_speed)
-	var tween := projectile.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(projectile, "global_position", visual_endpoint, travel_time)
-	tween.tween_callback(func() -> void:
-		_resolve_shotgun_projectile(salvo, index, did_hit, target, distance)
-		# Three readable impact clusters communicate the six-pellet spread without
-		# washing the target out in six identical flashes.
-		if index % 2 == 0:
-			_contact_fx(contact, Color("#e39a54"), 0.72)
-		projectile.queue_free()
-	)
+			vfx.call("tracer", start, start + direction * 2.2, 0.055, Color("#ffc077"), 0.11)
+
+
+func _on_shotgun_pellet_finished(hit: Dictionary, distance: float, salvo: Dictionary, index: int) -> void:
+	if hit.is_empty():
+		return
+	var target := hit.get("collider") as Node
+	if target != null and target.has_method("take_damage") and target.has_method("get_health"):
+		_resolve_shotgun_projectile(salvo, index, true, target, distance)
+	# Three readable impact clusters communicate the six-pellet spread.
+	if index % 2 == 0:
+		_contact_fx(hit, Color("#e39a54"), 0.72)
 
 func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, target: Node, distance: float) -> void:
 	if not did_hit or target == null or not is_instance_valid(target):
@@ -2121,6 +2125,8 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 	var effective_damage := float(target.call("take_damage", damage, "player", projectile_id))
 	if effective_damage <= 0.0:
 		return
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.shotgun_hit(target, salvo)
 	var hits_by_target: Dictionary = salvo["hits_by_target"]
 	var target_id := target.get_instance_id()
 	var tally: Dictionary = hits_by_target.get(target_id, {"valid_hits": 0, "base_damage_sum": 0.0, "critical_applied": false})
@@ -2190,7 +2196,7 @@ func _update_shotgun_reload(delta: float) -> void:
 	_shotgun_reload_audio.stream_paused = _stasis_remaining > 0.0
 	if _stasis_remaining > 0.0:
 		return
-	_shotgun_reload_remaining = maxf(0.0, _shotgun_reload_remaining - delta)
+	_shotgun_reload_remaining = maxf(0.0, _shotgun_reload_remaining - delta * (get_attack_speed_multiplier() if survival_mode else 1.0))
 	if _shotgun_reload_remaining > 0.0:
 		return
 	_shotgun_ammo = _shotgun_magazine_size
@@ -2223,6 +2229,8 @@ func _update_javelin_mark() -> void:
 
 
 func get_javelin_recast_fraction() -> float:
+	if survival_mode and survival_evolution_effects != null:
+		return survival_evolution_effects.javelin_fraction()
 	if _javelin_mark_target == null or not is_instance_valid(_javelin_mark_target):
 		return 0.0
 	if not _javelin_mark_target.has_method("get_javelin_mark_remaining"):
@@ -2281,6 +2289,8 @@ func _perform_defensive_module() -> void:
 
 
 func _perform_magnetic_field() -> void:
+	if survival_mode and survival_evolution_effects != null and _stasis_remaining <= 0.0 and (combat_state == null or not combat_state.is_stunned()) and survival_evolution_effects.release_wall():
+		return
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("magnetic_field") or (combat_state != null and combat_state.is_stunned()):
 		return
 	var direction := aim_direction.normalized()
@@ -2345,15 +2355,19 @@ func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direc
 	wall.global_position = center
 	wall.rotation.y = atan2(direction.x, direction.z)
 	_magnetic_wall = wall
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.wall_created(wall, direction)
 	_survival_magnetic_clock = 0.0
 	_end_module_action(action_token, "magnetic_field")
 	if _attack_label != null:
 		_attack_label.text = "MAGNETIC FIELD  •  2.5s"
 	var lifetime_timer := get_tree().create_timer(_magnetic_duration, true, false, false)
+	var wall_reference: WeakRef = weakref(wall)
 	lifetime_timer.timeout.connect(func() -> void:
-		if is_instance_valid(wall):
-			wall.queue_free()
-		if _magnetic_wall == wall:
+		var surviving_wall: Area3D = wall_reference.get_ref()
+		if is_instance_valid(surviving_wall):
+			surviving_wall.queue_free()
+		if _magnetic_wall == surviving_wall:
 			_magnetic_wall = null
 	)
 
@@ -2367,6 +2381,10 @@ func _perform_static_shield() -> void:
 	_cancel_pelto_pull()
 	_mark_combat_event()
 	_start_module_cooldown("static_shield", float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.activate_shield()
+		_end_module_action(action_token, "static_shield")
+		return
 	_static_pulse_token += 1
 	var pulse_token := _static_pulse_token
 	_stasis_remaining = _static_duration
@@ -2421,11 +2439,13 @@ func get_current_move_speed() -> float:
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
-	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier * charge_multiplier
+	var evolution_speed: float = survival_evolution_effects.movement_multiplier() if survival_mode and survival_evolution_effects != null else 1.0
+	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier * charge_multiplier * evolution_speed
 
 
 func get_attack_speed_multiplier() -> float:
-	return _bio_attack_speed_multiplier if _bio_remaining > 0.0 else 1.0
+	var boost: float = survival_evolution_effects.attack_multiplier() if survival_mode and survival_evolution_effects != null else 1.0
+	return (_bio_attack_speed_multiplier if _bio_remaining > 0.0 else 1.0) * boost
 
 
 func is_dash_active() -> bool:
@@ -2442,13 +2462,18 @@ func _perform_mobility_module() -> void:
 
 
 func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or not _module_ready("pyro_boots") or (combat_state != null and combat_state.is_stunned()):
+	if _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or (combat_state != null and combat_state.is_stunned()):
+		return
+	if not (survival_mode and survival_evolution_effects != null) and not _module_ready("pyro_boots"):
 		return
 	var direction := direction_override if direction_override.length_squared() > 0.001 else _last_move_direction if _last_move_direction.length_squared() > 0.001 else aim_direction.normalized()
 	if direction.length_squared() <= 0.001:
 		return
 	var action_token := _try_begin_module_action("pyro_boots")
 	if action_token == 0:
+		return
+	if survival_mode and survival_evolution_effects != null and not survival_evolution_effects.prepare_dash():
+		_end_module_action(action_token, "pyro_boots")
 		return
 	_cancel_pelto_pull()
 	_mark_combat_event()
@@ -2460,6 +2485,8 @@ func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
 	if _attack_label != null:
 		_attack_label.text = "PYRO BOOTS  •  DASH"
 	_create_dash_fx(global_position)
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.dash_started()
 	get_node("/root/GameSfx").play_event("pyro_dash")
 	_end_module_action(action_token, "pyro_boots")
 
@@ -2473,6 +2500,8 @@ func _perform_bio_injector() -> void:
 	_mark_combat_event()
 	_start_module_cooldown("bio_injector", float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
 	_bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.bio_started()
 	if _attack_label != null:
 		_attack_label.text = "BIO INJECTOR  •  %.1fs" % _bio_remaining
 	_create_bio_fx()
@@ -2494,6 +2523,8 @@ func _update_dash(delta: float) -> void:
 	global_position.y = 0.0
 	if survival_synergies != null:
 		survival_synergies.pyro_step(global_position)
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.pyro_step(global_position)
 	if _survival_evolved("mobility"):
 		_survival_trail_clock += delta
 		if _survival_trail_clock >= 0.12:
@@ -2720,7 +2751,7 @@ func _create_bio_fx() -> void:
 	_spawn_particle_burst(global_position + Vector3.UP * 0.85, Color("#85bfa5"), 7, 0.30, 1.2, 0.09, Vector3.UP, 24.0)
 
 func _survival_evolved(category: String) -> bool:
-	return survival_mode and bool(_survival_evolutions.get(category, false))
+	return survival_mode and bool(_survival_evolutions.get(category, false)) and (survival_evolution_effects == null or survival_evolution_effects.rank(category) == 0)
 
 
 func _survival_targets() -> Array:
@@ -3462,74 +3493,78 @@ func _perform_modulo_drone() -> void:
 	_module_token += 1
 	var token := _module_token
 	_start_module_cooldown("modulo_drone", float(COMBAT_DATA.MODULE_DEFINITIONS["modulo_drone"]["cooldown"]))
-	var origin := global_position
 	var direction := aim_direction.normalized()
 	_attack_label.text = "MODULO DRONE  •  CD 10s"
 	var timer := get_tree().create_timer(_drone_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, action_token, origin, direction))
+	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, action_token, global_position, direction))
 
 
 func _emit_modulo_drone(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
 	if token != _module_token or not _module_action_can_execute(action_token, "modulo_drone"):
 		return
+	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.launch_sentry(origin, direction):
+		_end_module_action(action_token, "modulo_drone")
+		return
 	var target := _select_drone_target(origin, direction)
-	var excluded: Array[RID] = []
+	var visual_start := _module_visual_start(direction)
+	visual_start.y = maxf(visual_start.y, global_position.y + 0.85)
+	visual_start = _safe_projectile_origin(visual_start)
+	var flight_direction := direction
+	if target != null and is_instance_valid(target):
+		flight_direction = (target.global_position + Vector3.UP * 0.9 - visual_start).normalized()
+	var excluded: Array[RID] = [get_rid()]
 	if survival_synergies != null:
-		excluded.assign(survival_synergies.drone_exclusions())
-	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _drone_max_range, excluded)
-	var hit_excluded: Array[RID] = excluded.duplicate()
-	if target != null:
-		hit_excluded.append(target.get_rid())
-	var did_hit := false
-	if target != null:
-		var target_endpoint: Vector3 = target.global_position
-		if _module_path_clear(origin, target_endpoint, hit_excluded):
-			endpoint = target_endpoint
-			did_hit = true
-	var charged: bool = survival_synergies != null and bool(survival_synergies.crosses_field(origin, endpoint))
-	var distance := origin.distance_to(endpoint)
+		excluded.append_array(survival_synergies.drone_exclusions())
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	var projectile := LIVE_PROJECTILE.new()
+	projectile.name = "ModuloDroneProjectile"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
+	get_tree().current_scene.add_child(projectile)
+	_register_fx_budget(projectile, "projectile")
+	projectile.global_position = visual_start
+	projectile.look_at(visual_start + flight_direction, Vector3.UP)
+	projectile.configure(flight_direction, _drone_speed, _drone_max_range, 1 | 2 | 8, excluded)
 	var drone := MeshInstance3D.new()
-	drone.name = "ModuloDroneProjectile"
-	drone.process_mode = Node.PROCESS_MODE_PAUSABLE
+	drone.name = "DroneBody"
 	var drone_mesh := SphereMesh.new()
 	drone_mesh.radius = _drone_collision_radius
 	drone_mesh.height = _drone_collision_radius * 2.0
 	drone.mesh = drone_mesh
 	drone.material_override = _create_fx_material(Color("#45ddff"), 0.96)
-	get_tree().current_scene.add_child(drone)
-	_register_fx_budget(drone, "projectile")
-	var visual_start := _module_visual_start(direction)
-	drone.global_position = visual_start
+	projectile.add_child(drone)
 	var flight: Dictionary = survival_synergies.track_drone(drone) if survival_synergies != null else {"charged": false}
-	drone.look_at(visual_start + direction, Vector3.UP)
 	_decorate_drone_projectile(drone)
-	_create_muzzle_burst(visual_start, direction, Color("#45ddff"), 0.82)
-	var travel := maxf(0.05, distance / _drone_speed)
-	var tween := drone.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(drone, "global_position", endpoint, travel)
-	tween.tween_callback(func() -> void:
-		if not is_instance_valid(drone):
-			return
-		if survival_synergies != null:
-			survival_synergies.update_flight(flight)
-		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, hit_excluded):
+	_create_muzzle_burst(visual_start, flight_direction, Color("#45ddff"), 0.82)
+	projectile.finished.connect(_on_modulo_drone_finished.bind(token, flight))
+
+	_end_module_action(action_token, "modulo_drone")
+
+
+func _on_modulo_drone_finished(hit: Dictionary, _distance: float, token: int, flight: Dictionary) -> void:
+	if token != _module_token:
+		return
+	if survival_synergies != null:
+		survival_synergies.update_flight(flight)
+	if not hit.is_empty():
+		var target := hit.get("collider") as Node
+		if target != null and target.has_method("take_damage") and target.has_method("get_health"):
 			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
 			if applied > 0.0:
 				if bool(flight.charged) and survival_synergies != null:
 					survival_synergies.drone_hit(target, _drone_damage)
+				if survival_mode and survival_evolution_effects != null:
+					survival_evolution_effects.drone_hit(target)
 				if _survival_evolved("offensive"):
 					_survival_secondary_hit(target, _drone_damage * 0.5, 5.0, "drone_chain", false)
 				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:modulo_drone")
 				target.call("apply_spotted", _drone_spotted_duration, "modulo_drone")
 				_create_target_hit_fx(target.global_position, false)
 				target.call("flash_impact", false)
-			_create_hit_flash(endpoint, Color("#8ff7ff"), 0.50)
+			_create_hit_flash(hit["position"], Color("#8ff7ff"), 0.50)
 		else:
-			_create_surface_impact_fx(endpoint, -direction, Color("#45ddff"))
-		drone.queue_free()
-	)
-	_end_module_action(action_token, "modulo_drone")
+			_contact_fx(hit, Color("#45ddff"))
+	_module_busy = false
 
 
 func _decorate_drone_projectile(drone: Node3D) -> void:
@@ -3586,7 +3621,11 @@ func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
 func _perform_javelin() -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
 		return
-	if _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
+	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.has_javelin_anchor():
+		_recast_javelin()
+		return
+	if not survival_mode and _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
+		_mark_combat_event()
 		_recast_javelin()
 		return
 	_javelin_mark_target = null
@@ -3601,60 +3640,72 @@ func _perform_javelin() -> void:
 	_javelin_launch_token += 1
 	var token := _javelin_launch_token
 	_start_module_cooldown("javelin", float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["cooldown"]))
-	var origin := global_position
 	var direction := aim_direction.normalized()
 	_attack_label.text = "JAVELIN  •  CD 12s"
 	var timer := get_tree().create_timer(_javelin_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_javelin(token, action_token, origin, direction))
+	timer.timeout.connect(func() -> void: _emit_javelin(token, action_token, global_position, direction))
 
 
 func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
 	if token != _javelin_launch_token or not _module_action_can_execute(action_token, "javelin"):
 		return
+	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.launch_beacon(origin, direction):
+		_end_module_action(action_token, "javelin")
+		return
 	var target := _select_javelin_target(origin, direction)
-	var endpoint := _module_obstacle_endpoint(origin, origin + direction * _javelin_max_range)
-	var did_hit := false
-	if target != null and _module_path_clear(origin, target.global_position, [target.get_rid()]):
-		endpoint = target.global_position
-		did_hit = true
-	var distance := origin.distance_to(endpoint)
+	var visual_start := _module_visual_start(direction)
+	visual_start.y = maxf(visual_start.y, global_position.y + 0.85)
+	visual_start = _safe_projectile_origin(visual_start)
+	var flight_direction := direction
+	if target != null and is_instance_valid(target):
+		flight_direction = (target.global_position + Vector3.UP * 0.9 - visual_start).normalized()
+	var projectile := LIVE_PROJECTILE.new()
+	projectile.name = "JavelinProjectile"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
+	get_tree().current_scene.add_child(projectile)
+	_register_fx_budget(projectile, "projectile")
+	projectile.global_position = visual_start
+	projectile.look_at(visual_start + flight_direction, Vector3.UP)
+	var excluded: Array[RID] = [get_rid()]
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	projectile.configure(flight_direction, _javelin_speed, _javelin_max_range, 1 | 2 | 8, excluded)
 	var spear := MeshInstance3D.new()
-	spear.name = "JavelinProjectile"
+	spear.name = "JavelinBody"
 	var spear_mesh := CylinderMesh.new()
 	spear_mesh.top_radius = 0.025
 	spear_mesh.bottom_radius = 0.11
 	spear_mesh.height = 0.58
 	spear.mesh = spear_mesh
 	spear.material_override = _create_fx_material(Color("#ffe48b"), 0.96)
-	get_tree().current_scene.add_child(spear)
-	_register_fx_budget(spear, "projectile")
-	var visual_start := _module_visual_start(direction)
-	spear.global_position = visual_start
-	spear.look_at(endpoint, Vector3.UP)
+	projectile.add_child(spear)
 	_decorate_javelin_projectile(spear)
-	_create_muzzle_burst(visual_start, direction, Color("#ffe48b"), 0.90)
-	var travel := maxf(0.04, distance / _javelin_speed)
-	var tween := spear.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(spear, "global_position", endpoint, travel)
-	tween.tween_callback(func() -> void:
-		if not is_instance_valid(spear):
-			return
-		if did_hit and target != null and is_instance_valid(target) and _module_path_clear(origin, target.global_position, [target.get_rid()]):
+	_create_muzzle_burst(visual_start, flight_direction, Color("#ffe48b"), 0.90)
+	projectile.finished.connect(_on_javelin_finished.bind(token))
+
+	_end_module_action(action_token, "javelin")
+
+
+func _on_javelin_finished(hit: Dictionary, _distance: float, token: int) -> void:
+	if token != _javelin_launch_token:
+		return
+	if not hit.is_empty():
+		var target := hit.get("collider") as Node
+		if target != null and target.has_method("take_damage") and target.has_method("apply_javelin_mark"):
 			var applied := float(target.call("take_damage", _javelin_damage, "player", "javelin:%d" % token))
 			if applied > 0.0:
+				if survival_mode and survival_evolution_effects != null:
+					survival_evolution_effects.javelin_hit(target, target.global_position)
 				if _survival_evolved("offensive"):
 					_survival_area_damage(target.global_position, 3.0, _javelin_damage * 0.45, "javelin_splash", Color("#ffe48b"), target)
 				target.call("apply_javelin_mark", _javelin_mark_duration, "javelin")
 				_javelin_mark_target = target
 				_create_target_hit_fx(target.global_position, true)
 				target.call("flash_impact", true)
-			_create_hit_flash(endpoint, Color("#fff0a1"), 0.65)
+				_create_hit_flash(hit["position"], Color("#fff0a1"), 0.65)
 		else:
-			_create_surface_impact_fx(endpoint, -direction, Color("#ffcf6a"))
-		spear.queue_free()
-	)
-	_end_module_action(action_token, "javelin")
+			_contact_fx(hit, Color("#ffcf6a"))
+	_module_busy = false
 
 
 func _decorate_javelin_projectile(spear: Node3D) -> void:
@@ -3684,6 +3735,9 @@ func _decorate_javelin_projectile(spear: Node3D) -> void:
 
 
 func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.recall_javelin()
+		return
 	var target := _javelin_mark_target
 	if target == null or not is_instance_valid(target) or not bool(target.call("has_javelin_mark")):
 		_javelin_mark_target = null
@@ -3885,25 +3939,13 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 		if token != _blaster_attack_token or _weapon_id != "blaster" or not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "blaster"):
 			return
 	var origin := _blaster_muzzle.global_position if _blaster_muzzle != null else global_position + Vector3.UP * 0.90 + shot_direction * 0.62
-	var target := _module_target()
-	var endpoint := _blaster_obstacle_endpoint(origin, origin + shot_direction * _blaster_max_range)
-	var did_hit := false
-	if target != null and is_instance_valid(target) and float(target.call("get_health")) > 0.0:
-		var collision_origin := global_position + Vector3.UP * 0.82
-		var offset: Vector3 = target.global_position - collision_origin
-		offset.y = 0.0
-		var along := shot_direction.dot(offset)
-		var closest := collision_origin + shot_direction * along
-		var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
-		var path_clear := _blaster_path_clear(target, origin, target.global_position)
-		var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else 0.95
-		if along > 0.0 and along <= _blaster_max_range and lateral <= hit_radius and path_clear:
-			var visual_along := clampf((target.global_position - origin).dot(shot_direction), 0.025, _blaster_max_range)
-			endpoint = origin + shot_direction * visual_along
-			did_hit = true
-	var distance := origin.distance_to(endpoint)
+	# A freshly raised skeletal weapon can still report a low carry-pose muzzle
+	# during this frame. Keep the projectile above the floor and at target height.
+	origin.y = maxf(origin.y, global_position.y + 0.85)
+	origin = _safe_projectile_origin(origin)
+	var flight_direction := _blaster_flight_direction(origin, shot_direction)
 	_create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, _blaster_muzzle)
-	_spawn_blaster_projectile(origin, endpoint, distance, did_hit, target, damage, charge_ratio, token, shot_direction)
+	_spawn_blaster_projectile(origin, damage, charge_ratio, token, flight_direction)
 	_action_gate.release(action_token)
 	if _blaster_action_token == action_token:
 		_blaster_action_token = 0
@@ -3957,42 +3999,69 @@ func _is_weapon_recoil_running(tweens: Array[Tween]) -> bool:
 	return false
 
 
-func _spawn_blaster_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
-	var projectile := Node3D.new()
+func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
+	var origin := global_position + Vector3.UP * 0.9
+	var query := PhysicsRayQueryParameters3D.create(origin, muzzle)
+	query.collision_mask = 1 | 2 | 4 | 8
+	query.collide_with_areas = true
+	query.exclude = [get_rid()]
+	return origin if not get_world_3d().direct_space_state.intersect_ray(query).is_empty() else muzzle
+
+
+func _blaster_flight_direction(start: Vector3, aim: Vector3) -> Vector3:
+	# Preserve the existing small aim assist as an initial direction only. A hit
+	# is now decided by the projectile's live collision, after the target moves.
+	var target := _module_target()
+	if target == null or not is_instance_valid(target) or not target.has_method("get_health") or float(target.call("get_health")) <= 0.0:
+		return aim
+	var offset: Vector3 = target.global_position - global_position
+	offset.y = 0.0
+	var along := aim.dot(offset)
+	var lateral := (offset - aim * along).length()
+	var hit_radius := float(target.call("get_training_hit_radius")) if target.has_method("get_training_hit_radius") else 0.95
+	if along <= 0.0 or along > _blaster_max_range or lateral > hit_radius or not _blaster_path_clear(target, start, target.global_position):
+		return aim
+	var aim_point: Vector3 = target.global_position + Vector3.UP * 0.9
+	return (aim_point - start).normalized()
+
+
+func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
+	var projectile := LIVE_PROJECTILE.new()
 	projectile.name = "BlasterProjectile"
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
-	# Geometry may be discarded; travel and damage delivery may not.
 	get_tree().current_scene.add_child(projectile)
 	projectile.add_to_group("prototype0_gameplay_projectiles")
 	projectile.global_position = start
-	var contact := _visual_contact(start, endpoint, target if did_hit else null)
-	var visual_endpoint: Vector3 = contact.get("position", endpoint)
-	var direction := visual_endpoint - start
-	direction = direction.normalized() if direction.length_squared() > 0.001 else _last_projectile_direction
-	projectile.look_at(start + direction, Vector3.UP)
+	projectile.look_at(start + shot_direction, Vector3.UP)
+	var excluded: Array[RID] = [get_rid()]
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	projectile.configure(shot_direction, _blaster_projectile_speed, _blaster_max_range, 1 | 2 | 8, excluded)
+	projectile.finished.connect(_on_blaster_projectile_finished.bind(damage, charge_ratio, token, shot_direction))
 	var vfx := _vfx_manager()
 	if vfx != null:
 		var shot_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
 		vfx.call("projectile_visual", projectile, "blaster", charge_ratio)
-		vfx.call("tracer", start, start + direction * minf(1.15 + charge_ratio * 0.55, start.distance_to(visual_endpoint)), 0.036 + charge_ratio * 0.034, shot_color, 0.058 + charge_ratio * 0.014)
-	var travel_time := maxf(0.025, distance / _blaster_projectile_speed)
-	var tween := projectile.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(projectile, "global_position", visual_endpoint, travel_time)
-	tween.tween_callback(func() -> void:
-		if did_hit and target != null and is_instance_valid(target) and _blaster_path_clear(target, start, target.global_position):
-			var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
-			if applied > 0.0:
-				if survival_synergies != null:
-					survival_synergies.blaster_hit(target, charge_ratio)
-				if _survival_evolved("weapon"):
-					_survival_secondary_hit(target, damage * 0.6, 9.0, "blaster_pierce", true, shot_direction)
-				target.call("flash_impact", charge_ratio >= 0.99)
-		var impact_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
-		_contact_fx(contact, impact_color, 0.8 + charge_ratio * 0.95)
-		_blaster_attack_busy = false
-		projectile.queue_free()
-	)
+		var tracer_end := _blaster_obstacle_endpoint(start, start + shot_direction * (1.15 + charge_ratio * 0.55))
+		vfx.call("tracer", start, tracer_end, 0.036 + charge_ratio * 0.034, shot_color, 0.058 + charge_ratio * 0.014)
+
+
+func _on_blaster_projectile_finished(hit: Dictionary, _distance: float, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
+	if hit.is_empty():
+		return
+	var target := hit.get("collider") as Node
+	if target != null and target.has_method("take_damage") and target.has_method("get_health"):
+		var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
+		if applied > 0.0:
+			if survival_synergies != null:
+				survival_synergies.blaster_hit(target, charge_ratio)
+			if survival_mode and survival_evolution_effects != null:
+				survival_evolution_effects.blaster_hit(target, damage, charge_ratio, shot_direction)
+			if _survival_evolved("weapon"):
+				_survival_secondary_hit(target, damage * 0.6, 9.0, "blaster_pierce", true, shot_direction)
+			target.call("flash_impact", charge_ratio >= 0.99)
+	var impact_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
+	_contact_fx(hit, impact_color, 0.8 + charge_ratio * 0.95)
 
 func _blaster_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
 	var world := get_world_3d()
@@ -5008,6 +5077,7 @@ func _build_robot() -> void:
 	scarf.material_override = _material(Color("#a62f25"), 0.9)
 	procedural_body.add_child(scarf)
 	_create_player_direction_debug()
+	_visual_rig.set_chassis_appearance(_robot_id)
 
 
 func _update_weapon_visuals() -> void:

@@ -5,6 +5,7 @@ signal menu_requested
 const STATS := preload("res://scripts/survival_run_stats.gd")
 const SYNERGIES := preload("res://scripts/survival_synergies.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
+const ASPECTS := preload("res://scripts/survival_aspects.gd")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 var records_path := STATS.RECORDS_PATH
 var result: Dictionary
@@ -59,7 +60,8 @@ func present(data: Dictionary) -> void:
 		if id == "":
 			continue
 		var ranks: Dictionary = build.get("upgrades", {}).get(category, {})
-		var evolution := "  ·  ÉVOLUÉ" if bool(build.get("evolutions", {}).get(category, false)) else ""
+		var evolution := ASPECTS.label(build, category)
+		evolution = " · " + evolution if evolution != "" else ""
 		content.add_child(text("%s%s   ·   Puissance %d / Rythme %d" % [LOADOUT.display_name(id), evolution, int(ranks.get("power", 0)), int(ranks.get("tempo", 0))], 15))
 	var synergies := SYNERGIES.names(build)
 	content.add_child(text("Synergies : " + (synergies if synergies != "" else "aucune activée"), 16, Color("#efba6c")))
@@ -146,7 +148,8 @@ func _export_card() -> void:
 	for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
 		var id := str(result.build.get(category, ""))
 		if id != "":
-			card.add_child(text(LOADOUT.display_name(id) + (" · ÉVOLUÉ" if result.build.evolutions.get(category, false) else ""), 22))
+			var aspect := ASPECTS.label(result.build, category)
+			card.add_child(text(LOADOUT.display_name(id) + (" · " + aspect if aspect != "" else ""), 22))
 	card.add_child(text(SYNERGIES.names(result.build), 24, Color("#efba6c")))
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw

@@ -1,5 +1,6 @@
 extends Node3D
 
+const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
@@ -26,6 +27,7 @@ var network_match: CanvasLayer
 var target: StaticBody3D
 var touch_controls: Control
 var duel_active := false
+var _bot_build: Dictionary = {}
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
 var _fx_serial := 0
@@ -114,6 +116,7 @@ func _ready() -> void:
 
 func _on_network_match_started(host_id: int, guest_id: int) -> void:
 	if network_match != null and is_instance_valid(network_match):
+		network_match.call("_cleanup_actors")
 		network_match.queue_free()
 	network_match = CanvasLayer.new()
 	network_match.name = "NetworkMatch"
@@ -1814,6 +1817,7 @@ func _set_menu_showcase_clip(clip_index: int) -> void:
 
 
 func start_duel(loadout: Dictionary) -> void:
+	_bot_build = BOT_BUILDS.choose(str(_bot_build.get("title", "")))
 	prepare_round(loadout)
 
 
@@ -1826,14 +1830,9 @@ func prepare_round(loadout: Dictionary) -> void:
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	target.call("set_duel_mode", true)
-	var round_value := maxi(1, game_flow.round_number if game_flow != null else 1)
-	var bot_loadouts := [
-		{"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "omnivamp"},
-		{"weapon": "shotgun", "offensive": "fulguro_punch", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "baroud"},
-		{"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"},
-		{"weapon": "shotgun", "offensive": "pelto_smash", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "baroud"},
-	]
-	target.call("set_duel_loadout", bot_loadouts[(round_value - 1) % bot_loadouts.size()])
+	if _bot_build.is_empty():
+		_bot_build = BOT_BUILDS.choose()
+	target.call("set_duel_loadout", _bot_build)
 	target.call("set_bot_difficulty", bot_difficulty)
 	target.call("set_training_bot_enabled", false)
 	target.call("reset_combat_state")
@@ -1842,6 +1841,10 @@ func prepare_round(loadout: Dictionary) -> void:
 	player.call("set_gameplay_enabled", false)
 	player.call("clear_touch_inputs")
 	_reset_repair_kits(false)
+
+
+func get_bot_build() -> Dictionary:
+	return {} if target != null and bool(target.get("network_proxy")) else _bot_build.duplicate(true)
 
 
 func activate_round() -> void:

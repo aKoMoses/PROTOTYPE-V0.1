@@ -3,3 +3,7 @@ exports/
 *.tmp
 .android-signing/
 addons/GD-Sync/keys.cfg
+
+/captures/*.log
+/captures/*suite.json
+/captures/comfort-test.cfg

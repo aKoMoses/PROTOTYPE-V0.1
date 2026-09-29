@@ -62,6 +62,12 @@ func _initialize() -> void:
 		target.call("set_training_bot_enabled", false)
 		player.call("reset_combat_state")
 		target.call("reset_combat_state")
+		var health_before_dodge := float(player.call("get_health"))
+		target.get_node("TrainingBot").call("_spawn_attack_visual", player, "training_bot:dodge_test")
+		player.global_position += Vector3(4.0, 0.0, 0.0)
+		await create_timer(0.5, true, false, false).timeout
+		if float(player.call("get_health")) < health_before_dodge:
+			_failures.append("tir du bot : touche le joueur après une esquive pendant le vol")
 
 	if _failures.is_empty():
 		print("P0-114 TRAINING BOT TEST: PASS")

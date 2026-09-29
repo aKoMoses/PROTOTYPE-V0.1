@@ -19,6 +19,8 @@ func _initialize() -> void:
 		await _test_desktop_hold_through_cooldown(player, target)
 		await _test_desktop_full_charge_input(player, target)
 		await _test_normal_shot(player, target)
+		await _test_target_dodges_projectile(player, target)
+		await _test_target_enters_projectile_path(player, target)
 		await _test_early_release_audio(player, target)
 		await _test_cooldown(player, target)
 		await _test_charge_damage(player, target, 0.50, 35.0, "charge 50%")
@@ -146,6 +148,36 @@ func _test_normal_shot(player: Node, target: Node) -> void:
 	var damage := 1000.0 - float(target.call("get_health"))
 	if absf(damage - 20.0) > 0.6:
 		_failures.append("tir normal : %.2f dégâts au lieu de 20" % damage)
+
+
+func _test_target_dodges_projectile(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	target.global_position = Vector3(0.0, 0.0, -6.0)
+	await physics_frame
+	player.call("_fire_blaster_projectile", 20.0, 0.0, Vector3(0.0, 0.0, -1.0))
+	await _wait_seconds(0.04)
+	target.global_position.x = 3.0
+	await _wait_seconds(0.40)
+	if float(target.call("get_health")) < 999.9:
+		_failures.append("cible mobile : un tir esquivé inflige encore des dégâts")
+
+
+func _test_target_enters_projectile_path(player: Node, target: Node) -> void:
+	await _prepare(player, target)
+	target.global_position = Vector3(3.0, 0.0, -6.0)
+	await physics_frame
+	player.call("_fire_blaster_projectile", 20.0, 0.0, Vector3(0.0, 0.0, -1.0))
+	await _wait_seconds(0.04)
+	var projectile := player.get_tree().current_scene.find_child("BlasterProjectile", false, false) as Node3D
+	if projectile == null:
+		_failures.append("cible mobile : projectile absent après lancement")
+		return
+	var direction: Vector3 = projectile.get("_direction")
+	var distance: float = (target.global_position.z - projectile.global_position.z) / direction.z
+	target.global_position.x = projectile.global_position.x + direction.x * distance
+	await _wait_seconds(0.40)
+	if absf(float(target.call("get_health")) - 980.0) > 0.6:
+		_failures.append("cible mobile : un projectile traversant la cible ne la touche pas")
 
 
 func _test_early_release_audio(player: Node, target: Node) -> void:

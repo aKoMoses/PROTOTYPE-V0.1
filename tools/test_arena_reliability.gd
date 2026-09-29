@@ -13,6 +13,9 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	call_deferred("_run")
 
 

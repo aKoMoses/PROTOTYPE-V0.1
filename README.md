@@ -494,17 +494,19 @@ Les trois captures Godot sont conservées dans `captures/menu-redesign-preview.p
 ### Mode Survie
 
 Le bouton **MODE SURVIE** ouvre une partie indépendante du duel et du Training Ground.
-On choisit le Blaster ou le Shotgun au départ. Cette arme est moins puissante qu'en duel
-et reste la seule arme de la partie (`G` est désactivé). Les emplacements de modules et
-le passif commencent vides.
+On choisit le Blaster ou le Shotgun au départ, sur deux cartes. Cette arme reste la
+seule de la partie (`G` est désactivé). Les emplacements de modules et le passif
+commencent vides. En Survie, le Blaster démarre à 20,8 dégâts par tir et 65 chargé,
+avec une charge de 0,7 s et sans ralentissement de déplacement pendant la charge.
 
 Le mode comprend 12 vagues. Terminer chaque vague de 1 à 11 donne un niveau et un choix
-entre deux récompenses ; le jeu se fige pendant ce choix. Les quatre premières
-récompenses font choisir, dans cet ordre, un module offensif, défensif, de mobilité,
-puis un passif. Les suivantes proposent une évolution propre à l'objet avec gain de puissance, ou du rythme ;
-une fois l'évolution prise, elles proposent puissance ou rythme. Le passif peut aussi
-gagner des PV maximum. Les équipements démarrent affaiblis puis
-peuvent dépasser leurs valeurs de duel. Le joueur récupère 100 PV après les vagues
+entre trois cartes ; le jeu se fige pendant ce choix. L'ordre et les propositions
+varient : nouvel équipement, évolution d'un équipement porté, puissance, rythme
+ou synergie disponible. Le tirage reste stable jusqu'au choix et une vague ne donne
+qu'une récompense. Une même carte de puissance n'est pas reproposée juste après
+son acquisition. Puissance et rythme sont limités respectivement à trois et deux
+prises par catégorie. Le passif peut aussi gagner des PV maximum.
+Le joueur récupère 100 PV après les vagues
 3, 6 et 9. Un kit de réparation à usage unique (+80 PV) apparaît aux vagues 2, 5, 8
 et 11 ; il reste au sol si les PV sont pleins. Il disparaît à la vague suivante.
 La partie s'achève sur une victoire après la vague 12 ou à la mort du joueur.
@@ -536,11 +538,29 @@ remplacent un ennemi aux vagues 3 (double charge annoncée), 6 (salve en éventa
 charge et salve ; à mi-vie, sa récupération passe de 2,6 à 1,8 s et sa salve de trois
 à cinq projectiles. Les attaques des ennemis ont des identifiants distincts.
 
-Chaque équipement possède une évolution distincte : percée du Blaster, gerbe élargie
-du Shotgun, rebond du Drone, explosion du Javelin, décharges du Champ magnétique,
-onde du Bouclier statique, traînée des Pyro Boots, onde du Bio Injector, riposte de
-Baroud ou soin à l'élimination d'Omnivamp. Les choix affichent les valeurs de l'effet
-ou de la recharge avant et après amélioration.
+Chaque équipement possède deux voies exclusives. La première carte choisit la voie,
+les deux suivantes la développent ; la troisième donne l'aspect ultime. Chaque
+palier ajoute des éléments visuels à l'arme ou au robot. Les cartes de puissance
+renforcent les valeurs sans avancer cette progression.
+
+| Équipement | Première voie → ultime | Seconde voie → ultime |
+| --- | --- | --- |
+| Shotgun | Briseur → Bélier, projectile lourd puis onde frontale | Balayeur → Éventail, cône élargi de douze plombs |
+| Blaster | Perforateur → Lance plasma, jusqu'à six cibles alignées | Conducteur → Arc électrique, marque puis trois rebonds |
+| Modulo Drone | Chasseur → Drone poursuivant, poursuite pendant six secondes | Sentinelle → Tourelle déployée, tirs sur deux cibles |
+| Javelin | Harpon → Ancrage, contrôle puis rappel traversant | Balise de fuite → Relais, téléportation vers le sol libre et répulsion |
+| Static Shield | Carapace → Armure segmentée, absorption puis répulsion à la rupture | Riposte → Contre-décharge, protection courte et riposte visée |
+| Magnetic Field | Rempart → Passage magnétique, mur élargi ralentissant les ennemis | Condensateur → Batterie magnétique, tirs ennemis stockés puis déchargés |
+| Pyro Boots | Sillage → Barrière de feu, traînée persistante | Propulseur → Double réacteur, deux charges et répulsion au départ |
+| Bio Injector | Surcharge → Survoltage, tirs/recharge accélérés et prolongation bornée par les éliminations | Métabolisme → Circulation vitale, soins en mouvement interrompus par les impacts |
+| Baroud | Contre-attaque → Renaissance, infliger 180 dégâts effectifs pendant le sursis | Repli vital → Réacteur de secours, accélération et fuite sans impact |
+| Omnivamp | Réserve → Protection vitale, soins excédentaires absorbant les dégâts | Récolte → Moisson vitale, fragments attirés après une élimination attribuée au joueur |
+
+Static Shield permet de bouger et de tirer avec une réserve d'absorption limitée.
+Le Javelin de base est rappelé par un second appui sur A ; la voie Balise seule
+permet de se téléporter. Baroud de base peut sauver le joueur après 1,8 s sans
+impact ; un sauvetage reste limité à une fois par partie. Les ennemis lourds sont
+ralentis plutôt qu'immobilisés ou repoussés par les évolutions de contrôle.
 
 Les commandes `A`, `E` et `R` deviennent utilisables à mesure que leurs modules sont
 obtenus. Le HUD montre les vagues, les PV, le build et les cooldowns. Échap ou le bouton
@@ -551,21 +571,25 @@ rejouer, revenir au menu, conserver un favori de référence ou exporter une car
 locale (aucun partage automatique). Le favori est rappelé au choix de l'arme et ne
 donne aucun équipement gratuit. Données : `user://survival_records.json`.
 
-Quatre synergies sont activées automatiquement et annoncées sur les cartes :
+Quatre synergies peuvent être proposées parmi les trois cartes quand les deux
+équipements sont portés. Il faut choisir la carte pour activer la synergie :
 - Blaster + Pyro Boots : une traînée brûle les cibles ; un tir chargé à au moins
   70 % déclenche 55 dégâts autour d'une cible marquée. Rayon 2,7 m, puis 4 m avec
-  l'évolution du Blaster ; durée de brûlure 2 s, puis 3,5 s avec les Boots évoluées.
+  l'aspect ultime du Blaster ; durée de brûlure 2 s, puis 3,5 s avec les Boots ultimes.
 - Modulo Drone + Magnetic Field : traverser son propre mur charge le drone ; l'impact
-  produit un arc à 45 % des dégâts vers une cible à 4 m. L'offensif évolué permet
-  deux cibles, la défense évoluée porte le rayon à 6 m. Les autres murs restent bloquants.
+  produit un arc à 45 % des dégâts vers une cible à 4 m. L'offensif ultime permet
+  deux cibles, la défense ultime porte le rayon à 6 m. Les couverts restent bloquants.
 - Shotgun + Bio Injector : pendant l'injecteur, la prochaine salve déclenche une
-  seconde salve après 0,16 s, à 45 % des dégâts (65 % avec la mobilité évoluée),
+  seconde salve après 0,16 s, à 45 % des dégâts (65 % avec la mobilité ultime),
   sans cartouche supplémentaire. Une seule activation par injection.
-- Javelin + Pyro Boots : la téléportation laisse un sillage brûlant de 2 s
-  (3,5 s avec les Boots évoluées), à 16 dégâts/s (26 avec le Javelin évolué).
+- Javelin + Pyro Boots : le rappel ou la téléportation laisse un sillage brûlant
+  de 2 s (3,5 s avec les Boots ultimes), à 16 dégâts/s (26 avec le Javelin ultime).
 Les effets sont bornés, cessent entre les vagues, et ne se déclenchent pas eux-mêmes.
 
-Tests : `tools/test_survival.gd` et `tools/test_survival_expansion.gd`.
+Tests : `tools/test_survival.gd`, `tools/test_survival_expansion.gd`,
+`tools/test_survival_rewards.gd`, `tools/test_survival_aspects.gd` et
+`tools/test_survival_projectile_collisions.gd`. Captures des deux paliers visuels
+et des choix ultimes : `tools/capture_survival_aspects.gd` avec un moteur graphique.
 
 ## Commandes
 
@@ -673,3 +697,29 @@ est volontairement masqué pendant le délai automatique de deux secondes.
 - **Vérification :** `tools/test_player_visual_rig.gd` — 47 contrôles réussis ; suite
   `tools/test_*.gd` — 15/15 réussis avec Godot 4.7.2 en mode headless. Le rendu en fenêtre
   et l'essai sur appareil Android restent à contrôler par le testeur.
+
+
+## Version commune du 29 septembre 2026
+
+Le Duel attribue au bot un build complet au début du match : châssis, arme,
+module offensif, défense, mobilité et passif. Les quatre configurations varient
+entre les matchs et restent identiques entre les manches. Le châssis applique
+ses PV et sa vitesse ; les modules utilisent les décisions de l’IA tactique.
+La pause affiche le build adverse. Baroud fonctionne aussi sur les brûlures et
+expire même si le bot ne peut pas agir ; la stase bloque dégâts et soins.
+
+Dans Réglages, les volumes Musique et Effets sonores sont indépendants et
+mémorisés. Sur PC, « Raccourcis clavier » permet de changer déplacement, tir,
+modules, changement d’arme et rechargement, puis de rétablir les touches par
+défaut. Le clic gauche reste disponible pour tirer. Les menus et raccourcis
+d’entraînement sont réservés ; les doublons sont refusés. Les touches affichées
+dans le HUD suivent la configuration. Les préférences partagent le fichier
+`user://prototype0_settings.cfg` avec les réglages existants sans effacer la
+personnalisation tactile récupérée depuis main.
+
+Les projectiles du joueur et des bots vérifient les obstacles entre le robot et
+le canon pour éviter de tirer à travers un champ magnétique lorsque le modèle
+de l’arme dépasse le mur.
+
+Tests supplémentaires : `tools/test_comfort_settings.gd`,
+`tools/test_duel_bot_state.gd`, `tools/test_duel_bot_builds.gd`.

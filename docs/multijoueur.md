@@ -33,9 +33,42 @@ mettre la clé privée dans un commit ou un message public.
    **REJOINDRE**.
 3. Le créateur clique sur **LANCER LE MATCH** lorsque le salon indique 2/2.
 
-Cette première version synchronise les positions, PV, dégâts, effets et scores.
-L'adversaire utilise provisoirement l'apparence du robot d'arène existant ; ses
-animations d'attaque exactes ne sont pas encore reproduites à distance. Deux
-instances Godot sur le PC de Romain ont réussi, via les serveurs GD-Sync, la
-création et découverte du salon, le lancement, les dégâts et le score. Un essai
-sur les deux appareils, depuis les deux logements, reste à faire.
+Les deux joueurs utilisent le contrôleur du robot joueur et leur équipement de
+la forge. Les tirs du Blaster et du Shotgun, la charge, le rechargement, le Drone,
+le Javelin et sa téléportation, les protections, le dash et les effets sont
+reproduits chez l'autre joueur. Le HUD habituel conserve les PV, les munitions,
+les modules et leurs délais. **QUITTER** ramène au salon ; le match en ligne ne
+se met pas en pause avec Échap.
+
+## Résolution du combat
+
+L'hôte simule les deux combattants et leurs projectiles. Il décide des impacts,
+des dégâts, des protections, des effets, des soins et des passifs, puis transmet
+l'état confirmé et le score. L'autre joueur envoie ses actions ; il ne peut plus
+envoyer directement un montant de dégâts, ses PV ou une déclaration de mort.
+La charge est calculée à partir du temps observé par l'hôte. Les actions répétées
+et les messages d'une ancienne manche ou d'un ancien match sont ignorés.
+
+Une élimination simultanée dans le même pas de simulation produit une égalité
+sans point, puis une nouvelle manche. Le mouvement reste immédiat sur l'appareil
+du joueur et sa dernière position reçue est utilisée par l'hôte pour les
+collisions. Il n'y a pas encore de compensation de latence ni de correction
+complète du mouvement : une connexion lente peut donc décaler la perception
+d'un impact ou d'une protection.
+
+## Vérification du 29 septembre 2026
+
+`tools/test_network_combat.gd` vérifie les collisions réelles, les protections,
+les effets, le Javelin, le dash, les munitions, les doublons et l'autorité des PV
+et de Baroud. `tools/test_network_game.tscn` lance un scénario à deux clients,
+avec les arguments `host test-id=<identifiant>` et `guest test-id=<identifiant>`
+dans deux processus. Ajouter `--network-local-test` aux arguments utilisateur
+permet de refaire le même scénario sur le réseau local.
+
+Deux instances Godot sur ce PC ont réussi le scénario via GD-Sync : attaque de
+chaque joueur, stase, mur magnétique, Drone, dash, PV confirmés, résultat, remise
+à zéro de la manche suivante, égalité et retour au salon. La capture rendue
+`captures/network_multiplayer.png` montre les deux robots et le HUD en ligne.
+Les contrôles du duel solo, de l'entraînement et des passifs passent également.
+Un essai sur les deux appareils depuis les deux logements reste à faire, ainsi
+que la vérification tactile sur Android.

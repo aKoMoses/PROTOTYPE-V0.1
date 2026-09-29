@@ -122,7 +122,7 @@ func _initialize() -> void:
 		target.call("take_damage", 50.0, "test", "readout_hit")
 		var target_number := target.get_node_or_null("TargetHealthReadout/HealthBarViewport/HealthBarUI/HealthNumber") as Label
 		var damage_popup := target.get_node_or_null("TargetHealthReadout/DamageNumber1")
-		if target_number == null or target_number.text != "950" or damage_popup == null:
+		if target_number == null or target_number.text != str(roundi(float(target.call("get_max_health")) - 50.0)) or damage_popup == null:
 			_failures.append("PV ou chiffre de dégâts non mis à jour")
 		target.call("take_damage", 20.0, "test:burn", "readout_burn")
 		target.call("take_damage", 30.0, "test:melee", "readout_melee")
@@ -131,7 +131,7 @@ func _initialize() -> void:
 		var target_readout := target.get_node_or_null("TargetHealthReadout")
 		if target_readout != null:
 			var segments: Array = target_readout.get("_segments")
-			if segments.size() != 10 or segments[9].visible:
+			if segments.size() != 10 or (segments[9].visible and segments[9].size.x >= 23.0):
 				_failures.append("les segments ne montrent pas les PV perdus")
 		if damage_popup != null:
 			damage_popup.call("_process", 0.23)
@@ -173,7 +173,7 @@ func _initialize() -> void:
 			_failures.append("un même résultat incrémente deux fois")
 		flow.set("_round_result_remaining", 0.0)
 		flow.call("_start_next_round")
-		if str(flow.call("get_round_phase_name")) != "COUNTDOWN" or float(target.call("get_health")) < 999.0:
+		if str(flow.call("get_round_phase_name")) != "COUNTDOWN" or not is_equal_approx(float(target.call("get_health")), float(target.call("get_max_health"))):
 			_failures.append("la manche suivante ne réinitialise pas les PV")
 		flow.call("_begin_live_round")
 		flow.call("resolve_round", true, true)

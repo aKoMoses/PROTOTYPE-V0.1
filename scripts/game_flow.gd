@@ -4,6 +4,8 @@ extends CanvasLayer
 ## Navigation, loadout, HUD and round presentation. Combat remains in Player,
 ## TargetDummy and the existing state objects.
 
+const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
+const COMFORT_SETTINGS := preload("res://scripts/comfort_settings.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
@@ -32,6 +34,7 @@ const MENU_PANEL_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-panel.png"
 const MENU_BUTTON_PRIMARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-primary.png")
 const MENU_BUTTON_SECONDARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-secondary.png")
 const MENU_DISPLAY_FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
+const MENU_SETTINGS_ICON: Texture2D = preload("res://art/ui/icons/settings.svg")
 const COUNTDOWN_SECONDS := 3.0
 const FIGHT_SECONDS := 0.9
 const WINNER_FOCUS_SECONDS := 1.55
@@ -83,6 +86,7 @@ var _settings: Dictionary = {"camera_shake": true, "touch_scale": 1.0}
 var _screen_root: Control
 var _hud: Control
 var _menu_panel: Control
+var _menu_settings_button: Button
 var _equipment_panel: Control
 var _title_label: Label
 var _status_label: Label
@@ -154,6 +158,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_countdown_audio.volume_db = -8.0
 	add_child(_countdown_audio)
 	_match_music = AudioStreamPlayer.new()
+	_match_music.bus = &"Music"
 	_match_music.name = "MatchMusic"
 	_match_music.volume_db = -17.0
 	if ResourceLoader.exists(MATCH_MUSIC_PATH):
@@ -164,6 +169,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 			(_match_music.stream as AudioStreamWAV).loop_end = int(_match_music.stream.get_length() * (_match_music.stream as AudioStreamWAV).mix_rate)
 	add_child(_match_music)
 	_menu_music = AudioStreamPlayer.new()
+	_menu_music.bus = &"Music"
 	_menu_music.name = "MenuMusic"
 	_menu_music.volume_db = -60.0
 	_menu_music.stream = load(MENU_MUSIC_PATH) as AudioStream
@@ -175,6 +181,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		menu_stream.loop_end = int(menu_stream.get_length() * menu_stream.mix_rate)
 	add_child(_menu_music)
 	_result_audio = AudioStreamPlayer.new()
+	_result_audio.bus = &"Music"
 	_result_audio.name = "ResultAudio"
 	_result_audio.volume_db = -6.0
 	add_child(_result_audio)
@@ -214,6 +221,9 @@ func _process(delta: float) -> void:
 		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# An online match cannot pause the local SceneTree independently of its peer.
+	if main != null and is_instance_valid(main.get("network_match")):
+		return
 	if _hud_editor != null and _hud_editor.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -246,6 +256,7 @@ func _load_settings() -> void:
 func _save_settings() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://"))
 	var config := ConfigFile.new()
+	config.load("user://prototype0_settings.cfg")
 	config.set_value("settings", "camera_shake", _settings.camera_shake)
 	config.set_value("settings", "touch_scale", _settings.touch_scale)
 	config.save("user://prototype0_settings.cfg")
@@ -308,6 +319,7 @@ func _show_screen(screen: Screen) -> void:
 	match screen:
 		Screen.MENU:
 			_menu_panel.visible = true
+			_menu_settings_button.visible = true
 		Screen.EQUIPMENT:
 			_equipment_panel.visible = true
 			_refresh_equipment()
@@ -337,7 +349,7 @@ func _touch_preview_requested() -> bool:
 	return false
 
 func _build_menu() -> void:
-	var panel_size := Vector2(620.0, 660.0)
+	var panel_size := Vector2(620.0, 600.0)
 	_menu_panel = Control.new()
 	_menu_panel.name = "MainMenuPanel"
 	_menu_panel.custom_minimum_size = panel_size
@@ -356,8 +368,8 @@ func _build_menu() -> void:
 	var box := VBoxContainer.new()
 	box.name = "MenuContent"
 	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	box.position = Vector2(136.0, 108.0)
-	box.size = Vector2(422.0, 470.0)
+	box.position = Vector2(136.0, 94.0)
+	box.size = Vector2(422.0, 416.0)
 	box.add_theme_constant_override("separation", 7)
 	_menu_panel.add_child(box)
 	var title := HBoxContainer.new()
@@ -371,7 +383,7 @@ func _build_menu() -> void:
 	title_zero.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	title.add_child(title_zero)
 	box.add_child(title)
-	var subtitle := _label("COMBAT DE ROBOTS  •  ARÈNE LOCALE", 16, CYAN)
+	var subtitle := _label("COMBAT DE ROBOTS", 16, CYAN)
 	subtitle.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	box.add_child(subtitle)
 	var divider := ColorRect.new()
@@ -379,17 +391,43 @@ func _build_menu() -> void:
 	divider.custom_minimum_size = Vector2(0.0, 2.0)
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(divider)
-	var intro := _label("Choisis un duel, une survie ou un entraînement.", 18, CREAM)
-	intro.custom_minimum_size = Vector2(0.0, 56.0)
-	box.add_child(intro)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 2.0)
+	spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
-	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
-	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
+	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
+	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	var training_spacer := Control.new()
+	training_spacer.custom_minimum_size = Vector2(0.0, 10.0)
+	box.add_child(training_spacer)
+	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	_build_menu_settings_shortcut()
+
+
+func _build_menu_settings_shortcut() -> void:
+	_menu_settings_button = Button.new()
+	_menu_settings_button.name = "MenuSettingsShortcut"
+	_menu_settings_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_menu_settings_button.offset_left = 24.0
+	_menu_settings_button.offset_top = -72.0
+	_menu_settings_button.offset_right = 72.0
+	_menu_settings_button.offset_bottom = -24.0
+	_menu_settings_button.icon = MENU_SETTINGS_ICON
+	_menu_settings_button.expand_icon = true
+	_menu_settings_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu_settings_button.add_theme_constant_override("icon_max_width", 28)
+	_menu_settings_button.tooltip_text = "Réglages"
+	_menu_settings_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var active: bool = state != "normal"
+		var style := _panel_style(Color("#26363b") if active else Color("#20272b"), CYAN if active else Color("#536064"), 10)
+		style.content_margin_left = 8.0
+		style.content_margin_right = 8.0
+		style.content_margin_top = 8.0
+		style.content_margin_bottom = 8.0
+		_menu_settings_button.add_theme_stylebox_override(state, style)
+	_menu_settings_button.pressed.connect(_open_settings)
+	_screen_root.add_child(_menu_settings_button)
 
 
 func _build_lobby() -> void:
@@ -405,12 +443,13 @@ func _open_lobby() -> void:
 
 
 func _menu_art_button(text: String, callback: Callable, texture: Texture2D, height: float) -> Control:
+	var primary := texture == MENU_BUTTON_PRIMARY_TEXTURE
 	var item := Control.new()
 	item.custom_minimum_size = Vector2(0.0, height)
 	var art := TextureRect.new()
 	var cropped := AtlasTexture.new()
 	cropped.atlas = texture
-	cropped.region = Rect2(40.0, 120.0 if text == "JOUER" else 140.0, 2100.0, 450.0 if text == "JOUER" else 430.0)
+	cropped.region = Rect2(40.0, 120.0 if primary else 140.0, 2100.0, 450.0 if primary else 430.0)
 	art.texture = cropped
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_SCALE
@@ -420,7 +459,7 @@ func _menu_art_button(text: String, callback: Callable, texture: Texture2D, heig
 	var button := Button.new()
 	button.text = text
 	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	button.add_theme_font_size_override("font_size", 26 if text == "JOUER" else 21)
+	button.add_theme_font_size_override("font_size", 26 if primary else 21)
 	button.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	button.add_theme_color_override("font_color", CREAM)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -764,13 +803,20 @@ func _equipment_preview_style(active: bool) -> StyleBoxFlat:
 	return style
 
 func _build_settings() -> void:
-	_settings_panel = _center_panel(620, 470)
+	_settings_panel = _center_panel(680, 640)
 	_screen_root.add_child(_settings_panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settings_panel.add_child(scroll)
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 14)
-	_settings_panel.add_child(box)
+	scroll.add_child(box)
 	box.add_child(_label("RÉGLAGES", 32, CREAM))
-	box.add_child(_label("Options limitées au prototype", 14, MUTED))
+	var comfort := COMFORT_SETTINGS.new()
+	comfort.name = "ComfortSettings"
+	comfort.add_theme_font_override("font", MENU_DISPLAY_FONT)
+	box.add_child(comfort)
 	var shake := CheckButton.new()
 	shake.name = "CameraShake"
 	shake.text = "Secousses de caméra"
@@ -904,13 +950,14 @@ func _build_hud() -> void:
 		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(cooldown_ring)
 		_hud_labels["%s_ring" % module_id] = cooldown_ring
-		var key_label := _label(str(slot["key"]), 13, AMBER)
+		var key_label := _label(get_node("/root/GamePreferences").key_label(module_id), 13, AMBER)
 		key_label.position = Vector2(63.0, 9.0)
 		key_label.size = Vector2(23.0, 23.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(key_label)
+		_hud_labels["%s_key" % module_id] = key_label
 		var module_label := _label("", 11, CREAM)
 		module_label.position = Vector2(88.0, 9.0)
 		module_label.size = Vector2(89.0, 23.0)
@@ -1147,6 +1194,7 @@ func _update_hud() -> void:
 		_javelin_recast_display_fraction = float(player.call("get_javelin_recast_fraction"))
 	for key in spell_modules.keys():
 		var identifier: String = spell_modules[key]
+		_hud_labels["%s_key" % key].text = get_node("/root/GamePreferences").key_label(key)
 		var cooldown := float(player.call("get_module_cooldown", identifier))
 		_hud_labels[key].text = LOADOUT.display_name(identifier)
 		_hud_labels["%s_icon" % key].texture = _equipment_icons.get_icon(identifier)
@@ -1163,7 +1211,7 @@ func _update_hud() -> void:
 			if recast_active:
 				_hud_labels.offensive_recast_fill.size = Vector2(160.0 * _javelin_recast_display_fraction, 3.0)
 		if recast_active:
-			_hud_labels["%s_status" % key].text = "A →"
+			_hud_labels["%s_status" % key].text = get_node("/root/GamePreferences").key_label("offensive") + " →"
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
@@ -1584,6 +1632,10 @@ func _end_pause(resume_game: bool) -> void:
 func _update_pause_labels() -> void:
 	if _hud_labels.has("pause_status"):
 		_hud_labels.pause_status.text = "La manche est suspendue."
+		if main != null and main.has_method("get_bot_build"):
+			var opponent: Dictionary = main.call("get_bot_build")
+			if not opponent.is_empty():
+				_hud_labels.pause_status.text = str(opponent.title) + "\n" + BOT_BUILDS.describe(opponent)
 
 func _restart() -> void:
 	_end_pause(false)

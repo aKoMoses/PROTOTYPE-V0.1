@@ -12,8 +12,16 @@ signal round_finished(host_score: int, guest_score: int, winner_id: int, match_o
 signal opponent_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String)
 signal opponent_hit(amount: float, source_id: String, attack_id: String)
 signal opponent_effect(effect: String, duration: float, value: float)
+signal pose_received(pose: Dictionary)
+signal action_requested(request: Dictionary)
+signal action_received(event: Dictionary)
+signal combat_received(snapshot: Dictionary)
 
 const KEY_STORE := preload("res://addons/GD-Sync/Scripts/KeyStore.gd")
+const LOADOUT := preload("res://scripts/loadout_state.gd")
+
+# Rooms contain exactly two humans. Broadcast reaches only the other peer and
+# avoids the addon's target-id bit packing; every receiver checks the sender.
 
 var connected := false
 var current_room: Dictionary = {}
@@ -24,6 +32,9 @@ var _host_score := 0
 var _guest_score := 0
 var _round_number := 0
 var _ready_ids: Dictionary = {}
+var round_loadouts: Dictionary = {}
+var _match_token := ""
+var _combat_sequence := 0
 
 
 func _ready() -> void:
@@ -42,8 +53,8 @@ func _ready() -> void:
 	_service.client_left.connect(_on_client_left)
 	_service.host_changed.connect(_on_host_changed)
 	for method_name in ["_remote_room_state", "_remote_start_match", "_host_match_ready",
-		"_remote_round_prepared", "_remote_round_live", "_host_report_death",
-		"_remote_round_finished", "_remote_state", "_remote_hit", "_remote_effect"]:
+		"_remote_round_prepared", "_remote_round_live", "_remote_round_finished",
+		"_host_pose", "_host_action", "_remote_action", "_remote_combat"]:
 		_service.expose_func(Callable(self, method_name))
 
 
@@ -198,8 +209,9 @@ func _sync_room() -> void:
 
 
 func _remote_room_state(room: Dictionary) -> void:
+	if _service.get_sender_id() != int(current_room.get("host_id", _service.get_host())):
+		return
 	current_room = room
-	_phase = str(room.get("phase", "waiting"))
 	room_changed.emit(room)
 
 
@@ -214,30 +226,46 @@ func start_match() -> void:
 	_guest_score = 0
 	_round_number = 0
 	_ready_ids.clear()
+	round_loadouts.clear()
+	_match_token = "%d-%d" % [Time.get_ticks_usec(), randi()]
+	_combat_sequence = 0
 	_sync_room()
 	var host_id := local_peer_id()
-	_service.call_func(Callable(self, "_remote_start_match"), host_id, guest_id)
+	_service.call_func(Callable(self, "_remote_start_match"), host_id, guest_id, _match_token)
 	match_started.emit(host_id, guest_id)
 
 
-func _remote_start_match(host_id: int, guest_id: int) -> void:
+func _remote_start_match(host_id: int, guest_id: int, token: String) -> void:
+	if _service.get_sender_id() != _service.get_host() or host_id != _service.get_host() or guest_id != local_peer_id():
+		return
 	_phase = "starting"
+	_match_token = token
+	_round_number = 0
+	round_loadouts.clear()
+	_combat_sequence = 0
 	match_started.emit(host_id, guest_id)
 
 
-func match_ready() -> void:
+func match_ready(loadout: Dictionary = {}) -> void:
 	if _phase != "starting":
 		return
 	if _service.is_host():
-		_host_match_ready(local_peer_id())
+		_accept_ready(local_peer_id(), loadout)
 	else:
-		_service.call_func(Callable(self, "_host_match_ready"), local_peer_id())
+		_service.call_func(Callable(self, "_host_match_ready"), local_peer_id(), loadout, _match_token)
 
 
-func _host_match_ready(peer_id: int) -> void:
+func _host_match_ready(peer_id: int, loadout: Dictionary, token: String) -> void:
+	if _service.get_sender_id() != peer_id or token != _match_token:
+		return
+	_accept_ready(peer_id, loadout)
+
+
+func _accept_ready(peer_id: int, loadout: Dictionary) -> void:
 	if not _service.is_host() or _phase != "starting" or peer_id not in [int(current_room.host_id), int(current_room.guest_id)]:
 		return
 	_ready_ids[peer_id] = true
+	round_loadouts[peer_id] = LOADOUT.sanitize(loadout)
 	if _ready_ids.size() == 2:
 		_host_prepare_round()
 
@@ -248,58 +276,66 @@ func _host_prepare_round() -> void:
 	_round_number += 1
 	_phase = "countdown"
 	_sync_room()
-	_service.call_func(Callable(self, "_remote_round_prepared"), _round_number, _host_score, _guest_score)
+	_service.call_func(Callable(self, "_remote_round_prepared"), _round_number, _host_score, _guest_score, round_loadouts, _match_token)
 	round_prepared.emit(_round_number, _host_score, _guest_score)
+	var prepared_token := _match_token
+	var prepared_round := _round_number
 	await get_tree().create_timer(3.5).timeout
-	if _phase != "countdown" or current_room.is_empty():
+	if _phase != "countdown" or current_room.is_empty() or prepared_token != _match_token or prepared_round != _round_number:
 		return
 	_phase = "live"
 	_sync_room()
-	_service.call_func(Callable(self, "_remote_round_live"))
+	_service.call_func(Callable(self, "_remote_round_live"), _round_number, _match_token)
 	round_live.emit()
 
 
-func _remote_round_prepared(number: int, host_score: int, guest_score: int) -> void:
+func _remote_round_prepared(number: int, host_score: int, guest_score: int, loadouts: Dictionary, token: String) -> void:
+	if not _from_host(token) or number <= _round_number:
+		return
+	_round_number = number
+	round_loadouts = loadouts
 	_phase = "countdown"
 	round_prepared.emit(number, host_score, guest_score)
 
 
-func _remote_round_live() -> void:
+func _remote_round_live(number: int, token: String) -> void:
+	if not _from_host(token) or number != _round_number or _phase != "countdown":
+		return
 	_phase = "live"
 	round_live.emit()
 
 
 func report_death() -> void:
-	if _phase != "live" or current_room.is_empty():
-		return
-	if _service.is_host():
-		_host_report_death(local_peer_id())
-	else:
-		_service.call_func(Callable(self, "_host_report_death"), local_peer_id())
+	# Death is now determined from both host combat states after the physics tick.
+	pass
 
 
-func _host_report_death(dead_id: int) -> void:
-	if not _service.is_host() or _phase != "live" or dead_id not in [int(current_room.host_id), int(current_room.guest_id)]:
+func finish_authoritative_round(host_dead: bool, guest_dead: bool) -> void:
+	if not _service.is_host() or _phase != "live" or current_room.is_empty() or not (host_dead or guest_dead):
 		return
 	_phase = "round_result"
-	var winner_id := int(current_room.guest_id) if dead_id == int(current_room.host_id) else int(current_room.host_id)
-	if winner_id == int(current_room.host_id):
+	var winner_id := 0 if host_dead and guest_dead else int(current_room.guest_id) if host_dead else int(current_room.host_id)
+	if winner_id != 0 and winner_id == int(current_room.host_id):
 		_host_score += 1
-	else:
+	elif winner_id != 0:
 		_guest_score += 1
 	var over := _host_score >= 3 or _guest_score >= 3
 	if over:
 		_phase = "finished"
 	_sync_room()
-	_service.call_func(Callable(self, "_remote_round_finished"), _host_score, _guest_score, winner_id, over)
+	_service.call_func(Callable(self, "_remote_round_finished"), _host_score, _guest_score, winner_id, over, _round_number, _match_token)
 	round_finished.emit(_host_score, _guest_score, winner_id, over)
 	if not over:
+		var finished_token := _match_token
+		var finished_round := _round_number
 		await get_tree().create_timer(2.0).timeout
-		if _phase == "round_result" and not current_room.is_empty():
+		if _phase == "round_result" and not current_room.is_empty() and finished_token == _match_token and finished_round == _round_number:
 			_host_prepare_round()
 
 
-func _remote_round_finished(host_score: int, guest_score: int, winner_id: int, over: bool) -> void:
+func _remote_round_finished(host_score: int, guest_score: int, winner_id: int, over: bool, number: int, token: String) -> void:
+	if not _from_host(token) or number != _round_number or _phase != "live":
+		return
 	_phase = "finished" if over else "round_result"
 	round_finished.emit(host_score, guest_score, winner_id, over)
 
@@ -322,9 +358,8 @@ func _remote_state(position: Vector3, aim: Vector3, health: float, max_health: f
 
 
 func send_hit(amount: float, source_id: String, attack_id: String) -> void:
-	var other := _other_id()
-	if _phase == "live" and other != 0 and is_finite(amount) and amount > 0.0 and amount <= 250.0:
-		_service.call_func(Callable(self, "_remote_hit"), amount, source_id.substr(0, 48), attack_id.substr(0, 80))
+	# Legacy proxies cannot submit damage to the other human.
+	pass
 
 
 func _remote_hit(amount: float, source_id: String, attack_id: String) -> void:
@@ -333,9 +368,78 @@ func _remote_hit(amount: float, source_id: String, attack_id: String) -> void:
 
 
 func send_effect(effect: String, duration: float, value: float = 0.0) -> void:
-	var other := _other_id()
-	if _phase == "live" and other != 0 and effect in ["burn", "slow", "stun", "spotted"]:
-		_service.call_func(Callable(self, "_remote_effect"), effect, clampf(duration, 0.0, 8.0), clampf(value, 0.0, 100.0))
+	pass
+
+
+func _from_host(token: String) -> bool:
+	return not current_room.is_empty() and token == _match_token and _service.get_sender_id() == int(current_room.host_id)
+
+
+func _packet_valid(packet: Dictionary) -> bool:
+	return str(packet.get("token", "")) == _match_token and int(packet.get("round", -1)) == _round_number
+
+
+func _stamp(packet: Dictionary) -> Dictionary:
+	var result := packet.duplicate(true)
+	result.token = _match_token
+	result.round = _round_number
+	return result
+
+
+func send_pose(pose: Dictionary) -> void:
+	if _phase == "live" and not _service.is_host() and not current_room.is_empty():
+		_service.call_func_unreliable(Callable(self, "_host_pose"), _stamp(pose))
+
+
+func _host_pose(pose: Dictionary) -> void:
+	if _phase == "live" and _service.is_host() and _packet_valid(pose) and _service.get_sender_id() == int(current_room.get("guest_id", 0)):
+		pose_received.emit(pose)
+
+
+func request_action(request: Dictionary) -> void:
+	if _phase == "live" and not _service.is_host() and not current_room.is_empty():
+		_service.call_func(Callable(self, "_host_action"), _stamp(request))
+
+
+func _host_action(request: Dictionary) -> void:
+	if _phase == "live" and _service.is_host() and _packet_valid(request) and _service.get_sender_id() == int(current_room.get("guest_id", 0)):
+		action_requested.emit(request)
+
+
+func publish_action(event: Dictionary) -> void:
+	if _phase == "live" and _service.is_host():
+		_service.call_func(Callable(self, "_remote_action"), _stamp(event))
+
+
+func _remote_action(event: Dictionary) -> void:
+	if _phase == "live" and _packet_valid(event) and _from_host(str(event.token)):
+		action_received.emit(event)
+
+
+func publish_combat(snapshot: Dictionary, reliable := false) -> void:
+	if _phase not in ["countdown", "live"] or not _service.is_host():
+		return
+	_combat_sequence += 1
+	var packet := _stamp(snapshot)
+	packet.sequence = _combat_sequence
+	# These contain full effect/passive state. Compress below the relay MTU so
+	# a single snapshot does not require fragmented unreliable packets.
+	var buffer := var_to_bytes(packet).compress(FileAccess.COMPRESSION_DEFLATE)
+	if reliable:
+		_service.call_func(Callable(self, "_remote_combat"), buffer)
+	else:
+		_service.call_func_unreliable(Callable(self, "_remote_combat"), buffer)
+
+
+func _remote_combat(buffer: PackedByteArray) -> void:
+	if current_room.is_empty() or _service.get_sender_id() != int(current_room.host_id):
+		return
+	var decoded: Variant = bytes_to_var(buffer.decompress_dynamic(32768, FileAccess.COMPRESSION_DEFLATE))
+	if not decoded is Dictionary:
+		return
+	var snapshot: Dictionary = decoded
+	if _phase in ["countdown", "live"] and _packet_valid(snapshot) and _from_host(str(snapshot.token)):
+		combat_received.emit(snapshot)
 
 
 func _remote_effect(effect: String, duration: float, value: float) -> void:

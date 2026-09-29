@@ -57,8 +57,6 @@ var _spell_slots: Dictionary = {}
 var _spell_bar: Control
 var _equipment_icons = EQUIPMENT_ICONS.new()
 var _pause_button: Button
-var _choice_panel: PanelContainer
-var _choice_content: VBoxContainer
 var _reward_overlay: Control
 var _reward_content: VBoxContainer
 var _reward_input_delay := -1.0
@@ -109,6 +107,10 @@ func _process(delta: float) -> void:
 	_wave_label.text = "VAGUE %d/%d" % [wave, PROGRESSION.TOTAL_WAVES] if wave > 0 else "SURVIE"
 	var build := progression.build()
 	_synergy_label.text = SYNERGIES.names(build)
+	if player.survival_evolution_effects != null:
+		var passive_status: String = player.survival_evolution_effects.passive_status()
+		if passive_status != "":
+			_synergy_label.text = passive_status + ("\n" + _synergy_label.text if _synergy_label.text != "" else "")
 	_synergy_label.visible = _state == "combat"
 	if _state == "combat":
 		stats.elapsed += delta
@@ -132,7 +134,7 @@ func _process(delta: float) -> void:
 			_begin_wave_combat()
 	if _state == "reward" and _reward_input_delay >= 0.0:
 		_reward_input_delay = maxf(0.0, _reward_input_delay - delta)
-		if _reward_input_delay <= 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not Input.is_key_pressed(KEY_SPACE):
+		if _reward_input_delay <= 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not Input.is_action_pressed("game_attack"):
 			_reward_input_delay = -1.0
 			for card in _reward_overlay.find_children("RewardChoice*", "Button", true, false):
 				(card as Button).disabled = false
@@ -361,16 +363,19 @@ func _build_player_and_camera() -> void:
 
 func _build_music() -> void:
 	_music = AudioStreamPlayer.new()
+	_music.bus = &"Music"
 	_music.name = "SurvivalMusic"
 	_music.process_mode = Node.PROCESS_MODE_ALWAYS
 	_music.volume_db = MUSIC_STAGE_VOLUME_DB[0]
 	add_child(_music)
 	_other_music = AudioStreamPlayer.new()
+	_other_music.bus = &"Music"
 	_other_music.name = "SurvivalMusicTransition"
 	_other_music.process_mode = Node.PROCESS_MODE_ALWAYS
 	_other_music.volume_db = -60.0
 	add_child(_other_music)
 	_reward_music = AudioStreamPlayer.new()
+	_reward_music.bus = &"Music"
 	_reward_music.name = "SurvivalRewardMusic"
 	_reward_music.process_mode = Node.PROCESS_MODE_ALWAYS
 	_reward_music.volume_db = -60.0
@@ -509,23 +514,6 @@ func _build_ui() -> void:
 	_touch.set_script(TOUCH_SCRIPT)
 	_touch.call("set_player", player)
 	_ui_layer.add_child(_touch)
-	_choice_panel = PanelContainer.new()
-	_choice_panel.name = "ChoicePanel"
-	_choice_panel.custom_minimum_size = Vector2(680, 330)
-	_choice_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_choice_panel.position = Vector2(-340, -165)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#1e2930f2")
-	style.border_color = Color("#74c9ce")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(12)
-	style.set_content_margin_all(22)
-	_choice_panel.add_theme_stylebox_override("panel", style)
-	_ui_layer.add_child(_choice_panel)
-	_choice_content = VBoxContainer.new()
-	_choice_content.add_theme_constant_override("separation", 12)
-	_choice_panel.add_child(_choice_content)
-	_choice_panel.visible = false
 	_build_reward_ui()
 	_build_pause_menu()
 
@@ -547,7 +535,7 @@ func _build_reward_ui() -> void:
 	_reward_overlay.add_child(center)
 	var panel := PanelContainer.new()
 	panel.name = "RewardPanel"
-	panel.custom_minimum_size = Vector2(690, 550)
+	panel.custom_minimum_size = Vector2(950, 550)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#17252cdd")
 	style.border_color = Color("#415e62")
@@ -560,16 +548,19 @@ func _build_reward_ui() -> void:
 	_reward_content.add_theme_constant_override("separation", 8)
 	panel.add_child(_reward_content)
 
-func _reward_choice_card(choice: Dictionary, index: int) -> Button:
+func _reward_choice_card(choice: Dictionary, index: int, start_choice: bool = false) -> Button:
 	var card := Button.new()
 	card.name = "RewardChoice%d" % index
 	card.text = ""
-	card.disabled = true
+	card.disabled = not start_choice
 	card.custom_minimum_size = Vector2(290, 435)
 	var empty := StyleBoxEmpty.new()
 	for state in ["normal", "hover", "pressed", "focus"]:
 		card.add_theme_stylebox_override(state, empty)
-	card.pressed.connect(_choose_reward.bind(choice))
+	if start_choice:
+		card.pressed.connect(_choose_weapon.bind(str(choice.id)))
+	else:
+		card.pressed.connect(_choose_reward.bind(choice))
 	var art := TextureRect.new()
 	art.texture = REWARD_CARD_ART
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -581,8 +572,10 @@ func _reward_choice_card(choice: Dictionary, index: int) -> Button:
 	card.mouse_exited.connect(func() -> void: art.modulate = Color.WHITE)
 	card.focus_entered.connect(func() -> void: art.modulate = Color(1.18, 1.13, 1.04))
 	card.focus_exited.connect(func() -> void: art.modulate = Color.WHITE)
-	var kinds := {"item": "NOUVEAU MODULE", "evolution": "ÉVOLUTION", "power": "PUISSANCE", "tempo": "RYTHME"}
+	var kinds := {"item": "NOUVEAU MODULE", "weapon": "ARME DE DÉPART", "synergy": "SYNERGIE", "evolution": "ÉVOLUTION", "power": "PUISSANCE", "tempo": "RYTHME"}
 	var eyebrow := _label(str(kinds.get(str(choice.kind), "AMÉLIORATION")), 12, Color("#b4eeea"))
+	if str(choice.kind) == "evolution":
+		eyebrow.text = "ULTIME · 3/3" if int(choice.get("rank", 0)) == 3 else "ÉVOLUTION · %d/3" % int(choice.get("rank", 1))
 	eyebrow.position = Vector2(50, 17)
 	eyebrow.size = Vector2(190, 27)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -590,21 +583,41 @@ func _reward_choice_card(choice: Dictionary, index: int) -> Button:
 	eyebrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(eyebrow)
 	var icon := TextureRect.new()
-	icon.texture = _equipment_icons.get_icon(str(choice.id))
+	var icon_id := str(choice.id)
+	if str(choice.kind) == "synergy":
+		icon_id = str(SYNERGIES.DEFINITIONS[icon_id].items[0])
+	icon.texture = _equipment_icons.get_icon(icon_id)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(icon)
-	icon.position = Vector2(68, 61)
-	icon.size = Vector2(154, 155)
-	var title := _label(LOADOUT.display_name(str(choice.id)), 19, Color("#f5dfbf"))
+	icon.position = Vector2(68, 61) if str(choice.kind) != "synergy" else Vector2(43, 75)
+	icon.size = Vector2(154, 155) if str(choice.kind) != "synergy" else Vector2(112, 125)
+	if str(choice.kind) == "synergy":
+		var second_icon := TextureRect.new()
+		second_icon.texture = _equipment_icons.get_icon(str(SYNERGIES.DEFINITIONS[str(choice.id)].items[1]))
+		second_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		second_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		second_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		second_icon.position = Vector2(139, 75)
+		second_icon.size = Vector2(112, 125)
+		card.add_child(second_icon)
+	var title := _label(str(choice.title) if str(choice.kind) in ["synergy", "evolution"] else LOADOUT.display_name(str(choice.id)), 16 if str(choice.kind) in ["synergy", "evolution"] else 19, Color("#f5dfbf"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.position = Vector2(45, 232)
-	title.size = Vector2(200, 32)
+	title.position = Vector2(45, 224) if str(choice.kind) == "synergy" else Vector2(45, 232)
+	title.size = Vector2(200, 48) if str(choice.kind) in ["synergy", "evolution"] else Vector2(200, 32)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(title)
+	if str(choice.kind) == "evolution":
+		title.size.y = 22
+		var item_label := _label(LOADOUT.display_name(str(choice.id)), 11, Color("#92d5d2"))
+		item_label.position = Vector2(45, 253)
+		item_label.size = Vector2(200, 14)
+		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		item_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(item_label)
 	var description := _label(_reward_card_description(choice), 13, Color("#d7e2dd"))
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.position = Vector2(45, 284)
@@ -620,14 +633,14 @@ func _reward_choice_card(choice: Dictionary, index: int) -> Button:
 	action.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	action.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(action)
-	var synergy_hint := SYNERGIES.preview(progression.build(), choice)
+	var synergy_hint := SYNERGIES.preview(progression.build(), choice) if not start_choice else ""
 	if synergy_hint != "":
-		var hint := _label(synergy_hint, 11, Color("#ffe09a"))
+		var hint := _label("SYNERGIE POSSIBLE\n" + synergy_hint.trim_prefix("SYNERGIE DÉBLOQUABLE : "), 11, Color("#ffe09a"))
 		description.position.y = 280
-		description.size.y = 45
+		description.size.y = 42
 		description.add_theme_font_size_override("font_size", 12)
-		hint.position = Vector2(40, 329)
-		hint.size = Vector2(210, 24)
+		hint.position = Vector2(40, 323)
+		hint.size = Vector2(210, 38)
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -636,25 +649,34 @@ func _reward_choice_card(choice: Dictionary, index: int) -> Button:
 	return card
 
 func _show_reward_choices() -> void:
-	_reward_input_delay = REWARD_INPUT_DELAY
+	var start_choice := _state == "selection"
+	_reward_input_delay = -1.0 if start_choice else REWARD_INPUT_DELAY
 	for child in _reward_content.get_children():
 		_reward_content.remove_child(child)
 		child.queue_free()
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 12)
 	_reward_content.add_child(top)
-	var section := _label("SURVIE  /  RÉCOMPENSE", 13, Color("#8fd1d0"))
+	var section := _label("SURVIE  /  ARME DE DÉPART" if start_choice else "SURVIE  /  RÉCOMPENSE", 13, Color("#8fd1d0"))
 	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(section)
-	top.add_child(_label("VAGUE %02d / %02d" % [wave, PROGRESSION.TOTAL_WAVES], 13, Color("#efb765")))
-	_reward_content.add_child(_label("CHOISIS UNE AMÉLIORATION", 27, Color("#f5dfbf")))
+	top.add_child(_label("12 VAGUES" if start_choice else "VAGUE %02d / %02d" % [wave, PROGRESSION.TOTAL_WAVES], 13, Color("#efb765")))
+	_reward_content.add_child(_label("CHOISIS TON ARME" if start_choice else "CHOISIS UNE CARTE", 27, Color("#f5dfbf")))
 	var cards := HBoxContainer.new()
 	cards.alignment = BoxContainer.ALIGNMENT_CENTER
 	cards.add_theme_constant_override("separation", 20)
 	_reward_content.add_child(cards)
-	var choices := progression.reward_choices(wave)
+	var choices: Array[Dictionary] = progression.reward_choices(wave)
+	if start_choice:
+		choices = [
+			{"category": "weapon", "kind": "weapon", "id": "blaster", "title": "BLASTER", "description": LOADOUT.category_description("blaster")},
+			{"category": "weapon", "kind": "weapon", "id": "shotgun", "title": "SHOTGUN", "description": LOADOUT.category_description("shotgun")},
+		]
 	for index in range(choices.size()):
-		cards.add_child(_reward_choice_card(choices[index], index + 1))
+		cards.add_child(_reward_choice_card(choices[index], index + 1, start_choice))
+	if start_choice:
+		_reward_content.add_child(_label("Réparation après les vagues 3, 6 et 9 · Kits de soin dans l'arène", 12, Color("#9dbab6")))
+		_reward_content.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu")))
 	_reward_overlay.visible = true
 
 func _build_pause_menu() -> void:
@@ -722,7 +744,7 @@ func _build_spell_bar() -> void:
 		ring.size = Vector2(48.0, 54.0)
 		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(ring)
-		var key := _label({"offensive": "A", "defensive": "E", "mobility": "R"}[category], 13, Color("#efb765"))
+		var key := _label(get_node("/root/GamePreferences").key_label(category), 13, Color("#efb765"))
 		key.position = Vector2(63.0, 9.0)
 		key.size = Vector2(23.0, 23.0)
 		key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -737,7 +759,7 @@ func _build_spell_bar() -> void:
 		status.size = Vector2(112.0, 22.0)
 		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		slot.add_child(status)
-		_spell_slots[category] = {"icon": icon, "ring": ring, "name": name_label, "status": status}
+		_spell_slots[category] = {"icon": icon, "ring": ring, "name": name_label, "status": status, "key": key}
 
 func _update_spell_bar(build: Dictionary) -> void:
 	_spell_bar.visible = ((wave > 0 and _state in ["incoming", "combat"]) or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.spell_bar.v))
@@ -746,6 +768,7 @@ func _update_spell_bar(build: Dictionary) -> void:
 	var multipliers: Dictionary = player.get("_survival_cooldown_multipliers")
 	for category in ["offensive", "defensive", "mobility"]:
 		var identifier := str(build[category])
+		_spell_slots[category].key.text = get_node("/root/GamePreferences").key_label(category)
 		var slot: Dictionary = _spell_slots[category]
 		var icon: TextureRect = slot.icon
 		var ring: Control = slot.ring
@@ -763,9 +786,23 @@ func _update_spell_bar(build: Dictionary) -> void:
 		var duration := float(definition.get("cooldown", 1.0)) * float(multipliers.get(category, 1.0))
 		var recast: bool = category == "offensive" and identifier == "javelin" and float(player.call("get_javelin_recast_fraction")) > 0.0
 		ring.call("set_cooldown", cooldown, duration, recast)
-		status.text = "A →" if recast else "%.1f s" % cooldown if cooldown > 0.0 else "PRÊT"
+		status.text = get_node("/root/GamePreferences").key_label("offensive") + " →" if recast else "%.1f s" % cooldown if cooldown > 0.0 else "PRÊT"
+		var effects: Node = player.survival_evolution_effects
+		if effects != null:
+			if recast:
+				status.text = "A · REJOINDRE" if effects.path("offensive") == "beacon" else "A · RAPPEL"
+			elif identifier == "pyro_boots" and effects.path("mobility") == "thruster":
+				var charges: int = effects.dash_charges()
+				status.text = "%d / 2 DASH" % charges if charges > 0 else "%.1f s" % cooldown
+			elif identifier == "static_shield" and effects.shield_remaining > 0.0:
+				status.text = "%d PV" % roundi(effects.shield_health)
+			elif identifier == "magnetic_field" and effects.path("defensive") == "capacitor" and is_instance_valid(effects.wall):
+				status.text = "E · %d ÉNERGIE" % roundi(effects.wall_energy)
 		status.add_theme_color_override("font_color", Color("#efb765") if cooldown > 0.0 or recast else Color("#92e1d7"))
 		icon.modulate = Color("#b7aaa0") if cooldown > 0.0 and not recast else Color.WHITE
+		if effects != null and identifier == "pyro_boots" and effects.path("mobility") == "thruster" and effects.dash_charges() > 0:
+			icon.modulate = Color.WHITE
+			status.add_theme_color_override("font_color", Color("#92e1d7"))
 
 func _label(value: String, size: int, color: Color) -> Label:
 	var label := Label.new()
@@ -783,11 +820,6 @@ func _button(value: String, callback: Callable) -> Button:
 	button.add_theme_font_size_override("font_size", 19)
 	button.pressed.connect(callback)
 	return button
-
-func _clear_choices() -> void:
-	for child in _choice_content.get_children():
-		_choice_content.remove_child(child)
-		child.queue_free()
 
 func _clear_pause_content() -> void:
 	for child in _pause_content.get_children():
@@ -824,7 +856,10 @@ func _pause_build_card(category: String, title: String, build: Dictionary) -> Pa
 	item_name.clip_text = true
 	details.add_child(item_name)
 	var upgrades: Dictionary = build["upgrades"][category]
-	var status := "EN ATTENTE" if identifier == "" else "ÉVOLUTION  ·  PUISSANCE +%d  ·  RYTHME +%d" % [int(upgrades["power"]), int(upgrades["tempo"])] if bool(build["evolutions"][category]) else "PUISSANCE +%d  ·  RYTHME +%d" % [int(upgrades["power"]), int(upgrades["tempo"])]
+	var aspect: String = preload("res://scripts/survival_aspects.gd").label(build, category)
+	var status := "EN ATTENTE" if identifier == "" else "PUISSANCE +%d · RYTHME +%d" % [int(upgrades["power"]), int(upgrades["tempo"])]
+	if aspect != "":
+		status = aspect + " · P%d · R%d" % [int(upgrades["power"]), int(upgrades["tempo"])]
 	var status_label := _label(status, 11, Color("#92d5d2") if identifier != "" else Color("#8e9a9c"))
 	status_label.clip_text = true
 	details.add_child(status_label)
@@ -989,30 +1024,13 @@ func _on_hud_test_finished() -> void:
 
 func _show_weapon_choice() -> void:
 	_state = "selection"
-	_reward_overlay.visible = false
-	_clear_choices()
-	_choice_content.add_child(_label("SURVIE", 25, Color("#f3ddbb")))
-	_choice_content.add_child(_label("12 vagues · Choisis une arme", 16, Color("#c7d2d1")))
-	var records := RUN_STATS.read_records(records_path)
-	var favorite: Dictionary = records.get("favorite_build", {})
-	if not favorite.is_empty():
-		var items := PackedStringArray()
-		for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
-			if str(favorite.get(category, "")) != "":
-				items.append(LOADOUT.display_name(str(favorite[category])))
-		var reference := _label("FAVORI · " + " / ".join(items), 12, Color("#efba6c"))
-		reference.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_choice_content.add_child(reference)
-	_choice_content.add_child(_label("Réparation : 100 PV après les vagues 3, 6 et 9. Kits : +80 PV dans l'arène.", 12, Color("#9dbab6")))
-	_choice_content.add_child(_button("BLASTER", func() -> void: _choose_weapon("blaster")))
-	_choice_content.add_child(_button("SHOTGUN", func() -> void: _choose_weapon("shotgun")))
-	_choice_content.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu")))
-	_choice_panel.visible = true
+	_show_reward_choices()
 	_touch.visible = false
 
 func _choose_weapon(identifier: String) -> void:
 	if not progression.choose_weapon(identifier):
 		return
+	_reward_overlay.visible = false
 	player.call("configure_survival_build", progression.build())
 	player.call("reset_combat_state")
 	_start_wave()
@@ -1025,7 +1043,6 @@ func _start_wave() -> void:
 	_state = "incoming"
 	_play_music_for_wave(wave)
 	_update_spell_bar(progression.build())
-	_choice_panel.visible = false
 	_touch.visible = false
 	_arrival_remaining = 2.0
 	_arrival_label.visible = _hud_controller == null or bool(_hud_controller.layout.arrival.v)
@@ -1127,7 +1144,9 @@ func _on_enemy_died(enemy: StaticBody3D) -> void:
 	if _state != "combat":
 		return
 	enemy.call("set_training_bot_enabled", false)
-	if progression.evolutions.passive and progression.equipment.passive == "omnivamp":
+	if player.survival_evolution_effects != null:
+		player.survival_evolution_effects.enemy_died(enemy)
+	if progression.evolutions.passive and progression.equipment.passive == "omnivamp" and player._survival_evolved("passive"):
 		player.call("heal", 35.0, "omnivamp_kill")
 	defeated += 1
 	stats.kills += 1
@@ -1146,7 +1165,6 @@ func _complete_wave() -> void:
 	_spell_bar.visible = false
 	get_tree().paused = true
 	_enter_reward_music()
-	_choice_panel.visible = false
 	_show_reward_choices()
 	_touch.visible = false
 
@@ -1177,13 +1195,13 @@ func _show_result(won: bool) -> void:
 			enemy.call("set_training_bot_enabled", false)
 	get_tree().paused = true
 	_stop_all_music()
-	_clear_choices()
-	_choice_panel.visible = false
 	_arrival_label.visible = false
 	_synergy_label.visible = false
 	_touch.visible = false
 	if player.survival_synergies != null:
 		player.survival_synergies.clear_effects()
+	if player.survival_evolution_effects != null:
+		player.survival_evolution_effects.clear_transients()
 	summary = SUMMARY.new()
 	summary.records_path = records_path
 	_ui_layer.add_child(summary)
@@ -1274,6 +1292,8 @@ func _clear_enemies() -> void:
 	_repair = null
 	if player.survival_synergies != null:
 		player.survival_synergies.clear_effects()
+	if player.survival_evolution_effects != null:
+		player.survival_evolution_effects.clear_transients()
 	for marker in _arrival_markers:
 		if is_instance_valid(marker):
 			marker.queue_free()
@@ -1299,10 +1319,10 @@ func _reward_description(choice: Dictionary) -> String:
 		return str(choice.description)
 	return {
 		"modulo_drone": "Tir guidé. Brûle et révèle la cible.",
-		"javelin": "Lance un javelot. Réappui pour te téléporter.",
+		"javelin": "Lance un javelot. Réappui pour le rappeler.",
 		"pelto_smash": "Vague de terre aller-retour. Ralentit puis tracte.",
 		"magnetic_field": "Mur qui absorbe les tirs pendant 2,5 s.",
-		"static_shield": "Invulnérable 1,5 s. Actions bloquées.",
+		"static_shield": "Absorbe les dégâts tout en restant mobile.",
 		"pyro_boots": "Ruée de 3 m. Recharge : 6 s.",
 		"bio_injector": "Vitesse et tirs accélérés pendant 3 s.",
 		"baroud": "Survis brièvement à un coup fatal.",
@@ -1312,30 +1332,21 @@ func _reward_description(choice: Dictionary) -> String:
 func _reward_card_description(choice: Dictionary) -> String:
 	var identifier := str(choice.id)
 	match str(choice.kind):
+		"weapon":
+			return "Tirs précis à distance. Charge rapide pour frapper plus fort en restant mobile." if identifier == "blaster" else "Salves de plombs puissantes de près. Recharge entre les séries de tirs."
 		"item":
 			return {
 				"modulo_drone": "Envoie un drone sur l'ennemi visé et le brûle.",
-				"javelin": "Lance un javelot. Réappuie sur A pour rejoindre la cible touchée.",
+				"javelin": "Lance un javelot. Réappuie sur A pour le rappeler et blesser sur son trajet.",
 				"magnetic_field": "Pose un mur qui bloque les tirs ennemis.",
-				"static_shield": "Te protège des dégâts, mais bloque tes actions un instant.",
+				"static_shield": "Absorbe une quantité limitée de dégâts. Tu peux bouger et tirer.",
 				"pyro_boots": "Te propulse de quelques mètres dans ta direction.",
 				"bio_injector": "Accélère tes déplacements et tes tirs un instant.",
-				"baroud": "Après un coup fatal, tu peux encore te battre brièvement.",
+				"baroud": "Après un coup fatal, évite les coups un instant pour survivre. Une fois par partie.",
 				"omnivamp": "Tes dégâts te rendent de la vie.",
 			}.get(identifier, _reward_description(choice))
 		"evolution":
-			return {
-				"blaster": "Tirs renforcés. Ils traversent et touchent un second ennemi.",
-				"shotgun": "Tirs renforcés. Deux projectiles de plus par tir.",
-				"modulo_drone": "Drone renforcé. Il touche aussi un second ennemi.",
-				"javelin": "Javelot renforcé. L'impact blesse les ennemis proches.",
-				"magnetic_field": "Mur renforcé. Il électrocute les ennemis proches.",
-				"static_shield": "Bouclier renforcé. À sa fin, il blesse les ennemis proches.",
-				"pyro_boots": "Dash renforcé. Il laisse une traînée brûlante.",
-				"bio_injector": "Bonus renforcé. L'activation blesse les ennemis proches.",
-				"baroud": "Baroud renforcé. Son activation repousse les ennemis proches.",
-				"omnivamp": "Vol de vie renforcé. Éliminer un ennemi te soigne aussi.",
-			}.get(identifier, _reward_description(choice))
+			return str(choice.description)
 		"power":
 			return {
 				"blaster": "Tes tirs infligent davantage de dégâts.",
@@ -1343,7 +1354,7 @@ func _reward_card_description(choice: Dictionary) -> String:
 				"modulo_drone": "Ton drone frappe plus fort et brûle plus longtemps.",
 				"javelin": "Ton javelot inflige davantage de dégâts.",
 				"magnetic_field": "Ton mur reste actif plus longtemps.",
-				"static_shield": "Ton bouclier reste actif plus longtemps.",
+				"static_shield": "Ton bouclier absorbe davantage de dégâts.",
 				"pyro_boots": "Ton dash va plus loin.",
 				"bio_injector": "Tu te déplaces et tires encore plus vite.",
 				"baroud": "Baroud te laisse plus de temps pour survivre.",

@@ -1,10 +1,10 @@
 extends Node
 
 const DEFINITIONS := {
-	"thermal": {"name": "Détonation thermique", "items": ["blaster", "pyro_boots"]},
-	"relay": {"name": "Relais électrique", "items": ["modulo_drone", "magnetic_field"]},
-	"double": {"name": "Double détente", "items": ["shotgun", "bio_injector"]},
-	"trail": {"name": "Sillage incandescent", "items": ["javelin", "pyro_boots"]},
+	"thermal": {"name": "Détonation thermique", "items": ["blaster", "pyro_boots"], "description": "Les tirs chargés explosent les cibles brûlées."},
+	"relay": {"name": "Relais électrique", "items": ["modulo_drone", "magnetic_field"], "description": "Le drone traverse le mur et rebondit sur un autre ennemi."},
+	"double": {"name": "Double détente", "items": ["shotgun", "bio_injector"], "description": "Bio Injector déclenche une seconde salve de Shotgun."},
+	"trail": {"name": "Sillage incandescent", "items": ["javelin", "pyro_boots"], "description": "Le rappel ou la téléportation du Javelin laisse une traînée brûlante."},
 }
 var player: Node3D
 var active: Array[String] = []
@@ -19,12 +19,21 @@ var serial := 0
 var generation := 0
 var flights: Array[Dictionary] = []
 
-static func active_for(build: Dictionary) -> Array[String]:
+static func available_for(build: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for id in DEFINITIONS:
 		var pair: Array = DEFINITIONS[id].items
-		if pair[0] in build.values() and pair[1] in build.values():
+		if pair[0] in build.values() and pair[1] in build.values() and not id in build.get("synergies", []):
 			result.append(id)
+	return result
+
+static func active_for(build: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for id in build.get("synergies", []):
+		if DEFINITIONS.has(id):
+			var pair: Array = DEFINITIONS[id].items
+			if pair[0] in build.values() and pair[1] in build.values():
+				result.append(id)
 	return result
 
 static func names(build: Dictionary) -> String:
@@ -37,10 +46,9 @@ static func preview(build: Dictionary, choice: Dictionary) -> String:
 	var next := build.duplicate(true)
 	if choice.kind == "item":
 		next[choice.category] = choice.id
-	var current := active_for(build)
-	for id in active_for(next):
-		if not id in current:
-			return "ACTIVE : " + str(DEFINITIONS[id].name)
+	for id in available_for(next):
+		if not id in available_for(build):
+			return "SYNERGIE DÉBLOQUABLE : " + str(DEFINITIONS[id].name)
 	return ""
 
 func configure(build: Dictionary) -> void:

@@ -13,14 +13,18 @@ func _initialize() -> void:
 	var bot := target.get_node("TrainingBot")
 	var equipment := bot.get_node("DuelEquipment")
 	var flow := scene.get_node("Interface")
-	flow.set("round_number", 1)
-	scene.call("prepare_round", {})
-	if str(target.call("get_duel_profile")) != "blaster":
-		_failures.append("round one did not select the blaster harasser")
+	scene.call("start_duel", {})
+	var first: Dictionary = scene.call("get_bot_build")
+	for category in ["robot", "weapon", "offensive", "defensive", "mobility", "passive"]:
+		if not first.has(category):
+			_failures.append("bot build missing " + category)
 	flow.set("round_number", 2)
 	scene.call("prepare_round", {})
-	if str(target.call("get_duel_profile")) != "shotgun":
-		_failures.append("round two did not select the shotgun assaulter")
+	if first != scene.call("get_bot_build") or first != target.call("get_duel_loadout"):
+		_failures.append("bot build changed between rounds")
+	scene.call("start_duel", {})
+	if first.title == scene.call("get_bot_build").title:
+		_failures.append("new match repeated the same preset")
 	target.call("set_duel_mode", true)
 	target.global_position = Vector3(0.0, 0.0, 5.0)
 	player.global_position = Vector3(0.0, 0.0, 7.0)
@@ -30,6 +34,7 @@ func _initialize() -> void:
 	target.call("set_training_bot_enabled", true)
 	bot.set("training_stationary", true)
 	equipment.set("next_attack_at", 100.0)
+	equipment.set("_next_module_at", 100.0)
 	await physics_frame
 	await physics_frame
 	equipment.set("charge_duration", 1.0)
@@ -45,7 +50,7 @@ func _initialize() -> void:
 	before = float(player.call("get_health"))
 	equipment.set("_aim_position", player.global_position)
 	equipment.call("_fire", target, player)
-	player.global_position = Vector3(0.0, 0.0, 12.0)
+	player.global_position = Vector3(4.0, 0.0, 7.0)
 	await create_timer(0.25, true, false, false).timeout
 	if float(player.call("get_health")) < before:
 		_failures.append("blaster projectile followed a moving target")
@@ -54,6 +59,7 @@ func _initialize() -> void:
 	target.call("set_duel_profile", "shotgun")
 	target.call("set_training_bot_enabled", true)
 	equipment.set("next_attack_at", 100.0)
+	equipment.set("_next_module_at", 100.0)
 	bot.set("training_stationary", true)
 	await physics_frame
 	await physics_frame
@@ -71,8 +77,18 @@ func _initialize() -> void:
 	await create_timer(1.5, true, false, false).timeout
 	if int(equipment.get("ammo")) != 3 or bool(equipment.call("is_reloading")):
 		_failures.append("shotgun did not finish its shared-duration reload")
+	before = float(player.call("get_health"))
+	equipment.set("_aim_position", player.global_position)
+	equipment.call("_fire", target, player)
+	player.global_position = Vector3(4.0, 0.0, 7.0)
+	await create_timer(0.25, true, false, false).timeout
+	if float(player.call("get_health")) < before:
+		_failures.append("shotgun pellets damaged a target that dodged after firing")
+	player.global_position = Vector3(0.0, 0.0, 7.0)
 	# The assaulter spends Pyro Boots to enter, then has to wait for its cooldown.
 	player.global_position = Vector3(0.0, 0.0, 9.0)
+	equipment.set("pyro_cooldown", 0.0)
+	equipment.set("dash_remaining", 0.0)
 	await physics_frame
 	equipment.call("tick", 0.02, 0.5, true, player.global_position, target, player, bot)
 	if not bool(equipment.call("is_dashing")) or float(equipment.get("pyro_cooldown")) < 5.9:

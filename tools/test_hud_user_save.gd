@@ -3,6 +3,9 @@ extends SceneTree
 const LAYOUT := preload("res://scripts/hud_layout.gd")
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	var suffix := str(Time.get_ticks_usec())
 	var primary := "user://prototype0_hud_probe_%s.json" % suffix
 	var backup := "user://prototype0_hud_probe_%s.backup.json" % suffix
