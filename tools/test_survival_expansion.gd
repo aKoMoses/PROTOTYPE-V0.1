@@ -2,6 +2,7 @@ extends SceneTree
 
 const SYNERGIES := preload("res://scripts/survival_synergies.gd")
 const STATS := preload("res://scripts/survival_run_stats.gd")
+const ACTION_GATE := preload("res://scripts/action_gate.gd")
 var failures: Array[String] = []
 
 func check(value: bool, message: String) -> void:
@@ -151,6 +152,8 @@ func _initialize() -> void:
 	check(bot.survival_elite == "double_charge", "élite double charge vague 3")
 	elite.set_training_bot_enabled(false)
 	player.global_position = Vector3(0, 0, -4)
+	bot._attack_action_token = bot._action_gate.try_acquire(ACTION_GATE.Kind.WEAPON, "survival_attack")
+	check(bot._attack_action_token != 0, "la charge d'élite réserve l'action d'attaque")
 	bot._double_charge_pending = true
 	bot._charge_target = elite.global_position
 	bot._charge_remaining = 0.01
