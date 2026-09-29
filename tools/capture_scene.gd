@@ -21,6 +21,8 @@ func _initialize() -> void:
 	if arguments.size() >= 2 and flow != null:
 		if arguments[1] == "equipment":
 			flow.call("_open_equipment")
+		elif arguments[1] == "lobby":
+			flow.call("_open_lobby")
 		elif arguments[1] == "duel" or arguments[1] == "duel_live":
 			flow.call("_start_duel")
 			if arguments[1] == "duel_live":

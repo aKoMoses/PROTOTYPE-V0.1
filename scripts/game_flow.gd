@@ -9,6 +9,7 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
+const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
 const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
 const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
 const TRIAL_PLAYER_SCRIPT := preload("res://scripts/player.gd")
@@ -52,7 +53,7 @@ const MENU_MUSIC_VOLUME_DB := -10.0
 const VICTORY_SOUND: AudioStream = preload("res://son-musique/musiques/01_victoire_rock.wav")
 const DEFEAT_SOUND: AudioStream = preload("res://son-musique/musiques/02_defaite_forge.wav")
 
-enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT }
+enum Screen { MENU, EQUIPMENT, SETTINGS, COMBAT, RESULT, LOBBY }
 enum RoundPhase { IDLE, COUNTDOWN, LIVE, ROUND_RESULT, MATCH_RESULT, FIGHT, WINNER_FOCUS }
 
 var main: Node
@@ -115,6 +116,7 @@ var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
 var _settings_panel: PanelContainer
+var _lobby_panel: Control
 var _hud_controller
 var _hud_editor
 var _editor_from_pause := false
@@ -227,6 +229,7 @@ func _build_ui() -> void:
 	_screen_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_screen_root)
 	_build_menu()
+	_build_lobby()
 	_build_equipment()
 	_build_settings()
 	_build_hud()
@@ -298,7 +301,7 @@ func _show_screen(screen: Screen) -> void:
 	current_screen = screen
 	if screen != Screen.RESULT:
 		_result_audio.stop()
-	_set_menu_music_active(screen in [Screen.MENU, Screen.EQUIPMENT, Screen.SETTINGS])
+	_set_menu_music_active(screen in [Screen.MENU, Screen.EQUIPMENT, Screen.SETTINGS, Screen.LOBBY])
 	_clear_screen()
 	if _pause_active and screen != Screen.COMBAT:
 		_end_pause(false)
@@ -310,6 +313,9 @@ func _show_screen(screen: Screen) -> void:
 			_refresh_equipment()
 		Screen.SETTINGS:
 			_settings_panel.visible = true
+		Screen.LOBBY:
+			_lobby_panel.visible = true
+			_lobby_panel.call("refresh")
 		Screen.COMBAT:
 			_hud.visible = true
 			if touch_controls != null:
@@ -331,7 +337,7 @@ func _touch_preview_requested() -> bool:
 	return false
 
 func _build_menu() -> void:
-	var panel_size := Vector2(620.0, 620.0)
+	var panel_size := Vector2(620.0, 660.0)
 	_menu_panel = Control.new()
 	_menu_panel.name = "MainMenuPanel"
 	_menu_panel.custom_minimum_size = panel_size
@@ -350,7 +356,7 @@ func _build_menu() -> void:
 	var box := VBoxContainer.new()
 	box.name = "MenuContent"
 	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	box.position = Vector2(136.0, 118.0)
+	box.position = Vector2(136.0, 108.0)
 	box.size = Vector2(422.0, 470.0)
 	box.add_theme_constant_override("separation", 7)
 	_menu_panel.add_child(box)
@@ -380,9 +386,22 @@ func _build_menu() -> void:
 	spacer.custom_minimum_size = Vector2(0.0, 2.0)
 	box.add_child(spacer)
 	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
+	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
 	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
 	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
 	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 65.0))
+
+
+func _build_lobby() -> void:
+	_lobby_panel = NETWORK_LOBBY.new()
+	_lobby_panel.name = "NetworkLobby"
+	_lobby_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_screen_root.add_child(_lobby_panel)
+	_lobby_panel.call("configure", self)
+
+
+func _open_lobby() -> void:
+	_show_screen(Screen.LOBBY)
 
 
 func _menu_art_button(text: String, callback: Callable, texture: Texture2D, height: float) -> Control:

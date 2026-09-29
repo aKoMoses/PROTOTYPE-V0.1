@@ -9,6 +9,9 @@ manches successives, score premier à 3, égalité sans point, pause pendant les
 de manche, bot désactivé hors combat et écran de résultat final. Le détail vérifié est
 conservé dans [V02_PROGRESS.md](V02_PROGRESS.md).
 
+Le prototype du mode en ligne à deux joueurs est décrit dans
+[docs/multijoueur.md](docs/multijoueur.md).
+
 - arène 3D plus grande que l'écran ;
 - caméra inclinée suivant le joueur avec anticipation de la visée ;
 - déplacement clavier AZERTY/QWERTY et flèches ;

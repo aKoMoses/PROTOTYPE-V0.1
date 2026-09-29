@@ -2,3 +2,4 @@
 exports/
 *.tmp
 .android-signing/
+addons/GD-Sync/keys.cfg

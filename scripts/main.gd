@@ -5,6 +5,7 @@ const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
 const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
 const GAME_FLOW_SCRIPT := preload("res://scripts/game_flow.gd")
+const NETWORK_MATCH_SCRIPT := preload("res://scripts/network_match.gd")
 const VFX_MANAGER_SCRIPT := preload("res://scripts/vfx_manager.gd")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_FLOOR_TEXTURE: Texture2D = preload("res://art/arena_floor.svg")
@@ -18,6 +19,7 @@ const BUSH_PLACEMENT_ATTEMPTS := 12
 
 var player: CharacterBody3D
 var game_flow: CanvasLayer
+var network_match: CanvasLayer
 var target: StaticBody3D
 var touch_controls: Control
 var duel_active := false
@@ -104,6 +106,17 @@ func _ready() -> void:
 	_build_camera()
 	_build_target()
 	_build_interface()
+	get_node("/root/NetworkSession").match_started.connect(_on_network_match_started)
+
+
+func _on_network_match_started(host_id: int, guest_id: int) -> void:
+	if network_match != null and is_instance_valid(network_match):
+		network_match.queue_free()
+	network_match = CanvasLayer.new()
+	network_match.name = "NetworkMatch"
+	network_match.set_script(NETWORK_MATCH_SCRIPT)
+	add_child(network_match)
+	network_match.call("configure", self, host_id, guest_id)
 
 
 func _build_environment() -> void:

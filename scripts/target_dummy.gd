@@ -26,6 +26,7 @@ var _training_bot: Node
 var _last_visual_position := Vector3.ZERO
 var _duel_mode := false
 var _duel_paused := false
+var network_proxy := false
 var _fulguro_projection_active := false
 var _fulguro_projection_direction := Vector3.ZERO
 var _fulguro_projection_distance_remaining := 0.0
@@ -120,6 +121,8 @@ func get_training_bot_muzzle_transform() -> Transform3D:
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
 	if _resetting or combat_state == null:
 		return 0.0
+	if network_proxy:
+		get_node("/root/NetworkSession").send_hit(amount, source_id, attack_id)
 	if amount > 0.0 and visibility_state != null:
 		visibility_state.mark_combat_event()
 	if get_meta("survival_elite", "") == "shield" and source_id == "player":
@@ -139,16 +142,23 @@ func heal(amount: float, source_id: String = "") -> float:
 
 
 func apply_burn(duration: float = COMBAT_DATA.BURN_DURATION, damage_per_second: float = COMBAT_DATA.BURN_DAMAGE_PER_SECOND, source_id: String = "") -> void:
+	if network_proxy:
+		get_node("/root/NetworkSession").send_effect("burn", duration, damage_per_second)
+		return
 	if combat_state != null:
 		combat_state.apply_burn(duration, damage_per_second, source_id)
 
 
 func apply_slow(duration: float, percent: float, source_id: String = "") -> void:
+	if network_proxy:
+		get_node("/root/NetworkSession").send_effect("slow", duration, percent)
 	if combat_state != null:
 		combat_state.apply_slow(duration, percent, source_id)
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if network_proxy:
+		get_node("/root/NetworkSession").send_effect("stun", duration)
 	if duration > 0.0:
 		_cancel_pelto_pull()
 	if combat_state != null:
@@ -156,6 +166,8 @@ func apply_stun(duration: float, source_id: String = "") -> void:
 
 
 func apply_spotted(duration: float, source_id: String = "") -> void:
+	if network_proxy:
+		get_node("/root/NetworkSession").send_effect("spotted", duration)
 	if combat_state != null:
 		combat_state.apply_spotted(duration, source_id)
 	if visibility_state != null:

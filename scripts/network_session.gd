@@ -1,0 +1,341 @@
+extends Node
+
+## Hosted lobby and two-player relay, through GD-Sync.
+
+signal connection_changed(connected: bool, message: String)
+signal rooms_changed(rooms: Array)
+signal room_changed(room: Dictionary)
+signal match_started(host_id: int, guest_id: int)
+signal round_prepared(round_number: int, host_score: int, guest_score: int)
+signal round_live
+signal round_finished(host_score: int, guest_score: int, winner_id: int, match_over: bool)
+signal opponent_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String)
+signal opponent_hit(amount: float, source_id: String, attack_id: String)
+signal opponent_effect(effect: String, duration: float, value: float)
+
+const KEY_STORE := preload("res://addons/GD-Sync/Scripts/KeyStore.gd")
+
+var connected := false
+var current_room: Dictionary = {}
+var _service: Node
+var _connecting := false
+var _phase := "waiting"
+var _host_score := 0
+var _guest_score := 0
+var _round_number := 0
+var _ready_ids: Dictionary = {}
+
+
+func _ready() -> void:
+	_service = get_node_or_null("/root/GDSync")
+	if _service == null:
+		return
+	_service.connected.connect(_on_connected)
+	_service.connection_failed.connect(_on_connection_failed)
+	_service.disconnected.connect(_on_disconnected)
+	_service.lobbies_received.connect(_on_lobbies_received)
+	_service.lobby_created.connect(_on_lobby_created)
+	_service.lobby_creation_failed.connect(_on_lobby_creation_failed)
+	_service.lobby_joined.connect(_on_lobby_joined)
+	_service.lobby_join_failed.connect(_on_lobby_join_failed)
+	_service.client_joined.connect(_on_client_joined)
+	_service.client_left.connect(_on_client_left)
+	_service.host_changed.connect(_on_host_changed)
+	for method_name in ["_remote_room_state", "_remote_start_match", "_host_match_ready",
+		"_remote_round_prepared", "_remote_round_live", "_host_report_death",
+		"_remote_round_finished", "_remote_state", "_remote_hit", "_remote_effect"]:
+		_service.expose_func(Callable(self, method_name))
+
+
+func local_peer_id() -> int:
+	return int(_service.get_client_id()) if _service != null else -1
+
+
+func connect_to_service() -> void:
+	if _service == null:
+		connection_changed.emit(false, "Service multijoueur indisponible.")
+		return
+	if connected or _connecting:
+		if connected:
+			refresh_rooms()
+		return
+	var local_test := "--network-local-test" in OS.get_cmdline_user_args()
+	if not local_test and not KEY_STORE.has_keys():
+		connection_changed.emit(false, "Configuration requise : Projet > Outils > GD-Sync dans Godot.")
+		return
+	_connecting = true
+	connection_changed.emit(false, "Connexion au service multijoueur…")
+	if local_test:
+		_service.start_local_multiplayer()
+	else:
+		_service.start_multiplayer()
+
+
+func _on_connected() -> void:
+	_connecting = false
+	connected = true
+	connection_changed.emit(true, "Connecté. Crée ou rejoins un salon.")
+	refresh_rooms()
+
+
+func _on_connection_failed(error: int) -> void:
+	_connecting = false
+	connected = false
+	connection_changed.emit(false, "Connexion impossible (%d)." % error)
+
+
+func _on_disconnected() -> void:
+	_connecting = false
+	connected = false
+	current_room = {}
+	room_changed.emit({})
+	connection_changed.emit(false, "Connexion au service perdue.")
+
+
+func refresh_rooms() -> void:
+	if connected:
+		_service.get_public_lobbies()
+
+
+func _on_lobbies_received(lobbies: Array) -> void:
+	var rooms: Array = []
+	for item_variant in lobbies:
+		var item: Dictionary = item_variant
+		if int(item.get("PlayerCount", 0)) >= 2 or not bool(item.get("Open", true)):
+			continue
+		rooms.append({"title": str(item.get("Name", "Salon")), "players": int(item.get("PlayerCount", 0))})
+	rooms_changed.emit(rooms)
+
+
+func create_room(title: String) -> void:
+	if not connected or not current_room.is_empty():
+		return
+	var name := title.strip_edges().substr(0, 25)
+	if name.length() < 3:
+		name = "Mon salon"
+	_service.lobby_create("%s %04d" % [name, randi_range(0, 9999)], "", true, 2)
+
+
+func _on_lobby_created(name: String) -> void:
+	_service.lobby_join(name)
+
+
+func _on_lobby_creation_failed(_name: String, error: int) -> void:
+	connection_changed.emit(connected, "Création du salon impossible (%d)." % error)
+
+
+func join_room(title: String) -> void:
+	if connected and current_room.is_empty():
+		_service.lobby_join(title)
+
+
+func _on_lobby_joined(_name: String) -> void:
+	_phase = "waiting"
+	_host_score = 0
+	_guest_score = 0
+	_round_number = 0
+	_sync_room()
+	refresh_rooms()
+
+
+func _on_lobby_join_failed(_name: String, error: int) -> void:
+	connection_changed.emit(connected, "Salon indisponible (%d). Actualise la liste." % error)
+
+
+func leave_room() -> void:
+	if current_room.is_empty():
+		return
+	_service.lobby_leave()
+	_phase = "waiting"
+	current_room = {}
+	room_changed.emit({})
+	refresh_rooms()
+
+
+func _on_client_joined(_client_id: int) -> void:
+	await get_tree().process_frame
+	_sync_room()
+	refresh_rooms()
+
+
+func _on_client_left(client_id: int) -> void:
+	if current_room.is_empty():
+		return
+	if client_id == int(current_room.get("host_id", -1)):
+		leave_room()
+		connection_changed.emit(connected, "L'hôte a quitté le salon.")
+		return
+	_phase = "waiting"
+	_sync_room()
+	connection_changed.emit(connected, "L'autre joueur a quitté le salon.")
+
+
+func _on_host_changed(_is_host: bool, _new_host_id: int) -> void:
+	if not current_room.is_empty():
+		_sync_room()
+
+
+func _sync_room() -> void:
+	if _service == null or not connected:
+		return
+	var clients: Array = _service.lobby_get_all_clients()
+	if clients.is_empty():
+		return
+	var host_id := int(_service.get_host())
+	var guest_id := 0
+	for id_variant in clients:
+		if int(id_variant) != host_id:
+			guest_id = int(id_variant)
+			break
+	current_room = {"title": str(_service.lobby_get_name()), "host_id": host_id,
+		"guest_id": guest_id, "phase": _phase, "host_score": _host_score,
+		"guest_score": _guest_score}
+	room_changed.emit(current_room)
+	if _service.is_host() and guest_id != 0:
+		_service.call_func(Callable(self, "_remote_room_state"), current_room)
+
+
+func _remote_room_state(room: Dictionary) -> void:
+	current_room = room
+	_phase = str(room.get("phase", "waiting"))
+	room_changed.emit(room)
+
+
+func start_match() -> void:
+	if not connected or current_room.is_empty() or not _service.is_host():
+		return
+	var guest_id := int(current_room.get("guest_id", 0))
+	if guest_id == 0 or _phase not in ["waiting", "finished"]:
+		return
+	_phase = "starting"
+	_host_score = 0
+	_guest_score = 0
+	_round_number = 0
+	_ready_ids.clear()
+	_sync_room()
+	var host_id := local_peer_id()
+	_service.call_func(Callable(self, "_remote_start_match"), host_id, guest_id)
+	match_started.emit(host_id, guest_id)
+
+
+func _remote_start_match(host_id: int, guest_id: int) -> void:
+	_phase = "starting"
+	match_started.emit(host_id, guest_id)
+
+
+func match_ready() -> void:
+	if _phase != "starting":
+		return
+	if _service.is_host():
+		_host_match_ready(local_peer_id())
+	else:
+		_service.call_func(Callable(self, "_host_match_ready"), local_peer_id())
+
+
+func _host_match_ready(peer_id: int) -> void:
+	if not _service.is_host() or _phase != "starting" or peer_id not in [int(current_room.host_id), int(current_room.guest_id)]:
+		return
+	_ready_ids[peer_id] = true
+	if _ready_ids.size() == 2:
+		_host_prepare_round()
+
+
+func _host_prepare_round() -> void:
+	if not _service.is_host() or int(current_room.get("guest_id", 0)) == 0:
+		return
+	_round_number += 1
+	_phase = "countdown"
+	_sync_room()
+	_service.call_func(Callable(self, "_remote_round_prepared"), _round_number, _host_score, _guest_score)
+	round_prepared.emit(_round_number, _host_score, _guest_score)
+	await get_tree().create_timer(3.5).timeout
+	if _phase != "countdown" or current_room.is_empty():
+		return
+	_phase = "live"
+	_sync_room()
+	_service.call_func(Callable(self, "_remote_round_live"))
+	round_live.emit()
+
+
+func _remote_round_prepared(number: int, host_score: int, guest_score: int) -> void:
+	_phase = "countdown"
+	round_prepared.emit(number, host_score, guest_score)
+
+
+func _remote_round_live() -> void:
+	_phase = "live"
+	round_live.emit()
+
+
+func report_death() -> void:
+	if _phase != "live" or current_room.is_empty():
+		return
+	if _service.is_host():
+		_host_report_death(local_peer_id())
+	else:
+		_service.call_func(Callable(self, "_host_report_death"), local_peer_id())
+
+
+func _host_report_death(dead_id: int) -> void:
+	if not _service.is_host() or _phase != "live" or dead_id not in [int(current_room.host_id), int(current_room.guest_id)]:
+		return
+	_phase = "round_result"
+	var winner_id := int(current_room.guest_id) if dead_id == int(current_room.host_id) else int(current_room.host_id)
+	if winner_id == int(current_room.host_id):
+		_host_score += 1
+	else:
+		_guest_score += 1
+	var over := _host_score >= 3 or _guest_score >= 3
+	if over:
+		_phase = "finished"
+	_sync_room()
+	_service.call_func(Callable(self, "_remote_round_finished"), _host_score, _guest_score, winner_id, over)
+	round_finished.emit(_host_score, _guest_score, winner_id, over)
+	if not over:
+		await get_tree().create_timer(2.0).timeout
+		if _phase == "round_result" and not current_room.is_empty():
+			_host_prepare_round()
+
+
+func _remote_round_finished(host_score: int, guest_score: int, winner_id: int, over: bool) -> void:
+	_phase = "finished" if over else "round_result"
+	round_finished.emit(host_score, guest_score, winner_id, over)
+
+
+func _other_id() -> int:
+	if current_room.is_empty():
+		return 0
+	return int(current_room.guest_id) if local_peer_id() == int(current_room.host_id) else int(current_room.host_id)
+
+
+func send_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String) -> void:
+	var other := _other_id()
+	if _phase in ["countdown", "live"] and other != 0:
+		_service.call_func(Callable(self, "_remote_state"), position, aim, health, max_health, weapon)
+
+
+func _remote_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String) -> void:
+	if _phase in ["countdown", "live"] and position.is_finite() and aim.is_finite():
+		opponent_state.emit(position, aim, clampf(health, 0.0, 5000.0), clampf(max_health, 1.0, 5000.0), weapon)
+
+
+func send_hit(amount: float, source_id: String, attack_id: String) -> void:
+	var other := _other_id()
+	if _phase == "live" and other != 0 and is_finite(amount) and amount > 0.0 and amount <= 250.0:
+		_service.call_func(Callable(self, "_remote_hit"), amount, source_id.substr(0, 48), attack_id.substr(0, 80))
+
+
+func _remote_hit(amount: float, source_id: String, attack_id: String) -> void:
+	if _phase == "live" and is_finite(amount) and amount > 0.0 and amount <= 250.0:
+		opponent_hit.emit(amount, source_id, attack_id)
+
+
+func send_effect(effect: String, duration: float, value: float = 0.0) -> void:
+	var other := _other_id()
+	if _phase == "live" and other != 0 and effect in ["burn", "slow", "stun", "spotted"]:
+		_service.call_func(Callable(self, "_remote_effect"), effect, clampf(duration, 0.0, 8.0), clampf(value, 0.0, 100.0))
+
+
+func _remote_effect(effect: String, duration: float, value: float) -> void:
+	if _phase == "live" and effect in ["burn", "slow", "stun", "spotted"]:
+		opponent_effect.emit(effect, duration, value)
