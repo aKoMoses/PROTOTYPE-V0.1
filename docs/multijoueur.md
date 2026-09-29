@@ -17,8 +17,12 @@ hébergé GD-Sync : aucun serveur à lancer sur le PC et aucun port de box à ou
 Les clés sont à créer une fois pour ce jeu. Les exports suivants les réutilisent
 tant que la configuration locale est conservée. Le fichier de clés n'étant pas
 dans Git, un autre poste qui lance le projet source doit recevoir la même
-configuration par un canal privé ; un joueur qui utilise l'export Windows n'a
+configuration par un canal privé ; un joueur qui utilise un export du jeu n'a
 pas à la saisir. Voir [les instructions pour le Codex de l'autre joueur](POUR_LE_CODEX_DE_MON_FRERE.md).
+
+Les APK Android publiés automatiquement nécessitent aussi les secrets GitHub
+Actions `GDSYNC_PUBLIC_KEY` et `GDSYNC_PRIVATE_KEY`, à saisir une fois par le
+propriétaire du dépôt. Le workflow refuse la publication si elles manquent.
 
 ## Dans le jeu
 

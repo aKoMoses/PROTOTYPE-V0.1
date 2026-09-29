@@ -68,9 +68,15 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.PROTOTYPE0_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
+          GDSYNC_PUBLIC_KEY: ${{ secrets.GDSYNC_PUBLIC_KEY }}
+          GDSYNC_PRIVATE_KEY: ${{ secrets.GDSYNC_PRIVATE_KEY }}
         run: |
           if [[ -z "$KEYSTORE_B64" || -z "$KEYSTORE_PASSWORD" ]]; then
             echo 'Configure PROTOTYPE0_KEYSTORE_BASE64 and PROTOTYPE0_KEYSTORE_PASSWORD before publishing.' >&2
+            exit 1
+          fi
+          if [[ -z "$GDSYNC_PUBLIC_KEY" || -z "$GDSYNC_PRIVATE_KEY" ]]; then
+            echo 'Configure GDSYNC_PUBLIC_KEY and GDSYNC_PRIVATE_KEY before publishing an online-capable build.' >&2
             exit 1
           fi
 
@@ -95,6 +101,8 @@ jobs:
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PROTOTYPE0_KEYSTORE_PASSWORD }}
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: prototype0test
+          GDSYNC_PUBLIC_KEY: ${{ secrets.GDSYNC_PUBLIC_KEY }}
+          GDSYNC_PRIVATE_KEY: ${{ secrets.GDSYNC_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           mkdir -p exports
