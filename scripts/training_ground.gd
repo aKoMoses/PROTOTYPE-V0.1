@@ -755,6 +755,7 @@ func _apply_options() -> void:
 	_update_status()
 
 func _reset_trial() -> void:
+	_set_combat_sound_state(_menu.visible, true)
 	var vfx := get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("clear")
@@ -833,6 +834,7 @@ func _on_hud_editor_closed() -> void:
 	get_tree().paused = true
 
 func _on_hud_test_started() -> void:
+	_set_combat_sound_state(false, true)
 	_editor_test_fx_modes.clear()
 	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
 		for node in get_tree().get_nodes_in_group(group):
@@ -869,6 +871,7 @@ func _on_hud_test_started() -> void:
 	get_tree().paused = false
 
 func _on_hud_test_finished() -> void:
+	_set_combat_sound_state(true, true)
 	_touch_controls.call("reset_inputs")
 	get_tree().paused = true
 	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
@@ -915,6 +918,7 @@ func _toggle_menu() -> void:
 		player.call("shift_pause_timers", float(Time.get_ticks_msec() - _menu_opened_at_msec) / 1000.0)
 		_menu_opened_at_msec = 0
 	get_tree().paused = _menu.visible
+	_set_combat_sound_state(_menu.visible)
 	if _touch_controls != null:
 		_touch_controls.visible = (DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")) and not _menu.visible
 	player.call("set_gameplay_enabled", not _menu.visible and not bool(player.call("is_real_dead")))
@@ -927,8 +931,16 @@ func _toggle_menu() -> void:
 	_update_status()
 
 func _return_to_main_menu() -> void:
+	_set_combat_sound_state(false, true)
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+func _set_combat_sound_state(paused: bool, clear_voices: bool = false) -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		if clear_voices:
+			sfx.call("clear")
+		sfx.call("set_paused", paused)
 
 func _on_player_died() -> void:
 	_update_status()

@@ -93,7 +93,8 @@ func _ready() -> void:
 	
 	get_tree().scene_changed.connect(_on_scene_change)
 	current_scene = get_tree().current_scene
-	current_scene.tree_exiting.connect(_on_old_scene_exiting)
+	if current_scene != null:
+		current_scene.tree_exiting.connect(_on_old_scene_exiting)
 	
 	randomize()
 	synced_time = randf_range(0, 1000)
@@ -640,7 +641,8 @@ func disconnect_gdsync_owner_changed(node : Node, callable : Callable) -> void:
 func _on_scene_change() -> void:
 	request_processor.end_scene_swap()
 	current_scene = get_tree().current_scene
-	current_scene.tree_exiting.connect(_on_old_scene_exiting)
+	if current_scene != null and not current_scene.tree_exiting.is_connected(_on_old_scene_exiting):
+		current_scene.tree_exiting.connect(_on_old_scene_exiting)
 
 func _on_old_scene_exiting() -> void:
 	current_scene.tree_exiting.disconnect(_on_old_scene_exiting)

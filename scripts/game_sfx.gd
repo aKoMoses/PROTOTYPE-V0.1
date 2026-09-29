@@ -27,6 +27,7 @@ const MIN_INTERVAL_MS := {
 
 var _players: Dictionary = {}
 var _last_played_ms: Dictionary = {}
+var _paused := false
 
 
 func _ready() -> void:
@@ -44,7 +45,7 @@ func _ready() -> void:
 
 
 func play_event(event_id: String) -> void:
-	if not _players.has(event_id):
+	if _paused or not _players.has(event_id):
 		return
 	var now := Time.get_ticks_msec()
 	if now - int(_last_played_ms.get(event_id, -100000)) < int(MIN_INTERVAL_MS.get(event_id, 0)):
@@ -52,3 +53,19 @@ func play_event(event_id: String) -> void:
 	_last_played_ms[event_id] = now
 	(_players[event_id] as AudioStreamPlayer).play()
 	event_played.emit(event_id)
+
+
+func set_paused(value: bool) -> void:
+	_paused = value
+	for player: AudioStreamPlayer in _players.values():
+		player.stream_paused = value
+
+
+func clear() -> void:
+	# The autoload outlives every arena. Retire the old round's voices before
+	# its scene is hidden or replaced, and allow the next round's first event.
+	for player: AudioStreamPlayer in _players.values():
+		player.stop()
+		player.stream_paused = false
+	_paused = false
+	_last_played_ms.clear()

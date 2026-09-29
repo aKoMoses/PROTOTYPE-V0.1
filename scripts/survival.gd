@@ -49,6 +49,7 @@ var wave := 0
 var defeated := 0
 var _enemies: Array[StaticBody3D] = []
 var _state := "selection"
+var _pause_started_at_msec := -1
 var _ui_layer: CanvasLayer
 var _hud: Control
 var _wave_label: Label
@@ -515,8 +516,8 @@ func _build_ui() -> void:
 	_choice_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_choice_panel.position = Vector2(-340, -165)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#1e2930f2")
-	style.border_color = Color("#74c9ce")
+	style.bg_color = Color("#22272b")
+	style.border_color = Color("#b78358")
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(22)
@@ -781,6 +782,29 @@ func _button(value: String, callback: Callable) -> Button:
 	button.text = value
 	button.custom_minimum_size = Vector2(590, 58)
 	button.add_theme_font_size_override("font_size", 19)
+	button.add_theme_color_override("font_color", Color("#f3ddbb"))
+	button.add_theme_color_override("font_hover_color", Color("#fff0d7"))
+	button.add_theme_color_override("font_pressed_color", Color("#f3ddbb"))
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("#30383b")
+	normal.border_color = Color("#86745f")
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(5)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("#45443d")
+	hover.border_color = Color("#efb765")
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color("#272d30")
+	pressed.border_color = Color("#42d9e5")
+	button.add_theme_stylebox_override("pressed", pressed)
+	var focus := normal.duplicate() as StyleBoxFlat
+	focus.bg_color = Color.TRANSPARENT
+	focus.border_color = Color("#f3ddbb")
+	focus.set_border_width_all(2)
+	button.add_theme_stylebox_override("focus", focus)
 	button.pressed.connect(callback)
 	return button
 
@@ -917,6 +941,7 @@ func _on_hud_editor_closed() -> void:
 	get_tree().paused = true
 
 func _on_hud_test_started() -> void:
+	_set_combat_sound_state(false, true)
 	_editor_test_fx_modes.clear()
 	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
 		for node in get_tree().get_nodes_in_group(group):
@@ -955,6 +980,7 @@ func _on_hud_test_started() -> void:
 	get_tree().paused = false
 
 func _on_hud_test_finished() -> void:
+	_set_combat_sound_state(true, true)
 	_touch.call("reset_inputs")
 	get_tree().paused = true
 	for group in ["prototype0_gameplay_projectiles", "prototype0_fx_budget"]:
@@ -1018,6 +1044,7 @@ func _choose_weapon(identifier: String) -> void:
 	_start_wave()
 
 func _start_wave() -> void:
+	_set_combat_sound_state(false, true)
 	get_tree().paused = false
 	_clear_enemies()
 	wave += 1
@@ -1143,6 +1170,7 @@ func _complete_wave() -> void:
 		_show_result(true)
 		return
 	_state = "reward"
+	_set_combat_sound_state(true, true)
 	_spell_bar.visible = false
 	get_tree().paused = true
 	_enter_reward_music()
@@ -1169,6 +1197,7 @@ func _show_result(won: bool) -> void:
 	if _state != "combat":
 		return
 	_state = "result"
+	_set_combat_sound_state(true, true)
 	_reward_overlay.visible = false
 	_spell_bar.visible = false
 	player.call("set_gameplay_enabled", false)
@@ -1243,12 +1272,16 @@ func _pause_run() -> void:
 	if _state != "combat":
 		return
 	_state = "pause"
+	_pause_started_at_msec = Time.get_ticks_msec()
+	_set_combat_sound_state(true)
 	_spell_bar.visible = false
 	get_tree().paused = true
 	_music.stream_paused = true
 	_other_music.stream_paused = true
 	_reward_music.stream_paused = true
 	_touch.call("reset_inputs")
+	if player.has_method("reset_desktop_inputs"):
+		player.call("reset_desktop_inputs")
 	_show_pause_content()
 	_pause_overlay.visible = true
 	_pause_panel.visible = true
@@ -1257,6 +1290,10 @@ func _pause_run() -> void:
 func _resume_run() -> void:
 	if _state != "pause":
 		return
+	if _pause_started_at_msec >= 0:
+		player.call("shift_pause_timers", float(Time.get_ticks_msec() - _pause_started_at_msec) / 1000.0)
+		_pause_started_at_msec = -1
+	_set_combat_sound_state(false)
 	_state = "combat"
 	_update_spell_bar(progression.build())
 	get_tree().paused = false
@@ -1284,12 +1321,21 @@ func _clear_enemies() -> void:
 	_enemies.clear()
 
 func _restart() -> void:
+	_set_combat_sound_state(false, true)
 	get_tree().paused = false
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/survival.tscn")
 
 func _return_menu() -> void:
+	_set_combat_sound_state(false, true)
 	get_tree().paused = false
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main.tscn")
+
+func _set_combat_sound_state(paused: bool, clear_voices: bool = false) -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		if clear_voices:
+			sfx.call("clear")
+		sfx.call("set_paused", paused)
 
 func _short_name(identifier: String) -> String:
 	return LOADOUT.display_name(identifier) if identifier != "" else "—"

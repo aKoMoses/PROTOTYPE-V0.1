@@ -241,7 +241,7 @@ func _leave_match() -> void:
 
 
 func _finish_to_lobby(message: String) -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or _phase == "closed":
 		return
 	_phase = "closed"
 	_target.set("network_proxy", false)

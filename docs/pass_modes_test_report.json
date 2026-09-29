@@ -1,0 +1,92 @@
+[
+  {
+    "test": "network_reliability",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "mode_pause_reliability",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "training_ground",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "training_meter",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "repair_kit",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "repair_kit_visual",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "survival_expansion",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "survival_music",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "training_bot",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "duel_bot",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "bot_tactics",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "bot_obstacle_collision",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "combat_state",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 0
+  },
+  {
+    "test": "fulguro_punch",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  },
+  {
+    "test": "pelto_smash",
+    "exitCode": 0,
+    "scriptErrors": 0,
+    "otherIssues": 2
+  }
+]

@@ -24,6 +24,7 @@ var _host_score := 0
 var _guest_score := 0
 var _round_number := 0
 var _ready_ids: Dictionary = {}
+var _match_generation := 0
 
 
 func _ready() -> void:
@@ -85,6 +86,8 @@ func _on_connection_failed(error: int) -> void:
 
 
 func _on_disconnected() -> void:
+	_match_generation += 1
+	_phase = "waiting"
 	_connecting = false
 	connected = false
 	current_room = {}
@@ -130,6 +133,7 @@ func join_room(title: String) -> void:
 
 
 func _on_lobby_joined(_name: String) -> void:
+	_match_generation += 1
 	_phase = "waiting"
 	_host_score = 0
 	_guest_score = 0
@@ -145,6 +149,7 @@ func _on_lobby_join_failed(_name: String, error: int) -> void:
 func leave_room() -> void:
 	if current_room.is_empty():
 		return
+	_match_generation += 1
 	_service.lobby_leave()
 	_phase = "waiting"
 	current_room = {}
@@ -165,6 +170,7 @@ func _on_client_left(client_id: int) -> void:
 		leave_room()
 		connection_changed.emit(connected, "L'hôte a quitté le salon.")
 		return
+	_match_generation += 1
 	_phase = "waiting"
 	_sync_room()
 	connection_changed.emit(connected, "L'autre joueur a quitté le salon.")
@@ -209,6 +215,7 @@ func start_match() -> void:
 	var guest_id := int(current_room.get("guest_id", 0))
 	if guest_id == 0 or _phase not in ["waiting", "finished"]:
 		return
+	_match_generation += 1
 	_phase = "starting"
 	_host_score = 0
 	_guest_score = 0
@@ -245,13 +252,14 @@ func _host_match_ready(peer_id: int) -> void:
 func _host_prepare_round() -> void:
 	if not _service.is_host() or int(current_room.get("guest_id", 0)) == 0:
 		return
+	var generation := _match_generation
 	_round_number += 1
 	_phase = "countdown"
 	_sync_room()
 	_service.call_func(Callable(self, "_remote_round_prepared"), _round_number, _host_score, _guest_score)
 	round_prepared.emit(_round_number, _host_score, _guest_score)
 	await get_tree().create_timer(3.5).timeout
-	if _phase != "countdown" or current_room.is_empty():
+	if generation != _match_generation or _phase != "countdown" or current_room.is_empty():
 		return
 	_phase = "live"
 	_sync_room()
@@ -281,6 +289,7 @@ func report_death() -> void:
 func _host_report_death(dead_id: int) -> void:
 	if not _service.is_host() or _phase != "live" or dead_id not in [int(current_room.host_id), int(current_room.guest_id)]:
 		return
+	var generation := _match_generation
 	_phase = "round_result"
 	var winner_id := int(current_room.guest_id) if dead_id == int(current_room.host_id) else int(current_room.host_id)
 	if winner_id == int(current_room.host_id):
@@ -295,7 +304,7 @@ func _host_report_death(dead_id: int) -> void:
 	round_finished.emit(_host_score, _guest_score, winner_id, over)
 	if not over:
 		await get_tree().create_timer(2.0).timeout
-		if _phase == "round_result" and not current_room.is_empty():
+		if generation == _match_generation and _phase == "round_result" and not current_room.is_empty():
 			_host_prepare_round()
 
 

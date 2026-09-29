@@ -47,6 +47,7 @@ var _recharging_back_material: StandardMaterial3D
 var _recharge_bar: Node3D
 var _recharge_fill: MeshInstance3D
 var _return_animation_remaining := 0.0
+var _return_tween: Tween
 
 
 func _ready() -> void:
@@ -225,6 +226,10 @@ func _set_state(next_state: int, play_return_animation: bool) -> void:
 func _apply_state_visuals(play_return_animation: bool) -> void:
 	if _kit_visual == null:
 		return
+	if _return_tween != null and _return_tween.is_valid():
+		_return_tween.kill()
+	_return_tween = null
+	_return_animation_remaining = 0.0
 	var enabled := _state != KitState.DISABLED
 	var available := _state == KitState.AVAILABLE
 	var recharging := _state == KitState.RECHARGING
@@ -245,11 +250,11 @@ func _apply_state_visuals(play_return_animation: bool) -> void:
 	if available and play_return_animation:
 		_return_animation_remaining = 0.44
 		_floating_cross.scale = Vector3.ONE * 0.62
-		var tween := create_tween()
-		tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tween.tween_property(_floating_cross, "scale", Vector3.ONE * 1.14, 0.23)
-		tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(_floating_cross, "scale", Vector3.ONE, 0.17)
+		_return_tween = create_tween()
+		_return_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_return_tween.tween_property(_floating_cross, "scale", Vector3.ONE * 1.14, 0.23)
+		_return_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_return_tween.tween_property(_floating_cross, "scale", Vector3.ONE, 0.17)
 	_update_recharge_bar()
 
 

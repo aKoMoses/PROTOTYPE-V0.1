@@ -90,7 +90,7 @@ func _process(delta: float) -> void:
 			_stun_timer = _rng.randf_range(0.18, 0.34)
 			_stun_remaining = _rng.randf_range(0.065, 0.105)
 			_stun_arcs.rotation.y = _rng.randf_range(-PI, PI)
-			_stun_arcs.visible = _stun_remaining > 0.0
+		_stun_arcs.visible = _stun_remaining > 0.0
 		_stun_symbol.scale = Vector3.ONE * (1.10 if _stun_remaining > 0.0 else 1.0)
 	if _active.has(DATA.EFFECT_SPOTTED):
 		var scan_pulse := pow(maxf(0.0, sin(_clock * 3.6)), 10.0) * 0.08

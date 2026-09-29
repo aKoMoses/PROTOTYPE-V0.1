@@ -1,0 +1,114 @@
+[
+  {
+    "asset": "art/audio/game-sfx/degats-recus-B.wav",
+    "duration_seconds": 0.62,
+    "peak_dbfs": -5.32,
+    "rms_dbfs": -22.2,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/impact-critique-B.wav",
+    "duration_seconds": 0.7,
+    "peak_dbfs": -3.12,
+    "rms_dbfs": -20.69,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/impact-decor-A.wav",
+    "duration_seconds": 0.5,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -24.87,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/impact-robot-B.wav",
+    "duration_seconds": 0.52,
+    "peak_dbfs": -3.86,
+    "rms_dbfs": -22.37,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/javelin-teleport-A.wav",
+    "duration_seconds": 1.7,
+    "peak_dbfs": -6.28,
+    "rms_dbfs": -21.48,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/magnetic-absorb-B.wav",
+    "duration_seconds": 2.0,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -31.14,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/pyro-dash-A.wav",
+    "duration_seconds": 1.05,
+    "peak_dbfs": -2.24,
+    "rms_dbfs": -21.83,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/game-sfx/robot-destruction-B.wav",
+    "duration_seconds": 3.7,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -23.23,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/blaster-charge-hold-v2.wav",
+    "duration_seconds": 0.55,
+    "peak_dbfs": -18.12,
+    "rms_dbfs": -30.75,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/blaster-charge-v2.wav",
+    "duration_seconds": 1.0,
+    "peak_dbfs": -9.31,
+    "rms_dbfs": -25.45,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/blaster-ready-v2.wav",
+    "duration_seconds": 0.11,
+    "peak_dbfs": -24.13,
+    "rms_dbfs": -33.41,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/blaster-shot-charged-v2.wav",
+    "duration_seconds": 0.54,
+    "peak_dbfs": -1.18,
+    "rms_dbfs": -15.61,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/blaster-shot-v2.wav",
+    "duration_seconds": 0.36,
+    "peak_dbfs": -4.7,
+    "rms_dbfs": -17.05,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/shotgun-cycle-a.wav",
+    "duration_seconds": 0.2,
+    "peak_dbfs": -8.6,
+    "rms_dbfs": -25.2,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/shotgun-reload-a.wav",
+    "duration_seconds": 1.8,
+    "peak_dbfs": -6.81,
+    "rms_dbfs": -31.35,
+    "samples_at_rail": 0
+  },
+  {
+    "asset": "art/audio/shotgun-shot-a.wav",
+    "duration_seconds": 0.48,
+    "peak_dbfs": -2.37,
+    "rms_dbfs": -16.77,
+    "samples_at_rail": 0
+  }
+]

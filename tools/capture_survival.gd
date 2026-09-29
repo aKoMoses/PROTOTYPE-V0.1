@@ -2,6 +2,8 @@ extends SceneTree
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("ui_ratio_preview"):
+		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	var output_path := args[0] if args.size() > 0 else "user://survival.png"
 	var state := args[1] if args.size() > 1 else "selection"
 	var scene: Node3D = load("res://scenes/survival.tscn").instantiate()

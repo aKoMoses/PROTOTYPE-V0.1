@@ -6,6 +6,8 @@ const STATS := preload("res://scripts/survival_run_stats.gd")
 const SYNERGIES := preload("res://scripts/survival_synergies.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
+const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
+var _equipment_icons = EQUIPMENT_ICONS.new()
 var records_path := STATS.RECORDS_PATH
 var result: Dictionary
 var records: Dictionary
@@ -19,7 +21,7 @@ func present(data: Dictionary) -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_theme_font_override("font", FONT)
 	var shade := ColorRect.new()
-	shade.color = Color("#101a22")
+	shade.color = Color("#1b2023")
 	shade.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(shade)
 	var margin := MarginContainer.new()
@@ -60,7 +62,19 @@ func present(data: Dictionary) -> void:
 			continue
 		var ranks: Dictionary = build.get("upgrades", {}).get(category, {})
 		var evolution := "  ·  ÉVOLUÉ" if bool(build.get("evolutions", {}).get(category, false)) else ""
-		content.add_child(text("%s%s   ·   Puissance %d / Rythme %d" % [LOADOUT.display_name(id), evolution, int(ranks.get("power", 0)), int(ranks.get("tempo", 0))], 15))
+		var equipment_row := HBoxContainer.new()
+		equipment_row.add_theme_constant_override("separation", 12)
+		var icon := TextureRect.new()
+		icon.texture = _equipment_icons.get_icon(id)
+		icon.custom_minimum_size = Vector2(32, 32)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		equipment_row.add_child(icon)
+		var equipment_label := text("%s%s   ·   Puissance %d / Rythme %d" % [LOADOUT.display_name(id), evolution, int(ranks.get("power", 0)), int(ranks.get("tempo", 0))], 15)
+		equipment_label.size_flags_horizontal = SIZE_EXPAND_FILL
+		equipment_label.size_flags_vertical = SIZE_SHRINK_CENTER
+		equipment_row.add_child(equipment_label)
+		content.add_child(equipment_row)
 	var synergies := SYNERGIES.names(build)
 	content.add_child(text("Synergies : " + (synergies if synergies != "" else "aucune activée"), 16, Color("#efba6c")))
 	content.add_child(HSeparator.new())
@@ -77,6 +91,16 @@ func present(data: Dictionary) -> void:
 		bar.custom_minimum_size.y = 16
 		bar.size_flags_vertical = SIZE_SHRINK_CENTER
 		bar.show_percentage = false
+		var track := StyleBoxFlat.new()
+		track.bg_color = Color("#343d3e")
+		track.border_color = Color("#7b6955")
+		track.set_border_width_all(1)
+		track.set_corner_radius_all(3)
+		bar.add_theme_stylebox_override("background", track)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Color("#42d9e5")
+		fill.set_corner_radius_all(3)
+		bar.add_theme_stylebox_override("fill", fill)
 		bar.value = float(data.damage[key]) * 100.0 / maxf(1.0, total_damage)
 		row.add_child(bar)
 		var amount := text("%d  (%d %%)" % [roundi(data.damage[key]), roundi(bar.value)], 14)
@@ -94,6 +118,7 @@ func present(data: Dictionary) -> void:
 		var button := Button.new()
 		button.text = entry[0]
 		button.custom_minimum_size = Vector2(165, 42)
+		_style_action(button)
 		button.pressed.connect(entry[1])
 		actions.add_child(button)
 	layout.add_child(actions)
@@ -131,7 +156,7 @@ func _export_card() -> void:
 	add_child(viewport)
 	var background := ColorRect.new()
 	background.size = viewport.size
-	background.color = Color("#101a22")
+	background.color = Color("#1b2023")
 	viewport.add_child(background)
 	var card := VBoxContainer.new()
 	card.position = Vector2(48, 40)
@@ -155,3 +180,19 @@ func _export_card() -> void:
 	viewport.queue_free()
 	_exporting = false
 	status.text = "Carte enregistrée : " + ProjectSettings.globalize_path(path) if error == OK else "Échec de l'export de la carte."
+
+func _style_action(button: Button) -> void:
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("#30383b") if state == "normal" else Color("#45443d") if state == "hover" else Color("#252b2e")
+		style.border_color = Color("#f3ddbb") if state == "focus" else Color("#efb765") if state == "hover" else Color("#86745f")
+		style.set_border_width_all(2 if state == "focus" else 1)
+		style.set_corner_radius_all(4)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		if state == "focus":
+			style.bg_color = Color.TRANSPARENT
+		button.add_theme_stylebox_override(state, style)
+	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+		button.add_theme_color_override(state, Color("#f3ddbb"))

@@ -1858,6 +1858,7 @@ func restart_duel(loadout: Dictionary) -> void:
 
 func stop_duel() -> void:
 	duel_active = false
+	clear_transient_fx()
 	_set_repair_kits_active(false)
 	if player != null:
 		player.call("set_gameplay_enabled", false)
@@ -1932,6 +1933,9 @@ func shift_pause_timers(seconds: float) -> void:
 
 
 func clear_transient_fx() -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null and sfx.has_method("clear"):
+		sfx.call("clear")
 	var vfx := get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("clear")

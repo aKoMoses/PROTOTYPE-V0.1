@@ -54,9 +54,11 @@ func _run() -> void:
 	for effect_mode in modes:
 		await _prepare()
 		await _capture_mode(effect_mode)
+	_scene.call("clear_transient_fx")
 	current_scene = null
 	_scene.queue_free()
 	await process_frame
+	await create_timer(0.10).timeout
 	print("VFX CAPTURE: %s (%s)" % ["PASS" if _failures == 0 else "FAIL", ProjectSettings.globalize_path(_output_directory)])
 	quit(0 if _failures == 0 else 1)
 
@@ -83,8 +85,13 @@ func _capture_mode(mode: String) -> void:
 				await create_timer(0.15).timeout
 			var direction := (_target.position - _player.position).normalized()
 			var charge := 1.0 if mode == "charged" else 0.0
+			# First-tap emission may await skeleton_updated. Observe the real
+			# emitted flash before sampling; render latency must not expire it.
+			_manager.set_process(false)
 			_player.call("_fire_blaster_projectile", 50.0 if charge > 0.0 else 20.0, charge, direction)
+			await _wait_for_muzzle()
 			await _save_frame(mode + "_muzzle")
+			_manager.set_process(true)
 			await create_timer(0.07).timeout
 			await _save_frame(mode + "_travel")
 			await _capture_first_damage(mode + "_impact")
@@ -92,10 +99,11 @@ func _capture_mode(mode: String) -> void:
 		"shotgun":
 			_player.call("set_weapon", "shotgun")
 			await create_timer(0.25).timeout
+			_manager.set_process(false)
 			_player.call("_perform_shotgun_attack")
-			var preparation := float(_player.get("_shotgun_preparation"))
-			await create_timer(preparation + 0.008).timeout
+			await _wait_for_muzzle()
 			await _save_frame(mode + "_muzzle")
+			_manager.set_process(true)
 			await _capture_first_damage(mode + "_impact")
 		"metal", "wall", "ground":
 			var position := Vector3(0.0, 0.1, -1.0)
@@ -103,9 +111,11 @@ func _capture_mode(mode: String) -> void:
 			if mode != "ground":
 				position = Vector3(0.0, 0.8, -2.0)
 				normal = Vector3.BACK
+			_manager.set_process(false)
 			_manager.call("impact", position, normal, mode, 1.3)
-			await create_timer(0.03).timeout
+			_manager.call("_process", 0.03)
 			await _save_frame(mode + "_impact")
+			_manager.set_process(true)
 			await create_timer(0.4).timeout
 			await _save_frame(mode + "_decal")
 		"burn", "slow", "stun", "spotted", "statuses":
@@ -124,6 +134,17 @@ func _capture_mode(mode: String) -> void:
 		_:
 			_failures += 1
 			push_error("Unknown VFX capture mode: " + mode)
+
+
+func _wait_for_muzzle() -> void:
+	for _frame in range(90):
+		for effect in _manager.get("_active"):
+			if effect["kind"] == "muzzle":
+				_manager.call("_process", 0.0)
+				return
+		await process_frame
+	_failures += 1
+	push_error("No confirmed muzzle flash observed for capture")
 
 
 func _capture_first_damage(filename: String) -> void:

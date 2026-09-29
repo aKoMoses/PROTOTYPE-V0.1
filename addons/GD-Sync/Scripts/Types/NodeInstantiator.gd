@@ -112,7 +112,9 @@ func _ready() -> void:
 	elif spawn_type == SPAWN_TYPE.NODE_PATH:
 		target = get_node(target_location)
 	
-	target_path = str(target.get_path())
+	# The shared root instantiator can be ready before the first current scene.
+	# Its existing local fallback adds children to itself until a target is set.
+	target_path = str(target.get_path()) if target != null else str(get_path())
 	
 	if replicate_settings == null:
 		replicate_settings = [
@@ -120,7 +122,7 @@ func _ready() -> void:
 			sync_starting_changes,
 			excluded_properties,
 			scene.resource_path if scene != null else null,
-			target.get_path(),
+			NodePath(target_path),
 			{}
 		]
 

@@ -2,6 +2,8 @@ extends SceneTree
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("ui_ratio_preview"):
+		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	var output := args[0] if args.size() > 0 else "res://captures/training_ground.png"
 	var show_menu := args.size() > 1 and args[1] == "menu"
 	var overview := args.size() > 1 and args[1] == "overview"
