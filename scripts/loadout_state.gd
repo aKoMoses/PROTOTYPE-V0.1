@@ -8,7 +8,7 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const SAVE_PATH := "user://prototype0_loadout.cfg"
 
 const ROBOTS := ["agile", "polyvalent", "puissant"]
-const WEAPONS := ["blaster", "shotgun"]
+const WEAPONS := ["blaster", "shotgun", "mekatana", "longshot"]
 const OFFENSIVE := ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"]
 const DEFENSIVE := ["magnetic_field", "static_shield"]
 const MOBILITY := ["pyro_boots", "bio_injector"]
@@ -76,6 +76,8 @@ static func display_name(identifier: String) -> String:
 		"puissant": "PUISSANT",
 		"blaster": "BLASTER",
 		"shotgun": "SHOTGUN",
+		"longshot": "LONGSHOT",
+		"mekatana": "MEKATANA",
 		"modulo_drone": "MODULO DRONE",
 		"javelin": "JAVELIN",
 		"fulguro_punch": "FULGURO PUNCH",
@@ -96,6 +98,8 @@ static func category_description(identifier: String) -> String:
 		"puissant": "Châssis renforcé : plus de PV, déplacement plus lent.",
 		"blaster": "Tir précis ou tir chargé jusqu’à 50 dégâts.",
 		"shotgun": "6 plombs coniques, 3 salves, recharge automatique.",
+		"longshot": "Fusil précis : dégâts croissants avec la distance. Chaque cinquième tir est amélioré.",
+		"mekatana": "Katana électrique : trois cleaves avec dash croissant. Enchaîner sous 2,5 s ; les touches précédentes renforcent les dégâts sur la même cible.",
 		"modulo_drone": "Projectile guidé : dégâts, BURN et SPOTTED.",
 		"javelin": "Lance un javelot puis permet un recast de téléportation.",
 		"fulguro_punch": "Poing incandescent : maintenir pour amplifier portée et dégâts, puis relâcher.",
@@ -116,6 +120,16 @@ static func stat_line(identifier: String) -> String:
 	var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get(identifier, {})
 	var module: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	if not weapon.is_empty():
+		if identifier == "longshot":
+			var base := float(weapon.get("damage", 0.0))
+			var distance_bonus := float(weapon.get("distance_multiplier_max", 1.0))
+			return "%d–%d dégâts • 5e tir ×%.2f • portée %.0f m • CD %.2f s" % [roundi(base), roundi(base * distance_bonus), float(weapon.get("enhanced_damage_multiplier", 1.0)), float(weapon.get("max_range", 0.0)), float(weapon.get("cooldown", 0.0))]
+		if identifier == "mekatana":
+			var damage: Array = weapon.get("base_damage", [])
+			var dash: Array = weapon.get("dash_distance", [])
+			if damage.size() < 3 or dash.size() < 3:
+				return "MÊLÉE • combo de 3 coups"
+			return "%d / %d / %d dégâts • cleave %.1f m • dash %.2f–%.2f m • combo %.1f s" % [int(damage[0]), int(damage[1]), int(damage[2]), float(weapon.get("melee_range", 0.0)), float(dash[0]), float(dash[2]), float(weapon.get("combo_window", 0.0))]
 		if identifier == "blaster":
 			return "%d–%d dégâts • portée %.0f m • charge %.1f s • CD %.2f s" % [int(weapon.get("damage", 0.0)), int(weapon.get("max_damage", weapon.get("damage", 0.0))), float(weapon.get("max_range", 0.0)), float(weapon.get("charge_time", 0.0)), float(weapon.get("cooldown", 0.0))]
 		return "%d×%d dégâts • %d salves • portée %.0f m" % [int(weapon.get("pellets_per_shot", 0)), int(weapon.get("pellet_damage", 0.0)), int(weapon.get("magazine_size", 0)), float(weapon.get("max_range", 0.0))]

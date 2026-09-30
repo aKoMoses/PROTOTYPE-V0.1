@@ -8,6 +8,10 @@ const TOUCH_CONTROLS_SCRIPT := preload("res://scripts/touch_controls.gd")
 const GAME_FLOW_SCRIPT := preload("res://scripts/game_flow.gd")
 const NETWORK_MATCH_SCRIPT := preload("res://scripts/network_match.gd")
 const VFX_MANAGER_SCRIPT := preload("res://scripts/vfx_manager.gd")
+const BOT_BUILD_PRESETS := preload("res://scripts/bot_build_presets.gd")
+const BUSH_VISUAL_SCRIPT := preload("res://scripts/bush_visual.gd")
+const SIGHT_TRACKER_SCRIPT := preload("res://scripts/sight_tracker.gd")
+const FOG_OF_WAR_SCRIPT := preload("res://scripts/fog_of_war.gd")
 const REPAIR_KIT_SCENE := preload("res://scenes/repair_kit.tscn")
 const SAND_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_FLOOR_TEXTURE: Texture2D = preload("res://art/arena_floor.svg")
@@ -15,6 +19,11 @@ const METAL_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const METAL_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const STEEL_DARK_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const BANNER_TEXTURE: Texture2D = preload("res://art/banner_red.svg")
+const COVER_SKIN_A: ArrayMesh = preload("res://art/environment/families/cover_skin_mesh.tres")
+const COVER_SKIN_B: ArrayMesh = preload("res://art/environment/families/cover_skin_b_mesh.tres")
+const COVER_CONTACT: Material = preload("res://art/environment/cover_contact.tres")
+const ARENA_PRESENTATION: PackedScene = preload("res://scenes/environment/arena_presentation.tscn")
+const REPAIR_SOCKET: PackedScene = preload("res://scenes/environment/repair_socket.tscn")
 const ARENA_HALF_EXTENT := 29.0
 const EXTERIOR_SIZE := 128.0
 const BUSH_PLACEMENT_ATTEMPTS := 12
@@ -26,6 +35,8 @@ var game_flow: CanvasLayer
 var network_match: CanvasLayer
 var target: StaticBody3D
 var touch_controls: Control
+var sight_tracker: CanvasLayer
+var fog_of_war: Node3D
 var duel_active := false
 var _bot_build: Dictionary = {}
 var _ambient_clock := 0.0
@@ -39,6 +50,9 @@ var _material_cache: Dictionary = {}
 var _textured_material_cache: Dictionary = {}
 var _arena_blockers: Array[StaticBody3D] = []
 var _arena_exterior: Node3D
+var _bot_build_presets := BOT_BUILD_PRESETS.new()
+var _bot_build_round_key := ""
+var _bot_build_current: Dictionary = {}
 const FX_MAX_PARTICLES := 24
 const FX_MAX_BURSTS := 42
 const FX_MAX_PROJECTILES := 14
@@ -46,6 +60,12 @@ const MENU_SHOWCASE_CLIP_SECONDS := 3.0
 
 
 func _process(delta: float) -> void:
+	if fog_of_war != null:
+		var active_player: Node = game_flow.get("player") if game_flow != null else player
+		var active_target: Node = game_flow.get("target") if game_flow != null else target
+		var live_round := is_instance_valid(active_player) and bool(active_player.call("is_gameplay_enabled")) and not bool(active_player.call("is_real_dead"))
+		var local_or_network := duel_active or is_instance_valid(network_match)
+		fog_of_war.call("set_enabled", live_round and local_or_network and is_instance_valid(active_target) and not bool(active_target.call("is_real_dead")))
 	_ambient_clock += delta
 	_fx_budget_clock += delta
 	_update_menu_showcase(delta)
@@ -111,6 +131,12 @@ func _ready() -> void:
 	_build_camera()
 	_build_target()
 	_build_interface()
+	add_child(ARENA_PRESENTATION.instantiate())
+	fog_of_war = FOG_OF_WAR_SCRIPT.new()
+	fog_of_war.name = "FogOfWar"
+	add_child(fog_of_war)
+	fog_of_war.call("configure", player, get_node("CameraRig/Camera3D"))
+	fog_of_war.call("set_enabled", false)
 	get_node("/root/NetworkSession").match_started.connect(_on_network_match_started)
 
 
@@ -166,7 +192,7 @@ func _build_arena() -> void:
 	ground.material_override = _textured_material(Color.WHITE, 0.94, Color.BLACK, ARENA_FLOOR_TEXTURE, Vector3(2.35, 2.35, 2.35))
 	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ground)
-	_create_ground_details()
+	# The authored sand atlas includes flush repairs, traffic and cover-foot dust.
 
 	_build_scrap_perimeter()
 
@@ -1187,91 +1213,20 @@ func _build_scrap_perimeter() -> void:
 
 
 func _create_scrap_barrier(node_name: String, barrier_position: Vector3, size: Vector3, rotation_y: float = 0.0) -> StaticBody3D:
+	# Physics and blocker metadata remain owned by the original factory.
 	var body := _create_box(node_name, barrier_position, size, Color("#d7d2c8"), STEEL_DARK_TEXTURE)
 	body.rotation_degrees.y = rotation_y
-	body.set_meta("arena_art_family", "armored_scrap_panel")
-	# The exact collision-sized shell remains visible, so there are no apparent
-	# gaps or large overhangs that disagree with projectile blocking.
-	var collision_visual := body.get_child(0) as MeshInstance3D
-	if collision_visual != null:
-		collision_visual.material_override = _textured_material(Color("#d7d2c8"), 0.88, Color.BLACK, STEEL_DARK_TEXTURE, Vector3(1.15, 1.15, 1.15))
-	var is_perimeter := node_name.contains("Panel")
-	var variant := absi(node_name.hash()) % 3
+	body.set_meta("arena_art_family", "salvage_beveled_armor")
+	var visual := body.get_node("CollisionMatchedVisual") as MeshInstance3D
+	visual.mesh = COVER_SKIN_A if absi(node_name.hash()) % 2 == 0 else COVER_SKIN_B
+	visual.material_override = null
+	# Shared unit meshes have a long X axis. Orient them for the existing spines.
+	if size.x >= size.z:
+		visual.scale = size
+	else:
+		visual.scale = Vector3(size.z, size.y, size.x)
+		visual.rotation.y = PI * 0.5
 	_create_barrier_contact(body, size)
-
-	# Recessed cap and sill communicate a manufactured module while staying
-	# entirely inside the gameplay volume.
-	var cap := MeshInstance3D.new()
-	var cap_mesh := BoxMesh.new()
-	cap_mesh.size = Vector3(maxf(0.10, size.x - 0.04), 0.10, maxf(0.10, size.z - 0.04))
-	cap.mesh = cap_mesh
-	cap.position.y = size.y * 0.5 - 0.05
-	cap.material_override = _material(Color("#272d30"), 0.74)
-	body.add_child(cap)
-	var sill := MeshInstance3D.new()
-	var sill_mesh := BoxMesh.new()
-	sill_mesh.size = Vector3(maxf(0.10, size.x - 0.03), 0.12, maxf(0.10, size.z - 0.03))
-	sill.mesh = sill_mesh
-	sill.position.y = -size.y * 0.5 + 0.06
-	sill.material_override = _material(Color("#6f4535"), 0.96)
-	body.add_child(sill)
-
-	var along_x := size.x >= size.z
-	var long_size := size.x if along_x else size.z
-	var short_size := size.z if along_x else size.x
-	var panel_count := 3 if is_perimeter else 2
-	var face_signs: Array = [_perimeter_face_sign(node_name)] if is_perimeter else [-1.0, 1.0]
-	for face_sign in face_signs:
-		for index in range(panel_count):
-			var panel := MeshInstance3D.new()
-			var panel_mesh := BoxMesh.new()
-			var panel_length := long_size / float(panel_count) - 0.12
-			if along_x:
-				panel_mesh.size = Vector3(panel_length, size.y * 0.56, 0.055)
-			else:
-				panel_mesh.size = Vector3(0.055, size.y * 0.56, panel_length)
-			panel.mesh = panel_mesh
-			var offset := -long_size * 0.5 + panel_length * 0.5 + 0.08 + float(index) * (long_size / float(panel_count))
-			if along_x:
-				panel.position = Vector3(offset, 0.04, face_sign * (short_size * 0.5 + 0.028))
-			else:
-				panel.position = Vector3(face_sign * (short_size * 0.5 + 0.028), 0.04, offset)
-			panel.material_override = _barrier_panel_material(variant, index)
-			body.add_child(panel)
-		var rib_count := 3 if is_perimeter else 2
-		for index in range(rib_count):
-			var rib := MeshInstance3D.new()
-			var rib_mesh := BoxMesh.new()
-			var rib_offset := lerpf(-long_size * 0.36, long_size * 0.36, float(index) / float(maxi(1, rib_count - 1)))
-			if along_x:
-				rib_mesh.size = Vector3(0.13, size.y * 0.78, 0.075)
-				rib.position = Vector3(rib_offset, -0.01, face_sign * (short_size * 0.5 + 0.064))
-			else:
-				rib_mesh.size = Vector3(0.075, size.y * 0.78, 0.13)
-				rib.position = Vector3(face_sign * (short_size * 0.5 + 0.064), -0.01, rib_offset)
-			rib.mesh = rib_mesh
-			rib.material_override = _material(Color("#2b3032"), 0.78)
-			body.add_child(rib)
-		var stripe := MeshInstance3D.new()
-		var stripe_mesh := BoxMesh.new()
-		if along_x:
-			stripe_mesh.size = Vector3(long_size * 0.72, 0.13, 0.075)
-			stripe.position = Vector3(0.0, size.y * 0.22, face_sign * (short_size * 0.5 + 0.066))
-		else:
-			stripe_mesh.size = Vector3(0.075, 0.13, long_size * 0.72)
-			stripe.position = Vector3(face_sign * (short_size * 0.5 + 0.066), size.y * 0.22, 0.0)
-		stripe.mesh = stripe_mesh
-		stripe.material_override = _material(Color("#783b35") if variant != 1 else Color("#9a6741"), 0.94)
-		body.add_child(stripe)
-	if not is_perimeter and not along_x:
-		for end_sign in [-1.0, 1.0]:
-			var end_panel := MeshInstance3D.new()
-			var end_mesh := BoxMesh.new()
-			end_mesh.size = Vector3(size.x * 0.72, size.y * 0.54, 0.055)
-			end_panel.mesh = end_mesh
-			end_panel.position = Vector3(0.0, 0.04, end_sign * (size.z * 0.5 + 0.028))
-			end_panel.material_override = _barrier_panel_material((variant + 1) % 3, 0)
-			body.add_child(end_panel)
 	if node_name == "NorthCenterCover":
 		_create_cover_label(body, size, "NORTH // 07")
 	elif node_name == "SouthCenterCover":
@@ -1293,11 +1248,13 @@ func _create_cover_label(parent: Node3D, size: Vector3, label_text: String) -> v
 
 func _create_barrier_contact(parent: Node3D, size: Vector3) -> void:
 	var contact := MeshInstance3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(size.x + 0.16, 0.018, size.z + 0.16)
+	contact.name = "SettledDustFootprint"
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(size.x + 1.1, size.z + 1.1)
 	contact.mesh = mesh
-	contact.position.y = -size.y * 0.5 + 0.009
-	contact.material_override = _material(Color("#303334"), 1.0)
+	# Flat, feathered dust follows the original floor; no raised visual obstacle.
+	contact.position.y = -parent.position.y + 0.008
+	contact.material_override = COVER_CONTACT
 	contact.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(contact)
 
@@ -1478,6 +1435,7 @@ func _create_invisible_limit(node_name: String, limit_position: Vector3, size: V
 func _create_health_pad(node_name: String, pad_position: Vector3) -> void:
 	var repair_kit := REPAIR_KIT_SCENE.instantiate() as Area3D
 	repair_kit.name = node_name
+	repair_kit.add_child(REPAIR_SOCKET.instantiate())
 	repair_kit.position = pad_position
 	add_child(repair_kit)
 	repair_kit.call("set_collection_active", false)
@@ -1487,8 +1445,8 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	var root := Node3D.new()
 	root.name = node_name
 	root.position = bush_position
-	# Visibility keeps its established gameplay centre. The rendered plant base
-	# receives a nearby, validated foothold; foliage may still brush a wall.
+	# Preserve authored arena roots while the visible clump and hiding footprint
+	# share one validated centre. Vegetation remains completely passable.
 	root.scale = Vector3(bush_scale * 1.60, bush_scale * 1.12, bush_scale * 1.50)
 	root.add_to_group("bush_placeholder")
 	root.add_to_group("arena_passable_decor")
@@ -1498,45 +1456,19 @@ func _create_bush_cluster(node_name: String, bush_position: Vector3, bush_scale:
 	var visual_world_position := _resolve_bush_visual_position(node_name, bush_position, base_radius)
 	root.set_meta("bush_base_radius", base_radius)
 	root.set_meta("bush_visual_position", visual_world_position)
-	var visual_root := Node3D.new()
+	root.set_meta("bush_center", visual_world_position)
+	var visual_root := BUSH_VISUAL_SCRIPT.new()
 	visual_root.name = "GroundedVegetation"
 	visual_root.position = Vector3(
 		(visual_world_position.x - bush_position.x) / root.scale.x,
-		-0.035,
+		0.012 / root.scale.y,
 		(visual_world_position.z - bush_position.z) / root.scale.z
 	)
-	visual_root.rotation_degrees.y = float(absi(node_name.hash()) % 37) - 18.0
+	# Meshes use world metres, so a circular gameplay radius cannot become an
+	# ellipse through the old decorative root scale.
+	visual_root.scale = Vector3.ONE / root.scale
+	visual_root.setup(1.28 * bush_scale, 2.35 * bush_scale, node_name.hash())
 	root.add_child(visual_root)
-	var colors := [Color("#39463c"), Color("#505747"), Color("#6a6145"), Color("#78573d")]
-	var group_offsets := [Vector3(-0.28, 0.0, -0.12), Vector3(0.24, 0.0, -0.05), Vector3(0.02, 0.0, 0.28)]
-	for index in range(15):
-		var blade := MeshInstance3D.new()
-		var blade_mesh := BoxMesh.new()
-		blade_mesh.size = Vector3(0.09 + float(index % 3) * 0.025, 1.0, 0.04)
-		blade.mesh = blade_mesh
-		var group_index := index % group_offsets.size()
-		var angle := float(index) * 2.17 + float(group_index) * 0.31
-		var radius := 0.08 + float((index * 5) % 5) * 0.075
-		var blade_height := 0.82 + float((index * 3) % 5) * 0.18
-		blade.position = group_offsets[group_index] + Vector3(cos(angle) * radius, blade_height * 0.43, sin(angle) * radius)
-		blade.scale = Vector3(1.0, blade_height, 1.0)
-		blade.rotation_degrees = Vector3(-7.0 + float(index % 4) * 5.0, rad_to_deg(angle), -16.0 + float(index % 5) * 8.0)
-		blade.material_override = _material(colors[index % colors.size()], 1.0)
-		visual_root.add_child(blade)
-	for index in range(6):
-		var leaf := MeshInstance3D.new()
-		var leaf_mesh := BoxMesh.new()
-		leaf_mesh.size = Vector3(0.18 + float(index % 2) * 0.05, 1.0, 0.05)
-		leaf.mesh = leaf_mesh
-		var group_index := index % group_offsets.size()
-		var angle := float(index) * 2.39 + 0.28
-		var radius := 0.18 + float(index % 2) * 0.12
-		var leaf_height := 0.78 + float(index % 3) * 0.16
-		leaf.position = group_offsets[group_index] + Vector3(cos(angle) * radius, leaf_height * 0.41, sin(angle) * radius)
-		leaf.scale = Vector3(1.0, leaf_height, 1.0)
-		leaf.rotation_degrees = Vector3(-10.0 + float(index % 3) * 7.0, rad_to_deg(angle), -20.0 + float(index) * 9.0)
-		leaf.material_override = _material(colors[(index + 1) % colors.size()], 1.0)
-		visual_root.add_child(leaf)
 	add_child(root)
 
 
@@ -1719,6 +1651,10 @@ func _build_interface() -> void:
 	touch_controls.call("set_player", player)
 	game_flow.add_child(touch_controls)
 	game_flow.call("configure", self, player, target, touch_controls)
+	sight_tracker = SIGHT_TRACKER_SCRIPT.new()
+	sight_tracker.name = "SightTracker"
+	add_child(sight_tracker)
+	sight_tracker.call("configure", self, player, target)
 
 
 func set_menu_mode(menu_mode: bool) -> void:
@@ -1817,7 +1753,7 @@ func _set_menu_showcase_clip(clip_index: int) -> void:
 
 
 func start_duel(loadout: Dictionary) -> void:
-	_bot_build = BOT_BUILDS.choose(str(_bot_build.get("title", "")))
+	_bot_build_round_key = ""
 	prepare_round(loadout)
 
 
@@ -1830,8 +1766,17 @@ func prepare_round(loadout: Dictionary) -> void:
 	player.position = Vector3(-3.5, 0.0, 17.0)
 	target.position = Vector3(3.5, 0.0, 15.5)
 	target.call("set_duel_mode", true)
-	if _bot_build.is_empty():
-		_bot_build = BOT_BUILDS.choose()
+	var round_key := "%d:%d" % [game_flow.match_id if game_flow != null else 0, maxi(1, game_flow.round_number if game_flow != null else 1)]
+	# start_duel and its countdown both prepare the initial round. Draw once.
+	if _bot_build_current.is_empty() or round_key != _bot_build_round_key:
+		_bot_build_current = _bot_build_presets.next_preset()
+		_bot_build_round_key = round_key
+	target.set_meta("bot_build_preset", _bot_build_current.duplicate(true))
+	target.set_meta("bot_build_id", str(_bot_build_current.id))
+	target.set_meta("bot_build_name", str(_bot_build_current.name))
+	target.set_meta("bot_personality", _bot_build_current.personality.duplicate(true))
+	_bot_build = _bot_build_current.loadout.duplicate(true)
+	_bot_build["title"] = str(_bot_build_current.name)
 	target.call("set_duel_loadout", _bot_build)
 	target.call("set_bot_difficulty", bot_difficulty)
 	target.call("set_training_bot_enabled", false)
@@ -1844,7 +1789,18 @@ func prepare_round(loadout: Dictionary) -> void:
 
 
 func get_bot_build() -> Dictionary:
-	return {} if target != null and bool(target.get("network_proxy")) else _bot_build.duplicate(true)
+	return {} if is_instance_valid(network_match) or (target != null and bool(target.get("network_proxy"))) else _bot_build.duplicate(true)
+
+
+func set_bot_build_seed(value: int) -> void:
+	_bot_build_presets.set_seed(value)
+	_bot_build_round_key = ""
+	_bot_build_current.clear()
+	_bot_build.clear()
+
+
+func get_current_bot_build() -> Dictionary:
+	return _bot_build_current.duplicate(true)
 
 
 func activate_round() -> void:

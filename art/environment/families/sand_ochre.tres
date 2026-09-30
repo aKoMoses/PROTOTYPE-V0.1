@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Salvage / sand_ochre"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.7058824, 0.5803922, 0.37254903, 1)
+metallic = 0.12
+roughness = 0.94

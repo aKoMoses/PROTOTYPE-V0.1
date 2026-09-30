@@ -7,6 +7,7 @@ signal shot_finished
 
 const KICK_TIME := 0.05
 const RECOVERY_TIME := 0.12
+const MEKATANA_VISUAL := preload("res://scripts/mekatana_visual.gd")
 
 var aiming := false
 var carrying := false
@@ -38,6 +39,12 @@ var punch_phase := ""
 var punch_progress := 0.0
 var pelto_phase := ""
 var pelto_progress := 0.0
+var mekatana_step := 0
+var mekatana_phase := ""
+var mekatana_progress := 0.0
+var mekatana_equipped := false
+var _mekatana_guard_yaw := 0.0
+var _mekatana_prepare_start := 0.0
 
 
 func trigger_shot(charge_ratio: float) -> void:
@@ -74,13 +81,31 @@ func clear_pelto_pose() -> void:
 	pelto_progress = 0.0
 
 
+func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
+	if phase == "preparation" and (mekatana_phase != phase or mekatana_step != step):
+		_mekatana_prepare_start = _mekatana_guard_yaw
+	mekatana_step = clampi(step, 0, 2)
+	mekatana_phase = phase
+	mekatana_progress = clampf(progress, 0.0, 1.0)
+
+
+func clear_mekatana_pose() -> void:
+	if mekatana_phase == "":
+		return
+	# A completed recovery leaves a side guard for the following swing. Real
+	# interruptions return to neutral instead of retaining a delayed action.
+	_mekatana_guard_yaw = MEKATANA_VISUAL.guard_yaw(mekatana_step) if mekatana_phase == "recovery" else 0.0
+	mekatana_phase = ""
+	mekatana_progress = 0.0
+
+
 func is_fulguro_pose_active() -> bool:
 	return punch_phase != ""
 
 
 func _process_modification_with_delta(delta: float) -> void:
 	var rig_skeleton := get_skeleton()
-	if rig_skeleton == null or (not aiming and not carrying and punch_phase == "" and pelto_phase == "") or spine_index < 0 or right_hand_index < 0:
+	if rig_skeleton == null or (not aiming and not carrying and punch_phase == "" and pelto_phase == "" and mekatana_phase == "") or spine_index < 0 or right_hand_index < 0:
 		cancel_shot()
 		return
 	if punch_phase != "":
@@ -92,6 +117,13 @@ func _process_modification_with_delta(delta: float) -> void:
 		cancel_shot()
 		_apply_pelto_pose(rig_skeleton)
 		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		return
+	if mekatana_equipped or mekatana_phase != "":
+		cancel_shot()
+		_apply_mekatana_pose(rig_skeleton)
+		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		if support_enabled:
+			_solve_support_arm(rig_skeleton)
 		return
 	if not aiming:
 		cancel_shot()
@@ -165,6 +197,38 @@ func _apply_pelto_pose(rig_skeleton: Skeleton3D) -> void:
 	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, -62.0 * prepare + 104.0 * strike + 68.0 * recover)
 	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 38.0 * prepare - 70.0 * strike - 42.0 * recover)
 	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, -18.0 * prepare + 34.0 * strike + 20.0 * recover)
+
+
+func _apply_mekatana_pose(rig_skeleton: Skeleton3D) -> void:
+	_set_global_basis(rig_skeleton, spine_index, spine_basis)
+	var values: Dictionary = MEKATANA_VISUAL.pose_angles(mekatana_step, mekatana_phase, mekatana_progress)
+	if mekatana_phase == "":
+		values = MEKATANA_VISUAL.pose_angles(0, "preparation", 0.0)
+		_set_mekatana_sweep(values, _mekatana_guard_yaw)
+	elif mekatana_phase == "preparation":
+		_set_mekatana_sweep(values, MEKATANA_VISUAL.preparation_yaw(mekatana_step, _mekatana_prepare_start, mekatana_progress))
+	_mekatana_guard_yaw = float(values.torso_yaw) + float(values.shoulder_yaw) + float(values.arm_yaw) + float(values.wrist_yaw)
+	if right_shoulder_index >= 0 and float(values.shoulder_lift) > 0.0:
+		var parent := rig_skeleton.get_bone_parent(right_shoulder_index)
+		var parent_basis := rig_skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
+		var offset := parent_basis.inverse() * Vector3.UP * float(values.shoulder_lift)
+		rig_skeleton.set_bone_pose_position(right_shoulder_index, rig_skeleton.get_bone_pose_position(right_shoulder_index) + offset)
+	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.UP, values.torso_yaw)
+	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.RIGHT, values.torso_pitch)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, values.shoulder_yaw)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.RIGHT, values.shoulder_pitch)
+	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.UP, values.arm_yaw)
+	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, values.arm_pitch)
+	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, values.forearm_pitch)
+	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.UP, values.wrist_yaw)
+	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, values.wrist_pitch)
+
+
+func _set_mekatana_sweep(values: Dictionary, sweep: float) -> void:
+	values.torso_yaw = sweep * 0.24
+	values.shoulder_yaw = sweep * 0.20
+	values.arm_yaw = sweep * 0.42
+	values.wrist_yaw = sweep * 0.14
 
 
 func _set_global_basis(rig_skeleton: Skeleton3D, bone: int, desired: Basis) -> void:

@@ -7,6 +7,8 @@ const MODEL_PATH := "res://art/enemy_droid.glb"
 const WEAPON_PATH := "res://art/player_heavy_blaster.glb"
 const POSE_SOLVER := preload("res://scripts/enemy_droid_pose.gd")
 const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
+const MEKATANA_SCENE := preload("res://scenes/weapons/mekatana.tscn")
+const LONGSHOT_SCENE := preload("res://scenes/weapons/longshot.tscn")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const MODEL_SCALE := 1.9
 const WEAPON_SCALE := 0.75
@@ -47,6 +49,9 @@ var _preview := false
 var _ready_ok := false
 var weapon_id := "blaster"
 var _weapon_hand_pose := Transform3D.IDENTITY
+var _mekatana_weapon: Node3D
+var _mekatana_phase := ""
+var _mekatana_direction := Vector3.ZERO
 
 
 func setup() -> bool:
@@ -177,14 +182,22 @@ func _build_weapon_socket() -> void:
 func set_weapon(identifier: String) -> void:
 	if weapon_socket == null:
 		return
-	weapon_id = "shotgun" if identifier == "shotgun" else "blaster"
+	clear_mekatana_pose()
+	_mekatana_weapon = null
+	weapon_id = identifier if identifier in ["blaster", "shotgun", "longshot", "mekatana"] else "blaster"
 	for child in weapon_socket.get_children():
 		weapon_socket.remove_child(child)
 		child.queue_free()
 	var weapon: Node3D
 	var right_grip := Vector3.ZERO
-	if weapon_id == "shotgun":
-		weapon = SHOTGUN_SCENE.instantiate() as Node3D
+	if weapon_id == "mekatana":
+		weapon = MEKATANA_SCENE.instantiate() as Node3D
+		_mekatana_weapon = weapon
+		muzzle = weapon.get_node("BladeTip") as Marker3D
+		support_grip = weapon.get_node("LeftHandGrip") as Marker3D
+		right_grip = (weapon.get_node("RightHandGrip") as Marker3D).position
+	elif weapon_id in ["shotgun", "longshot"]:
+		weapon = (LONGSHOT_SCENE if weapon_id == "longshot" else SHOTGUN_SCENE).instantiate() as Node3D
 		muzzle = weapon.get_node("Muzzle") as Marker3D
 		support_grip = weapon.get_node("LeftHandGrip") as Marker3D
 		right_grip = (weapon.get_node("RightHandGrip") as Marker3D).position
@@ -208,12 +221,54 @@ func set_weapon(identifier: String) -> void:
 		weapon.add_child(support_grip)
 		right_grip = Vector3(0.0, -0.08, 0.08)
 	weapon_socket.add_child(weapon)
-	var basis := Basis(Vector3.UP, PI).scaled(Vector3.ONE * WEAPON_SCALE / MODEL_SCALE)
+	var weapon_scale := 0.88 if weapon_id == "mekatana" else WEAPON_SCALE
+	var basis := Basis(Vector3.UP, PI).scaled(Vector3.ONE * weapon_scale / MODEL_SCALE)
 	var desired := Transform3D(basis, _weapon_hand_pose.origin - basis * right_grip)
 	weapon_socket.transform = _weapon_hand_pose.affine_inverse() * desired
 	if pose_solver != null:
+		pose_solver.mekatana_equipped = weapon_id == "mekatana"
+		pose_solver._mekatana_guard_yaw = 0.0
 		pose_solver.configure(skeleton, weapon_socket.transform, support_grip.position, muzzle.position, _aim_spine)
 	_refresh_attachment()
+
+
+func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
+	_mekatana_phase = phase
+	if phase != "":
+		aim_weight = 1.0
+	if pose_solver != null:
+		pose_solver.set_mekatana_pose(step, phase, progress)
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("set_phase", step, phase, progress)
+
+
+func clear_mekatana_pose() -> void:
+	_mekatana_phase = ""
+	_mekatana_direction = Vector3.ZERO
+	if pose_solver != null:
+		pose_solver.clear_mekatana_pose()
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("clear_mekatana_pose")
+
+
+func set_mekatana_direction(direction: Vector3) -> void:
+	var flat := direction * Vector3(1.0, 0.0, 1.0)
+	if flat.is_finite() and flat.length_squared() > 0.0001:
+		_mekatana_direction = flat.normalized()
+		rotation.y = atan2(-flat.x, -flat.z)
+
+
+func set_mekatana_impact(target: Node3D, power: float = 1.0) -> void:
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("set_mekatana_impact", target, power)
+
+
+func set_longshot_cycle(normal_shots: int, enhanced_ready: bool) -> void:
+	if weapon_id != "longshot" or weapon_socket == null or weapon_socket.get_child_count() == 0:
+		return
+	var weapon := weapon_socket.get_child(0)
+	if weapon.has_method("set_cycle"):
+		weapon.call("set_cycle", normal_shots, enhanced_ready)
 
 
 func _build_tree(model: Node3D) -> void:
@@ -310,12 +365,15 @@ func update_visual(delta: float, actual_velocity: Vector3, aim_point: Vector3, e
 	var flat := actual_velocity * Vector3(1, 0, 1)
 	var speed := flat.length() if not stunned else 0.0
 	locomotion_speed = speed
-	var direction := aim_point - global_position if engaged else flat
+	var melee_locked := _mekatana_phase in ["preparation", "active"] and _mekatana_direction.length_squared() > 0.001
+	var direction := _mekatana_direction if melee_locked else aim_point - global_position if engaged else flat
 	direction.y = 0.0
 	if direction.length_squared() > 0.001:
 		var world_yaw := atan2(-direction.x, -direction.z)
-		rotation.y = lerp_angle(rotation.y, world_yaw, 1.0 - exp(-14.0 * delta))
-	aim_weight = move_toward(aim_weight, 1.0 if engaged else 0.0, delta * 7.0)
+		rotation.y = world_yaw if melee_locked else lerp_angle(rotation.y, world_yaw, 1.0 - exp(-14.0 * delta))
+	# A long blade keeps an authored two-handed guard during travel as well as
+	# combat; unarmed run wrists would otherwise turn its tip into the floor.
+	aim_weight = move_toward(aim_weight, 1.0 if engaged or _mekatana_phase != "" or weapon_id == "mekatana" else 0.0, delta * 7.0)
 	var next: StringName = &"idle"
 	var local_move := model_axis.global_basis.orthonormalized().inverse() * flat
 	var backwards := engaged and local_move.z < -speed * 0.45
@@ -394,6 +452,7 @@ func play_death() -> void:
 	if not _ready_ok or dead:
 		return
 	dead = true
+	clear_mekatana_pose()
 	pose_solver.reset_offsets()
 	_preview = false
 	_death_clock = 0.0
@@ -408,6 +467,7 @@ func reset_visual() -> void:
 	if not _ready_ok:
 		return
 	dead = false
+	clear_mekatana_pose()
 	pose_solver.reset_offsets()
 	_preview = false
 	_death_clock = 0.0
@@ -451,6 +511,8 @@ func _refresh_attachment() -> void:
 	# synchronization for the projectile as well (no cached previous-frame muzzle).
 	hand_attachment.transform = skeleton.get_bone_global_pose(_right_hand)
 	hand_attachment.force_update_transform()
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("sample_blade_pose")
 
 
 func get_muzzle_transform() -> Transform3D:

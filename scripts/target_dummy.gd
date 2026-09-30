@@ -6,14 +6,28 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const DUEL_STATE := preload("res://scripts/duel_bot_state.gd")
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
+const VISIBILITY_FADE := preload("res://scripts/visibility_fade.gd")
+const VISIBILITY_ECHO := preload("res://scripts/visibility_echo.gd")
+const BUSH_STATE := preload("res://scripts/bush_state.gd")
 const TRAINING_BOT := preload("res://scripts/training_bot.gd")
 const ENEMY_DROID_VISUAL := preload("res://scripts/enemy_droid_visual.gd")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
 const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
 
+@export_category("Vision")
+@export_range(1.0, 60.0, 0.5) var vision_radius := VISIBILITY_STATE.DEFAULT_VISION_RADIUS
+@export_range(0.0, 20.0, 0.5) var vision_fade_width := VISIBILITY_STATE.DEFAULT_VISION_FADE_WIDTH
+
 var combat_state
 var visibility_state
+var _visibility_fade: Node
+var _visibility_echo: Node3D
+var _presentation_visibility_weight := 1.0
+var _presentation_silhouette := 0.0
+var _last_observation_visible := false
+var _presentation_observer_epoch := -1
+var _visibility_epoch := 0
 var _resetting := false
 const COMBAT_READOUT := preload("res://scripts/combat_readout.gd")
 var _health_readout: Node3D
@@ -71,6 +85,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _visibility_fade != null:
+		_visibility_fade.call("restore")
 	_effect_clock += delta
 	if visibility_state != null:
 		visibility_state.update(delta)
@@ -82,7 +98,7 @@ func _process(delta: float) -> void:
 	if _javelin_mark_until >= 0.0 and Time.get_ticks_msec() / 1000.0 >= _javelin_mark_until:
 		_javelin_mark_until = -1.0
 	_update_effect_presentation()
-	_update_visibility_presentation()
+	_update_visibility_presentation(delta)
 
 
 func _physics_process(delta: float) -> void:
@@ -108,7 +124,28 @@ func _physics_process(delta: float) -> void:
 	_visual_rig.call("update_visual", delta, actual_velocity, aim_point, active, is_stunned(), _duel_paused)
 
 
+func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
+	if _visual_rig != null and _visual_rig.has_method("set_mekatana_pose"):
+		_visual_rig.call("set_mekatana_pose", step, phase, progress)
+
+
+func set_mekatana_direction(direction: Vector3) -> void:
+	if _visual_rig != null and _visual_rig.has_method("set_mekatana_direction"):
+		_visual_rig.call("set_mekatana_direction", direction)
+
+
+func set_mekatana_impact(target: Node3D, power: float = 1.0) -> void:
+	if _visual_rig != null and _visual_rig.has_method("set_mekatana_impact"):
+		_visual_rig.call("set_mekatana_impact", target, power)
+
+
+func clear_mekatana_pose() -> void:
+	if _visual_rig != null and _visual_rig.has_method("clear_mekatana_pose"):
+		_visual_rig.call("clear_mekatana_pose")
+
+
 func prepare_training_bot_shot(aim_point: Vector3) -> Transform3D:
+	mark_combat_event()
 	if _visual_rig != null:
 		var shot: Transform3D = _visual_rig.call("prepare_shot", aim_point)
 		var origin := global_position + Vector3.UP * 0.9
@@ -201,6 +238,13 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	_visibility_epoch += 1
+	_last_observation_visible = false
+	_presentation_observer_epoch = -1
+	if _visibility_echo != null:
+		_visibility_echo.call("reset")
+	if _visibility_fade != null:
+		_visibility_fade.call("restore")
 	if _health_readout != null:
 		_health_readout.call("clear_damage_numbers")
 	_resetting = false
@@ -224,6 +268,7 @@ func reset_combat_state() -> void:
 	_update_status("")
 	_update_label()
 	_update_effect_presentation()
+	_update_visibility_presentation()
 
 
 func set_training_bot_enabled(value: bool) -> void:
@@ -470,6 +515,15 @@ func get_active_effect_types() -> Array[String]:
 	return combat_state.get_active_effect_types() if combat_state != null else []
 
 
+func mark_combat_event() -> void:
+	if visibility_state != null:
+		visibility_state.mark_combat_event()
+
+
+func _mark_combat_event() -> void:
+	mark_combat_event()
+
+
 func get_combat_reveal_remaining() -> float:
 	return visibility_state.combat_remaining if visibility_state != null else 0.0
 
@@ -483,20 +537,52 @@ func is_revealed() -> bool:
 
 
 func is_in_bush() -> bool:
-	for bush in get_tree().get_nodes_in_group("bush_placeholder"):
-		if not is_instance_valid(bush):
-			continue
-		var radius := float(bush.get_meta("bush_radius", 0.0))
-		if Vector2(global_position.x - bush.global_position.x, global_position.z - bush.global_position.z).length() <= radius:
-			return true
-	return false
+	return get_current_bush() != null
+
+
+func get_current_bush() -> Node3D:
+	return BUSH_STATE.find_bush(self)
+
+
+func get_current_bush_name() -> String:
+	var bush := get_current_bush()
+	return str(bush.name) if bush != null else ""
+
+
+func is_bush_concealed() -> bool:
+	return is_in_bush() and not is_revealed()
 
 
 func is_visible_to(observer: Node3D) -> bool:
+	return get_visibility_weight(observer) > 0.0
+
+
+func get_vision_radius() -> float:
+	return vision_radius
+
+
+func get_vision_fade_width() -> float:
+	return vision_fade_width
+
+
+func get_visibility_epoch() -> int:
+	return _visibility_epoch
+
+
+func get_presentation_visibility_weight() -> float:
+	return _presentation_visibility_weight
+
+
+func get_visibility_weight(observer: Node3D) -> float:
 	if observer == null or not is_instance_valid(observer):
-		return true
+		return 1.0
+	if observer == self:
+		return 1.0
+	var range_alpha := VISIBILITY_STATE.range_weight(self, observer)
+	if range_alpha <= 0.0:
+		return 0.0
 	var line_of_sight := _line_of_sight_clear(observer)
-	return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), line_of_sight)
+	return range_alpha if BUSH_STATE.visible_to(self, observer, is_revealed(), line_of_sight) else 0.0
 
 
 func _line_of_sight_clear(observer: Node3D) -> bool:
@@ -507,21 +593,68 @@ func _line_of_sight_clear(observer: Node3D) -> bool:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [observer.get_rid(), get_rid()]
+	query.exclude = [get_rid()]
+	if observer is CollisionObject3D:
+		query.exclude.append(observer.get_rid())
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
-func _update_visibility_presentation() -> void:
+func _update_visibility_presentation(delta: float = 0.0) -> void:
 	var observer: Node3D = get_tree().current_scene.get_node_or_null("Player") as Node3D if get_tree().current_scene != null else null
-	var should_show := is_visible_to(observer)
-	for node in [_visual_rig, _health_readout, _status_label]:
+	var observer_epoch := int(observer.call("get_visibility_epoch")) if observer != null and observer.has_method("get_visibility_epoch") else -1
+	if observer_epoch != _presentation_observer_epoch:
+		_presentation_observer_epoch = observer_epoch
+		_last_observation_visible = false
+		if _visibility_echo != null:
+			_visibility_echo.call("reset")
+	var raw_weight := get_visibility_weight(observer)
+	var should_show := raw_weight > 0.0
+	var display_weight := raw_weight
+	if should_show and observer != null and observer != self:
+		var offset := global_position - observer.global_position
+		display_weight = VISIBILITY_STATE.silhouette_visibility(Vector2(offset.x, offset.z).length(), VISIBILITY_STATE.observer_radius(observer), VISIBILITY_STATE.observer_fade_width(observer))
+	var silhouette := 1.0 - smoothstep(0.12, 0.95, raw_weight)
+	if delta <= 0.0 or not should_show:
+		_presentation_visibility_weight = display_weight
+		_presentation_silhouette = silhouette
+	else:
+		_presentation_visibility_weight = move_toward(_presentation_visibility_weight, display_weight, delta / 0.18)
+		_presentation_silhouette = move_toward(_presentation_silhouette, silhouette, delta / 0.22)
+	var detail_weight := raw_weight * raw_weight
+	if _visual_rig != null:
+		_visual_rig.visible = should_show
+	for node in [_health_readout, _status_label]:
 		if node != null:
-			node.visible = should_show
+			node.visible = detail_weight > 0.01
 	# Parent visibility gates the presentation without reviving expired groups.
 	if _status_vfx != null:
-		_status_vfx.visible = should_show and not _resetting and not is_real_dead()
+		_status_vfx.visible = detail_weight > 0.01 and not _resetting and not is_real_dead()
 	if _javelin_mark_label != null:
-		_javelin_mark_label.visible = should_show and has_javelin_mark()
+		_javelin_mark_label.visible = detail_weight > 0.01 and has_javelin_mark()
+	if _visibility_fade != null:
+		_visibility_fade.call("apply_presentation", _presentation_visibility_weight, _presentation_silhouette, detail_weight)
+	var echo_allowed := _can_keep_visibility_echo(observer)
+	if _visibility_echo != null:
+		if delta <= 0.0 or not echo_allowed:
+			_visibility_echo.call("reset")
+		if should_show and echo_allowed:
+			_visibility_echo.call("observe", global_position)
+		elif _last_observation_visible and delta > 0.0 and echo_allowed:
+			_visibility_echo.call("begin_loss")
+	_last_observation_visible = should_show and echo_allowed
+
+
+func _can_keep_visibility_echo(observer: Node3D) -> bool:
+	if _resetting or is_real_dead() or observer == null:
+		return false
+	if observer.has_method("is_real_dead") and bool(observer.call("is_real_dead")):
+		return false
+	if observer.has_method("is_gameplay_enabled") and not bool(observer.call("is_gameplay_enabled")):
+		return false
+	var scene := get_tree().current_scene
+	# The menu showcase moves real combat actors with gameplay enabled. Those
+	# observations must never carry into a live duel or its countdown.
+	return scene == null or not "duel_active" in scene or bool(scene.get("duel_active")) or network_proxy
 
 
 func apply_javelin_mark(duration: float, _source_id: String = "") -> void:
@@ -560,6 +693,8 @@ func _on_health_changed(_current: float, _maximum: float) -> void:
 
 
 func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> void:
+	if amount > 0.0:
+		mark_combat_event()
 	if _health_readout != null:
 		_health_readout.call("show_damage", amount)
 	# Burn ticks are damage but have no collision impact.
@@ -575,6 +710,8 @@ func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> 
 
 
 func _on_damage_dealt(effective_damage: float) -> void:
+	if effective_damage > 0.0:
+		mark_combat_event()
 	if _duel_mode and _training_bot != null and _training_bot.has_method("register_duel_damage"):
 		_training_bot.call("register_duel_damage", effective_damage)
 
@@ -686,6 +823,9 @@ func _on_state_died() -> void:
 	_resetting = true
 	# Keep the death visual, but let later projectiles pass through the corpse.
 	collision_layer = 0
+	_last_observation_visible = false
+	if _visibility_echo != null:
+		_visibility_echo.call("reset")
 	get_node("/root/GameSfx").play_event("robot_destruction")
 	_cancel_fulguro_projection()
 	_cancel_pelto_pull()
@@ -759,6 +899,15 @@ func _build_visuals() -> void:
 	_javelin_mark_label.outline_size = 7
 	_javelin_mark_label.modulate = Color("#ffdb75")
 	add_child(_javelin_mark_label)
+
+	_visibility_fade = VISIBILITY_FADE.new()
+	_visibility_fade.name = "VisibilityFade"
+	add_child(_visibility_fade)
+	_visibility_fade.call("configure", [_visual_rig, _health_readout, _status_label, _status_vfx, _javelin_mark_label])
+	_visibility_echo = VISIBILITY_ECHO.new()
+	_visibility_echo.name = "VisibilityEcho"
+	add_child(_visibility_echo)
+	_visibility_echo.call("configure", _visual_rig)
 
 
 func _update_effect_presentation() -> void:

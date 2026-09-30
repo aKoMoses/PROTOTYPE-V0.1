@@ -1,0 +1,155 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/salvage_yard.gd" id="1_controller"]
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/north_hoist.res" id="2_hoist"]
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/crawler_wreck.res" id="3_crawler"]
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/service_canopy_frame.res" id="4_canopy"]
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/power_unit.res" id="5_power"]
+[ext_resource type="PackedScene" path="res://scenes/environment/service_banner.tscn" id="6_banner"]
+[ext_resource type="PackedScene" path="res://scenes/environment/ventilation.tscn" id="7_fan"]
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/service_canopy.res" id="8_cloth"]
+[ext_resource type="Shader" path="res://scripts/environment/yard_cloth.gdshader" id="9_shader"]
+[ext_resource type="Texture2D" path="res://art/environment/yard/canvas_marked.svg" id="10_canvas"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_canopy"]
+resource_name = "Four_corner_service_awning"
+shader = ExtResource("9_shader")
+shader_parameter/canvas_texture = ExtResource("10_canvas")
+shader_parameter/canvas_tint = Color(0.80, 0.44, 0.38, 1)
+shader_parameter/wind_direction = Vector2(0.94, -0.34)
+shader_parameter/wind_strength = 0.65
+shader_parameter/motion_scale = 1.0
+shader_parameter/phase = 4.1
+shader_parameter/four_corner_pin = true
+
+[sub_resource type="Gradient" id="Gradient_soft_puff"]
+offsets = PackedFloat32Array(0, 0.35, 1)
+colors = PackedColorArray(0.65, 0.60, 0.49, 0.12, 0.62, 0.57, 0.46, 0.045, 0.62, 0.57, 0.46, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_puff"]
+gradient = SubResource("Gradient_soft_puff")
+width = 32
+height = 32
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_puff"]
+resource_name = "Peripheral_soft_dust"
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_texture = SubResource("GradientTexture2D_puff")
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_puff"]
+material = SubResource("StandardMaterial3D_puff")
+size = Vector2(0.68, 0.68)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_steam"]
+resource_name = "Low_opacity_exterior_vent"
+emission_shape = 1
+emission_sphere_radius = 0.075
+direction = Vector3(0.13, 1, -0.04)
+spread = 8.0
+initial_velocity_min = 0.20
+initial_velocity_max = 0.32
+gravity = Vector3(0.02, 0.04, -0.01)
+scale_min = 0.50
+scale_max = 1.20
+color = Color(0.86, 0.84, 0.73, 0.42)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+resource_name = "Canopy_edge_dust"
+emission_shape = 2
+emission_box_extents = Vector3(0.8, 0.10, 1.6)
+direction = Vector3(0.94, 0.1, -0.34)
+spread = 16.0
+initial_velocity_min = 0.15
+initial_velocity_max = 0.30
+gravity = Vector3(0, 0.012, 0)
+scale_min = 0.6
+scale_max = 1.5
+color = Color(0.81, 0.64, 0.40, 0.30)
+
+[node name="SalvageYard" type="Node3D" groups=["arena_exterior"]]
+script = ExtResource("1_controller")
+metadata/replaceable_environment = true
+metadata/visual_only = true
+metadata/authored_ground_y = -0.06
+metadata/static_compositions = 4
+metadata/particle_budget = 24
+
+[node name="NorthMaintenanceHoist" type="Node3D" parent="."]
+position = Vector3(-10, -0.06, -36.7)
+metadata/decorative_exterior = true
+
+[node name="BakedGantryCableAndSlungMotor" type="MeshInstance3D" parent="NorthMaintenanceHoist"]
+mesh = ExtResource("2_hoist")
+visibility_range_end = 92.0
+visibility_range_end_margin = 4.0
+
+[node name="AttachedBanner" parent="NorthMaintenanceHoist" instance=ExtResource("6_banner")]
+position = Vector3(-1.6, 4.16, 0.61)
+
+[node name="NorthCreamCrawlerWreck" type="MeshInstance3D" parent="."]
+position = Vector3(12.5, -0.06, -36.4)
+rotation = Vector3(0, -0.12, 0)
+mesh = ExtResource("3_crawler")
+visibility_range_end = 92.0
+visibility_range_end_margin = 4.0
+metadata/decorative_exterior = true
+
+[node name="WestRepairCanopy" type="Node3D" parent="."]
+position = Vector3(-35.1, -0.06, -12.8)
+metadata/decorative_exterior = true
+
+[node name="BakedPolesBenchAndMachines" type="MeshInstance3D" parent="WestRepairCanopy"]
+mesh = ExtResource("4_canopy")
+visibility_range_end = 86.0
+visibility_range_end_margin = 4.0
+
+[node name="CornerPinnedAwning" type="MeshInstance3D" parent="WestRepairCanopy"]
+position = Vector3(0, 3.17, 0)
+mesh = ExtResource("8_cloth")
+material_override = SubResource("ShaderMaterial_canopy")
+extra_cull_margin = 0.20
+cast_shadow = 0
+visibility_range_end = 86.0
+visibility_range_end_margin = 4.0
+
+[node name="PeripheralDust" type="GPUParticles3D" parent="WestRepairCanopy"]
+position = Vector3(-0.55, 0.43, 0.10)
+amount = 12
+lifetime = 5.0
+preprocess = 3.0
+visibility_aabb = AABB(-1.5, -0.5, -3, 5, 2.5, 5)
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_puff")
+cast_shadow = 0
+
+[node name="EastSecondaryPowerUnit" type="Node3D" parent="."]
+position = Vector3(35.2, -0.06, -6.7)
+metadata/decorative_exterior = true
+
+[node name="BakedHousingRadiatorAndConduits" type="MeshInstance3D" parent="EastSecondaryPowerUnit"]
+mesh = ExtResource("5_power")
+visibility_range_end = 86.0
+visibility_range_end_margin = 4.0
+
+[node name="Ventilation" parent="EastSecondaryPowerUnit" instance=ExtResource("7_fan")]
+position = Vector3(-0.41, 1.58, 2.30)
+
+[node name="PeripheralVentSteam" type="GPUParticles3D" parent="EastSecondaryPowerUnit"]
+position = Vector3(1.03, 3.06, -1.25)
+amount = 12
+lifetime = 4.0
+preprocess = 2.0
+visibility_aabb = AABB(-0.75, -0.2, -0.75, 2, 2.3, 1.7)
+process_material = SubResource("ParticleProcessMaterial_steam")
+draw_pass_1 = SubResource("QuadMesh_puff")
+cast_shadow = 0

@@ -1,0 +1,25 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/hanging_banner.res" id="1_mesh"]
+[ext_resource type="Shader" path="res://scripts/environment/yard_cloth.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" path="res://art/environment/yard/canvas_marked.svg" id="3_canvas"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_banner"]
+resource_name = "Fixed_header_brick_canvas"
+shader = ExtResource("2_shader")
+shader_parameter/canvas_texture = ExtResource("3_canvas")
+shader_parameter/canvas_tint = Color(0.83, 0.45, 0.38, 1)
+shader_parameter/wind_direction = Vector2(0.94, -0.34)
+shader_parameter/wind_strength = 0.65
+shader_parameter/motion_scale = 1.0
+shader_parameter/phase = 1.8
+shader_parameter/four_corner_pin = false
+
+[node name="ServiceBanner" type="Node3D"]
+metadata/decorative_exterior = true
+
+[node name="PinnedCloth" type="MeshInstance3D" parent="."]
+mesh = ExtResource("1_mesh")
+material_override = SubResource("ShaderMaterial_banner")
+extra_cull_margin = 0.22
+cast_shadow = 0

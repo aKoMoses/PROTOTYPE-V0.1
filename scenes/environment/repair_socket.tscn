@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Paint"]
+albedo_color = Color(0.56, 0.51, 0.40, 1)
+roughness = 0.94
+
+[sub_resource type="StandardMaterial3D" id="Steel"]
+albedo_color = Color(0.21, 0.23, 0.22, 1)
+roughness = 0.82
+metallic = 0.3
+
+[sub_resource type="CylinderMesh" id="Foundation"]
+material = SubResource("Paint")
+top_radius = 0.96
+bottom_radius = 0.98
+height = 0.018
+radial_segments = 12
+
+[sub_resource type="TorusMesh" id="Joint"]
+material = SubResource("Steel")
+inner_radius = 0.86
+outer_radius = 0.9
+rings = 12
+ring_segments = 6
+
+[node name="RepairSocket" type="Node3D"]
+metadata/visual_only = true
+
+[node name="FlushFoundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.011, 0)
+mesh = SubResource("Foundation")
+cast_shadow = 0
+
+[node name="SteelJoint" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.021, 0)
+scale = Vector3(1, 0.24, 1)
+mesh = SubResource("Joint")
+cast_shadow = 0

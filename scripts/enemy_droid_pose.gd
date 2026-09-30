@@ -6,6 +6,7 @@ extends RefCounted
 
 const EPSILON := 0.000001
 const REACH_MARGIN := 0.00001
+const MEKATANA_VISUAL := preload("res://scripts/mekatana_visual.gd")
 
 ## Distance in world units between the support wrist and its weapon anchor.
 var left_grip_error := 0.0
@@ -22,10 +23,17 @@ var _spine := -1
 var _spine2 := -1
 var _right_shoulder := -1
 var _right_arm := -1
+var _right_forearm := -1
 var _right_hand := -1
 var _left_arm := -1
 var _left_forearm := -1
 var _left_hand := -1
+var mekatana_equipped := false
+var _mekatana_step := 0
+var _mekatana_phase := ""
+var _mekatana_progress := 0.0
+var _mekatana_guard_yaw := 0.0
+var _mekatana_prepare_start := 0.0
 
 
 func configure(skeleton: Skeleton3D, hand_to_weapon: Transform3D, support_from_weapon: Vector3, muzzle_from_weapon: Vector3, reference_spine_basis: Basis) -> void:
@@ -42,6 +50,7 @@ func configure(skeleton: Skeleton3D, hand_to_weapon: Transform3D, support_from_w
 	_spine2 = _skeleton.find_bone("mixamorig_Spine2")
 	_right_shoulder = _skeleton.find_bone("mixamorig_RightShoulder")
 	_right_arm = _skeleton.find_bone("mixamorig_RightArm")
+	_right_forearm = _skeleton.find_bone("mixamorig_RightForeArm")
 	_right_hand = _skeleton.find_bone("mixamorig_RightHand")
 	_left_arm = _skeleton.find_bone("mixamorig_LeftArm")
 	_left_forearm = _skeleton.find_bone("mixamorig_LeftForeArm")
@@ -53,6 +62,22 @@ func configure(skeleton: Skeleton3D, hand_to_weapon: Transform3D, support_from_w
 	if _left_hand >= 0 and _right_hand >= 0:
 		var weapon_basis := (_skeleton.get_bone_global_pose(_right_hand) * _hand_to_weapon).basis.orthonormalized()
 		_support_basis_from_weapon = weapon_basis.inverse() * _skeleton.get_bone_global_pose(_left_hand).basis.orthonormalized()
+
+
+func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
+	if phase == "preparation" and (phase != _mekatana_phase or step != _mekatana_step):
+		_mekatana_prepare_start = _mekatana_guard_yaw
+	_mekatana_step = clampi(step, 0, 2)
+	_mekatana_phase = phase
+	_mekatana_progress = clampf(progress, 0.0, 1.0)
+
+
+func clear_mekatana_pose() -> void:
+	if _mekatana_phase == "":
+		return
+	_mekatana_guard_yaw = MEKATANA_VISUAL.guard_yaw(_mekatana_step) if _mekatana_phase == "recovery" else 0.0
+	_mekatana_phase = ""
+	_mekatana_progress = 0.0
 
 
 func reset_offsets() -> void:
@@ -79,6 +104,10 @@ func solve(leg_yaw: float, aim_weight: float, aim_target: Vector3, recoil: float
 	_apply_impulses(clampf(recoil, 0.0, 1.0) * weight, clampf(hit, 0.0, 1.35))
 	if weight <= 0.0 or _spine < 0 or _right_arm < 0 or _right_hand < 0:
 		return
+	if mekatana_equipped:
+		_apply_mekatana_pose()
+		_solve_support_arm(weight)
+		return
 	if aim_target.is_finite():
 		_aim_right_arm(_skeleton.global_transform.affine_inverse() * aim_target, weight)
 	_solve_support_arm(weight)
@@ -96,6 +125,35 @@ func _apply_impulses(recoil: float, hit: float) -> void:
 		var parent_basis := _skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
 		var local_offset := parent_basis.inverse() * Vector3(0.0, 0.0, -0.016 * recoil)
 		_skeleton.set_bone_pose_position(_right_shoulder, _shoulder_base_position + local_offset)
+
+
+func _apply_mekatana_pose() -> void:
+	var values: Dictionary = MEKATANA_VISUAL.pose_angles(_mekatana_step, _mekatana_phase, _mekatana_progress)
+	var sweep: float = float(values.torso_yaw) + float(values.shoulder_yaw) + float(values.arm_yaw) + float(values.wrist_yaw)
+	if _mekatana_phase == "":
+		values = MEKATANA_VISUAL.pose_angles(0, "preparation", 0.0)
+		sweep = _mekatana_guard_yaw
+	elif _mekatana_phase == "preparation":
+		sweep = MEKATANA_VISUAL.preparation_yaw(_mekatana_step, _mekatana_prepare_start, _mekatana_progress)
+	_mekatana_guard_yaw = sweep
+	if _right_shoulder >= 0 and float(values.shoulder_lift) > 0.0:
+		var parent := _skeleton.get_bone_parent(_right_shoulder)
+		var parent_basis := _skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
+		_skeleton.set_bone_pose_position(_right_shoulder, _shoulder_base_position + parent_basis.inverse() * Vector3.UP * float(values.shoulder_lift))
+	_rotate_axis(_spine2, Vector3.UP, sweep * 0.24)
+	_rotate_axis(_spine2, Vector3.RIGHT, values.torso_pitch)
+	_rotate_axis(_right_shoulder, Vector3.UP, sweep * 0.20)
+	_rotate_axis(_right_shoulder, Vector3.RIGHT, values.shoulder_pitch)
+	_rotate_axis(_right_arm, Vector3.UP, sweep * 0.42)
+	_rotate_axis(_right_arm, Vector3.RIGHT, values.arm_pitch)
+	_rotate_axis(_right_forearm, Vector3.RIGHT, values.forearm_pitch)
+	_rotate_axis(_right_hand, Vector3.UP, sweep * 0.14)
+	_rotate_axis(_right_hand, Vector3.RIGHT, values.wrist_pitch)
+
+
+func _rotate_axis(bone: int, axis: Vector3, degrees: float) -> void:
+	if bone >= 0 and absf(degrees) > 0.001:
+		_set_global_basis(bone, Basis(axis, deg_to_rad(degrees)) * _skeleton.get_bone_global_pose(bone).basis)
 
 
 func _aim_right_arm(target: Vector3, weight: float) -> void:

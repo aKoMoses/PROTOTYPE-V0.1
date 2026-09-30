@@ -12,12 +12,33 @@ const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const HEAVY_BLASTER_MODEL_PATH := "res://art/player_heavy_blaster.glb"
 const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
+const MEKATANA_SCENE := preload("res://scenes/weapons/mekatana.tscn")
+const MEKATANA_ATTACK := preload("res://scripts/mekatana_attack.gd")
+var _mekatana_attack = MEKATANA_ATTACK.new()
+var _mekatana_action_token := 0
+var _mekatana_pivot: Node3D
+var _mekatana_velocity := Vector3.ZERO
+var _mekatana_movement_owned := false
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
+const LONGSHOT_STATE := preload("res://scripts/longshot_state.gd")
+const LONGSHOT_PROJECTILE := preload("res://scripts/longshot_projectile.gd")
+var _longshot_state = LONGSHOT_STATE.new()
+var _longshot_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"].duplicate(true)
+var _longshot_attack_token := 0
+var _longshot_action_token := 0
+var _longshot_attack_busy := false
+var _longshot_next_attack_ready_at := -10.0
+var _longshot_pivot: Node3D
+var _longshot_muzzle: Node3D
+var _longshot_visual: Node3D
+var _longshot_shot_audio: AudioStreamPlayer
+var _longshot_enhanced_audio: AudioStreamPlayer
 const COMBAT_STATE := preload("res://scripts/combat_state.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const VISIBILITY_STATE := preload("res://scripts/visibility_state.gd")
+const BUSH_STATE := preload("res://scripts/bush_state.gd")
 const STATUS_VFX := preload("res://scripts/status_vfx.gd")
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
 const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
@@ -37,6 +58,10 @@ const MOUSE_AIM_HEIGHT := 1.35
 @export var move_speed := 5.0
 var _robot_id := COMBAT_DATA.DEFAULT_ROBOT
 @export var attack_interval := 0.55
+@export_category("Vision")
+@export_range(1.0, 60.0, 0.5) var vision_radius := VISIBILITY_STATE.DEFAULT_VISION_RADIUS
+@export_range(0.0, 20.0, 0.5) var vision_fade_width := VISIBILITY_STATE.DEFAULT_VISION_FADE_WIDTH
+var _visibility_epoch := 0
 @export_category("Weapon Handling")
 @export_range(0.25, 0.50, 0.01) var aim_hold_time := 0.35
 @export_range(0.04, 0.30, 0.01) var aim_raise_time := 0.10
@@ -214,6 +239,7 @@ var _current_bush: Node3D
 var _current_bush_name := ""
 var _bush_transition_clock := 0.0
 var _low_health_sound_armed := true
+var _bush_status_label: Label3D
 var _dash_active := false
 var _dash_token := 0
 var _dash_direction := Vector3.ZERO
@@ -346,6 +372,10 @@ func _ready() -> void:
 	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
+	_mekatana_attack.configure(self, "player", Callable(self, "_move_mekatana_dash"))
+	_mekatana_attack.slash_started.connect(_on_mekatana_slash_started)
+	_mekatana_attack.hit.connect(_on_mekatana_hit)
+	_mekatana_attack.finished.connect(_on_mekatana_finished)
 	_status_vfx = STATUS_VFX.new()
 	_status_vfx.name = "StatusVFX"
 	add_child(_status_vfx)
@@ -417,6 +447,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_longshot_attack_token += 1
 	var sfx := get_node_or_null("/root/GameSfx")
 	if sfx != null:
 		sfx.reset_locomotion()
@@ -429,6 +460,8 @@ func _exit_tree() -> void:
 
 
 func _load_weapon_definitions() -> void:
+	_mekatana_attack.definition = COMBAT_DATA.WEAPON_DEFINITIONS["mekatana"].duplicate(true)
+	_longshot_definition = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"].duplicate(true)
 	var blaster_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("blaster", {})
 	_blaster_damage = float(blaster_definition.get("damage", _blaster_damage))
 	_blaster_max_damage = float(blaster_definition.get("max_damage", _blaster_max_damage))
@@ -517,6 +550,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var stasis_active := _stasis_remaining > 0.0
 	if stasis_active:
+		_cancel_mekatana_attack()
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
 	if combat_state != null:
 		combat_state.update(delta, stasis_active)
@@ -551,9 +585,10 @@ func _physics_process(delta: float) -> void:
 	_update_robot_motion(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
-	get_node("/root/GameSfx").update_locomotion(
-		global_position.distance_to(sound_start_position), delta,
-		_current_bush != null, sound_walking)
+	if _uses_local_feedback():
+		get_node("/root/GameSfx").update_locomotion(
+			global_position.distance_to(sound_start_position), delta,
+			_current_bush != null, sound_walking)
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and (_blaster_charge_active or _touch_fire_active):
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
@@ -573,6 +608,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_movement(delta: float) -> void:
+	if _update_mekatana_attack(delta):
+		return
 	if _stasis_remaining > 0.0:
 		velocity = Vector3.ZERO
 		move_direction = Vector3.ZERO
@@ -645,12 +682,16 @@ func _update_robot_motion(delta: float) -> void:
 	if _visual_rig != null:
 		_update_aim_pose_state()
 		var visual_aim := _fulguro_direction if _fulguro_phase != "" else aim_direction
+		if _mekatana_attack.is_direction_locked():
+			visual_aim = _mekatana_attack.direction
 		_visual_rig.update_visual_state(move_direction, visual_aim, visual_speed, move_speed, delta, _gameplay_enabled and not is_real_dead())
 	if not _has_skeletal_weapon_attachment():
 		_update_player_debug_vectors()
 
 
 func _get_actual_move_velocity() -> Vector3:
+	if _mekatana_movement_owned:
+		return _mekatana_velocity
 	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()):
 		return Vector3.ZERO
 	if _fulguro_projection_active:
@@ -750,6 +791,9 @@ func _aim_at_screen_position(mouse_position: Vector2, camera: Camera3D) -> void:
 
 
 func _set_aim_direction(direction: Vector3) -> void:
+	if _mekatana_attack.is_direction_locked():
+		aim_direction = _mekatana_attack.direction
+		return
 	direction.y = 0.0
 	if direction.length_squared() > 0.001:
 		aim_direction = direction.normalized()
@@ -783,7 +827,7 @@ func _set_weapon_pose_state(next_state: WeaponPoseState, restart_hold: bool = fa
 
 
 func _begin_weapon_aim() -> void:
-	if _weapon_id not in ["blaster", "shotgun"]:
+	if _weapon_id not in ["blaster", "shotgun", "longshot"]:
 		return
 	if _round_warmup_active and _gameplay_enabled:
 		_play_player_animation(&"idle")
@@ -792,7 +836,7 @@ func _begin_weapon_aim() -> void:
 
 
 func _begin_weapon_fire() -> void:
-	if _weapon_id not in ["blaster", "shotgun"]:
+	if _weapon_id not in ["blaster", "shotgun", "longshot"]:
 		return
 	if _round_warmup_active and _gameplay_enabled:
 		_play_player_animation(&"idle")
@@ -803,7 +847,7 @@ func _begin_weapon_fire() -> void:
 
 
 func _begin_aim_hold() -> void:
-	if _weapon_id in ["blaster", "shotgun"] and _gameplay_enabled and not is_real_dead():
+	if _weapon_id in ["blaster", "shotgun", "longshot"] and _gameplay_enabled and not is_real_dead():
 		_set_weapon_pose_state(WeaponPoseState.AIM_HOLD, true)
 	else:
 		_reset_weapon_pose_to_locomotion()
@@ -819,11 +863,11 @@ func _reset_weapon_pose_to_locomotion(immediate: bool = false) -> void:
 
 
 func _update_weapon_pose_state(delta: float) -> void:
-	if not _gameplay_enabled or is_real_dead() or _weapon_id not in ["blaster", "shotgun"]:
+	if not _gameplay_enabled or is_real_dead() or _weapon_id not in ["blaster", "shotgun", "longshot"]:
 		_reset_weapon_pose_to_locomotion(true)
 		return
 	if weapon_pose_state == WeaponPoseState.AIM:
-		if not _blaster_charge_active and not _shotgun_attack_busy:
+		if not _blaster_charge_active and not _shotgun_attack_busy and not _longshot_attack_busy:
 			_begin_aim_hold()
 		return
 	if weapon_pose_state == WeaponPoseState.FIRE:
@@ -855,7 +899,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+	# The local window cannot cancel the other human's authoritative input.
+	if _uses_local_feedback() and (what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED):
 		reset_desktop_inputs()
 
 
@@ -876,9 +921,10 @@ func _desktop_attack_input_held() -> bool:
 		_desktop_mouse_attack_held = false
 	# The mapped action also includes emulated mouse events and GUI presses.
 	# Read its keyboard bindings separately, keeping the validated mouse latch.
-	for event in InputMap.action_get_events("game_attack"):
-		if event is InputEventKey and Input.is_key_pressed(event.keycode):
-			return true
+	if InputMap.has_action("game_attack"):
+		for event in InputMap.action_get_events("game_attack"):
+			if event is InputEventKey and Input.is_key_pressed(event.keycode):
+				return true
 	return _desktop_mouse_attack_held
 
 
@@ -909,6 +955,8 @@ func _try_begin_module_action(module_id: String) -> int:
 
 
 func _interrupt_weapon_for_module() -> void:
+	_cancel_mekatana_attack()
+	_cancel_longshot_attack()
 	_desktop_attack_rearm_required = _desktop_attack_rearm_required or _desktop_attack_input_held()
 	_desktop_blaster_tap_buffered = false
 	_touch_attack_rearm_required = _touch_attack_rearm_required or _touch_fire_active or _touch_attack_held
@@ -952,6 +1000,8 @@ func _cancel_pending_module_action(reason: String = "") -> void:
 
 
 func _reset_action_ownership() -> void:
+	_cancel_mekatana_attack()
+	_longshot_action_token = 0
 	_action_gate.reset()
 	_active_module_action_token = 0
 	_active_module_id = ""
@@ -989,6 +1039,16 @@ func _update_attack(force_action_blocked: bool = false) -> void:
 			_desktop_attack_rearm_required = false
 			_attack_hold_last = false
 	var wants_to_attack := _touch_attack_held or desktop_wants_attack
+	if _weapon_id == "mekatana":
+		if wants_to_attack:
+			_perform_mekatana_attack()
+		_attack_hold_last = wants_to_attack
+		return
+	if _weapon_id == "longshot":
+		if wants_to_attack:
+			_perform_longshot_attack()
+		_attack_hold_last = wants_to_attack
+		return
 	if _weapon_id == "shotgun":
 		_update_shotgun_attack(wants_to_attack)
 		_attack_hold_last = wants_to_attack
@@ -1104,7 +1164,7 @@ func _update_debug_effects() -> void:
 			var bot_enabled := bool(target.call("toggle_training_bot"))
 			_attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 	if not survival_mode and _pressed_action_once("weapon"):
-		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
+		_cycle_weapon()
 	var offensive_down := Input.is_action_pressed("game_offensive")
 	var offensive_was_down := bool(_debug_key_latches.get("game_offensive", false))
 	_debug_key_latches["game_offensive"] = offensive_down
@@ -1123,7 +1183,7 @@ func _update_debug_effects() -> void:
 	if _pressed_action_once("mobility"):
 		_activate_mobility_module()
 	if not survival_mode and _consume_touch_action("weapon"):
-		set_weapon("shotgun" if _weapon_id == "blaster" else "blaster")
+		_cycle_weapon()
 	if _consume_touch_action("offensive"):
 		_perform_offensive_module()
 	if _consume_touch_action("defensive"):
@@ -1196,7 +1256,7 @@ func begin_touch_fire() -> void:
 	_touch_fire_started_at = Time.get_ticks_msec() / 1000.0
 	_touch_fire_charge_started = false
 	_touch_last_valid_aim_direction = _normalized_aim_direction()
-	if _weapon_id == "shotgun":
+	if _weapon_id in ["shotgun", "longshot", "mekatana"]:
 		# Le Shotgun conserve exactement son chemin pressé/maintenu existant.
 		_touch_attack_held = true
 
@@ -1236,6 +1296,8 @@ func end_touch_fire(final_aim: Vector2 = Vector2.ZERO) -> bool:
 
 
 func cancel_touch_fire(reason: String = "") -> void:
+	if _touch_fire_active and _weapon_id == "longshot":
+		_cancel_longshot_attack()
 	_touch_fire_active = false
 	_touch_fire_started_at = -1.0
 	_touch_fire_charge_started = false
@@ -1289,6 +1351,8 @@ func cancel_touch_action(action: String) -> void:
 
 
 func clear_touch_inputs() -> void:
+	if _touch_fire_active and _weapon_id == "longshot":
+		_cancel_longshot_attack()
 	var touch_owned_charge := _touch_fire_charge_started
 	_touch_move_vector = Vector2.ZERO
 	_touch_aim_vector = Vector2.ZERO
@@ -1308,8 +1372,11 @@ func clear_touch_inputs() -> void:
 
 
 func set_gameplay_enabled(value: bool) -> void:
+	if not value:
+		_cancel_longshot_attack()
 	_gameplay_enabled = value
-	get_node("/root/GameSfx").reset_locomotion()
+	if is_inside_tree() and _uses_local_feedback():
+		get_node("/root/GameSfx").reset_locomotion()
 	if not value:
 		_static_pulse_token += 1
 		_reset_weapon_pose_to_locomotion(true)
@@ -1332,6 +1399,8 @@ func set_gameplay_enabled(value: bool) -> void:
 		_round_warmup_active = false
 		_reset_weapon_pose_to_locomotion(true)
 		_update_player_animation()
+	_sync_bush_state()
+	_update_bush_presentation()
 
 
 func is_gameplay_enabled() -> bool:
@@ -1349,6 +1418,7 @@ func _mark_combat_event() -> void:
 	get_node("/root/GameSfx").mark_combat()
 	if visibility_state != null:
 		visibility_state.mark_combat_event()
+	_update_bush_presentation()
 
 
 func get_combat_reveal_remaining() -> float:
@@ -1376,58 +1446,115 @@ func get_current_bush_name() -> String:
 	return _current_bush_name if is_in_bush() else ""
 
 
+func get_current_bush() -> Node3D:
+	_sync_bush_state()
+	return _current_bush
+
+
+func is_bush_concealed() -> bool:
+	return is_in_bush() and not is_revealed()
+
+
 func get_bush_transition_clock() -> float:
 	return _bush_transition_clock
 
 
 func is_visible_to(observer: Node3D) -> bool:
+	return get_visibility_weight(observer) > 0.0
+
+
+func get_vision_radius() -> float:
+	return vision_radius
+
+
+func get_vision_fade_width() -> float:
+	return vision_fade_width
+
+
+func get_visibility_epoch() -> int:
+	return _visibility_epoch
+
+
+func get_visibility_weight(observer: Node3D) -> float:
 	if observer == null or not is_instance_valid(observer):
-		return true
+		return 1.0
 	if observer == self:
-		return true
+		return 1.0
+	var range_alpha := VISIBILITY_STATE.range_weight(self, observer)
+	if range_alpha <= 0.0:
+		return 0.0
 	var world := get_world_3d()
 	if world == null:
-		return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), true)
+		return range_alpha if BUSH_STATE.visible_to(self, observer, is_revealed(), true) else 0.0
 	var query := PhysicsRayQueryParameters3D.create(observer.global_position + Vector3.UP * 0.72, global_position + Vector3.UP * 0.72)
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [observer.get_rid(), get_rid()]
+	query.exclude = [get_rid()]
+	if observer is CollisionObject3D:
+		query.exclude.append(observer.get_rid())
 	var line_of_sight := world.direct_space_state.intersect_ray(query).is_empty()
-	return VISIBILITY_STATE.visible_to_observer(is_revealed(), is_in_bush(), line_of_sight)
+	return range_alpha if BUSH_STATE.visible_to(self, observer, is_revealed(), line_of_sight) else 0.0
 
 
 func _update_bush_state(delta: float) -> void:
 	_sync_bush_state()
 	_bush_transition_clock = maxf(0.0, _bush_transition_clock - delta)
+	_update_bush_presentation()
 
 
 func _sync_bush_state() -> void:
 	var next_bush := _find_bush_at_position()
-	var was_in_bush := _current_bush != null
 	var changed := next_bush != _current_bush
+	var was_in_bush := _current_bush != null and is_instance_valid(_current_bush)
 	_current_bush = next_bush
 	_current_bush_name = str(next_bush.name) if next_bush != null else ""
 	if changed:
-		if _gameplay_enabled and was_in_bush != (_current_bush != null):
-			get_node("/root/GameSfx").play_event("bush_entry" if _current_bush != null else "bush_exit")
 		_bush_transition_clock = 0.22
 		bush_state_changed.emit(_current_bush != null, _current_bush_name)
+		# Local feedback only: enemy movement in concealed grass stays silent.
+		if _gameplay_enabled and _uses_local_feedback() and was_in_bush != (_current_bush != null):
+			var sfx := get_node_or_null("/root/GameSfx")
+			if sfx != null:
+				sfx.call("play_event", "bush_entry" if _current_bush != null else "bush_exit")
+
+
+func _uses_local_feedback() -> bool:
+	return true
 
 
 func _find_bush_at_position() -> Node3D:
-	var space := get_tree()
-	if space == null:
-		return null
-	for bush in space.get_nodes_in_group("bush_placeholder"):
-		if not is_instance_valid(bush):
-			continue
-		var radius := float(bush.get_meta("bush_radius", 0.0))
-		if radius <= 0.0:
-			continue
-		if Vector2(global_position.x - bush.global_position.x, global_position.z - bush.global_position.z).length() <= radius:
-			return bush as Node3D
-	return null
+	return BUSH_STATE.find_bush(self)
+
+
+func _update_bush_presentation() -> void:
+	if _bush_status_label == null:
+		return
+	_bush_status_label.visible = _gameplay_enabled and _current_bush != null and not is_real_dead()
+	if _attack_label != null:
+		_attack_label.position.y = 4.15 * COMBAT_DATA.CHARACTER_VISUAL_SCALE + (0.9 if _bush_status_label.visible else 0.0)
+	if not _bush_status_label.visible:
+		if _visual_rig != null:
+			_visual_rig.set_bush_concealed(false)
+		return
+	var remaining := maxf(get_combat_reveal_remaining(), get_spotted_reveal_remaining())
+	if remaining > 0.0:
+		_bush_status_label.text = "RÉVÉLÉ  ·  %.1f s" % remaining
+		_bush_status_label.modulate = Color("#ffc77a")
+		if _visual_rig != null:
+			_visual_rig.set_bush_concealed(false)
+		return
+	for enemy in get_tree().get_nodes_in_group("prototype0_combat_bots"):
+		if enemy is Node3D and enemy.is_visible_in_tree() and not bool(enemy.call("is_real_dead")) and BUSH_STATE.shares_bush(self, enemy) and is_visible_to(enemy):
+			_bush_status_label.text = "DÉTECTÉ"
+			_bush_status_label.modulate = Color("#ffc77a")
+			if _visual_rig != null:
+				_visual_rig.set_bush_concealed(false)
+			return
+	_bush_status_label.text = "CAMOUFLÉ"
+	_bush_status_label.modulate = Color("#9fdaa0")
+	if _visual_rig != null:
+		_visual_rig.set_bush_concealed(true)
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
@@ -1446,7 +1573,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if attack_id != "":
 		_received_attack_ids[attack_id] = true
 	if amount > 0.0 and visibility_state != null:
-		visibility_state.mark_combat_event()
+		_mark_combat_event()
 	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
 	if bool(result["triggered_baroud"]):
 		get_node("/root/GameSfx").play_event("baroud_activation")
@@ -1559,6 +1686,8 @@ func _finalize_passive_death() -> void:
 
 
 func _on_state_died() -> void:
+	_cancel_mekatana_attack()
+	reset_longshot_state()
 	if not _gameplay_enabled:
 		return
 	if _status_vfx != null:
@@ -1566,6 +1695,7 @@ func _on_state_died() -> void:
 	_round_warmup_active = false
 	_play_player_animation(&"fall", 0.10)
 	_gameplay_enabled = false
+	_update_bush_presentation()
 	_update_aim_pose_state()
 	clear_touch_inputs()
 	_clear_defensive_buffer()
@@ -1587,6 +1717,8 @@ func is_real_dead() -> bool:
 
 
 func apply_loadout(next_loadout: Dictionary) -> void:
+	_cancel_mekatana_attack()
+	reset_longshot_state()
 	if survival_evolution_effects != null:
 		survival_evolution_effects.clear_transients()
 		survival_evolution_effects.queue_free()
@@ -1614,7 +1746,7 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 	set_passive(passive_id)
 	cancel_touch_fire()
 	reset_shotgun_state()
-	_weapon_id = "shotgun" if weapon_id == "shotgun" else "blaster"
+	_weapon_id = weapon_id if COMBAT_DATA.WEAPON_DEFINITIONS.has(weapon_id) else "blaster"
 	_update_weapon_visuals()
 	_sync_weapon_readout()
 
@@ -1651,6 +1783,9 @@ func configure_survival_build(build: Dictionary) -> void:
 	var weapon_ranks: Dictionary = ranks.get("weapon", {})
 	var weapon_power := 0.65 + 0.60 * int(weapon_ranks.get("power", 0))
 	var weapon_tempo := 1.20 * pow(0.72, int(weapon_ranks.get("tempo", 0)))
+	for rank in range(3):
+		_mekatana_attack.definition.base_damage[rank] *= weapon_power
+		_mekatana_attack.definition.recovery[rank] *= weapon_tempo
 	_blaster_damage *= weapon_power
 	_blaster_max_damage *= weapon_power
 	_blaster_cooldown *= weapon_tempo
@@ -1665,6 +1800,9 @@ func configure_survival_build(build: Dictionary) -> void:
 	_shotgun_minimum_damage *= weapon_power
 	_shotgun_recovery *= weapon_tempo
 	_shotgun_reload_duration *= weapon_tempo
+	_longshot_definition["damage"] = float(_longshot_definition["damage"]) * weapon_power
+	_longshot_definition["cooldown"] = float(_longshot_definition["cooldown"]) * weapon_tempo
+	_longshot_definition["attack_preparation"] = float(_longshot_definition["attack_preparation"]) * weapon_tempo
 	if int(build.get("aspects", {}).get("weapon", {}).get("rank", 0)) == 0 and bool(_survival_evolutions.get("weapon", false)) and _weapon_id == "shotgun":
 		_shotgun_pellet_angles = [-16.0, -12.0, -8.0, -4.0, 4.0, 8.0, 12.0, 16.0]
 	var offensive_ranks: Dictionary = ranks.get("offensive", {})
@@ -1786,6 +1924,8 @@ func get_baroud_health() -> float:
 
 
 func _on_damage_dealt(effective_damage: float, target: Node3D = null) -> void:
+	if effective_damage > 0.0:
+		_mark_combat_event()
 	if passive_state == null:
 		return
 	if survival_mode and survival_evolution_effects != null:
@@ -1820,9 +1960,18 @@ func _on_health_changed(current: float, maximum: float) -> void:
 		_health_readout.call("set_health", current, maximum)
 
 
-func _on_damage_applied(amount: float, _source_id: String, _attack_id: String) -> void:
+func _on_damage_applied(amount: float, source_id: String, _attack_id: String) -> void:
 	if not _external_damage_pending:
-		effective_damage_taken.emit(amount, _source_id, _attack_id)
+		effective_damage_taken.emit(amount, source_id, _attack_id)
+	# CombatState applies BURN directly, so all effective damage must refresh
+	# reveal here as well as in take_damage's external damage path.
+	if amount > 0.0:
+		_mark_combat_event()
+		if source_id == "duel_bot" or source_id.begins_with("duel_bot:"):
+			var scene := get_tree().current_scene
+			var attacker := scene.get_node_or_null("TargetDummy") if scene != null else null
+			if attacker != null and attacker.has_method("mark_combat_event"):
+				attacker.call("mark_combat_event")
 	if _health_readout != null:
 		_health_readout.call("show_damage", amount)
 
@@ -1852,6 +2001,10 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if duration > 0.0:
+		_cancel_mekatana_attack()
+	if duration > 0.0:
+		_cancel_longshot_attack()
 	if duration > 0.0 and _fulguro_phase != "":
 		_cancel_fulguro_attack("FULGURO PUNCH  •  INTERROMPU")
 	if duration > 0.0 and _pelto_phase != "":
@@ -1872,12 +2025,16 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 		combat_state.apply_spotted(duration, source_id)
 	if visibility_state != null:
 		visibility_state.mark_spotted(duration)
+	_update_bush_presentation()
 
 
 func reset_combat_state() -> void:
+	reset_longshot_state()
 	_low_health_sound_armed = true
-	get_node("/root/GameSfx").reset_locomotion()
+	if is_inside_tree() and _uses_local_feedback():
+		get_node("/root/GameSfx").reset_locomotion()
 	_received_attack_ids.clear()
+	_visibility_epoch += 1
 	clear_touch_inputs()
 	_clear_defensive_buffer()
 	_cancel_fulguro_projection()
@@ -1904,6 +2061,7 @@ func reset_combat_state() -> void:
 	_reset_action_ownership()
 	_on_health_changed(get_health(), get_max_health())
 	_start_round_warmup_animation()
+	_update_bush_presentation()
 
 
 func reset_blaster_state() -> void:
@@ -1920,10 +2078,12 @@ func reset_blaster_state() -> void:
 func set_weapon(weapon_id: String) -> void:
 	if survival_mode:
 		return
-	if weapon_id != "blaster" and weapon_id != "shotgun":
+	if not COMBAT_DATA.WEAPON_DEFINITIONS.has(weapon_id):
 		return
 	if _weapon_id == weapon_id:
 		return
+	_cancel_mekatana_attack()
+	_cancel_longshot_attack()
 	reset_blaster_state()
 	reset_shotgun_state()
 	_weapon_id = weapon_id
@@ -1978,6 +2138,284 @@ func _activate_mobility_module() -> void:
 
 func get_weapon_id() -> String:
 	return _weapon_id
+
+
+func get_mekatana_state() -> Dictionary:
+	return {"phase": _mekatana_attack.phase, "step": _mekatana_attack.step,
+		"next_step": _mekatana_attack.next_step, "combo_remaining": _mekatana_attack.combo_remaining,
+		"progress": _mekatana_attack.progress()}
+
+
+func _can_apply_mekatana_damage() -> bool:
+	return true
+
+
+func _perform_mekatana_attack() -> void:
+	if _weapon_id != "mekatana" or _mekatana_attack.is_busy() or _action_incapacitated() or _dash_active or _pelto_pull_active:
+		return
+	var token := _try_begin_weapon_action("mekatana")
+	if token == 0:
+		return
+	_mekatana_action_token = token
+	_mekatana_attack.damage_enabled = _can_apply_mekatana_damage()
+	var facing := aim_direction
+	if not facing.is_finite() or Vector2(facing.x, facing.z).length_squared() < 0.001:
+		facing = -_visual_rig.global_basis.z if _visual_rig != null else -global_basis.z
+	if not _mekatana_attack.start(facing, 1.0, get_attack_speed_multiplier()):
+		_action_gate.release(token)
+		_mekatana_action_token = 0
+		return
+	aim_direction = _mekatana_attack.direction
+	velocity = Vector3.ZERO
+	_round_warmup_active = false
+	_play_player_animation(&"idle")
+	_mark_combat_event()
+	_sync_mekatana_pose()
+	if _attack_label != null:
+		_attack_label.text = "MEKATANA  •  COUP %d/3" % (_mekatana_attack.step + 1)
+
+
+func _update_mekatana_attack(delta: float) -> bool:
+	_mekatana_velocity = Vector3.ZERO
+	_mekatana_movement_owned = false
+	if _mekatana_attack.is_busy() and (_weapon_id != "mekatana" or _action_incapacitated() or not _action_gate.owns(_mekatana_action_token, ACTION_GATE.Kind.WEAPON, "mekatana")):
+		_cancel_mekatana_attack()
+	if _weapon_id != "mekatana":
+		return false
+	var owned_movement: bool = _mekatana_attack.is_direction_locked()
+	var before := global_position
+	_mekatana_attack.update(delta)
+	_mekatana_movement_owned = owned_movement
+	if owned_movement:
+		_mekatana_velocity = (global_position - before) / maxf(delta, 0.001)
+		velocity = Vector3.ZERO
+	_sync_mekatana_pose()
+	return owned_movement
+
+
+func _move_mekatana_dash(motion: Vector3) -> Vector3:
+	var before := global_position
+	move_and_collide(motion)
+	global_position = Vector3(clampf(global_position.x, -27.0, 27.0), 0.0, clampf(global_position.z, -27.0, 27.0))
+	return global_position - before
+
+
+func _sync_mekatana_pose() -> void:
+	if _visual_rig == null:
+		return
+	if _mekatana_attack.is_busy():
+		_visual_rig.set_mekatana_pose(_mekatana_attack.step, _mekatana_attack.phase, _mekatana_attack.progress())
+	else:
+		_visual_rig.clear_mekatana_pose()
+
+
+func _on_mekatana_slash_started(rank: int) -> void:
+	if _visual_rig != null:
+		_visual_rig.set_mekatana_pose(rank, "active", 0.0)
+
+
+func _on_mekatana_hit(target: Node3D, _applied: float, multiplier: float) -> void:
+	_mark_combat_event()
+	if _visual_rig != null:
+		_visual_rig.set_mekatana_impact(target, multiplier)
+	# Existing target damage callbacks credit effective damage and Omnivamp.
+	# Presentation never credits it a second time or adds an electrical status.
+	if _uses_local_feedback() and _mekatana_attack.step == 2 and multiplier >= 1.6:
+		_camera_impulse(0.045, 0.025)
+
+
+func _on_mekatana_finished() -> void:
+	_action_gate.release(_mekatana_action_token)
+	_mekatana_action_token = 0
+	_sync_mekatana_pose()
+
+
+func _cancel_mekatana_attack() -> void:
+	_mekatana_attack.cancel()
+	_action_gate.release(_mekatana_action_token)
+	_mekatana_action_token = 0
+	_mekatana_movement_owned = false
+	_mekatana_velocity = Vector3.ZERO
+	if _visual_rig != null:
+		_visual_rig.clear_mekatana_pose()
+
+
+func _cycle_weapon() -> void:
+	var choices: Array = preload("res://scripts/loadout_state.gd").WEAPONS
+	set_weapon(str(choices[(choices.find(_weapon_id) + 1) % choices.size()]))
+
+
+func get_longshot_cycle_count() -> int:
+	return _longshot_state.normal_shots()
+
+
+func is_longshot_enhanced_ready() -> bool:
+	return _longshot_state.is_enhanced_ready()
+
+
+func get_longshot_shots_fired() -> int:
+	return int(_longshot_state.shots_fired)
+
+
+func reset_longshot_state() -> void:
+	_cancel_longshot_attack()
+	_longshot_state.reset()
+	_longshot_next_attack_ready_at = -10.0
+
+
+func _cancel_longshot_attack() -> void:
+	_longshot_attack_token += 1
+	_longshot_attack_busy = false
+	_action_gate.release(_longshot_action_token)
+	_longshot_action_token = 0
+
+
+func _perform_longshot_attack() -> void:
+	if _weapon_id != "longshot" or _longshot_attack_busy or _action_incapacitated():
+		return
+	if Time.get_ticks_msec() / 1000.0 < _longshot_next_attack_ready_at:
+		return
+	var action_token := _try_begin_weapon_action("longshot")
+	if action_token == 0:
+		return
+	_longshot_action_token = action_token
+	_longshot_attack_busy = true
+	_longshot_attack_token += 1
+	var token := _longshot_attack_token
+	_begin_weapon_aim()
+	var timer := get_tree().create_timer(float(_longshot_definition["attack_preparation"]) / get_attack_speed_multiplier(), false)
+	timer.timeout.connect(_emit_longshot_shot.bind(token, action_token))
+
+
+func _emit_longshot_shot(token: int, action_token: int) -> void:
+	if not _longshot_emission_valid(token, action_token):
+		return
+	_begin_weapon_fire()
+	if _has_skeletal_weapon_attachment():
+		await _visual_rig.skeleton.skeleton_updated
+		if not _longshot_emission_valid(token, action_token):
+			return
+	var enhanced: bool = _longshot_state.next_enhanced()
+	if not _spawn_longshot_projectile(enhanced, _longshot_state.shots_fired + 1):
+		_cancel_longshot_attack()
+		return
+	_longshot_next_attack_ready_at = Time.get_ticks_msec() / 1000.0 + (0.01 if training_instant_cooldowns else maxf(0.0, float(_longshot_definition["cooldown"]) - float(_longshot_definition["attack_preparation"]))) / get_attack_speed_multiplier()
+	_longshot_attack_busy = false
+	_action_gate.release(action_token)
+	_longshot_action_token = 0
+	_on_longshot_emitted(enhanced, _longshot_state.shots_fired)
+	_sync_weapon_readout()
+
+
+func _longshot_emission_valid(token: int, action_token: int) -> bool:
+	if token != _longshot_attack_token or not _longshot_attack_busy:
+		return false
+	if _weapon_id != "longshot" or _action_incapacitated() or not _action_gate.owns(action_token, ACTION_GATE.Kind.WEAPON, "longshot"):
+		_cancel_longshot_attack()
+		return false
+	return true
+
+
+func _on_longshot_emitted(_enhanced: bool, _shot_number: int) -> void:
+	pass
+
+
+func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: bool = false) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	var direction := _visual_rig.get_aim_forward_direction() if _has_skeletal_weapon_attachment() else _normalized_aim_direction()
+	direction = direction.normalized()
+	var start := _longshot_muzzle.global_position if _longshot_muzzle != null else global_position + Vector3.UP * 0.9 + direction * 0.7
+	var definition := _longshot_definition.duplicate(true)
+	var radius := float(definition["projectile_radius"]) * (float(definition["enhanced_size_multiplier"]) if enhanced else 1.0)
+	var speed := float(definition["projectile_speed"]) * (float(definition["enhanced_speed_multiplier"]) if enhanced else 1.0)
+	var maximum := float(definition["max_range"])
+	var projectile := LONGSHOT_PROJECTILE.new()
+	projectile.name = "LongshotEnhancedProjectile" if enhanced else "LongshotProjectile"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
+	scene.add_child(projectile)
+	projectile.global_position = start
+	projectile.look_at(start + direction, Vector3.UP)
+	var excluded: Array[RID] = [get_rid()]
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	projectile.configure(direction, speed, maximum, 1 | 2 | 4 | 8, excluded, radius)
+	_register_projectile_motion(projectile, start, start + direction * maximum, maximum / speed, radius)
+	var shot_id := "longshot:%d:%d" % [get_instance_id(), _longshot_attack_token]
+	projectile.finished.connect(_on_longshot_projectile_finished.bind(definition, enhanced, shot_id, visual_only))
+	# Progress belongs to this weapon instance; only a successfully created shot commits it.
+	if not visual_only:
+		_longshot_state.commit_shot()
+	_last_projectile_direction = direction
+	_mark_combat_event()
+	var vfx := _vfx_manager()
+	if vfx != null:
+		vfx.call("projectile_visual", projectile, "longshot", 1.0 if enhanced else 0.0)
+		vfx.call("muzzle", _longshot_muzzle, "longshot", 1.0 if enhanced else 0.0)
+	if _visual_rig != null:
+		_visual_rig.play_shot_kick(0.70 if enhanced else 0.25)
+	else:
+		_play_longshot_fallback_recoil(enhanced)
+	var sound := _longshot_enhanced_audio if enhanced else _longshot_shot_audio
+	if sound != null:
+		sound.play()
+	_camera_impulse(0.07 if enhanced else 0.045, 0.05 if enhanced else 0.025)
+	if _attack_label != null:
+		_attack_label.text = "LONGSHOT  •  TIR AMÉLIORÉ" if enhanced else "LONGSHOT  •  %d / 4" % (shot_number % 5)
+	# Check the full physical barrel route without relocating the projectile origin.
+	projectile.resolve_muzzle_guard(global_position + Vector3.UP * 0.9)
+	return true
+
+
+func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definition: Dictionary, enhanced: bool, shot_id: String, visual_only: bool = false) -> void:
+	if hit.is_empty():
+		return
+	var target := hit.get("collider") as Node
+	while target != null and not target.has_method("take_damage"):
+		target = target.get_parent()
+	if not visual_only and target != null:
+		var damage: float = LONGSHOT_STATE.damage_at_distance(distance, enhanced, definition)
+		var effective := float(target.call("take_damage", damage, "player", shot_id))
+		if effective > 0.0 and target.has_method("flash_impact"):
+			target.call("flash_impact", enhanced)
+	_contact_fx(hit, Color("#79efff") if enhanced else Color("#43d5e8"), 1.25 if enhanced else 0.65)
+	if enhanced:
+		var sfx := get_node_or_null("/root/GameSfx")
+		if sfx != null:
+			sfx.call("play_event", "impact_critical")
+
+
+func _create_longshot_visual() -> void:
+	var scene := load("res://scenes/weapons/longshot.tscn") as PackedScene
+	if scene == null:
+		return
+	_longshot_pivot = Node3D.new()
+	_longshot_pivot.name = "LongshotPivot"
+	_longshot_visual = scene.instantiate() as Node3D
+	_longshot_pivot.add_child(_longshot_visual)
+	_longshot_muzzle = _longshot_visual.get_node("Muzzle") as Node3D
+	_attach_weapon_pivot_to_hand(_longshot_pivot, &"longshot", Vector3(0.58, 0.88, -0.36), Vector3.ZERO, -22.0)
+	_longshot_shot_audio = AudioStreamPlayer.new()
+	_longshot_shot_audio.name = "LongshotShotAudio"
+	_longshot_shot_audio.stream = BLASTER_SHOT_SOUND
+	_longshot_shot_audio.pitch_scale = 0.84
+	_longshot_shot_audio.volume_db = -8.0
+	add_child(_longshot_shot_audio)
+	_longshot_enhanced_audio = AudioStreamPlayer.new()
+	_longshot_enhanced_audio.name = "LongshotEnhancedAudio"
+	_longshot_enhanced_audio.stream = BLASTER_CHARGED_SHOT_SOUND
+	_longshot_enhanced_audio.pitch_scale = 0.78
+	_longshot_enhanced_audio.volume_db = -5.0
+	add_child(_longshot_enhanced_audio)
+
+
+func _play_longshot_fallback_recoil(enhanced: bool) -> void:
+	if _longshot_visual == null:
+		return
+	var tween := create_tween()
+	tween.tween_property(_longshot_visual, "position:z", 0.10 if enhanced else 0.06, 0.045)
+	tween.tween_property(_longshot_visual, "position:z", 0.0, 0.15)
 
 
 func get_shotgun_ammo() -> int:
@@ -2195,6 +2633,7 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, salvo: Diction
 	if survival_mode and survival_evolution_effects != null:
 		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
 	projectile.configure(direction, _shotgun_pellet_speed, _shotgun_max_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, start, start + direction * _shotgun_max_range, _shotgun_max_range / _shotgun_pellet_speed, 0.12)
 	projectile.finished.connect(_on_shotgun_pellet_finished.bind(salvo, index))
 	var vfx := _vfx_manager()
 	if vfx != null:
@@ -2325,6 +2764,10 @@ func _sync_weapon_readout() -> void:
 		return
 	_health_readout.call("set_shotgun_ammo", _weapon_id == "shotgun", _shotgun_ammo, _shotgun_magazine_size, _shotgun_reloading, get_shotgun_reload_progress())
 	_health_readout.call("set_blaster_charge", _weapon_id == "blaster", _blaster_charge_active, get_blaster_charge_ratio())
+	if _health_readout.has_method("set_longshot_cycle"):
+		_health_readout.call("set_longshot_cycle", _weapon_id == "longshot", get_longshot_cycle_count(), is_longshot_enhanced_ready())
+	if _longshot_visual != null:
+		_longshot_visual.call("set_cycle", get_longshot_cycle_count(), is_longshot_enhanced_ready())
 
 
 func _update_javelin_mark() -> void:
@@ -2671,6 +3114,7 @@ func is_action_locked() -> bool:
 
 
 func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
+	_cancel_longshot_attack()
 	if is_real_dead() or max_distance <= 0.0 or max_duration <= 0.0:
 		return
 	_cancel_pelto_pull()
@@ -3632,6 +4076,7 @@ func _emit_modulo_drone(token: int, action_token: int, origin: Vector3, directio
 	projectile.global_position = visual_start
 	projectile.look_at(visual_start + flight_direction, Vector3.UP)
 	projectile.configure(flight_direction, _drone_speed, _drone_max_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, visual_start, visual_start + flight_direction * _drone_max_range, _drone_max_range / _drone_speed, _drone_collision_radius)
 	var drone := MeshInstance3D.new()
 	drone.name = "DroneBody"
 	var drone_mesh := SphereMesh.new()
@@ -3777,6 +4222,7 @@ func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Ve
 	if survival_mode and survival_evolution_effects != null:
 		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
 	projectile.configure(flight_direction, _javelin_speed, _javelin_max_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, visual_start, visual_start + flight_direction * _javelin_max_range, _javelin_max_range / _javelin_speed, 0.12)
 	var spear := MeshInstance3D.new()
 	spear.name = "JavelinBody"
 	var spear_mesh := CylinderMesh.new()
@@ -4126,6 +4572,7 @@ func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: floa
 	if survival_mode and survival_evolution_effects != null:
 		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
 	projectile.configure(shot_direction, _blaster_projectile_speed, _blaster_max_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, start, start + shot_direction * _blaster_max_range, _blaster_max_range / _blaster_projectile_speed, _blaster_projectile_radius)
 	projectile.finished.connect(_on_blaster_projectile_finished.bind(damage, charge_ratio, token, shot_direction))
 	var vfx := _vfx_manager()
 	if vfx != null:
@@ -4151,6 +4598,14 @@ func _on_blaster_projectile_finished(hit: Dictionary, _distance: float, damage: 
 			target.call("flash_impact", charge_ratio >= 0.99)
 	var impact_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
 	_contact_fx(hit, impact_color, 0.8 + charge_ratio * 0.95)
+
+func _register_projectile_motion(projectile: Node3D, start: Vector3, endpoint: Vector3, duration: float, radius: float) -> void:
+	projectile.add_to_group("prototype0_gameplay_projectiles")
+	projectile.set_meta("ai_projectile_source", get_instance_id())
+	projectile.set_meta("ai_projectile_velocity", (endpoint - start) / maxf(0.025, duration))
+	projectile.set_meta("ai_projectile_endpoint", endpoint)
+	projectile.set_meta("ai_projectile_radius", radius)
+
 
 func _blaster_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
 	var world := get_world_3d()
@@ -4855,8 +5310,8 @@ func _has_skeletal_weapon_attachment() -> bool:
 
 func _update_aim_pose_state(immediate: bool = false) -> void:
 	if _visual_rig != null:
-		var punch_pose := _fulguro_phase != "" or _pelto_phase != ""
-		_visual_rig.set_aim_enabled(_gameplay_enabled and not is_real_dead() and (punch_pose or (_weapon_id in ["blaster", "shotgun"] and _weapon_pose_uses_aim())), immediate)
+		var punch_pose := _fulguro_phase != "" or _pelto_phase != "" or _mekatana_attack.is_busy()
+		_visual_rig.set_aim_enabled(_gameplay_enabled and not is_real_dead() and (punch_pose or (_weapon_id in ["blaster", "shotgun", "longshot"] and _weapon_pose_uses_aim())), immediate)
 
 
 func _start_round_warmup_animation() -> void:
@@ -4932,6 +5387,16 @@ func _build_robot() -> void:
 	_health_readout.call("configure", Color("#42d9e5"), "JOUEUR", -1.0)
 	_on_health_changed(get_health(), get_max_health())
 	_sync_weapon_readout()
+	_bush_status_label = Label3D.new()
+	_bush_status_label.name = "BushStatus"
+	_bush_status_label.position = Vector3(0.0, 4.30 * COMBAT_DATA.CHARACTER_VISUAL_SCALE, 0.0)
+	_bush_status_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_bush_status_label.font_size = 28
+	_bush_status_label.pixel_size = 0.009
+	_bush_status_label.outline_size = 4
+	_bush_status_label.no_depth_test = true
+	_bush_status_label.visible = false
+	_world_ui_anchor.add_child(_bush_status_label)
 
 	_baroud_bar_bg = MeshInstance3D.new()
 	var baroud_bg_mesh := BoxMesh.new()
@@ -5156,6 +5621,9 @@ func _build_robot() -> void:
 		Vector3.ZERO,
 		-22.0
 	)
+	_create_longshot_visual()
+	_mekatana_pivot = MEKATANA_SCENE.instantiate() as Node3D
+	_attach_weapon_pivot_to_hand(_mekatana_pivot, &"mekatana", Vector3(0.58, 0.93, -0.42), Vector3.ZERO, 0.0)
 	_update_weapon_visuals()
 
 	var scarf := MeshInstance3D.new()
@@ -5171,6 +5639,10 @@ func _build_robot() -> void:
 
 
 func _update_weapon_visuals() -> void:
+	if _mekatana_pivot != null:
+		_mekatana_pivot.visible = _weapon_id == "mekatana" and not _pelto_weapon_hidden
+	if _longshot_pivot != null:
+		_longshot_pivot.visible = _weapon_id == "longshot" and not _pelto_weapon_hidden
 	if _axe_pivot != null:
 		_axe_pivot.visible = false
 	if _blaster_pivot != null:
@@ -5226,11 +5698,11 @@ func _update_player_debug_vectors() -> void:
 			var hand_transform := _visual_rig.right_hand_attachment.global_transform
 			var hand_forward := -hand_transform.basis.z.normalized()
 			_add_debug_segment(hand_transform.origin, hand_transform.origin + hand_forward * 0.8, Color("#ffdc58"))
-	var weapon := _blaster_pivot if _weapon_id == "blaster" else _shotgun_pivot
+	var weapon := _longshot_pivot if _weapon_id == "longshot" else (_blaster_pivot if _weapon_id == "blaster" else _shotgun_pivot)
 	if weapon != null:
 		var weapon_forward := -weapon.global_basis.z.normalized()
 		_add_debug_segment(weapon.global_position, weapon.global_position + weapon_forward * 1.2, Color.WHITE)
-	var muzzle := _blaster_muzzle if _weapon_id == "blaster" else _shotgun_muzzle
+	var muzzle := _longshot_muzzle if _weapon_id == "longshot" else (_blaster_muzzle if _weapon_id == "blaster" else _shotgun_muzzle)
 	if muzzle != null:
 		var muzzle_forward := _visual_rig.get_weapon_forward_direction(StringName(_weapon_id)) if _visual_rig != null else -muzzle.global_basis.z.normalized()
 		_add_debug_segment(muzzle.global_position, muzzle.global_position + muzzle_forward * 1.0, Color("#48f3ed"))

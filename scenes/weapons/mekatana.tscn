@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://art/weapons/mekatana.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/mekatana_visual.gd" id="2_visual"]
+
+[node name="Mekatana" type="Node3D"]
+script = ExtResource("2_visual")
+
+[node name="SourceAlignment" type="Node3D" parent="."]
+position = Vector3(0.066, -0.0962, -0.674)
+rotation = Vector3(0, 1.289, 0)
+scale = Vector3(1.85, 1.85, 1.85)
+
+[node name="MekatanaGLB" parent="SourceAlignment" instance=ExtResource("1_model")]
+
+[node name="RightHandGrip" type="Marker3D" parent="."]
+
+[node name="LeftHandGrip" type="Marker3D" parent="."]
+position = Vector3(0, 0, 0.09)
+rotation = Vector3(-1.5707963, 0, 0)
+metadata/orient_hand = true
+
+[node name="BladeBase" type="Marker3D" parent="."]
+position = Vector3(0.017, 0.006, -0.15)
+
+[node name="BladeTip" type="Marker3D" parent="."]
+position = Vector3(0.013, 0.14, -1.64)
+metadata/weapon_forward_axis = Vector3(0, 0, -1)

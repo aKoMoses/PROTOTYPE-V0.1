@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="ArrayMesh" path="res://art/environment/yard/fan_rotor.res" id="1_mesh"]
+
+[node name="PeripheralVentilation" type="Node3D"]
+metadata/decorative_exterior = true
+
+[node name="FanRotor" type="Node3D" parent="."]
+metadata/yard_fan = true
+
+[node name="FiveBlades" type="MeshInstance3D" parent="FanRotor"]
+mesh = ExtResource("1_mesh")
+cast_shadow = 0

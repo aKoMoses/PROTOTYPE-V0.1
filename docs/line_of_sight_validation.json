@@ -1,0 +1,129 @@
+{
+  "date": "2026-09-30",
+  "engine": "Godot 4.7.2 stable",
+  "changes": [
+    "Solid obstacles always block actor visibility, including combat and SPOTTED reveal",
+    "Combat and SPOTTED defeat bush concealment only with clear line of sight",
+    "Hidden models, world health/status and multiplayer opponent health obey wall occlusion",
+    "Bot vision ignores projectile-only magnetic fields while weapon gates and impacts retain projectile shielding"
+  ],
+  "tests": [
+    {
+      "test": "test_visibility.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_visibility.log",
+      "summary": [
+        "P0-111 VISIBILITY TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_bush_gameplay.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_bush_gameplay.log",
+      "summary": [
+        "BUSH GAMEPLAY TEST: PASS (0 failures)"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_bot_tactics.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_bot_tactics.log",
+      "summary": [
+        "BOT TACTICS TEST: PASS"
+      ],
+      "shutdown_resource_warning": true,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_bot_bush_tactics.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_bot_bush_tactics.log",
+      "summary": [
+        "BOT BUSH TACTICS TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_bot_projectile_evasion.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_bot_projectile_evasion.log",
+      "summary": [
+        "BOT PROJECTILE EVASION TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_duel_bot.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_duel_bot.log",
+      "summary": [
+        "DUEL BOT TEST: PASS"
+      ],
+      "shutdown_resource_warning": true,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_duel_equipment.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_duel_equipment.log",
+      "summary": [
+        "DUEL EQUIPMENT TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_training_bot.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_training_bot.log",
+      "summary": [
+        "P0-114 TRAINING BOT TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_survival.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_survival.log",
+      "summary": [
+        "SURVIVAL TEST: PASS (0 échecs)"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_defensive_modules.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_defensive_modules.log",
+      "summary": [
+        "P0-107 DEFENSIVE MODULES TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    },
+    {
+      "test": "test_bot_combat_decisions.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/los-test_bot_combat_decisions.log",
+      "summary": [
+        "BOT COMBAT DECISIONS TEST: PASS"
+      ],
+      "shutdown_resource_warning": false,
+      "certificate_store_warning": true
+    }
+  ],
+  "test_count": 11,
+  "passed_count": 11,
+  "editor_import": {
+    "passed": true,
+    "log": ".godot/pass-logs/los-editor-import.log"
+  },
+  "verification_scope": "Headless automated actor, AI and offline network snapshot tests; live two-client network and physical Android not run"
+}

@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-30",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "project": "C:/Users/Ben/Documents/Codex/2026-09-23/j-ai-x20/outputs/PROTOTYPE-0",
+  "runtime": "C:/Users/Ben/Documents/Codex/2026-09-23/j-ai-x20/outputs/PROTOTYPE-0/.godot/pass-runtime/Godot_v4.7.2-stable_win64_console.exe",
+  "editor_import": {"exit_code": 0, "script_errors": 0},
+  "settings": {"vision_radius": 18.0, "fade_width": 4.0, "last_seen_seconds": 7.0},
+  "dedicated_test": {"script": "tools/test_sight_range.gd", "checks": 66, "failures": 0, "exit_code": 0},
+  "regression_tests_passed": [
+    "test_visibility", "test_bush_gameplay", "test_bot_bush_tactics",
+    "test_bot_tactics", "test_duel_bot", "test_bot_world_tactics",
+    "test_network_reliability", "test_target_dummy", "test_vfx",
+    "test_presentation_lifecycle", "test_mode_pause_reliability", "test_survival",
+    "test_training_ground", "test_game_flow", "test_fx_budget",
+    "test_survival_expansion", "test_bot_combat_decisions", "test_bot_projectile_evasion"
+  ],
+  "render_checks": {
+    "renderer": "Vulkan / Forward Mobile",
+    "desktop_resolution": [1280, 720],
+    "mobile_simulation_resolution": [1560, 720],
+    "captures": ["captures/sight_range/visible.png", "captures/sight_range/fade.png", "captures/sight_range/lost.png", "captures/sight_range/mobile_lost.png"],
+    "touch_controls_preview": true,
+    "physical_mobile_device_tested": false
+  },
+  "notes": [
+    "Configured C:/RomainOpen paths were unavailable on this host; the existing workspace-local Godot 4.7.2 runtime was used.",
+    "An initial parallel bush regression reported a charge-aura source alpha difference; the original test passed three isolated runs and the final regression run without modifying local camouflage.",
+    "The survival search regression initially failed after the new range limit; fixed by committing to knowledge-based investigation destinations without reading hidden target coordinates.",
+    "Existing Windows root certificate-store warning persists; editor also reports absent Android build-tools. No Android export or live two-device network session was performed."
+  ]
+}

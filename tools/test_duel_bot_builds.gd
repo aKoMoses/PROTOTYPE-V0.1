@@ -42,7 +42,13 @@ func _initialize() -> void:
 		actor.call("reset_combat_state")
 		scene.call("clear_transient_fx")
 		await physics_frame
-	actor.call("set_duel_loadout", BUILDS.BUILDS[1])
+	var baroud_build: Dictionary = {}
+	for build in BUILDS.BUILDS:
+		if build.passive == "baroud" and build.defensive == "static_shield":
+			baroud_build = build
+			break
+	_check(not baroud_build.is_empty(), "Baroud and Stasis build is available")
+	actor.call("set_duel_loadout", baroud_build)
 	actor.call("reset_combat_state")
 	equipment.call("_activate_static_shield", actor)
 	_check(is_zero_approx(float(actor.call("take_damage", 60.0, "stasis"))), "stasis blocks damage")

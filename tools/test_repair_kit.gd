@@ -257,7 +257,8 @@ func _test_round_reset(scene: Node, player: Node3D, kit: Node) -> void:
 func _test_bot_decision(scene: Node, player: Node3D, bot: Node3D) -> void:
 	scene.call("activate_round")
 	bot.call("reset_combat_state")
-	bot.call("take_damage", float(bot.call("get_max_health")) * 0.45, "test", "repair_bot_seek")
+	# Critical health is below every randomized archetype's repair threshold.
+	bot.call("take_damage", float(bot.call("get_max_health")) * 0.70, "test", "repair_bot_seek")
 	var controller := bot.get_node("TrainingBot")
 	controller.set("_elapsed", 1.0)
 	_check(bool(controller.call("_update_repair_target", bot, player)), "bot blessé recherche un kit disponible")

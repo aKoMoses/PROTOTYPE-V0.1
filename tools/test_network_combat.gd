@@ -20,12 +20,12 @@ func _check(condition: bool, description: String) -> void:
 		push_error("NETWORK COMBAT: " + description)
 
 
-func _actor(scene: Node, actor_name: String, authority := true) -> Node3D:
+func _actor(scene: Node, actor_name: String, authority := true, remote := true) -> Node3D:
 	var result := CharacterBody3D.new()
 	result.name = actor_name
 	result.set_script(ACTOR)
 	result.set("authoritative", authority)
-	result.set("remote_controlled", true)
+	result.set("remote_controlled", remote)
 	scene.add_child(result)
 	return result
 
@@ -131,6 +131,32 @@ func _run() -> void:
 	_check(bool(a.get("_blaster_charge_active")), "remote charge starts its visible controller")
 	a.call("receive_action", "cancel", {})
 	_check(not bool(a.get("_blaster_charge_active")) and float(a.get("_contact_started_at")) < 0.0, "interrupted touch charge cannot contaminate the next shot")
+	_reset(a, b)
+	await physics_frame
+	# Desktop charge has no touch-contact fallback if its clock is lost.
+	a.call("receive_action", "charge", {})
+	var charge_started: float = a.get("_blaster_charge_started_at")
+	await create_timer(1.05).timeout
+	a.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	a.notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	_check(bool(a.get("_blaster_charge_active")) and is_equal_approx(float(a.get("_blaster_charge_started_at")), charge_started), "host focus loss and app suspension preserve the remote human's authoritative charge clock")
+	a.call("receive_action", "blaster", {})
+	await create_timer(0.65).timeout
+	_check(is_equal_approx(float(b.call("get_health")), 950.0), "remote release after host focus loss still delivers the fully charged 50 damage")
+	var local := _actor(scene, "LocalFocusProbe", true, false)
+	local.collision_layer = 0
+	local.set_process(false)
+	local.set_physics_process(false)
+	for notification in [Node.NOTIFICATION_APPLICATION_FOCUS_OUT, Node.NOTIFICATION_APPLICATION_PAUSED]:
+		local.call("reset_combat_state")
+		local.call("set_gameplay_enabled", true)
+		local.call("_begin_blaster_charge")
+		_check(bool(local.get("_blaster_charge_active")), "local network fighter starts its desktop charge before suspension")
+		local.notification(notification)
+		_check(not bool(local.get("_blaster_charge_active")), "local focus loss and app suspension retain desktop charge cancellation")
+	local.call("set_gameplay_enabled", false)
+	local.queue_free()
+	_reset(a, b)
 	b.call("set_passive", "baroud")
 	b.call("take_damage", 2000.0, "test", "baroud_start")
 	_check(b.get("passive_state").baroud_active and not b.call("is_real_dead"), "the host resolves lethal damage through Baroud")

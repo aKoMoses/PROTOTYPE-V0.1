@@ -2,6 +2,8 @@ extends RefCounted
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const BUILDS := [
+	{"title": "SABREUR", "robot": "polyvalent", "weapon": "mekatana", "offensive": "fulguro_punch", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "omnivamp"},
+	{"title": "TIREUR", "robot": "polyvalent", "weapon": "longshot", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"},
 	{"title": "HARCELEUR", "robot": "agile", "weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "bio_injector", "passive": "omnivamp"},
 	{"title": "ASSAILLANT", "robot": "polyvalent", "weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "baroud"},
 	{"title": "BRISEUR", "robot": "puissant", "weapon": "shotgun", "offensive": "fulguro_punch", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"},

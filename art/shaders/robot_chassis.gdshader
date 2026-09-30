@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
+render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, depth_prepass_alpha;
 
 uniform sampler2D base_texture : source_color, filter_linear_mipmap, repeat_enable;
 uniform vec4 source_tint : source_color = vec4(1.0);
@@ -11,6 +11,8 @@ uniform float source_roughness = 0.9;
 uniform float source_metallic = 0.0;
 uniform float panel_roughness = 0.6;
 uniform float panel_metallic = 0.15;
+uniform float visibility_opacity : hint_range(0.0, 1.0) = 1.0;
+uniform float visibility_silhouette : hint_range(0.0, 1.0) = 0.0;
 // 0: painted armour, 1: existing cloth, 2: backpack canvas.
 uniform int part_role = 0;
 
@@ -49,7 +51,8 @@ void fragment() {
 		float canvas = smoothstep(0.25, 0.55, value) * (1.0 - cyan);
 		colour = mix(colour, pack_color.rgb * clamp(brightness / 0.52, 0.0, 1.4), canvas);
 	}
-	ALBEDO = colour;
+	ALBEDO = mix(colour, vec3(0.32, 0.39, 0.48), visibility_silhouette * 0.88);
+	ALPHA = visibility_opacity;
 	ROUGHNESS = part_role == 0 ? mix(source_roughness, panel_roughness, metal_mask) : source_roughness;
 	METALLIC = part_role == 0 ? mix(source_metallic, panel_metallic, metal_mask) : source_metallic;
 }

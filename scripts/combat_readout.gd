@@ -18,6 +18,9 @@ var _badge: Panel
 var _badge_mark: Label
 var _show_shotgun := false
 var _show_blaster := false
+var _show_longshot := false
+var _longshot_segments: Array[ColorRect] = []
+var _longshot_ready: Label
 var _ammo_recess: Panel
 var _ammo_shells: Array[Panel] = []
 var _ammo_caps: Array[ColorRect] = []
@@ -116,8 +119,20 @@ func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
 	_blaster_coil.default_color = Color("#57bcca").lerp(Color("#aaf7ff"), ratio if charging else 0.0)
 
 
+func set_longshot_cycle(active: bool, count: int, ready: bool) -> void:
+	if _longshot_ready == null:
+		return
+	_show_longshot = active
+	_sync_weapon_badge()
+	_longshot_ready.visible = active and ready
+	var completed := clampi(count, 0, 4)
+	for index in _longshot_segments.size():
+		_longshot_segments[index].visible = active
+		_longshot_segments[index].color = Color("#b8faff") if ready else Color("#42d9e5") if index < completed else Color("#344a50")
+
+
 func _sync_weapon_badge() -> void:
-	var show_badge := not _show_shotgun and not _show_blaster
+	var show_badge := not _show_shotgun and not _show_blaster and not _show_longshot
 	_badge.visible = show_badge
 	_badge_mark.visible = show_badge
 
@@ -327,6 +342,22 @@ func _build() -> void:
 	_blaster_progress_tip.size = Vector2(3, 4)
 	_blaster_progress_tip.visible = false
 	_blaster_progress_track.add_child(_blaster_progress_tip)
+	for index in 4:
+		var segment := ColorRect.new()
+		segment.name = "LongshotSegment%d" % (index + 1)
+		segment.position = Vector2(113 + index * 20, 86)
+		segment.size = Vector2(14, 9)
+		segment.color = Color("#344a50")
+		segment.visible = false
+		root.add_child(segment)
+		_longshot_segments.append(segment)
+	_longshot_ready = _label("TIR AMÉLIORÉ PRÊT", 9, Color("#b8faff"))
+	_longshot_ready.name = "LongshotEnhancedReady"
+	_longshot_ready.position = Vector2(86, 96)
+	_longshot_ready.size = Vector2(128, 12)
+	_longshot_ready.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_longshot_ready.visible = false
+	root.add_child(_longshot_ready)
 	for bolt_position in [Vector2(12, 12), Vector2(276, 12)]:
 		var bolt := Panel.new()
 		bolt.position = bolt_position

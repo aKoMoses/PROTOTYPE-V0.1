@@ -3,6 +3,8 @@ extends "res://scripts/player.gd"
 ## The ordinary combat controller is used for both humans. Remote input is
 ## explicit; only host actors can change health or apply an on-hit effect.
 const NETWORK_STATE := preload("res://scripts/network_combat_state.gd")
+const VISIBILITY_FADE := preload("res://scripts/visibility_fade.gd")
+const VISIBILITY_ECHO := preload("res://scripts/visibility_echo.gd")
 
 class ReplicaPassive extends "res://scripts/passive_state.gd":
 	func process(delta: float) -> bool:
@@ -23,6 +25,12 @@ var _replaying := false
 var _contact_started_at := -1.0
 var _mark_until := -1.0
 var _network_hits: Dictionary = {}
+var _visibility_fade: Node
+var _visibility_echo: Node3D
+var _presentation_visibility_weight := 1.0
+var _presentation_silhouette := 0.0
+var _last_observation_visible := false
+var _presentation_observer_epoch := -1
 
 
 func _ready() -> void:
@@ -40,11 +48,43 @@ func _ready() -> void:
 		passive_state.configure(_passive_id)
 	if _health_readout != null and remote_controlled:
 		_health_readout.call("update_actor_identity", Color("#ee6b4e"), "ADVERSAIRE")
+	if remote_controlled:
+		_visibility_fade = VISIBILITY_FADE.new()
+		_visibility_fade.name = "VisibilityFade"
+		add_child(_visibility_fade)
+		_visibility_fade.call("configure", [_visual_rig, _world_ui_anchor, _status_vfx])
+		_visibility_echo = VISIBILITY_ECHO.new()
+		_visibility_echo.name = "VisibilityEcho"
+		add_child(_visibility_echo)
+		_visibility_echo.call("configure", _visual_rig)
 
 
 func _notify(action: String, data: Dictionary = {}) -> void:
 	if not _replaying and is_instance_valid(controller):
 		controller.call("on_actor_action", self, action, data)
+
+
+func _uses_local_feedback() -> bool:
+	return not remote_controlled
+
+
+func _mark_combat_event() -> void:
+	if not remote_controlled:
+		super._mark_combat_event()
+	elif visibility_state != null:
+		visibility_state.mark_combat_event()
+
+
+func _update_bush_presentation() -> void:
+	if remote_controlled:
+		if _bush_status_label != null:
+			_bush_status_label.visible = false
+		return
+	super._update_bush_presentation()
+	if _bush_status_label != null and _bush_status_label.visible and not is_revealed() and is_instance_valid(opponent) and not bool(opponent.call("is_real_dead")) and BUSH_STATE.shares_bush(self, opponent) and is_visible_to(opponent):
+		_bush_status_label.text = "DÉTECTÉ"
+		_bush_status_label.modulate = Color("#ffc77a")
+		_visual_rig.set_bush_concealed(false)
 
 
 func _module_target() -> Node:
@@ -59,14 +99,16 @@ func _update_aim() -> void:
 func _update_movement(delta: float) -> void:
 	if not remote_controlled:
 		super._update_movement(delta)
-	elif _dash_active:
-		_update_dash(delta)
+	else:
+		var melee_owns_movement := _update_mekatana_attack(delta)
+		if _dash_active and not melee_owns_movement:
+			_update_dash(delta)
 
 
 func _get_actual_move_velocity() -> Vector3:
 	if remote_controlled and (_stasis_remaining > 0.0 or combat_state.is_stunned() or is_real_dead()):
 		return Vector3.ZERO
-	return remote_velocity if remote_controlled and not _dash_active else super._get_actual_move_velocity()
+	return remote_velocity if remote_controlled and not _dash_active and not _mekatana_movement_owned else super._get_actual_move_velocity()
 
 
 func _update_attack(ignore_module_lock: bool = false) -> void:
@@ -152,6 +194,12 @@ func reset_combat_state() -> void:
 	_contact_started_at = -1.0
 	_mark_until = -1.0
 	super.reset_combat_state()
+	_last_observation_visible = false
+	_presentation_observer_epoch = -1
+	if _visibility_fade != null:
+		_visibility_fade.call("restore")
+	if _visibility_echo != null:
+		_visibility_echo.call("reset")
 
 
 func begin_touch_fire() -> void:
@@ -196,6 +244,40 @@ func _perform_shotgun_attack() -> void:
 	super._perform_shotgun_attack()
 	if token != _shotgun_attack_token:
 		_notify("shotgun")
+
+
+func _can_apply_mekatana_damage() -> bool:
+	return authoritative
+
+
+func _perform_mekatana_attack() -> void:
+	var was_busy: bool = _mekatana_attack.is_busy()
+	super._perform_mekatana_attack()
+	if not was_busy and _mekatana_attack.is_busy():
+		_notify("mekatana", {"step": _mekatana_attack.step})
+
+
+func _perform_longshot_attack() -> void:
+	var token := _longshot_attack_token
+	super._perform_longshot_attack()
+	if not authoritative and token != _longshot_attack_token:
+		_notify("longshot")
+
+
+func _on_longshot_emitted(enhanced: bool, shot_number: int) -> void:
+	if authoritative:
+		_notify("longshot_fired", {"enhanced": enhanced, "shot_number": shot_number})
+
+
+func _play_network_longshot(data: Dictionary) -> void:
+	_begin_weapon_fire()
+	if _has_skeletal_weapon_attachment():
+		await _visual_rig.skeleton.skeleton_updated
+		if not _gameplay_enabled or is_real_dead():
+			return
+	# The reliable event is visual only. Snapshots own the cycle, so a snapshot
+	# arriving first cannot turn this into a second fifth shot.
+	_spawn_longshot_projectile(bool(data.get("enhanced", false)), int(data.get("shot_number", 1)), true)
 
 
 func _perform_modulo_drone() -> void:
@@ -269,6 +351,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		return
 	if action == "cancel":
 		_replaying = visual_only
+		_cancel_longshot_attack()
 		cancel_touch_fire()
 		_replaying = false
 		return
@@ -286,6 +369,11 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		_shotgun_reloading = false
 		_shotgun_ammo = maxi(1, _shotgun_ammo)
 		_blaster_next_attack_ready_at = 0.0
+		if action == "mekatana":
+			_cancel_mekatana_attack()
+			_action_gate.reset()
+			_mekatana_attack.next_step = clampi(int(data.get("step", 0)), 0, 2)
+			_mekatana_attack.combo_remaining = float(COMBAT_DATA.WEAPON_DEFINITIONS.mekatana.combo_window)
 	match action:
 		"charge": _begin_blaster_charge(_contact_started_at if not visual_only and _contact_started_at >= 0.0 else -1.0)
 		"blaster":
@@ -300,6 +388,14 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 			_cancel_blaster_charge()
 			_fire_blaster_projectile(lerpf(_blaster_damage, _blaster_max_damage, ratio), ratio, aim_direction)
 		"shotgun": _perform_shotgun_attack()
+		"mekatana": _perform_mekatana_attack()
+		"longshot":
+			if not visual_only:
+				# Host determines the fifth shot from its own instance, never client data.
+				_perform_longshot_attack()
+		"longshot_fired":
+			if visual_only:
+				_play_network_longshot(data)
 		"offensive": _perform_offensive_module()
 		"defensive": _perform_defensive_module()
 		"mobility":
@@ -320,8 +416,11 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 
 func network_snapshot() -> Dictionary:
 	return {"combat": combat_state.snapshot(), "position": global_position, "aim": aim_direction,
+		"mekatana": _mekatana_attack.presentation_snapshot(),
 		"velocity": _get_actual_move_velocity(), "weapon": _weapon_id,
 		"cooldowns": _module_cooldowns.duplicate(), "ammo": _shotgun_ammo,
+		"longshot_shots": _longshot_state.shots_fired,
+		"longshot_recovery": maxf(0.0, _longshot_next_attack_ready_at - Time.get_ticks_msec() / 1000.0),
 		"reload": _shotgun_reload_remaining, "stasis": _stasis_remaining, "bio": _bio_remaining,
 		"baroud_active": passive_state.baroud_active, "baroud_used": passive_state.baroud_used,
 		"baroud_health": passive_state.baroud_health, "baroud_remaining": passive_state.baroud_remaining,
@@ -355,10 +454,24 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 		_replaying = true
 		set_weapon(str(value.weapon))
 		_replaying = false
+		if value.has("mekatana") and _weapon_id == "mekatana":
+			_mekatana_attack.damage_enabled = false
+			_mekatana_attack.restore_presentation(value.mekatana)
+			if _mekatana_attack.is_busy():
+				if not _action_gate.owns(_mekatana_action_token, ACTION_GATE.Kind.WEAPON, "mekatana"):
+					_action_gate.reset()
+					_mekatana_action_token = _action_gate.try_acquire(ACTION_GATE.Kind.WEAPON, "mekatana")
+			else:
+				_action_gate.release(_mekatana_action_token)
+				_mekatana_action_token = 0
+			_sync_mekatana_pose()
 		_module_cooldowns = value.cooldowns.duplicate()
 		_shotgun_ammo = int(value.ammo)
 		_shotgun_reload_remaining = float(value.reload)
 		_shotgun_reloading = _shotgun_reload_remaining > 0.0
+		_longshot_state.shots_fired = maxi(0, int(value.get("longshot_shots", 0)))
+		_longshot_next_attack_ready_at = Time.get_ticks_msec() / 1000.0 + maxf(0.0, float(value.get("longshot_recovery", 0.0)))
+		_sync_weapon_readout()
 		if is_instance_valid(_magnetic_wall) and get_module_cooldown("magnetic_field") <= 0.0:
 			_magnetic_wall.queue_free()
 			_magnetic_wall = null
@@ -369,12 +482,44 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 		_javelin_mark_target = opponent
 	if is_real_dead() and not was_dead:
 		_on_state_died()
+	_update_bush_presentation()
 
 
-func update_remote_visibility() -> void:
+func get_presentation_visibility_weight() -> float:
+	return _presentation_visibility_weight
+
+
+func update_remote_visibility(delta: float = 0.0) -> void:
 	if not remote_controlled:
 		return
-	var show := is_visible_to(opponent)
+	var observer_epoch := int(opponent.call("get_visibility_epoch")) if is_instance_valid(opponent) else -1
+	if observer_epoch != _presentation_observer_epoch:
+		_presentation_observer_epoch = observer_epoch
+		_last_observation_visible = false
+		_visibility_echo.call("reset")
+	var raw_weight := get_visibility_weight(opponent)
+	var show := raw_weight > 0.0
+	var display_weight := raw_weight
+	if show and is_instance_valid(opponent):
+		var offset := global_position - opponent.global_position
+		display_weight = VISIBILITY_STATE.silhouette_visibility(Vector2(offset.x, offset.z).length(), VISIBILITY_STATE.observer_radius(opponent), VISIBILITY_STATE.observer_fade_width(opponent))
+	var silhouette := 1.0 - smoothstep(0.12, 0.95, raw_weight)
+	if delta <= 0.0 or not show:
+		_presentation_visibility_weight = display_weight
+		_presentation_silhouette = silhouette
+	else:
+		_presentation_visibility_weight = move_toward(_presentation_visibility_weight, display_weight, delta / 0.18)
+		_presentation_silhouette = move_toward(_presentation_silhouette, silhouette, delta / 0.22)
+	var detail_weight := raw_weight * raw_weight
 	for node in [_robot_visuals, _world_ui_anchor, _status_vfx]:
 		if node != null:
-			node.visible = show
+			node.visible = show if node == _robot_visuals else detail_weight > 0.01
+	_visibility_fade.call("apply_presentation", _presentation_visibility_weight, _presentation_silhouette, detail_weight)
+	var echo_allowed := _gameplay_enabled and not is_real_dead() and is_instance_valid(opponent) and not bool(opponent.call("is_real_dead")) and bool(opponent.call("is_gameplay_enabled"))
+	if delta <= 0.0 or not echo_allowed:
+		_visibility_echo.call("reset")
+	if show and echo_allowed:
+		_visibility_echo.call("observe", global_position)
+	elif _last_observation_visible and delta > 0.0 and echo_allowed:
+		_visibility_echo.call("begin_loss")
+	_last_observation_visible = show and echo_allowed

@@ -1,0 +1,15 @@
+{
+  "folder": "after_overview",
+  "roi_pixels_xy": [
+    640,
+    150,
+    940,
+    510
+  ],
+  "frame_pairs": 179,
+  "ground_mean_frame_change_8bit": 0.4356073878247645,
+  "ground_max_frame_change_8bit": 1.8402315378189087,
+  "ground_p95_frame_mean_change_8bit": 0.9835694551467895,
+  "ground_p95_fraction_pixels_changing_over_12": 0.0013037037037037012,
+  "interpretation": "Rendered temporal variation in a static ground ROI; smaller values indicate smoother motion, not correctness of game visibility."
+}

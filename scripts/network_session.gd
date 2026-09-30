@@ -10,6 +10,7 @@ signal round_prepared(round_number: int, host_score: int, guest_score: int)
 signal round_live
 signal round_finished(host_score: int, guest_score: int, winner_id: int, match_over: bool)
 signal opponent_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String)
+signal opponent_visibility(combat_remaining: float, spotted_remaining: float)
 signal opponent_hit(amount: float, source_id: String, attack_id: String)
 signal opponent_effect(effect: String, duration: float, value: float)
 signal pose_received(pose: Dictionary)
@@ -355,14 +356,20 @@ func _other_id() -> int:
 	return int(current_room.guest_id) if local_peer_id() == int(current_room.host_id) else int(current_room.host_id)
 
 
-func send_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String) -> void:
+func send_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String, visibility: Dictionary = {}) -> void:
 	var other := _other_id()
 	if _phase in ["countdown", "live"] and other != 0:
-		_service.call_func(Callable(self, "_remote_state"), position, aim, health, max_health, weapon)
+		_service.call_func(Callable(self, "_remote_state"), position, aim, health, max_health, weapon, visibility)
 
 
-func _remote_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String) -> void:
+func _remote_state(position: Vector3, aim: Vector3, health: float, max_health: float, weapon: String, visibility: Dictionary = {}) -> void:
 	if _phase in ["countdown", "live"] and position.is_finite() and aim.is_finite():
+		# Keep the existing state signal's five arguments stable. The reveal clocks
+		# belong to this same snapshot so a remote attack also exposes its bush.
+		var combat_remaining := float(visibility.get("combat", 0.0))
+		var spotted_remaining := float(visibility.get("spotted", 0.0))
+		if is_finite(combat_remaining) and is_finite(spotted_remaining):
+			opponent_visibility.emit(clampf(combat_remaining, 0.0, 3.0), clampf(spotted_remaining, 0.0, 8.0))
 		opponent_state.emit(position, aim, clampf(health, 0.0, 5000.0), clampf(max_health, 1.0, 5000.0), weapon)
 
 

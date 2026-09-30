@@ -78,6 +78,10 @@ func _initialize() -> void:
 	target.global_position = Vector3(0.0, 0.0, 16.0)
 	player.global_position = Vector3(0.0, 0.0, 23.0)
 	player.call("set_weapon", "blaster")
+	# Hold an actual threat toward the bot; headless mouse aim can otherwise
+	# point a visible charge away from the actor it is meant to test.
+	player.set_physics_process(false)
+	player.set("aim_direction", (target.global_position - player.global_position).normalized())
 	target.call("set_training_bot_enabled", true)
 	for _frame in range(18):
 		await physics_frame

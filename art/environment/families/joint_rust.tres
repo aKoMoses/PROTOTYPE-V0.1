@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Salvage / joint_rust"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.6627451, 0.3882353, 0.23137255, 1)
+metallic = 0.34
+roughness = 0.96

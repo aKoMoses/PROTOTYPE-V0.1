@@ -1,0 +1,101 @@
+{
+  "weapon": "LONGSHOT",
+  "date": "2026-09-30",
+  "status": "implemented_and_verified_locally_not_published",
+  "reservation": "9e1b4944-2bc7-4579-814e-2bc7557968c2",
+  "settings": {
+    "source": "scripts/combat_data.gd:WEAPON_DEFINITIONS.longshot",
+    "base_damage": 36.0,
+    "distance_start_metres": 6.0,
+    "distance_maximum_metres": 18.0,
+    "distance_multiplier_maximum": 1.75,
+    "distance_curve": "continuous_linear_clamped",
+    "maximum_range_metres": 32.0,
+    "interval_seconds": 1.05,
+    "preparation_seconds": 0.08,
+    "recovery_rule": "cooldown - attack_preparation; same rule for player and bot",
+    "normal_speed_metres_per_second": 60.0,
+    "normal_diameter_metres": 0.15,
+    "enhanced_every_nth_emitted_shot": 5,
+    "enhanced_size_multiplier": 1.5,
+    "enhanced_speed_multiplier": 1.25,
+    "enhanced_damage_multiplier": 1.4,
+    "enhanced_speed_metres_per_second": 75.0,
+    "enhanced_diameter_metres": 0.225,
+    "normal_damage_at_0_12_18_24_metres": [36.0, 49.5, 63.0, 63.0],
+    "enhanced_damage_at_0_12_18_24_metres": [50.4, 69.3, 88.2, 88.2]
+  },
+  "balance": {
+    "arena_dimensions_metres": {"duel": [58, 58], "survival": [46, 46], "training": [88, 76]},
+    "vision_radius_metres": 22,
+    "rationale": "Le bonus maximal est atteint a 18 m dans la portee visible et des couloirs normaux. Le DPS de contact reste inferieur au Blaster rapide; le Shotgun conserve son avantage de proximite.",
+    "mean_cycle_dps_contact": 37.03,
+    "mean_cycle_dps_maximum_distance": 64.8,
+    "robot_health": [800, 1000, 1200],
+    "theoretical_hits_contact": [21, 26, 31],
+    "theoretical_hits_maximum_distance": [12, 15, 18],
+    "theoretical_1000_health_contact_seconds_after_first_impact": 26.25,
+    "theoretical_1000_health_long_range_seconds_after_first_impact": 14.7,
+    "theory_conditions": "Cycle initial zero, tous les tirs touchent, sans modules, passifs, soins ou upgrades; ajouter la preparation et le trajet du premier tir. Ces valeurs sont calculees, pas des chronometrages de parties."
+  },
+  "model": {
+    "source_unchanged": true,
+    "source_size_bytes": 4175824,
+    "vertices": 7397,
+    "triangles": 5189,
+    "source_axes": "canon +X, haut +Y",
+    "wrapper_rotation_y_degrees": 90,
+    "wrapper_length_metres": 1.8,
+    "muzzle_local": [0, 0.117, -1.3104],
+    "right_hand_grip_local": [0, 0, 0],
+    "animations": "procedural aim and short skeletal kick with return; no embedded GLB animations",
+    "lighting": "emissive cyan energy cores; no additional dynamic lights",
+    "texture": "art/weapons/longshot_futuristic+rifle+3d+model_basecolor.jpg",
+    "capture": "captures/longshot_running.png"
+  },
+  "behavior": {
+    "damage_origin": "distance accumulated by the projectile from the real muzzle to the exact impact surface, independent of the shooter",
+    "collision": "continuous sphere sweep, initial overlap query, first contact refinement, single finished signal and single damage instance",
+    "muzzle_guard": "sphere sweep from torso support to real muzzle; blocked shot resolves at distance zero without relocating muzzle origin",
+    "progression": "only successful emission advances cycle, including misses and walls; no expiry",
+    "preserved_on_switch": ["cycle", "recovery", "already emitted projectile"],
+    "reset_on": ["death", "new round", "replacement loadout/new weapon instance"],
+    "inputs": "existing attack press/hold/release and existing weapon switch; no charge, zoom or additional command",
+    "hud": "four segments and enhanced-ready label inside the existing customizable player_vitals widget; readout and weapon core use real instance state",
+    "network": "host decides enhanced rank and damage; snapshots synchronize cycle and remaining recovery; reliable visual events never advance cycle",
+    "survival": "weapon selection, power and tempo upgrades; upgrades preserve cycle and do not add Blaster effects",
+    "bot": "own cycle and projectiles, actual muzzle, LONGSHOT preset and preferred distance around 16-18.5 m"
+  },
+  "modified_or_added_files": {
+    "gameplay": ["scripts/combat_data.gd", "scripts/player.gd", "scripts/longshot_state.gd", "scripts/longshot_projectile.gd", "scripts/network_player.gd", "scripts/survival.gd", "scripts/training_meter.gd"],
+    "presentation": ["scripts/player_visual_rig.gd", "scripts/longshot_visual.gd", "scripts/hud_vitals.gd", "scripts/combat_readout.gd", "scripts/vfx_manager.gd", "scripts/loadout_state.gd", "scripts/equipment_forge_preview.gd", "scripts/equipment_icons.gd"],
+    "bots": ["scripts/duel_bot_equipment.gd", "scripts/training_bot.gd", "scripts/enemy_droid_visual.gd", "scripts/bot_build_presets.gd", "scripts/duel_bot_builds.gd"],
+    "assets": ["scenes/weapons/longshot.tscn", "art/weapons/longshot.glb", "art/weapons/longshot_futuristic+rifle+3d+model_basecolor.jpg", "art/icons/longshot.svg", "captures/longshot_running.png"],
+    "validation": ["tools/test_longshot.gd", "tools/test_longshot_projectile.gd", "tools/test_longshot_bot.gd", "tools/test_longshot_network.gd", "tools/test_longshot_presentation.gd", "tools/test_bot_tactics.gd", "docs/longshot_validation.json"],
+    "generated_companions": "Godot .uid and .import files accompany the new scripts and assets. Existing unrelated and concurrent Mekatana changes were preserved."
+  },
+  "verification": {
+    "engine": "Godot 4.7.2 stable",
+    "dedicated_tests": [
+      {"script": "tools/test_longshot.gd", "result": "PASS", "checks": 231, "scope": "real player emission, damage and flight, shooter/cible relocation, ranks 5/10/15, misses/walls, refusals/cancellation, lifecycle, PC/mobile input, eight moving aim directions, recoil, Survival upgrades"},
+      {"script": "tools/test_longshot_projectile.gd", "result": "PASS", "checks": 65, "scope": "continuous sphere, thin walls at low physics frequency, enhanced grazing, contained overlap, muzzle guard, multiple colliders, common range and magnetic Area3D"},
+      {"script": "tools/test_longshot_bot.gd", "result": "PASS", "checks": 105, "scope": "independent bot cycle, real GLB muzzle, damage distance, lifecycle, cancelled actions, swap recovery, in-flight swap and preset"},
+      {"script": "tools/test_longshot_network.gd", "result": "PASS", "checks": 15, "scope": "host authority, hostile enhanced flags ignored, refused recovery, snapshot reconciliation, late visual event, cancellation and reset"},
+      {"script": "tools/test_longshot_presentation.gd", "result": "PASS", "checks": 13, "scope": "real OpenGL rendering, eight running directions, muzzle axis, hand grip, recoil recovery and visible diameters"}
+    ],
+    "dedicated_checks_total": 429,
+    "regressions_passed": ["test_blaster", "test_shotgun", "test_loadout_state", "test_cast_lock", "test_touch_controls", "test_network_combat", "test_survival_rewards", "test_duel_equipment", "test_bot_tactics", "test_bot_build_presets"],
+    "visual_inspection": ["GLB side and muzzle marker", "running rig captures", "HUD cycles 0-4 and enhanced ready"],
+    "preexisting_failed_check": {
+      "script": "tools/test_player_aim_core.gd",
+      "reason": "Blaster left hand misses reachable grip (0.01026904 m vs 0.001 m threshold)",
+      "baseline": "Exact same test and same values with rig and aim modifier extracted from Git HEAD in ignored .godot/longshot-baseline. No production baseline or test tolerance modified."
+    },
+    "environment_notes": "Initial sandbox runs could not write GD-Sync user data/read Windows certificate store. Final dedicated player, bot and network runs used normal user cache access and had no such errors. Some older regression/startup scripts still emit ObjectDB/resource cleanup warnings at process shutdown."
+  },
+  "remaining_manual_checks": [
+    "Comfort, sound level and shot readability on a physical Android device/small screen",
+    "Two real network peers under latency, including local predicted effects before host confirmation",
+    "Playtest balance against human players; theoretical TTK does not include dodges, modules or cover"
+  ]
+}

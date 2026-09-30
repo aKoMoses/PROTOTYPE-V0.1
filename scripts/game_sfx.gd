@@ -188,6 +188,10 @@ func set_paused(value: bool) -> void:
 	_paused = value
 	for player: AudioStreamPlayer in _players.values():
 		player.stream_paused = value
+	for voice in _enemy_voices:
+		voice.stream_paused = value
+	_step_player.stream_paused = value
+	_rustle.stream_paused = value
 
 
 func clear() -> void:
@@ -196,5 +200,13 @@ func clear() -> void:
 	for player: AudioStreamPlayer in _players.values():
 		player.stop()
 		player.stream_paused = false
+	for voice in _enemy_voices:
+		voice.stop()
+		voice.stream_paused = false
+	reset_locomotion()
+	_step_player.stream_paused = false
+	_rustle.stream_paused = false
+	_quiet_until_ms = 0
+	_bush_transition_ms = -100000
 	_paused = false
 	_last_played_ms.clear()

@@ -38,12 +38,27 @@ jobs:
       - name: Import game assets
         run: godot --headless --path . --editor --quit
 
+      - name: Install display for rendered tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+
       - name: Run game tests
         run: |
           set -euo pipefail
           for test_file in tools/test_*.gd; do
             echo "Running $test_file"
-            godot --headless --path . --script "res://$test_file"
+            case "$test_file" in
+              tools/test_arena_art_contract.gd)
+                godot --headless --path . --script "res://$test_file" -- verify docs/arena_art_gameplay_baseline.json
+                ;;
+              tools/test_longshot_presentation.gd|tools/test_weapon_attachment_runtime.gd)
+                xvfb-run -a godot --audio-driver Dummy --rendering-method gl_compatibility --path . --script "res://$test_file"
+                ;;
+              *)
+                godot --headless --path . --script "res://$test_file"
+                ;;
+            esac
           done
 
       - name: Verify Android export on pull requests

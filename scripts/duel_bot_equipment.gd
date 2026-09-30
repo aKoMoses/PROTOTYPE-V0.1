@@ -3,8 +3,11 @@ extends Node
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
+const LONGSHOT_STATE := preload("res://scripts/longshot_state.gd")
+const LONGSHOT_PROJECTILE := preload("res://scripts/longshot_projectile.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
+const MEKATANA_ATTACK := preload("res://scripts/mekatana_attack.gd")
 
 var profile := "blaster"
 var robot_id := COMBAT_DATA.DEFAULT_ROBOT
@@ -27,6 +30,7 @@ var _generation := 0
 var _shot_serial := 0
 var _decision_serial := 0
 var _aim_position := Vector3.ZERO
+var _aim_error_angle := 0.0
 var _last_visible_at := -100.0
 var module_cooldowns: Dictionary = {}
 var static_remaining := 0.0
@@ -47,6 +51,13 @@ var _action_gate = ACTION_GATE.new()
 var _weapon_action_token := 0
 var _module_action_token := 0
 var _pending_module_serial := 0
+var longshot_state = LONGSHOT_STATE.new()
+var _longshot_generation := 0
+var _longshot_next_attack_at := 0.0
+var _mekatana
+var _mekatana_body: Node3D
+var _mekatana_controller: Node
+var _mekatana_movement_owned_this_tick := false
 
 
 func set_action_gate(shared_gate) -> void:
@@ -55,20 +66,31 @@ func set_action_gate(shared_gate) -> void:
 
 
 func set_profile(value: String) -> void:
-	var weapon := "shotgun" if value == "shotgun" else "blaster"
+	var weapon := value if value in ["blaster", "shotgun", "mekatana", "longshot"] else "blaster"
+	var retained_longshot_shots: int = longshot_state.shots_fired
+	var retained_longshot_generation := _longshot_generation
+	var retained_longshot_recovery := _longshot_next_attack_at
+	var close_weapon := weapon in ["shotgun", "mekatana"]
 	set_loadout({
 		"weapon": weapon,
-		"offensive": "pelto_smash" if weapon == "shotgun" else "modulo_drone",
-		"defensive": "static_shield" if weapon == "shotgun" else "magnetic_field",
-		"mobility": "pyro_boots" if weapon == "shotgun" else "bio_injector",
-		"passive": "baroud" if weapon == "shotgun" else "omnivamp",
+		"offensive": "pelto_smash" if close_weapon else "modulo_drone",
+		"defensive": "static_shield" if close_weapon else "magnetic_field",
+		"mobility": "pyro_boots" if close_weapon else "bio_injector",
+		"passive": "baroud" if close_weapon else "omnivamp",
 	})
+	# A selection change equips the existing instance. A full set_loadout or
+	# round reset below replaces it and starts a fresh cycle.
+	longshot_state.shots_fired = retained_longshot_shots
+	_longshot_generation = retained_longshot_generation
+	_longshot_next_attack_at = retained_longshot_recovery
+	_update_readout()
 
 
 func set_loadout(value: Dictionary) -> void:
 	robot_id = str(LOADOUT.sanitize(value).robot)
 	build_title = str(value.get("title", "ADVERSAIRE"))
-	profile = "shotgun" if str(value.get("weapon", profile)) == "shotgun" else "blaster"
+	var requested_weapon := str(value.get("weapon", profile))
+	profile = requested_weapon if requested_weapon in ["blaster", "shotgun", "mekatana", "longshot"] else "blaster"
 	offensive_id = str(value.get("offensive", "pelto_smash" if profile == "shotgun" else "modulo_drone"))
 	if not offensive_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"]:
 		offensive_id = "modulo_drone"
@@ -89,6 +111,10 @@ func get_loadout() -> Dictionary:
 
 
 func reset() -> void:
+	longshot_state.reset()
+	_longshot_generation += 1
+	_longshot_next_attack_at = 0.0
+	_cancel_mekatana()
 	_generation += 1
 	_action_gate.reset()
 	_weapon_action_token = 0
@@ -106,6 +132,8 @@ func reset() -> void:
 	dash_direction = Vector3.ZERO
 	_shot_serial = 0
 	_decision_serial = 0
+	_aim_position = Vector3.ZERO
+	_aim_error_angle = 0.0
 	_last_visible_at = -100.0
 	module_cooldowns.clear()
 	static_remaining = 0.0
@@ -149,6 +177,39 @@ func is_action_locked() -> bool:
 	return static_remaining > 0.0
 
 
+func owns_mekatana_movement() -> bool:
+	return _mekatana_movement_owned_this_tick or (_mekatana != null and _mekatana.is_direction_locked())
+
+
+func get_mekatana_direction() -> Vector3:
+	return _mekatana.direction if _mekatana != null and _mekatana.is_direction_locked() else Vector3.ZERO
+
+
+func get_mekatana_phase() -> String:
+	return str(_mekatana.phase) if _mekatana != null else ""
+
+
+func get_mekatana_next_step() -> int:
+	if _mekatana == null:
+		return 0
+	if _mekatana.is_direction_locked():
+		return int(_mekatana.step)
+	return int(_mekatana.next_step) if _mekatana.combo_remaining > 0.0 else 0
+
+
+func get_mekatana_dash_distance() -> float:
+	var values: Dictionary = _mekatana.definition if _mekatana != null else COMBAT_DATA.WEAPON_DEFINITIONS["mekatana"]
+	return float(values.dash_distance[get_mekatana_next_step()])
+
+
+func get_mekatana_engagement_range() -> Vector2:
+	var values: Dictionary = _mekatana.definition if _mekatana != null else COMBAT_DATA.WEAPON_DEFINITIONS["mekatana"]
+	var dash := get_mekatana_dash_distance()
+	# Admit the complete dash only with the observed target still ahead at its
+	# end. Each rank uses its own reach instead of the third rank's maximum.
+	return Vector2(dash + 0.25, minf(dash + float(values.melee_range), float(values.max_range)))
+
+
 func get_action_owner() -> String:
 	return _action_gate.get_owner_id()
 
@@ -158,6 +219,7 @@ func _begin_weapon_action() -> bool:
 	if token == 0:
 		return false
 	_weapon_action_token = token
+	_mark_combat_event()
 	return true
 
 
@@ -168,11 +230,24 @@ func _begin_module_action(module_id: String) -> bool:
 	if token == 0:
 		return false
 	_weapon_action_token = 0
+	_cancel_mekatana()
 	_module_action_token = token
 	charge_remaining = 0.0
 	charge_duration = 0.0
 	_charge_lost_time = 0.0
+	# Recast placement is validated after acquiring its action token. A failed
+	# teleport must not reveal an actor that stayed quietly inside the grass.
+	if module_id != "javelin_recast":
+		_mark_combat_event()
 	return true
+
+
+func _mark_combat_event(body: Node3D = null) -> void:
+	if body == null:
+		var controller := get_parent()
+		body = controller.get_parent() as Node3D if controller != null else null
+	if body != null and body.has_method("mark_combat_event"):
+		body.call("mark_combat_event")
 
 
 func _module_action_valid(module_id: String, token: int = 0) -> bool:
@@ -194,6 +269,7 @@ func _release_module_action(module_id: String, token: int = 0) -> void:
 
 
 func cancel_action(reason: String = "action interrompue") -> void:
+	_cancel_mekatana()
 	_action_gate.reset()
 	_weapon_action_token = 0
 	_module_action_token = 0
@@ -212,6 +288,10 @@ func cancel_action(reason: String = "action interrompue") -> void:
 func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: Node3D, player: Node3D, controller: Node, perception: Dictionary = {}, tuning: Dictionary = {}) -> void:
 	_latest_tuning = tuning
 	_last_tick_elapsed = elapsed
+	_mekatana_movement_owned_this_tick = false
+	if profile == "mekatana":
+		_ensure_mekatana(body, controller)
+		_update_mekatana(delta)
 	var cooldown_rate := float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["other_cooldown_rate"]) if bio_remaining > 0.0 else 1.0
 	pyro_cooldown = maxf(0.0, pyro_cooldown - delta * cooldown_rate)
 	bio_cooldown = maxf(0.0, bio_cooldown - delta)
@@ -242,6 +322,13 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	if profile == "shotgun" and ammo <= 0 and reload_remaining <= 0.0:
 		_start_reload()
 	var distance := body.global_position.distance_to(observed) if observed.is_finite() else INF
+	# Module choices use exactly the same delayed observation as locomotion and
+	# aiming. In particular, retreat/repair mobility does not need a visible foe.
+	var decision_perception := perception.duplicate()
+	decision_perception["visible"] = visible
+	decision_perception["position"] = observed
+	if not decision_perception.has("line_of_fire"):
+		decision_perception["line_of_fire"] = visible and player != null and (bool(controller.call("_weapon_line_of_fire_clear", body, player, observed)) if controller.has_method("_weapon_line_of_fire_clear") else bool(controller.call("_line_of_sight_clear", body, player)))
 	if module_remaining > 0.0:
 		module_remaining = maxf(0.0, module_remaining - delta)
 		controller.set("_windup_remaining", module_remaining)
@@ -251,58 +338,79 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 			controller.set("_windup_remaining", 0.0)
 			controller.call("_update_telegraph")
 		return
+	if elapsed >= _next_module_at and _consider_survival_module_use(elapsed, distance, body, controller, decision_perception, tuning):
+		return
+	if profile == "mekatana" and _mekatana != null and _mekatana.is_busy():
+		return
 	if charge_remaining > 0.0:
-		if not visible or not bool(perception.get("line_of_fire", true)):
+		if not visible or not bool(decision_perception.get("line_of_fire", false)):
 			_charge_lost_time += delta
 		else:
 			_charge_lost_time = 0.0
 		if _charge_lost_time > 0.22:
 			_cancel_weapon_charge(controller, elapsed, "charge annulée : ligne perdue")
 			return
+		if visible and bool(decision_perception.get("line_of_fire", false)):
+			_update_charge_aim(delta, body, observed, decision_perception, tuning)
 		charge_remaining = maxf(0.0, charge_remaining - delta)
 		controller.set("_windup_remaining", charge_remaining)
 		controller.call("_update_telegraph")
 		_update_readout()
 		if charge_remaining <= 0.0:
+			if profile == "longshot" and (not visible or not bool(decision_perception.get("line_of_fire", false))):
+				_cancel_weapon_charge(controller, elapsed, "tir annulé : ligne perdue")
+				return
 			_fire(body, player)
 			var recovery := float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["attack_recovery"]) if profile == "shotgun" else float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["cooldown"])
+			if profile == "longshot":
+				var longshot_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
+				recovery = maxf(0.0, float(longshot_definition.cooldown) - float(longshot_definition.attack_preparation))
 			next_attack_at = elapsed + recovery / (float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["attack_speed_multiplier"]) if bio_remaining > 0.0 else 1.0)
 			controller.set("_windup_remaining", 0.0)
 			controller.call("_update_telegraph")
 		return
 	var legacy_tick := perception.is_empty() and tuning.is_empty()
-	if (elapsed >= _next_module_at or legacy_tick) and visible and _consider_module_use(elapsed, distance, body, player, controller, perception, tuning):
+	if (elapsed >= _next_module_at or legacy_tick) and _consider_module_use(elapsed, distance, body, player, controller, decision_perception, tuning):
+		return
+	if profile == "mekatana":
+		if elapsed >= next_attack_at and visible and observed.is_finite() and bool(decision_perception.get("line_of_fire", false)) and dash_remaining <= 0.0 and not _mekatana_movement_owned_this_tick:
+			# The melee resolver owns its exact hit volume. This only decides when
+			# to engage, using the same delayed observation as every other weapon.
+			var engagement := get_mekatana_engagement_range()
+			if distance >= engagement.x and distance <= engagement.y:
+				_begin_mekatana(body, observed, decision_perception, tuning)
+		return
+	if profile == "shotgun" and _should_reload_tactically(visible, distance, decision_perception):
+		_start_reload()
 		return
 	if elapsed < next_attack_at or reload_remaining > 0.0 or not visible:
 		return
+	if profile == "longshot" and elapsed < _longshot_next_attack_at:
+		return
 	var maximum := float(COMBAT_DATA.WEAPON_DEFINITIONS[profile]["max_range"])
-	if distance > maximum or not bool(perception.get("line_of_fire", bool(controller.call("_line_of_sight_clear", body, player)))):
+	if distance > maximum or not bool(decision_perception.get("line_of_fire", false)):
 		next_attack_at = elapsed + 0.2
 		return
-	if profile == "shotgun" and distance > 4.8:
+	var target_vulnerable := bool(perception.get("target_reloading", false)) or float(perception.get("target_health_fraction", 1.0)) < 0.16
+	if profile == "shotgun" and distance > (6.0 if target_vulnerable else 5.1):
 		return
 	_decision_serial += 1
 	# Sometimes the bot fails to use a short opening even when its weapon is ready.
 	var skill := float(tuning.get("position_quality", 0.68))
-	var hesitation_cycle := maxi(4, int(round(4.0 + skill * 3.0)))
-	if _decision_serial % hesitation_cycle == 0:
-		next_attack_at = elapsed + 0.4
+	if randf() < lerpf(0.12, 0.015, clampf(skill, 0.0, 1.0)):
+		next_attack_at = elapsed + 0.18
 		return
-	var projectile_speed := float(COMBAT_DATA.WEAPON_DEFINITIONS[profile]["pellet_speed" if profile == "shotgun" else "projectile_speed"])
-	var travel_time := distance / maxf(1.0, projectile_speed)
-	var lead := Vector3(perception.get("velocity", Vector3.ZERO)) * travel_time * float(tuning.get("prediction_quality", 0.62))
-	lead = lead.limit_length(3.0)
-	var predicted := observed + lead
-	var direction := predicted - body.global_position
-	direction.y = 0.0
-	var aim_error := deg_to_rad(float(tuning.get("aim_error_degrees", 4.5)) * (1.25 if profile == "shotgun" else 1.0))
-	direction = direction.normalized().rotated(Vector3.UP, randf_range(-aim_error, aim_error))
-	_aim_position = body.global_position + direction * body.global_position.distance_to(predicted)
 	if profile == "blaster":
-		var favorable_charge := distance >= 5.5 and distance <= 12.5 and Vector3(perception.get("velocity", Vector3.ZERO)).length() < 6.0 and bool(perception.get("line_of_fire", true))
-		charge_duration = clampf(0.68 + randf_range(-0.10, 0.22), 0.50, float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["charge_time"])) if favorable_charge and _decision_serial % 3 != 0 else 0.05
+		var favorable_charge := distance >= 4.5 and distance <= 12.5 and Vector3(perception.get("velocity", Vector3.ZERO)).length() < 6.0 and not bool(perception.get("projectile_threat", false))
+		var long_opening := bool(perception.get("target_reloading", false)) or Vector3(perception.get("velocity", Vector3.ZERO)).length() < 1.5
+		charge_duration = clampf((0.87 if long_opening else 0.66) + randf_range(-0.09, 0.10), 0.50, float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["charge_time"])) if favorable_charge and _decision_serial % 4 != 0 else 0.05
+	elif profile == "longshot":
+		charge_duration = float(COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]["attack_preparation"]) / (float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["attack_speed_multiplier"]) if bio_remaining > 0.0 else 1.0)
 	else:
 		charge_duration = float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["attack_preparation"])
+	var aim_error := deg_to_rad(float(tuning.get("aim_error_degrees", 4.5)) * (1.15 if profile == "shotgun" else 1.0))
+	_aim_error_angle = randf_range(-aim_error, aim_error)
+	_aim_position = _predicted_aim(body, observed, decision_perception, tuning, charge_duration)
 	if not _begin_weapon_action():
 		return
 	charge_remaining = charge_duration
@@ -312,53 +420,280 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	_update_readout()
 
 
+func _ensure_mekatana(body: Node3D, controller: Node) -> void:
+	if _mekatana == null or _mekatana_body != body:
+		_cancel_mekatana()
+		_mekatana = MEKATANA_ATTACK.new()
+		_mekatana.target_mask = 4 # Preserve bot weapon filtering: only player hurtboxes.
+		_mekatana_body = body
+		_mekatana.configure(body, "duel_bot", Callable(self, "_move_mekatana"))
+		_mekatana.slash_started.connect(_on_mekatana_slash_started)
+		_mekatana.hit.connect(_on_mekatana_hit)
+		_mekatana.finished.connect(_on_mekatana_finished)
+	_mekatana_controller = controller
+
+
+func _begin_mekatana(body: Node3D, observed: Vector3, perception: Dictionary = {}, tuning: Dictionary = {}) -> bool:
+	if profile != "mekatana" or body == null or not is_instance_valid(body):
+		return false
+	if body.has_method("is_action_locked") and bool(body.call("is_action_locked")):
+		return false
+	if static_remaining > 0.0 or dash_remaining > 0.0:
+		return false
+	_ensure_mekatana(body, _mekatana_controller)
+	if _mekatana.is_busy() or not _begin_weapon_action():
+		return false
+	var direction: Vector3 = observed - body.global_position
+	direction.y = 0.0
+	if direction.length_squared() <= 0.001:
+		direction = -body.global_basis.z
+	# Short, bounded anticipation uses observed velocity, never the hidden live
+	# target. Once the swing starts this direction remains committed.
+	var velocity: Vector3 = perception.get("velocity", Vector3.ZERO)
+	velocity.y = 0.0
+	var anticipation: Vector3 = (velocity * minf(0.16, float(tuning.get("reaction_delay", 0.22))) * float(tuning.get("prediction_quality", 0.62))).limit_length(0.55)
+	direction += anticipation
+	var aim_error := deg_to_rad(float(tuning.get("aim_error_degrees", 3.6)))
+	direction = direction.normalized().rotated(Vector3.UP, randf_range(-aim_error, aim_error))
+	var tempo := float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"].attack_speed_multiplier) if bio_remaining > 0.0 else 1.0
+	if not _mekatana.start(direction, 1.0, tempo):
+		_release_weapon_action()
+		return false
+	_mekatana_movement_owned_this_tick = true
+	_aim_position = body.global_position + _mekatana.direction * 3.0
+	_sync_mekatana_pose()
+	return true
+
+
+func _update_mekatana(delta: float) -> void:
+	if _mekatana == null:
+		return
+	if not is_instance_valid(_mekatana_body) or (_mekatana_body.has_method("is_action_locked") and bool(_mekatana_body.call("is_action_locked"))):
+		_cancel_mekatana()
+		return
+	if _mekatana.is_busy() and not _action_gate.owns(_weapon_action_token, ACTION_GATE.Kind.WEAPON, "mekatana"):
+		_cancel_mekatana()
+		return
+	_mekatana_movement_owned_this_tick = _mekatana.is_direction_locked()
+	_mekatana.update(delta)
+	_mekatana_movement_owned_this_tick = _mekatana_movement_owned_this_tick or _mekatana.is_direction_locked()
+	_sync_mekatana_pose()
+
+
+func _move_mekatana(motion: Vector3) -> Vector3:
+	if _mekatana_body == null or not is_instance_valid(_mekatana_body):
+		return Vector3.ZERO
+	var safe := Vector3(_mekatana_controller.call("_safe_bot_motion", _mekatana_body, motion)) if is_instance_valid(_mekatana_controller) and _mekatana_controller.has_method("_safe_bot_motion") else _safe_dash_motion(_mekatana_body, motion)
+	var previous := _mekatana_body.global_position
+	var destination := previous + safe
+	destination.x = clampf(destination.x, -27.0, 27.0)
+	destination.z = clampf(destination.z, -27.0, 27.0)
+	destination.y = 0.0
+	_mekatana_body.global_position = destination
+	return destination - previous
+
+
+func _sync_mekatana_pose() -> void:
+	if _mekatana_body == null or not is_instance_valid(_mekatana_body):
+		return
+	if _mekatana != null and _mekatana.is_busy() and _mekatana_body.has_method("set_mekatana_pose"):
+		if _mekatana_body.has_method("set_mekatana_direction"):
+			_mekatana_body.call("set_mekatana_direction", _mekatana.direction)
+		_mekatana_body.call("set_mekatana_pose", _mekatana.step, _mekatana.phase, _mekatana.progress())
+	elif _mekatana_body.has_method("clear_mekatana_pose"):
+		_mekatana_body.call("clear_mekatana_pose")
+
+
+func _on_mekatana_slash_started(rank: int) -> void:
+	# Phase boundaries can be crossed inside one slow simulation frame. Publish
+	# the active transition before recovery so the weapon emits its slash sound.
+	if is_instance_valid(_mekatana_body) and _mekatana_body.has_method("set_mekatana_pose"):
+		_mekatana_body.call("set_mekatana_pose", rank, "active", 0.0)
+
+
+func _on_mekatana_hit(target: Node, applied: float, multiplier: float) -> void:
+	if applied <= 0.0:
+		return
+	_register_damage(_mekatana_body, applied)
+	if target is Node3D and is_instance_valid(_mekatana_body) and _mekatana_body.has_method("set_mekatana_impact"):
+		_mekatana_body.call("set_mekatana_impact", target, multiplier)
+
+
+func _on_mekatana_finished() -> void:
+	_release_weapon_action()
+	_sync_mekatana_pose()
+
+
+func _cancel_mekatana() -> void:
+	if _mekatana != null:
+		_mekatana.cancel()
+	if _action_gate.owns(_weapon_action_token, ACTION_GATE.Kind.WEAPON, "mekatana"):
+		_release_weapon_action()
+	_mekatana_movement_owned_this_tick = false
+	if is_instance_valid(_mekatana_body) and _mekatana_body.has_method("clear_mekatana_pose"):
+		_mekatana_body.call("clear_mekatana_pose")
+
+
+func _predicted_aim(body: Node3D, observed: Vector3, perception: Dictionary, tuning: Dictionary, release_delay: float, projectile_speed: float = 0.0) -> Vector3:
+	var speed := projectile_speed
+	if speed <= 0.0:
+		speed = float(COMBAT_DATA.WEAPON_DEFINITIONS[profile].get("pellet_speed" if profile == "shotgun" else "projectile_speed", 24.0))
+		if profile == "longshot" and longshot_state.next_enhanced():
+			speed *= float(COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]["enhanced_speed_multiplier"])
+	var velocity := Vector3(perception.get("velocity", Vector3.ZERO))
+	velocity.y = 0.0
+	velocity = velocity.limit_length(10.0)
+	var quality := clampf(float(tuning.get("prediction_quality", 0.62)), 0.0, 0.95)
+	# Extrapolate the delayed sample, then estimate travel once more. Both are
+	# bounded: a sudden dodge still breaks this estimate until it is perceived.
+	var delay := minf(0.5, float(tuning.get("reaction_delay", 0.22))) + maxf(0.0, release_delay)
+	var travel := body.global_position.distance_to(observed) / maxf(1.0, speed)
+	var lead := (velocity * (delay + travel) * quality).limit_length(4.0)
+	travel = body.global_position.distance_to(observed + lead) / maxf(1.0, speed)
+	lead = (velocity * (delay + travel) * quality).limit_length(4.0)
+	var direction := observed + lead - body.global_position
+	direction.y = 0.0
+	return body.global_position + direction.rotated(Vector3.UP, _aim_error_angle)
+
+
+func _update_charge_aim(delta: float, body: Node3D, observed: Vector3, perception: Dictionary, tuning: Dictionary) -> void:
+	# Commit the last instants of the shot instead of snapping to a new sample
+	# on the release frame. A consistent per-shot error prevents perfect aim.
+	if charge_remaining <= (0.035 if profile == "shotgun" else 0.055):
+		return
+	var desired := _predicted_aim(body, observed, perception, tuning, charge_remaining)
+	var current_direction := _aim_position - body.global_position
+	var desired_direction := desired - body.global_position
+	current_direction.y = 0.0
+	desired_direction.y = 0.0
+	if current_direction.length_squared() < 0.001 or desired_direction.length_squared() < 0.001:
+		return
+	var quality := clampf(float(tuning.get("position_quality", 0.68)), 0.0, 1.0)
+	var turn_limit := deg_to_rad(lerpf(72.0, 150.0, quality)) * maxf(0.0, delta)
+	var turn := current_direction.signed_angle_to(desired_direction, Vector3.UP)
+	current_direction = current_direction.normalized().rotated(Vector3.UP, clampf(turn, -turn_limit, turn_limit))
+	_aim_position = body.global_position + current_direction * desired_direction.length()
+
+
+func _should_reload_tactically(visible: bool, distance: float, perception: Dictionary) -> bool:
+	var magazine := int(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["magazine_size"])
+	if ammo <= 0 or ammo >= magazine or reload_remaining > 0.0 or charge_remaining > 0.0:
+		return false
+	# Top up a partial magazine while traversing cover, rather than discovering
+	# an empty weapon when the next close-range opportunity appears.
+	var hidden := not visible and float(perception.get("memory_age", 0.0)) > 0.55
+	var retreating := str(perception.get("intent", "maintain")) in ["seek_heal", "seek_repair", "retreat", "break_line"]
+	var safe_range := distance > 7.5 or not bool(perception.get("line_of_fire", false))
+	return hidden or (retreating and safe_range) or (ammo == 1 and distance > 10.0)
+
+
+func _consider_survival_module_use(elapsed: float, distance: float, body: Node3D, controller: Node, perception: Dictionary, tuning: Dictionary) -> bool:
+	var skill := float(tuning.get("module_skill", 0.66))
+	var intent := str(perception.get("intent", "maintain"))
+	var health := float(perception.get("bot_health_fraction", 1.0))
+	var incoming := bool(perception.get("projectile_threat", false))
+	var impact_time := float(perception.get("threat_time", INF))
+	var charged_threat := bool(perception.get("target_charging", false)) and bool(perception.get("target_aiming_at_bot", true)) and bool(perception.get("line_of_fire", false))
+	var urgent := incoming and impact_time < 0.65
+	var escape_direction := Vector3(perception.get("dodge_direction", Vector3.ZERO))
+	if urgent and impact_time > 0.12 and skill >= 0.45 and mobility_id == "pyro_boots" and _try_tactical_dash(body, controller, escape_direction):
+		last_module_reason = "dash latéral pour éviter le projectile perçu"
+		_next_module_at = elapsed + 0.45
+		return true
+	var use_defense := (urgent and (impact_time < 0.35 or health < 0.70)) or (charged_threat and (health < 0.52 or skill >= 0.75))
+	# Stasis roots its user. Reserve it for an actual impact or an exposed
+	# charge when escape is unavailable, rather than freezing on every windup.
+	if defensive_id == "static_shield":
+		use_defense = (incoming and impact_time < 0.30) or (charged_threat and health < 0.40 and distance < 9.0)
+	elif incoming and impact_time < 0.10:
+		use_defense = false
+	if use_defense and _module_ready(defensive_id) and _begin_module_action(defensive_id):
+		if defensive_id == "static_shield":
+			_activate_static_shield(body)
+			last_module_reason = "stase avant le projectile imminent"
+		else:
+			var toward := -Vector3(perception.get("threat_direction", Vector3.ZERO)) if incoming else Vector3(perception.get("position", body.global_position)) - body.global_position
+			_activate_magnetic_field(body, toward)
+			last_module_reason = "mur magnétique face à la menace perçue"
+		_release_module_action(defensive_id)
+		_next_module_at = elapsed + 0.60
+		return true
+	var retreating := intent in ["retreat", "break_line", "seek_heal", "seek_repair"]
+	var destination := Vector3(perception.get("destination", body.global_position))
+	var toward_destination := destination - body.global_position
+	toward_destination.y = 0.0
+	if retreating and toward_destination.length_squared() < 0.25 and bool(perception.get("known", false)):
+		toward_destination = body.global_position - Vector3(perception.get("position", body.global_position))
+	var repair_trip := intent in ["seek_heal", "seek_repair"] and toward_destination.length() > 4.5
+	var escape_needed := retreating and (distance < 7.0 or health < 0.38 or repair_trip)
+	if mobility_id == "pyro_boots" and escape_needed and toward_destination.length() > 2.2 and _try_tactical_dash(body, controller, toward_destination):
+		last_module_reason = "dash vers le soin" if repair_trip else "dash vers un couvert sûr"
+		_next_module_at = elapsed + 0.65
+		return true
+	var flank_trip := intent in ["flank", "control_repair"] and toward_destination.length() > 6.0
+	if mobility_id == "bio_injector" and _module_ready("bio_injector") and bio_remaining <= 0.0 and (escape_needed or flank_trip):
+		if _begin_module_action("bio_injector"):
+			bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+			_start_module_cooldown("bio_injector")
+			_release_module_action("bio_injector")
+			last_module_reason = "accélération vers le soin ou le couvert" if retreating else "accélération pour prendre l'angle"
+			_next_module_at = elapsed + 0.75
+			return true
+	return false
+
+
+func _try_tactical_dash(body: Node3D, controller: Node, requested: Vector3) -> bool:
+	if mobility_id != "pyro_boots" or not _module_ready("pyro_boots") or is_dashing():
+		return false
+	requested.y = 0.0
+	if requested.length_squared() < 0.01:
+		return false
+	var dash_length := float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_distance"])
+	for angle in [0.0, 25.0, -25.0, 50.0, -50.0]:
+		var direction := requested.normalized().rotated(Vector3.UP, deg_to_rad(float(angle)))
+		var motion := direction * dash_length
+		var destination := body.global_position + motion
+		if absf(destination.x) > 26.0 or absf(destination.z) > 26.0:
+			continue
+		var safe := Vector3(controller.call("_safe_bot_motion", body, motion)) if controller.has_method("_safe_bot_motion") else _safe_dash_motion(body, motion)
+		if safe.length_squared() < motion.length_squared() * 0.96:
+			continue
+		if not _begin_module_action("pyro_boots"):
+			return false
+		_start_dash(direction)
+		_start_module_cooldown("pyro_boots")
+		_release_module_action("pyro_boots")
+		return true
+	return false
+
+
 func _consider_module_use(elapsed: float, distance: float, body: Node3D, player: Node3D, controller: Node, perception: Dictionary, tuning: Dictionary) -> bool:
 	var module_skill := float(tuning.get("module_skill", 0.66))
 	var intent := str(perception.get("intent", "maintain"))
-	var threatened := bool(perception.get("target_charging", false))
-	var health := float(perception.get("bot_health_fraction", 1.0))
+	var visible := bool(perception.get("visible", false))
+	if _consider_survival_module_use(elapsed, distance, body, controller, perception, tuning):
+		return true
 	if _javelin_marked_player == player and _javelin_mark_remaining > 0.0 and visible_and_valid(player, perception):
 		if _begin_module_action("javelin_recast"):
-			var recast_succeeded := _try_javelin_recast(body, player, perception)
+			var recast_succeeded := _try_javelin_recast(body, player, perception, controller)
 			_release_module_action("javelin_recast")
 			if not recast_succeeded:
 				return false
 			last_module_reason = "javelin réactivé pour prendre l'angle"
 			_next_module_at = elapsed + 0.75
 			return true
-	if threatened and _module_ready(defensive_id) and (health < 0.72 or module_skill >= 0.75):
-		if not _begin_module_action(defensive_id):
-			return false
-		if defensive_id == "static_shield":
-			_activate_static_shield(body)
-			last_module_reason = "stase avant un impact télégraphié"
-		else:
-			_activate_magnetic_field(body, Vector3(perception.get("position", player.global_position)) - body.global_position)
-			last_module_reason = "mur magnétique sur la ligne de tir"
-		_release_module_action(defensive_id)
-		_next_module_at = elapsed + 0.90
-		return true
-	if mobility_id == "pyro_boots" and _module_ready("pyro_boots") and not is_dashing():
+	if visible and mobility_id == "pyro_boots" and _module_ready("pyro_boots") and not is_dashing():
 		var closing_intent := intent in ["pressure", "engage"] or (profile == "shotgun" and intent == "maintain")
-		if closing_intent and distance > (3.8 if profile == "shotgun" else 9.5):
-			if not _begin_module_action("pyro_boots"):
-				return false
-			_start_dash((Vector3(perception.get("position", player.global_position)) - body.global_position).normalized())
-			_start_module_cooldown("pyro_boots")
-			_release_module_action("pyro_boots")
-			last_module_reason = "dash pour exploiter la distance"
-			_next_module_at = elapsed + 0.65
-			return true
-		if intent in ["retreat", "break_line"] and distance < 6.0:
-			if not _begin_module_action("pyro_boots"):
-				return false
-			_start_dash((body.global_position - Vector3(perception.get("position", player.global_position))).normalized())
-			_start_module_cooldown("pyro_boots")
-			_release_module_action("pyro_boots")
-			last_module_reason = "dash défensif hors de l'angle adverse"
-			_next_module_at = elapsed + 0.65
-			return true
-	if mobility_id == "bio_injector" and _module_ready("bio_injector") and bio_remaining <= 0.0 and intent in ["pressure", "engage", "maintain"] and distance < 11.0:
+		# Save the escape while vulnerable, and never dash across a wall just
+		# because the target is visible through another firing angle.
+		var healthy := float(perception.get("bot_health_fraction", 1.0)) > 0.40
+		if closing_intent and healthy and reload_remaining <= 0.0 and distance > (3.8 if profile == "shotgun" else 9.5):
+			var direction := Vector3(perception.get("position", body.global_position)) - body.global_position
+			if _try_tactical_dash(body, controller, direction):
+				last_module_reason = "dash pour exploiter la distance"
+				_next_module_at = elapsed + 0.65
+				return true
+	if visible and mobility_id == "bio_injector" and _module_ready("bio_injector") and bio_remaining <= 0.0 and intent in ["pressure", "engage", "maintain"] and distance < 11.0:
 		if not _begin_module_action("bio_injector"):
 			return false
 		bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
@@ -368,7 +703,7 @@ func _consider_module_use(elapsed: float, distance: float, body: Node3D, player:
 		last_module_reason = "fenêtre d'attaque prolongée"
 		_next_module_at = elapsed + 0.75
 		return true
-	if not _module_ready(offensive_id) or not bool(perception.get("line_of_fire", false)):
+	if not visible or not _module_ready(offensive_id) or not bool(perception.get("line_of_fire", false)) or intent in ["retreat", "break_line", "seek_heal", "seek_repair"]:
 		return false
 	if module_skill < 0.50 and (_module_serial + 1) % 3 != 0:
 		_module_serial += 1
@@ -388,7 +723,8 @@ func _consider_module_use(elapsed: float, distance: float, body: Node3D, player:
 					return true
 		"fulguro_punch":
 			var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS[offensive_id]
-			if distance <= float(definition["range_max"]) + 0.7:
+			var punish_window := bool(perception.get("target_reloading", false)) or bool(perception.get("target_charging", false)) or Vector3(perception.get("velocity", Vector3.ZERO)).length() < 2.5
+			if distance <= float(definition["range_max"]) + 0.5 and (distance < 2.6 or punish_window):
 				var ratio := clampf(inverse_lerp(float(definition["range_min"]), float(definition["range_max"]), distance - 0.7), 0.0, 1.0)
 				if _begin_pending_module(offensive_id, lerpf(float(definition["charge_min"]), float(definition["charge_max"]), ratio), perception, controller):
 					last_module_reason = "fulguro à portée de projection"
@@ -430,6 +766,13 @@ func _begin_pending_module(module_id: String, duration: float, perception: Dicti
 	pending_module = module_id
 	module_remaining = maxf(0.01, duration)
 	_module_aim_position = Vector3(perception.get("position", Vector3.ZERO))
+	var body := get_parent().get_parent() as Node3D if get_parent() != null else null
+	if body != null:
+		var error := deg_to_rad(float(_latest_tuning.get("aim_error_degrees", 4.5)))
+		_aim_error_angle = randf_range(-error, error)
+		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS[module_id]
+		var speed := float(definition.get("speed", definition.get("outbound_speed", 16.0)))
+		_module_aim_position = _predicted_aim(body, _module_aim_position, perception, _latest_tuning, duration, speed)
 	_module_serial += 1
 	_pending_module_serial = _module_serial
 	_start_module_cooldown(module_id)
@@ -471,6 +814,10 @@ func _activate_static_shield(body: Node3D) -> void:
 	body.set_meta("duel_static_shield", true)
 	_start_module_cooldown("static_shield")
 	charge_remaining = 0.0
+	# Match the player's stasis interruption: a dash cannot resume from an
+	# obsolete escape direction when the shield ends.
+	dash_remaining = 0.0
+	dash_direction = Vector3.ZERO
 	module_remaining = 0.0
 	pending_module = ""
 	var visual := MeshInstance3D.new()
@@ -542,6 +889,10 @@ func _fire_module_projectile(module_id: String, body: Node3D, player: Node3D, ta
 	get_tree().current_scene.add_child(projectile)
 	projectile.global_position = muzzle
 	projectile.configure(direction, float(definition.speed), maximum, 1 | 4 | 8, [body.get_rid()])
+	projectile.set_meta("ai_projectile_source", body.get_instance_id())
+	projectile.set_meta("ai_projectile_velocity", direction * float(definition.speed))
+	projectile.set_meta("ai_projectile_endpoint", muzzle + direction * maximum)
+	projectile.set_meta("ai_projectile_radius", 0.16 if module_id == "modulo_drone" else 0.10)
 	var visual := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.16 if module_id == "modulo_drone" else 0.10
@@ -573,22 +924,25 @@ func _resolve_module_projectile(module_id: String, body: Node3D, player: Node3D,
 		_javelin_mark_remaining = float(definition["mark_duration"])
 
 
-func _try_javelin_recast(body: Node3D, player: Node3D, perception: Dictionary) -> bool:
-	if body.global_position.distance_to(player.global_position) > float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["max_range"]):
+func _try_javelin_recast(body: Node3D, _player: Node3D, perception: Dictionary, controller: Node = null) -> bool:
+	var observed := Vector3(perception.get("position", body.global_position))
+	if body.global_position.distance_to(observed) > float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["max_range"]):
 		return false
-	var away := body.global_position - player.global_position
+	var away := body.global_position - observed
 	away.y = 0.0
 	if away.length_squared() < 0.01:
 		away = Vector3.FORWARD
 	var side := Vector3(-away.z, 0.0, away.x).normalized()
-	var destination := player.global_position + side * float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["teleport_distance"])
+	var destination := observed + side * float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["teleport_distance"])
 	destination.y = 0.0
 	if absf(destination.x) > 23.0 or absf(destination.z) > 23.0:
 		return false
 	var motion := destination - body.global_position
-	if _safe_dash_motion(body, motion).length_squared() < motion.length_squared() * 0.96:
+	var safe := Vector3(controller.call("_safe_bot_motion", body, motion)) if controller != null and controller.has_method("_safe_bot_motion") else _safe_dash_motion(body, motion)
+	if safe.length_squared() < motion.length_squared() * 0.96:
 		return false
 	body.global_position = destination
+	_mark_combat_event(body)
 	_javelin_mark_remaining = 0.0
 	_javelin_marked_player = null
 	return true
@@ -609,7 +963,10 @@ func intercept_damage(amount: float, current_health: float) -> Dictionary:
 
 
 func _register_damage(body: Node3D, effective_damage: float) -> void:
-	if effective_damage <= 0.0 or passive_id != "omnivamp" or body == null or not is_instance_valid(body):
+	if effective_damage <= 0.0 or body == null or not is_instance_valid(body):
+		return
+	_mark_combat_event(body)
+	if passive_id != "omnivamp":
 		return
 	if body.has_method("heal"):
 		body.call("heal", body.combat_state.passive.omnivamp_heal_for(effective_damage) if body.combat_state.get("passive") != null else _passive_state.omnivamp_heal_for(effective_damage), "duel_bot:omnivamp")
@@ -630,12 +987,12 @@ func _fx_material(color: Color, alpha: float) -> StandardMaterial3D:
 	return material
 
 
-func advance_dash(body: Node3D, _controller: Node, delta: float) -> void:
+func advance_dash(body: Node3D, controller: Node, delta: float) -> void:
 	if dash_remaining <= 0.0:
 		return
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]
 	var step := float(definition["dash_distance"]) * minf(delta, dash_remaining) / float(definition["dash_duration"])
-	var safe_step := _safe_dash_motion(body, dash_direction * step)
+	var safe_step := Vector3(controller.call("_safe_bot_motion", body, dash_direction * step)) if controller != null and controller.has_method("_safe_bot_motion") else _safe_dash_motion(body, dash_direction * step)
 	body.global_position += safe_step
 	body.global_position.y = 0.0
 	dash_remaining = maxf(0.0, dash_remaining - delta)
@@ -682,6 +1039,8 @@ func _start_reload() -> void:
 
 
 func _fire(body: Node3D, player: Node3D) -> void:
+	if profile == "longshot" and (_last_tick_elapsed < maxf(next_attack_at, _longshot_next_attack_at) or static_remaining > 0.0 or not is_instance_valid(body) or not is_instance_valid(player)):
+		return
 	if not _action_gate.owns(_weapon_action_token, ACTION_GATE.Kind.WEAPON, profile):
 		if _action_gate.is_busy():
 			return
@@ -703,13 +1062,18 @@ func _fire(body: Node3D, player: Node3D) -> void:
 	var muzzle_direction := (aim_target - muzzle).normalized()
 	if body.has_method("prepare_training_bot_shot"):
 		var shot_transform: Transform3D = body.call("prepare_training_bot_shot", aim_target)
+		if profile == "longshot" and body.has_method("get_training_bot_muzzle_transform"):
+			# Keep the GLB muzzle as distance origin; its volume guard owns contact.
+			shot_transform = body.call("get_training_bot_muzzle_transform")
 		muzzle = shot_transform.origin
 		muzzle_direction = -shot_transform.basis.z.normalized()
 	if muzzle_direction.length_squared() < 0.01:
 		_release_weapon_action()
 		return
 	muzzle_direction = muzzle_direction.normalized()
-	if profile == "shotgun":
+	if profile == "longshot":
+		_launch_longshot(body, player, muzzle, muzzle_direction)
+	elif profile == "shotgun":
 		var volley := {"hits": 0, "base": 0.0}
 		var angles: Array = definition["pellet_angles"]
 		for index in range(angles.size()):
@@ -719,6 +1083,69 @@ func _fire(body: Node3D, player: Node3D) -> void:
 	else:
 		_launch_projectile(body, player, muzzle, muzzle_direction, 0, {})
 	_release_weapon_action()
+	_update_readout()
+
+
+func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, direction: Vector3) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"].duplicate(true)
+	var enhanced: bool = longshot_state.next_enhanced()
+	var speed := float(definition.projectile_speed) * (float(definition.enhanced_speed_multiplier) if enhanced else 1.0)
+	var radius := float(definition.projectile_radius) * (float(definition.enhanced_size_multiplier) if enhanced else 1.0)
+	var projectile := LONGSHOT_PROJECTILE.new()
+	projectile.name = "DuelBotLongshot"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
+	scene.add_child(projectile)
+	projectile.add_to_group("prototype0_gameplay_projectiles")
+	projectile.global_position = muzzle_position
+	projectile.look_at(muzzle_position + direction, Vector3.UP)
+	var excluded: Array[RID] = [body.get_rid()]
+	projectile.configure(direction, speed, float(definition.max_range), 1 | 4 | 8, excluded, radius)
+	projectile.set_meta("longshot_enhanced", enhanced)
+	projectile.set_meta("ai_projectile_source", body.get_instance_id())
+	projectile.set_meta("ai_projectile_velocity", direction * speed)
+	projectile.set_meta("ai_projectile_endpoint", muzzle_position + direction * float(definition.max_range))
+	projectile.set_meta("ai_projectile_radius", radius)
+	var attack_id := "duel_bot:longshot:%d:%d:%d" % [body.get_instance_id(), _longshot_generation, longshot_state.shots_fired + 1]
+	projectile.finished.connect(_resolve_longshot.bind(player, body, enhanced, definition, attack_id, _longshot_generation))
+	# Count only an actual projectile, before an immediate muzzle impact resolves.
+	longshot_state.commit_shot()
+	var recovery := maxf(0.0, float(definition.cooldown) - float(definition.attack_preparation))
+	next_attack_at = _last_tick_elapsed + recovery / (float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["attack_speed_multiplier"]) if bio_remaining > 0.0 else 1.0)
+	_longshot_next_attack_at = next_attack_at
+	var vfx := scene.get_node_or_null("VFXManager")
+	if vfx != null:
+		vfx.call("projectile_visual", projectile, "longshot", float(enhanced))
+		vfx.call("burst", muzzle_position, direction, Color("#68e9ef"), 5 if enhanced else 3, 3.2, 0.10, 0.035, 30.0)
+	_update_readout()
+	projectile.resolve_muzzle_guard(body.global_position + Vector3.UP * 0.9)
+	return true
+
+
+func _resolve_longshot(hit: Dictionary, distance: float, player: Node3D, body: Node3D, enhanced: bool, definition: Dictionary, attack_id: String, generation: int) -> void:
+	if generation != _longshot_generation or hit.is_empty() or not is_instance_valid(body) or not is_instance_valid(player):
+		return
+	var scene := get_tree().current_scene
+	var vfx := scene.get_node_or_null("VFXManager") if scene != null else null
+	if vfx != null:
+		vfx.call("impact", hit.position, hit.normal, vfx.call("surface_for", hit.collider), 1.1 if enhanced else 0.7, Color("#68e9ef"))
+	var collider := hit.get("collider") as Node
+	while collider != null and collider != player:
+		collider = collider.get_parent()
+	if collider != player or not player.has_method("take_damage") or not body.has_method("is_duel_mode") or not bool(body.call("is_duel_mode")) or not bool(get_parent().get("enabled")):
+		return
+	var damage: float = LONGSHOT_STATE.damage_at_distance(distance, enhanced, definition)
+	var dealt := float(player.call("take_damage", damage, "duel_bot", attack_id))
+	_register_damage(body, dealt)
+	if dealt > 0.0 and player.has_method("flash_impact"):
+		player.call("flash_impact", enhanced)
+
+
+func reset_longshot_cycle() -> void:
+	longshot_state.reset()
+	_longshot_generation += 1
 	_update_readout()
 
 
@@ -738,6 +1165,10 @@ func _launch_projectile(body: Node3D, player: Node3D, muzzle: Vector3, direction
 	projectile.look_at(muzzle + direction, Vector3.UP)
 	var excluded: Array[RID] = [body.get_rid()]
 	projectile.configure(direction, speed, maximum, 1 | 4 | 8, excluded)
+	projectile.set_meta("ai_projectile_source", body.get_instance_id())
+	projectile.set_meta("ai_projectile_velocity", direction * speed)
+	projectile.set_meta("ai_projectile_endpoint", muzzle + direction * maximum)
+	projectile.set_meta("ai_projectile_radius", 0.16)
 	var vfx := scene.get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "enemy")
@@ -783,9 +1214,14 @@ func _update_readout() -> void:
 	var body := get_parent().get_parent() as Node3D if get_parent() != null else null
 	if body == null or not body.has_method("is_duel_mode") or not bool(body.call("is_duel_mode")):
 		return
+	var visual := body.get_node_or_null("VisualRoot")
+	if visual != null and visual.has_method("set_longshot_cycle"):
+		visual.call("set_longshot_cycle", longshot_state.normal_shots(), longshot_state.is_enhanced_ready())
 	var readout := body.get_node_or_null("TargetHealthReadout")
 	if readout == null:
 		return
 	readout.call("update_actor_identity", Color("#ee6b4e"), build_title + " · " + LOADOUT.display_name(robot_id))
 	readout.call("set_shotgun_ammo", profile == "shotgun", ammo, int(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["magazine_size"]), reload_remaining > 0.0, 1.0 - reload_remaining / float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["reload_duration"]))
 	readout.call("set_blaster_charge", profile == "blaster", charge_remaining > 0.0, 1.0 - charge_remaining / maxf(0.01, charge_duration))
+	if readout.has_method("set_longshot_cycle"):
+		readout.call("set_longshot_cycle", profile == "longshot", longshot_state.normal_shots(), longshot_state.is_enhanced_ready())

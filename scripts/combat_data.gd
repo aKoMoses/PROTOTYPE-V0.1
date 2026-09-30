@@ -36,6 +36,38 @@ const EFFECT_DEFINITIONS := {
 # V0.1 starting definitions. Weapon values stay data-driven so future modules
 # can modify them without rewriting the combat controller.
 const WEAPON_DEFINITIONS := {
+	"mekatana": {
+		"display_name": "Mekatana",
+		"damage": 65.0,
+		"base_damage": [65.0, 75.0, 100.0],
+		"preparation": [0.12, 0.14, 0.18],
+		"active": [0.10, 0.10, 0.13],
+		"recovery": [0.20, 0.23, 0.48],
+		"dash_distance": [1.30, 1.90, 2.60],
+		"melee_range": 2.0,
+		"cleave_width": [2.3, 2.3, 2.5],
+		"cleave_height": 1.8,
+		"max_range": 4.6,
+		"combo_window": 2.5,
+		"second_bonus": 1.20,
+		"third_bonus": 1.25,
+		"third_full_bonus": 1.60,
+	},
+	"longshot": {
+		"display_name": "Longshot",
+		"damage": 36.0,
+		"distance_start": 6.0,
+		"distance_max": 18.0,
+		"distance_multiplier_max": 1.75,
+		"max_range": 32.0,
+		"cooldown": 1.05,
+		"attack_preparation": 0.08,
+		"projectile_speed": 60.0,
+		"projectile_radius": 0.075,
+		"enhanced_size_multiplier": 1.50,
+		"enhanced_speed_multiplier": 1.25,
+		"enhanced_damage_multiplier": 1.40,
+	},
 	"blaster": {
 		"display_name": "Blaster",
 		"damage": 20.0,

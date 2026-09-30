@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-30",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "project": "C:/Users/Ben/Documents/Codex/2026-09-23/j-ai-x20/outputs/PROTOTYPE-0",
+  "runtime": "C:/Users/Ben/Documents/Codex/2026-09-23/j-ai-x20/outputs/PROTOTYPE-0/.godot/pass-runtime/Godot_v4.7.2-stable_win64_console.exe",
+  "settings": {
+    "full_vision_radius": 14.0,
+    "outer_vision_radius": 22.0,
+    "halo_width": 8.0,
+    "silhouette_opacity_floor": 0.24,
+    "final_fringe_width": 2.0,
+    "echo_seconds": 0.55,
+    "fog_darkness": 0.66,
+    "cover_rays": 384,
+    "cover_refresh_seconds": 0.075
+  },
+  "dedicated_test": {"script": "tools/test_sight_range.gd", "checks": 100, "failures": 0, "exit_code": 0},
+  "regression_tests_passed": [
+    "test_visibility", "test_bush_gameplay", "test_duel_bot",
+    "test_presentation_lifecycle", "test_mode_pause_reliability",
+    "test_network_reliability", "test_survival"
+  ],
+  "render_checks": {
+    "renderer": "Vulkan / Forward Mobile",
+    "desktop_resolution": [1280, 720],
+    "mobile_format_resolution": [1560, 720],
+    "captures": [
+      "captures/fog_of_war/full.png", "captures/fog_of_war/halo.png",
+      "captures/fog_of_war/fringe.png", "captures/fog_of_war/lost.png",
+      "captures/fog_of_war/wall_echo.png", "captures/fog_of_war/mobile_halo.png"
+    ],
+    "physical_mobile_device_tested": false
+  },
+  "notes": [
+    "Configured C:/RomainOpen paths are unavailable on this host; changes and checks use the workspace-local project and existing absolute Godot 4.7.2 executable.",
+    "Strict sensing, AI and minimap observations stop immediately outside range or behind cover. Only the last observed model snapshot fades after loss; its bones and weapon are frozen.",
+    "The suite checks actual SceneTree pause, round/menu/showcase gating, network-proxy fog activation, material restoration and dynamically-created damage UI.",
+    "Existing environment diagnostics remain: Windows root certificate store, restricted GD-Sync user config writes, editor settings writes and GPU shader cache writes. Android build-tools are unavailable. No Android export or live two-device network session was performed."
+  ]
+}

@@ -1,0 +1,107 @@
+{
+	"clip_fps": 30.0,
+	"final_fog": {
+		"darkness": 0.66,
+		"enabled": true,
+		"full_radius": 14.0,
+		"origin": "(-11.50091, 0.0, -15.07854)",
+		"profile_updates": 77,
+		"radius": 22.0,
+		"rays": 384,
+		"ready": true
+	},
+	"fixed_dt": 0.0166666666666667,
+	"fog_cpu_max_ms": 1.908,
+	"fog_cpu_mean_ms": 0.254680555555556,
+	"fog_cpu_p95_ms": 1.104,
+	"frame_count": 360,
+	"frame_stride": 2,
+	"orbit_center": [
+		-17.5,
+		0.0,
+		-15.0
+	],
+	"orbit_radii": [
+		6.0,
+		4.5
+	],
+	"route": "clockwise ellipse around actual arena NorthWestBlock; 6 seconds per revolution",
+	"saved_frames": 180,
+	"simulation_hz": 60,
+	"snapshots": [
+		{
+			"fog": {
+				"darkness": 0.66,
+				"enabled": true,
+				"full_radius": 14.0,
+				"origin": "(-11.5, 0.0, -15.0)",
+				"profile_updates": 5,
+				"radius": 22.0,
+				"rays": 384,
+				"ready": true
+			},
+			"frame": 0,
+			"position": [
+				-11.5,
+				0.0,
+				-15.0
+			]
+		},
+		{
+			"fog": {
+				"darkness": 0.66,
+				"enabled": true,
+				"full_radius": 14.0,
+				"origin": "(-17.5, 0.0, -10.5)",
+				"profile_updates": 23,
+				"radius": 22.0,
+				"rays": 384,
+				"ready": true
+			},
+			"frame": 90,
+			"position": [
+				-17.5,
+				0.0,
+				-10.5
+			]
+		},
+		{
+			"fog": {
+				"darkness": 0.66,
+				"enabled": true,
+				"full_radius": 14.0,
+				"origin": "(-23.5, 0.0, -15.0)",
+				"profile_updates": 41,
+				"radius": 22.0,
+				"rays": 384,
+				"ready": true
+			},
+			"frame": 180,
+			"position": [
+				-23.5,
+				0.0,
+				-15.0
+			]
+		},
+		{
+			"fog": {
+				"darkness": 0.66,
+				"enabled": true,
+				"full_radius": 14.0,
+				"origin": "(-17.5, 0.0, -19.5)",
+				"profile_updates": 59,
+				"radius": 22.0,
+				"rays": 384,
+				"ready": true
+			},
+			"frame": 270,
+			"position": [
+				-17.5,
+				0.0,
+				-19.5
+			]
+		}
+	],
+	"version": "before",
+	"view": "follow"
+}

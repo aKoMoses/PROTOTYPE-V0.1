@@ -72,10 +72,13 @@ func _validate_blocker(body: StaticBody3D) -> void:
 	if bool(body.get_meta("invisible_safety_limit", false)):
 		return
 	var visual := body.get_node_or_null("CollisionMatchedVisual") as MeshInstance3D
-	_check(visual != null and visual.mesh is BoxMesh, "%s has no collision-matched visible shell" % body.name)
-	if visual != null and visual.mesh is BoxMesh:
-		var visible_size := (visual.mesh as BoxMesh).size
-		_check(visible_size.is_equal_approx(shape.size), "%s visible shell and collision differ" % body.name)
+	_check(visual != null and visual.mesh != null, "%s has no collision-matched visible shell" % body.name)
+	if visual != null and visual.mesh != null:
+		# Accept the reusable bevelled shell while comparing its real transformed
+		# bounds with the collider. Mesh resource type cannot prove volume parity.
+		var visible_bounds: AABB = visual.global_transform * visual.mesh.get_aabb()
+		var collision_bounds: AABB = collision.global_transform * AABB(-shape.size * 0.5, shape.size)
+		_check(visible_bounds.position.distance_to(collision_bounds.position) <= 0.035 and visible_bounds.size.distance_to(collision_bounds.size) <= 0.035, "%s visible shell and collision bounds differ" % body.name)
 
 
 func _validate_bush(bush: Node3D, blockers: Array[Node]) -> void:

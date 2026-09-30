@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-30",
+  "engine": "Godot 4.7.2 stable",
+  "scope": ["duel local", "survie", "entrainement"],
+  "changes": {
+    "navigation": "A* sur toute la carte, degagement adapte au robot, routes et terrain en cache, revision du decor",
+    "perception": "observations retardees de position, vitesse, visee, charge, recharge et vie; memoire de 4 secondes puis recherche des secteurs",
+    "combat": "distances adaptees au build et a l'arme adverse, pression sur les ouvertures, angles, couvert et retraite",
+    "projectiles": "prediction des trajectoires visibles, esquives par corridors libres, validation des impacts pendant ou a la fin du vol",
+    "repair": "selection selon trajet et risque, retour imminent des kits, collecte disputee et absence de soins a travers les murs",
+    "builds": "8 archetypes et 18 variantes coherentes, sac aleatoire sans repetition, personnalites et identite affichee",
+    "action_gates": "arbitrage des charges, modules, dash et esquive; la stase annule les mouvements precedents"
+  },
+  "unchanged_combat_definitions": ["PV", "degats", "portees", "vitesses des projectiles", "munitions", "cooldowns"],
+  "headless_tests_passed": [
+    "test_bot_build_presets",
+    "test_bot_navigation",
+    "test_bot_world_tactics",
+    "test_bot_projectile_evasion",
+    "test_bot_combat_decisions",
+    "test_bot_ai_soak",
+    "test_bot_tactics",
+    "test_duel_bot",
+    "test_training_bot",
+    "test_repair_kit",
+    "test_blaster",
+    "test_shotgun",
+    "test_survival",
+    "test_survival_expansion",
+    "test_bot_obstacle_collision",
+    "test_game_flow",
+    "test_mode_pause_reliability",
+    "test_arena_reliability",
+    "test_visibility",
+    "test_cast_lock",
+    "test_pelto_smash",
+    "test_mobility_modules",
+    "test_duel_equipment",
+    "test_offensive_modules",
+    "test_passives"
+  ],
+  "fixtures": {
+    "presets_seeded_draws": 512,
+    "navigation": ["mur de 38 m", "obstacle en U", "passage trop etroit pour un boss", "destination enfermee", "quatre kits de l'arene", "decor deplace"],
+    "repair_wall_detour": {"wall_width_m": 24, "lateral_detour_m": 13.74, "health_before": 400, "health_after": 700},
+    "survival_wall_detour_m": 15.49,
+    "repair_objectives": ["kit indisponible plus de 6 secondes rejete", "retour imminent planifie", "attente sans soin premature", "kit dispute collecte: 750 vers 1000 PV"],
+    "movement_ownership": ["Pyro prioritaire sur l'esquive ordinaire", "stase annulant les deux mouvements"]
+  },
+  "desktop_ai_only_soak": {
+    "bots": 12,
+    "simulated_seconds": 108,
+    "warm_combined_tick_mean_ms": 1.626,
+    "warm_combined_tick_p95_ms": 3.336,
+    "cold_max_ms": 35.860,
+    "terrain_overlaps": 0,
+    "node_population_growth": 0,
+    "shared_clearance_maps": 4,
+    "warm_static_memory_mib": 140.78,
+    "warm_cache_cells": 2819,
+    "warm_cache_edges": 7957,
+    "notes": "Terrain et controleur de production; rendu et presentation des projectiles exclus de la mesure. Ces temps ne representent pas les performances Android."
+  },
+  "known_test_environment_warnings": [
+    "Le runtime Windows signale l'acces au magasin de certificats.",
+    "Certains tests existants signalent des ressources audio encore actives a la fermeture.",
+    "L'import editeur signale l'absence des Android build-tools locaux."
+  ],
+  "limits": "Validation automatisee du comportement et des collisions; la difficulte percue et la sensation humaine demandent encore des parties avec un joueur."
+}

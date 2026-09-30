@@ -12,6 +12,9 @@ var failures: Array[String] = []
 var angle := 0.0
 var maximum_angle := 0.0
 var maximum_hand_error := 0.0
+var maximum_clamp_error := 0.0
+var reachable_samples := 0
+var unreachable_samples := 0
 var wrappers: Array[Node3D] = []
 var rest_transforms: Array[Transform3D] = []
 var recovered_drift := 0.0
@@ -84,9 +87,13 @@ func _run() -> void:
 			for index in range(wrappers.size()):
 				if not wrappers[index].transform.is_equal_approx(rest_transforms[index]):
 					failures.append("local weapon transform drift")
+	if reachable_samples == 0 or unreachable_samples == 0:
+		failures.append("fixture did not exercise both reachable and unreachable grips")
 	if maximum_hand_error > 0.001:
 		failures.append("left hand missed reachable grip")
-	print("AIM CORE: %s | ten alternating normal/charged shots | max_angle=%.6fdeg | recovery_drift=%.6fdeg | max_hand_error=%.8fm | fixed_transforms=%s" % ["PASS" if failures.is_empty() else "FAIL", maximum_angle, recovered_drift, maximum_hand_error, failures.is_empty()])
+	if maximum_clamp_error > 0.001:
+		failures.append("left hand did not clamp unreachable grip to arm reach")
+	print("AIM CORE: %s | ten alternating normal/charged shots | max_angle=%.6fdeg | recovery_drift=%.6fdeg | max_hand_error=%.8fm | reachable_samples=%d | unreachable_samples=%d | max_clamp_error=%.8fm | fixed_transforms=%s" % ["PASS" if failures.is_empty() else "FAIL", maximum_angle, recovered_drift, maximum_hand_error, reachable_samples, unreachable_samples, maximum_clamp_error, failures.is_empty()])
 	for failure in failures:
 		push_error(failure)
 	quit(0 if failures.is_empty() else 1)
@@ -104,7 +111,28 @@ func _sample() -> void:
 	forward = -muzzle.global_basis.z.normalized()
 	angle = _angle(forward, aim)
 	maximum_angle = maxf(maximum_angle, angle)
-	maximum_hand_error = maxf(maximum_hand_error, rig.aim_modifier.left_grip_error)
+	# The synthetic grip crosses the arm's reach limit during some authored run
+	# frames. Check exact contact when reachable and the geometric clamp otherwise.
+	# Every sample remains covered by the same one-millimetre tolerance.
+	if rig.aim_modifier.left_grip_reachable:
+		reachable_samples += 1
+		maximum_hand_error = maxf(maximum_hand_error, rig.aim_modifier.left_grip_error)
+	else:
+		unreachable_samples += 1
+		var skeleton := rig.skeleton
+		var shoulder := (skeleton.global_transform * skeleton.get_bone_global_pose(rig.aim_modifier.left_arm_index)).origin
+		var elbow := (skeleton.global_transform * skeleton.get_bone_global_pose(rig.aim_modifier.left_forearm_index)).origin
+		var wrist := rig.aim_modifier.last_left_hand_world.origin
+		var target := rig.aim_modifier.last_grip_world.origin
+		var upper_length := shoulder.distance_to(elbow)
+		var lower_length := elbow.distance_to(wrist)
+		var target_distance := shoulder.distance_to(target)
+		var maximum_reach := upper_length + lower_length
+		var minimum_reach := absf(upper_length - lower_length)
+		var expected_error := maxf(target_distance - maximum_reach, minimum_reach - target_distance)
+		maximum_clamp_error = maxf(maximum_clamp_error, absf(rig.aim_modifier.left_grip_error - expected_error))
+		if unreachable_samples == 1:
+			print("[CoreGripClamp] target_distance=%.8fm max_reach=%.8fm expected_error=%.8fm measured_error=%.8fm" % [target_distance, maximum_reach, expected_error, rig.aim_modifier.left_grip_error])
 
 
 func _angle(a: Vector3, b: Vector3) -> float:

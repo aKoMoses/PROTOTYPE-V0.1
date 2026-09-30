@@ -8,6 +8,7 @@ var _weapon: Label
 var _fill: ColorRect
 var _clock := 0.0
 var _example := false
+var _longshot_segments: Array[ColorRect] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -34,6 +35,16 @@ func _ready() -> void:
 	add_child(_fill)
 	_weapon = _label(14, Color("#42d9e5"), Vector2(12, 58), Vector2(256, 25))
 	add_child(_weapon)
+	for index in 4:
+		var segment := ColorRect.new()
+		segment.name = "LongshotSegment%d" % (index + 1)
+		segment.position = Vector2(12 + index * 66, 82)
+		segment.size = Vector2(58, 4)
+		segment.color = Color("#344a50")
+		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		segment.visible = false
+		add_child(segment)
+		_longshot_segments.append(segment)
 	_refresh()
 
 func _label(font_size: int, tint: Color, at: Vector2, dimensions: Vector2) -> Label:
@@ -66,6 +77,8 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	if _health == null or player == null or not is_instance_valid(player):
 		return
+	for segment in _longshot_segments:
+		segment.visible = false
 	if _example:
 		_health.text = "PV 64 / 100"
 		_fill.size.x = 256.0 * 0.64
@@ -76,4 +89,25 @@ func _refresh() -> void:
 	_health.text = "PV %d / %d" % [int(ceil(health)), int(ceil(maximum))]
 	_fill.size.x = 256.0 * clampf(health / maximum, 0.0, 1.0)
 	var weapon_id := str(player.call("get_weapon_id"))
+	if weapon_id == "longshot":
+		var count := int(player.call("get_longshot_cycle_count")) if player.has_method("get_longshot_cycle_count") else 0
+		var ready := bool(player.call("is_longshot_enhanced_ready")) if player.has_method("is_longshot_enhanced_ready") else false
+		_weapon.text = "LONGSHOT   TIR AMÉLIORÉ PRÊT" if ready else "LONGSHOT   PROCHAIN %d / 5" % (count + 1)
+		_weapon.add_theme_color_override("font_color", Color("#b8faff") if ready else Color("#42d9e5"))
+		for index in _longshot_segments.size():
+			_longshot_segments[index].visible = true
+			_longshot_segments[index].color = Color("#b8faff") if ready else Color("#42d9e5") if index < count else Color("#344a50")
+		return
+	_weapon.add_theme_color_override("font_color", Color("#42d9e5"))
+	if weapon_id == "mekatana":
+		var combo: Dictionary = player.call("get_mekatana_state") if player.has_method("get_mekatana_state") else {}
+		var phase := str(combo.get("phase", ""))
+		var labels := {"preparation": "PRÉP.", "active": "SLASH", "recovery": "RÉCUP."}
+		if phase != "":
+			_weapon.text = "MEKATANA   %d / 3   %s" % [int(combo.get("step", 0)) + 1, str(labels.get(phase, phase))]
+		elif float(combo.get("combo_remaining", 0.0)) > 0.0 and int(combo.get("next_step", 0)) > 0:
+			_weapon.text = "MEKATANA   SUIVANT %d   %.1f s" % [int(combo.get("next_step", 0)) + 1, float(combo.get("combo_remaining", 0.0))]
+		else:
+			_weapon.text = "MEKATANA   PRÊT 1 / 3"
+		return
 	_weapon.text = "%s   %d / %d" % [LOADOUT.display_name(weapon_id), int(player.call("get_shotgun_ammo")), int(player.call("get_shotgun_magazine_size"))] if weapon_id == "shotgun" else "%s   CHARGE %d %%" % [LOADOUT.display_name(weapon_id), int(float(player.call("get_blaster_charge_ratio")) * 100.0)]

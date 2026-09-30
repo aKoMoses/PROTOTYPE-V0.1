@@ -1,6 +1,8 @@
 extends Node3D
 ## Presentation only: no collision, damage, gameplay timers or combat random state.
 
+const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+
 enum Quality { LOW, NORMAL }
 @export var quality: Quality = Quality.NORMAL
 @export_range(8, 96) var max_effects := 48
@@ -74,6 +76,10 @@ func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 	var length := 0.92 if shotgun else (0.48 if enemy else lerpf(0.46, 0.80, charge_curve))
 	var radius := 0.30 if shotgun else (0.16 if enemy else lerpf(0.145, 0.24, charge_curve))
 	var life := muzzle_lifetime + (0.014 if shotgun or charge > 0.6 else 0.0)
+	if weapon == "longshot":
+		color = Color("#55e5f2") if charge < 0.5 else Color("#a7f5ff")
+		length = 0.58 if charge < 0.5 else 0.78
+		radius = 0.15 if charge < 0.5 else 0.225
 	var variation := _rng.randf_range(0.92, 1.08)
 	for core in [false, true]:
 		var core_color := Color("#fff3d2") if shotgun else (Color("#ffe0d8") if enemy else Color("#e8fdff"))
@@ -93,6 +99,9 @@ func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 
 func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> void:
 	# This mesh belongs to the gameplay projectile; the visual budget never frees its parent.
+	if weapon == "longshot":
+		_longshot_projectile_visual(parent, charge >= 0.5)
+		return
 	var shotgun := weapon == "shotgun"
 	var enemy := weapon == "enemy"
 	var charge_curve := charge * charge
@@ -122,6 +131,28 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 		sheath.scale = core.scale * Vector3(1.8, 1.8, 1.2)
 		sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		parent.add_child(sheath)
+
+
+func _longshot_projectile_visual(parent: Node3D, enhanced: bool) -> void:
+	# The bright outer sheath has exactly the gameplay collision diameter.
+	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
+	var fallback_radius := float(definition["projectile_radius"]) * (float(definition["enhanced_size_multiplier"]) if enhanced else 1.0)
+	var diameter := maxf(0.002, float(parent.get_meta("ai_projectile_radius", fallback_radius)) * 2.0)
+	var length := 1.05 if enhanced else 0.70
+	var color := Color("#8af3ff") if enhanced else Color("#45dbe9")
+	for core in [false, true]:
+		var mesh := MeshInstance3D.new()
+		mesh.name = "ProjectileCore" if core else "ProjectileSheath"
+		mesh.mesh = _mesh("longshot_bolt")
+		mesh.material_override = _material(Color("#f0feff") if core else color, 0.98 if core else 0.48, true)
+		if enhanced and core:
+			(mesh.material_override as StandardMaterial3D).emission_energy_multiplier = 3.0
+		var width := diameter * (0.42 if core else 1.0)
+		var bounds := mesh.mesh.get_aabb().size
+		mesh.scale = Vector3(width / bounds.x, width / bounds.y, length * (0.82 if core else 1.0) / bounds.z)
+		mesh.position.z = 0.0 if core else length * 0.12
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parent.add_child(mesh)
 
 
 func tracer(start: Vector3, end: Vector3, width: float = 0.026, color: Color = Color("#b9e9ed"), lifetime: float = 0.065) -> void:

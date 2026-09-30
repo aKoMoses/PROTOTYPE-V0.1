@@ -669,10 +669,9 @@ func _show_reward_choices() -> void:
 	_reward_content.add_child(cards)
 	var choices: Array[Dictionary] = progression.reward_choices(wave)
 	if start_choice:
-		choices = [
-			{"category": "weapon", "kind": "weapon", "id": "blaster", "title": "BLASTER", "description": LOADOUT.category_description("blaster")},
-			{"category": "weapon", "kind": "weapon", "id": "shotgun", "title": "SHOTGUN", "description": LOADOUT.category_description("shotgun")},
-		]
+		choices = []
+		for weapon in LOADOUT.WEAPONS:
+			choices.append({"category": "weapon", "kind": "weapon", "id": weapon, "title": LOADOUT.display_name(weapon), "description": LOADOUT.category_description(weapon)})
 	for index in range(choices.size()):
 		cards.add_child(_reward_choice_card(choices[index], index + 1, start_choice))
 	if start_choice:
@@ -1379,6 +1378,10 @@ func _reward_card_description(choice: Dictionary) -> String:
 	var identifier := str(choice.id)
 	match str(choice.kind):
 		"weapon":
+			if identifier == "mekatana":
+				return "Trois frappes de mêlée avec dash croissant. Enchaîne sous 2,5 s pour renforcer les coups sur la même cible."
+			if identifier == "longshot":
+				return "Dégâts croissants à distance. Quatre tirs normaux, puis un tir amélioré automatique."
 			return "Tirs précis à distance. Charge rapide pour frapper plus fort en restant mobile." if identifier == "blaster" else "Salves de plombs puissantes de près. Recharge entre les séries de tirs."
 		"item":
 			return {
@@ -1395,6 +1398,8 @@ func _reward_card_description(choice: Dictionary) -> String:
 			return str(choice.description)
 		"power":
 			return {
+				"mekatana": "Tes frappes infligent davantage de dégâts, y compris les bonus du combo.",
+				"longshot": "Tes tirs infligent davantage de dégâts, y compris le cinquième.",
 				"blaster": "Tes tirs infligent davantage de dégâts.",
 				"shotgun": "Tes tirs infligent davantage de dégâts.",
 				"modulo_drone": "Ton drone frappe plus fort et brûle plus longtemps.",
@@ -1407,6 +1412,8 @@ func _reward_card_description(choice: Dictionary) -> String:
 				"omnivamp": "Tes dégâts te rendent davantage de vie.",
 			}.get(identifier, "Effet renforcé.")
 		"tempo":
+			if identifier == "mekatana":
+				return "Tes frappes s'enchaînent plus vite."
 			if str(choice.category) == "passive":
 				return "Tu gagnes plus de vie maximale."
 			return "Tu tires plus souvent." if str(choice.category) == "weapon" else "Ce module se recharge plus vite."

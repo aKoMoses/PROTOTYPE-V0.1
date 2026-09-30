@@ -1,0 +1,239 @@
+{
+  "date": "2026-09-30",
+  "engine": "Godot 4.7.2 stable",
+  "renderer": "Forward Mobile / Vulkan / NVIDIA GeForce RTX 3070 Laptop GPU",
+  "changes": [
+    "14 dense curved grass patches with two mesh surfaces, subtle wind and aligned hiding footprint",
+    "Observer-dependent shared-bush vision and local camouflage/reveal/detection feedback",
+    "Combat reveal refreshed by bot commitments and actual received/dealt damage including BURN",
+    "Finite observed-entry bush memory, uncertain interior searches, bounded concealment and ambush with held fire",
+    "Multiplayer combat/SPOTTED timer snapshots and hidden opponent health"
+  ],
+  "test_count": 19,
+  "passed_count": 19,
+  "tests": [
+    {
+      "test": "test_arena_contract.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_arena_contract.log",
+      "summary": [
+        "ARENA CONTRACT: PASS (48 blockers, 4 health pads, 14 bushes)"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_arena_reliability.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_arena_reliability.log",
+      "summary": [
+        "ARENA RELIABILITY: PASS (48 blockers, 14 grounded bushes, exterior <= 160 meshes)"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_ai_soak.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_ai_soak.log",
+      "summary": [
+        "BOT AI SOAK TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_bush_tactics.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_bush_tactics.log",
+      "summary": [
+        "BOT BUSH TACTICS TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_combat_decisions.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_combat_decisions.log",
+      "summary": [
+        "BOT COMBAT DECISIONS TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_navigation.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_navigation.log",
+      "summary": [
+        "BOT NAVIGATION TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_obstacle_collision.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_obstacle_collision.log",
+      "summary": [
+        "BOT OBSTACLE COLLISION TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_projectile_evasion.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_projectile_evasion.log",
+      "summary": [
+        "BOT PROJECTILE EVASION TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_tactics.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_tactics.log",
+      "summary": [
+        "BOT TACTICS TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bot_world_tactics.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bot_world_tactics.log",
+      "summary": [
+        "BOT WORLD TACTICS TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_bush_gameplay.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_bush_gameplay.log",
+      "summary": [
+        "BUSH GAMEPLAY TEST: PASS (0 failures)"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_duel_bot.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_duel_bot.log",
+      "summary": [
+        "DUEL BOT TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_duel_equipment.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_duel_equipment.log",
+      "summary": [
+        "DUEL EQUIPMENT TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_game_flow.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_game_flow.log",
+      "summary": [
+        "V02-02 MATCH FLOW TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_game_sfx.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_game_sfx.log",
+      "summary": [
+        "GAME SFX TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_network_reliability.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_network_reliability.log",
+      "summary": [
+        "NETWORK RELIABILITY TEST: PASS (0 échecs)"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    },
+    {
+      "test": "test_survival.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_survival.log",
+      "summary": [
+        "SURVIVAL TEST: PASS (0 échecs)"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": true
+    },
+    {
+      "test": "test_training_bot.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_training_bot.log",
+      "summary": [
+        "P0-114 TRAINING BOT TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": true
+    },
+    {
+      "test": "test_visibility.gd",
+      "passed": true,
+      "log": ".godot/pass-logs/bush-test_visibility.log",
+      "summary": [
+        "P0-111 VISIBILITY TEST: PASS"
+      ],
+      "certificate_store_warning": true,
+      "shutdown_audio_warning": false
+    }
+  ],
+  "captures": [
+    {
+      "mode": "detail",
+      "path": "captures/bush_visual_pass.png",
+      "rendered": true,
+      "visually_inspected": true,
+      "sha256": "67CF45DB1FB545A6A8FF9354F2B8B7DBB6761A7E237276D48B6BF7F732517B16",
+      "state": []
+    },
+    {
+      "mode": "arena",
+      "path": "captures/bush_local_concealed.png",
+      "rendered": true,
+      "visually_inspected": true,
+      "sha256": "AE2516E9636CC9C9D1B05B8DAEAF1EEB7AAA8B21CA791027420315B156962A0B",
+      "state": [
+        "BUSH CAPTURE STATE: local=CAMOUFLÉ enemy_visible=false"
+      ]
+    },
+    {
+      "mode": "same_bush",
+      "path": "captures/bush_shared_visible.png",
+      "rendered": true,
+      "visually_inspected": true,
+      "sha256": "34DF924D9E5CC8B9C75922C7C1A592214F27FE07D2BF8EA81E6B5BFD2C820DFA",
+      "state": [
+        "BUSH CAPTURE STATE: local=DÉTECTÉ enemy_visible=true"
+      ]
+    }
+  ],
+  "editor_import": "passed",
+  "physical_android_device_tested": false,
+  "live_online_two_client_match_tested": false
+}

@@ -25,13 +25,68 @@ Le prototype du mode en ligne à deux joueurs est décrit dans
 
 Le lot Blaster sert à valider la perspective, la caméra, les déplacements, les hitboxes
 et les sensations de combat avec le Shotgun et les modules. Les kits de vie
-ne sont pas encore activés ; les bushs disposent maintenant d'une première règle de
-visibilité, avant leur passe de carte jouable.
+sont actifs pendant les manches de duel ; les bushs participent aux règles de
+visibilité de la carte jouable.
+
+## Vision et suivi de l'adversaire
+
+En duel local et en ligne, un brouillard de guerre assombrit l'arène hors de la
+ligne de vue du joueur, avec des ombres derrière les couverts et une bordure
+douce. L'adversaire reste entièrement visible jusqu'à 14 unités ; entre 14 et
+22 unités, il devient une silhouette atténuée, puis se dissout sur les deux
+dernières unités. Ses PV et ses effets s'effacent plus vite que son modèle.
+Une perte de vue laisse une pose figée à la dernière position observée pendant
+0,55 seconde, avec un fondu. Les murs, les buissons, l'IA et la minicarte
+continuent d'utiliser la visibilité réelle ; la trace ne suit jamais l'ennemi
+caché. Combat et SPOTTED ne dépassent pas la portée de 22 unités.
+
+En duel local et en ligne, une minicarte affiche la portée de vision et conserve
+la dernière position observée en orange lorsque l'adversaire sort de vue. Le
+repère reste fixe, son halo d'incertitude s'élargit et il s'efface après sept
+secondes. Les réglages et la validation sont décrits dans
+[docs/vision_duel.md](docs/vision_duel.md).
+
+## Builds des adversaires locaux
+
+En duel local, l'adversaire tire maintenant une famille de build dans un sac
+mélangé : Harceleur, Traqueur, Sentinelle, Duelliste, Assaillant, Rabatteur,
+Voltigeur ou Écorcheur. Chaque famille associe une arme, un module offensif et
+des variantes de modules utilitaires compatibles avec son style. Les deux armes,
+les quatre modules offensifs et tous les défensifs, mobilités et passifs peuvent
+apparaître. Une famille ne se répète pas tant que le sac n'est pas épuisé, y
+compris entre deux manches ou matches successifs. La préparation du décompte
+conserve le build déjà tiré. Les préférences de distance, d'agressivité, de
+prudence, de flanc et de soin accompagnent l'équipement ; le bot garde les
+statistiques de base du Polyvalent. `tools/test_bot_build_presets.gd` vérifie
+la diversité, les tirages reproductibles et l'équipement effectif des manches.
+
+L'IA choisit des trajets sur toute la carte avec le dégagement réel de son robot,
+contourne les murs et les poches de décor, cherche des angles de tir et se replie
+derrière un couvert pendant une recharge. Elle prend les soins accessibles selon
+la longueur du trajet et le risque, peut anticiper un retour imminent du kit et
+prendre un soin disputé avant un adversaire blessé. Après avoir perdu le joueur,
+elle utilise sa dernière observation puis fouille les couloirs et les secteurs.
+La survie partage cette navigation, l'évitement des projectiles et la séparation
+des ennemis, tout en conservant les rôles et les télégraphes des vagues.
+
+Les observations, y compris charge et recharge, passent par un temps de réaction.
+Les esquives évaluent la trajectoire des tirs visibles et un corridor libre ; la
+visée prédit le déplacement observé avec une rotation limitée et une erreur par
+tir. Les projectiles vérifient un impact actuel : sortir du trajet peut réellement
+éviter les dégâts. Les difficultés modifient ces décisions sans augmenter les PV,
+les dégâts, les portées ou réduire les cooldowns.
+
+Validation IA : `test_bot_build_presets`, `test_bot_navigation`,
+`test_bot_world_tactics`, `test_bot_projectile_evasion`,
+`test_bot_combat_decisions`, puis les tests de duel, de soins, d'armes,
+de modules, de verrouillage des actions et de survie dans `tools/`.
+Chaque test se lance avec Godot 4.7.2 :
+`--headless --path <projet> --script res://tools/<test>.gd`.
 
 ## Robots de la forge
 
-La forge s'ouvre sur l'onglet **ROBOT**, avec les portraits de face du personnage
-principal en versions Agile, Polyvalent et Puissant. Les cartes affichent les PV,
+La forge s'ouvre sur l'onglet **ROBOT**, avec les modèles 3D animés et tournants du
+personnage principal en versions Agile, Polyvalent et Puissant. Les cartes affichent les PV,
 la vitesse et le robot équipé. Le choix est sauvegardé dès la sélection et repris
 en duel, en entraînement et en survie. Une ancienne sauvegarde reçoit le Polyvalent
 sans modifier ses armes ou modules.
@@ -45,8 +100,8 @@ sans modifier ses armes ou modules.
 Les valeurs sont centralisées dans `scripts/combat_data.gd`. Les ralentissements
 et le Bio Injector s'appliquent à cette vitesse ; les bonus de PV de survie
 s'ajoutent aux PV du châssis. Les resets de manche gardent le robot choisi.
-Les portraits sont propres à chaque châssis ; le modèle 3D animé en combat reste
-le modèle actuel partagé, sans modification de ses collisions ni de ses dégâts.
+Les couleurs et la taille visuelle sont propres à chaque châssis, dans la forge
+et en combat, sans modification de ses collisions ni de ses dégâts.
 
 Validation : `tools/test_robot_forge.gd` couvre les cartes, la sauvegarde, la
 migration, les PV/vitesse, les resets et la transmission aux trois modes.
@@ -224,6 +279,8 @@ téléphone Android.
   désormais un état par acteur. Une attaque engagée, un module accepté ou des dégâts
   reçus révèlent pendant 3 s ; une attaque ratée compte, une activation refusée non.
   SPOTTED révèle indépendamment et n'allume pas artificiellement l'état de combat.
+  Combat et SPOTTED retirent le camouflage des herbes uniquement si la ligne de vue
+  est libre ; les murs restent occultants pendant ces deux états.
   Les hautes herbes et les obstacles masquent les visuels/UI attachés sans supprimer
   les collisions ni les règles physiques de tir. Les volumes d'herbe portent maintenant
   leurs métadonnées de détection pour la prochaine passe de carte.
@@ -701,10 +758,11 @@ est volontairement masqué pendant le délai automatique de deux secondes.
 
 ## Version commune du 29 septembre 2026
 
-Le Duel attribue au bot un build complet au début du match : châssis, arme,
-module offensif, défense, mobilité et passif. Les quatre configurations varient
-entre les matchs et restent identiques entre les manches. Le châssis applique
-ses PV et sa vitesse ; les modules utilisent les décisions de l’IA tactique.
+Le catalogue commun apporte quatre builds complets : châssis, arme,
+module offensif, défense, mobilité et passif. Les builds explicites appliquent
+les PV et la vitesse du châssis ; les modules utilisent les décisions de l’IA tactique.
+Sur cette branche, le tirage local conserve les huit familles et les variantes
+par manche décrites plus haut, avec les statistiques du Polyvalent.
 La pause affiche le build adverse. Baroud fonctionne aussi sur les brûlures et
 expire même si le bot ne peut pas agir ; la stase bloque dégâts et soins.
 
@@ -723,3 +781,40 @@ de l’arme dépasse le mur.
 
 Tests supplémentaires : `tools/test_comfort_settings.gd`,
 `tools/test_duel_bot_state.gd`, `tools/test_duel_bot_builds.gd`.
+
+## Buissons — passe du 30 septembre 2026
+
+- Les 14 buissons utilisent des feuilles courbes et denses, plusieurs teintes et un
+  vent discret. Le feuillage est regroupé en deux meshes par buisson ; le contour
+  naturel au sol correspond à sa zone de camouflage. La zone suit maintenant les
+  herbes affichées, même lorsque leur placement a été décalé près d'un obstacle.
+- Hors combat, un robot dans les herbes disparaît pour les ennemis à l'extérieur.
+  Entrer dans le même buisson donne la vision sur son occupant si la ligne de vue
+  est libre. Des buissons distincts ne partagent pas leur vision. Le robot local
+  reste lisible, avec les indications **CAMOUFLÉ**, **RÉVÉLÉ** et **DÉTECTÉ**, et un
+  bruissement à l'entrée et à la sortie. Les mouvements cachés des ennemis ne
+  déforment pas les herbes et ne déclenchent pas ce son local.
+- Une attaque ou des dégâts conservent la révélation de combat de **3 secondes** ;
+  SPOTTED garde son propre délai. **La ligne de vue reste obligatoire**, même en
+  combat ou sous SPOTTED : une révélation retire le camouflage des herbes sans
+  donner la vision à travers les murs. À expiration, le camouflage revient immédiatement
+  si l'ennemi reste à l'extérieur. Cette adaptation reprend la logique de surprise
+  et de révélation exposée par [Riot sur les buissons de League of Legends](https://nexus.leagueoflegends.com/en-gb/2017/11/ask-riot-victorious-champions/).
+- L'IA retient une entrée observée et le buisson suspect pendant **8 secondes**.
+  Elle inspecte des points à l'intérieur, puis élargit sa recherche sans connaître
+  la position cachée actuelle. En duel, elle peut rejoindre un buisson pour couper
+  le combat ou préparer une embuscade ; elle retient ses tirs, puis reprend le
+  combat à portée favorable ou à la fin d'une attente limitée.
+- En multijoueur, les snapshots transmettent aussi les délais de révélation. Les
+  PV adverses et les indicateurs au-dessus du robot disparaissent hors de vue.
+- `tools/test_bush_gameplay.gd` vérifie les zones, la vision mutuelle, les délais,
+  les indicateurs, les sons et le relais multijoueur. `tools/test_bot_bush_tactics.gd`
+  vérifie la recherche sans connaissance des déplacements cachés et l'utilisation
+  tactique des buissons. `tools/capture_bush.gd` reproduit les captures de contrôle.
+- Validation : **19 tests ciblés PASS**, import éditeur sans erreur de script et
+  trois captures inspectées avec le renderer Mobile/Vulkan. Résultats détaillés :
+  `docs/bush_pass_validation.json`. Aperçus : `captures/bush_visual_pass.png`,
+  `captures/bush_local_concealed.png` et `captures/bush_shared_visible.png`.
+- Complément ligne de vue : les murs masquent aussi les acteurs en combat ou sous
+  SPOTTED, leurs indicateurs et leurs PV réseau. Le champ magnétique reste transparent
+  pour l'IA mais bloque sa ligne de tir. Validation : `docs/line_of_sight_validation.json`.

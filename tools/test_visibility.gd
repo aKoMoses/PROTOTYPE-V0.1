@@ -80,6 +80,7 @@ func _test_bush_and_spotted(player: Node, target: Node) -> void:
 
 
 func _test_obstacle_reveal(player: Node, target: Node, scene: Node) -> void:
+	player.call("reset_combat_state")
 	player.global_position = Vector3.ZERO
 	target.global_position = Vector3(0.0, 0.0, -3.0)
 	target.call("reset_combat_state")
@@ -93,14 +94,32 @@ func _test_obstacle_reveal(player: Node, target: Node, scene: Node) -> void:
 	collision.shape = shape
 	blocker.add_child(collision)
 	scene.add_child(blocker)
-	await process_frame
+	await physics_frame
 	if bool(target.call("is_visible_to", player)):
 		_failures.append("Obstacle : ligne de vue non occultée")
 	target.call("apply_spotted", 0.5, "test")
-	if not bool(target.call("is_visible_to", player)):
-		_failures.append("Obstacle : SPOTTED ne traverse pas l'occultation visuelle")
+	if bool(target.call("is_visible_to", player)):
+		_failures.append("Obstacle : SPOTTED révèle à tort une cible derrière le mur")
+	target.call("reset_combat_state")
+	target.call("take_damage", 1.0, "test", "visibility_wall_combat")
+	if bool(target.call("is_visible_to", player)):
+		_failures.append("Obstacle : EN COMBAT révèle à tort une cible derrière le mur")
+	target.call("apply_spotted", 0.5, "test")
+	if bool(target.call("is_visible_to", player)):
+		_failures.append("Obstacle : combat et SPOTTED combinés traversent à tort le mur")
+	player.call("_mark_combat_event")
+	player.call("apply_spotted", 0.5, "test")
+	if bool(player.call("is_visible_to", target)):
+		_failures.append("Obstacle joueur : combat/SPOTTED traversent à tort le mur")
+	target.call("_update_visibility_presentation")
+	for node_name in ["VisualRoot", "TargetHealthReadout", "StatusReadout"]:
+		var presentation := target.get_node_or_null(node_name) as Node3D
+		if presentation == null or presentation.visible:
+			_failures.append("Obstacle : %s divulgue la cible révélée hors de vue" % node_name)
 	blocker.queue_free()
-	await process_frame
+	await physics_frame
+	if not bool(target.call("is_visible_to", player)) or not bool(player.call("is_visible_to", target)):
+		_failures.append("Obstacle : la vision ne revient pas quand le mur disparaît")
 
 
 func _test_refused_activation(player: Node, scene: Node) -> void:

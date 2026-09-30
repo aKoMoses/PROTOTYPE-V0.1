@@ -8,6 +8,8 @@ const SOURCES := {
 	"puissant": preload("res://art/robot-concepts/robot-puissant-face-v3.png"),
 	"blaster": preload("res://art/icons/blaster-gravure.png"),
 	"shotgun": preload("res://art/icons/ben/shotgun-a.png"),
+	"longshot": preload("res://art/icons/longshot.svg"),
+	"mekatana": preload("res://art/ui/icons/mekatana.svg"),
 	"modulo_drone": preload("res://art/icons/ben/modulo-drone-b.png"),
 	"javelin": preload("res://art/icons/ben/javelin-b.png"),
 	"fulguro_punch": preload("res://art/icons/fulguro-punch.svg"),
@@ -39,7 +41,7 @@ var _textures: Dictionary = {}
 func get_icon(identifier: String) -> Texture2D:
 	if not SOURCES.has(identifier):
 		return null
-	if identifier in ["fulguro_punch", "pelto_smash"]:
+	if identifier in ["fulguro_punch", "pelto_smash", "mekatana", "longshot"]:
 		return SOURCES[identifier]
 	if not _textures.has(identifier):
 		var texture := AtlasTexture.new()

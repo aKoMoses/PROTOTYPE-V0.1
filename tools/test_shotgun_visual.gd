@@ -239,8 +239,9 @@ func _test_emission_and_touch_attack() -> void:
 		fresh_origin_and_aim = fresh_origin_and_aim and record.attack_origin.distance_to(record.player_origin) < 0.0001
 		fresh_origin_and_aim = fresh_origin_and_aim and record.attack_direction.dot(Vector3.RIGHT) >= 0.9999 and record.aim.dot(Vector3.RIGHT) >= 0.9999
 		minimum_elapsed = mini(minimum_elapsed, int(record.elapsed_ms))
-		var crosshair: Vector3 = record.attack_origin + Vector3.UP * 0.9 + record.attack_direction * 2.2
-		var center_direction: Vector3 = (crosshair - record.start).normalized()
+		# Pellets fan around the evaluated barrel axis at every range. A nearby
+		# convergence point would tilt the fan away from that live aim.
+		var center_direction: Vector3 = record.attack_direction
 		var expected_direction: Vector3 = center_direction.rotated(Vector3.UP, deg_to_rad(float(_player._shotgun_pellet_angles[int(record.index)])))
 		var actual_direction: Vector3 = record.endpoint - record.start
 		spread_preserved = spread_preserved and actual_direction.normalized().dot(expected_direction) >= 0.9999 and record.muzzle_forward.dot(record.aim) >= 0.98

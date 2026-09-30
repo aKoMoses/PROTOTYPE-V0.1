@@ -1,0 +1,72 @@
+{
+  "date": "2026-09-30",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "change": "World-space opacity masks replace angular blocker-distance interpolation. Two-dimensional filtering creates soft cover contours; static world-space edge variation prevents camera-swimming noise.",
+  "gameplay_visibility_changed": false,
+  "settings": {
+    "mask_resolution": 192,
+    "mask_world_size": 108.0,
+    "ray_count": 512,
+    "requested_refresh_seconds": 0.05,
+    "actual_refresh_hz_at_60hz": 20,
+    "transition_seconds": 0.18,
+    "cover_softness_world_units": 1.6,
+    "static_edge_irregularity_world_units": 0.16
+  },
+  "checks": {
+    "sight_range": {
+      "count": 100,
+      "failures": 0,
+      "script": "tools/test_sight_range.gd"
+    },
+    "fog_organic": {
+      "count": 17,
+      "failures": 0,
+      "script": "tools/test_fog_organic.gd",
+      "maximum_opacity_step_at_60hz": 0.0818,
+      "stationary_drift": 0.0,
+      "swept_wedge_envelope_violation": 0.0
+    }
+  },
+  "render": {
+    "renderer": "Vulkan / Forward Mobile",
+    "gpu": "RTX 3070 Laptop",
+    "resolution": [
+      960,
+      540
+    ],
+    "route_seconds": 6.0,
+    "simulation_hz": 60,
+    "frame_pairs": 179,
+    "previews": [
+      "captures/fog_organic/comparison_overview_compact.gif",
+      "captures/fog_organic/comparison_follow_compact.gif"
+    ],
+    "protocol": "captures/fog_organic/README.md",
+    "overview_cpu_mean_ms": 1.946375,
+    "overview_cpu_p95_ms": 5.875,
+    "follow_cpu_mean_ms": 1.96858611111111,
+    "follow_cpu_p95_ms": 5.965,
+    "phone_tested": false
+  },
+  "notes": [
+    "The previous implementation interpolated hit distances and projected stale profiles from the live observer, creating long swept wedges at cover corners.",
+    "History now blends opacity at fixed world coordinates; only the current circular range follows the observer.",
+    "CPU measurements exclude capture encoding and other scene work; actual phone performance remains unmeasured.",
+    "Known sandbox environment diagnostics remain for root certificate store, GD-Sync user config writes and rendering cache writes."
+  ],
+  "temporal_render_comparison": {
+    "ground_roi_pixels_xy": [
+      640,
+      150,
+      940,
+      510
+    ],
+    "frame_pairs": 179,
+    "before_p95_luma_change_8bit": 1.5402805328369138,
+    "after_p95_luma_change_8bit": 0.9835694551467895,
+    "before_p95_fraction_pixels_changing_over_12": 0.027245370370370368,
+    "after_p95_fraction_pixels_changing_over_12": 0.0013037037037037012,
+    "interpretation": "Same route and static ground ROI; describes rendered motion variation, not gameplay visibility correctness."
+  }
+}

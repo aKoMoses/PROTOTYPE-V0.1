@@ -65,6 +65,7 @@ func configure(main: Node3D, host_id: int, guest_id: int) -> void:
 	_flow.set("target", _target)
 	_touch.call("set_player", _player)
 	_main.get_node("CameraRig").call("set_target", _player)
+	_retarget_vision(_player, _target, true)
 	_flow.get_node("FlowRoot/CombatHUD/PauseButton").hide()
 	_build_overlay()
 	_flow.call("_start_match_music")
@@ -130,10 +131,10 @@ func _other_spawn() -> Vector3:
 	return Vector3(3.5, 0.0, 15.5) if _is_host() else Vector3(-3.5, 0.0, 17.0)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _phase == "closed" or _player == null:
 		return
-	_target.call("update_remote_visibility")
+	_target.call("update_remote_visibility", delta)
 	var labels: Dictionary = _flow.get("_hud_labels")
 	labels.match.text = "%d — %d" % [_host_score if _is_host() else _guest_score, _guest_score if _is_host() else _host_score]
 	labels.match_round.text = "MANCHE %d" % maxi(1, _round_number)
@@ -216,13 +217,13 @@ func _valid_pose(packet: Dictionary) -> bool:
 
 
 func _set_remote_pose(packet: Dictionary) -> void:
-	_target.set("aim_direction", packet.aim.normalized())
+	_target.call("_set_aim_direction", packet.aim.normalized())
 	var speed: Variant = packet.get("velocity", Vector3.ZERO)
 	if speed is Vector3 and speed.is_finite():
 		_target.set("remote_velocity", speed.limit_length(20.0))
 		if speed.length_squared() > 0.001:
 			_target.set("_last_move_direction", speed.normalized())
-	if not bool(_target.call("is_dash_active")) and float(_target.get("_stasis_remaining")) <= 0.0 and not _target.get("combat_state").is_stunned():
+	if not bool(_target.call("is_dash_active")) and not _target.get("_mekatana_attack").is_direction_locked() and float(_target.get("_stasis_remaining")) <= 0.0 and not _target.get("combat_state").is_stunned():
 		_target.global_position = packet.position
 
 
@@ -325,11 +326,26 @@ func _cleanup_actors() -> void:
 	_original_target.set_process(true)
 	_original_target.set_physics_process(true)
 	_main.get_node("CameraRig").call("set_target", _original_player)
+	_retarget_vision(_original_player, _original_target, false)
 	_flow.get_node("FlowRoot/CombatHUD/PauseButton").show()
 	_flow.get_node("FlowRoot/CombatHUD/SpellBar").show()
 	_main.call("clear_transient_fx")
 	if is_instance_valid(_actors):
 		_actors.queue_free()
+
+
+func _retarget_vision(player: Node3D, target: Node3D, network_round: bool) -> void:
+	var tracker := _main.get_node_or_null("SightTracker")
+	if tracker != null:
+		tracker.call("configure", _main, player, target, network_round)
+	var fog := _main.get_node_or_null("FogOfWar")
+	if fog != null:
+		fog.call("configure", player, _main.get_node("CameraRig/Camera3D"))
+		fog.call("set_enabled", false)
+	for bush in get_tree().get_nodes_in_group("bush_placeholder"):
+		for visual in bush.get_children():
+			if visual.has_method("set_local_player"):
+				visual.call("set_local_player", player)
 
 
 func _exit_tree() -> void:

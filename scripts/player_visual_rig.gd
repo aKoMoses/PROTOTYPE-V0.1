@@ -22,6 +22,7 @@ const LOWER_BODY_BLEND_NODE_NAME := &"LowerBodyBlend"
 const AIM_BLEND_PARAMETER := "parameters/UpperBodyAim/blend_amount"
 const READY_BLEND_PARAMETER := "parameters/UpperBodyReady/blend_amount"
 const LOWER_BODY_BLEND_PARAMETER := "parameters/LowerBodyBlend/blend_amount"
+const BUSH_CONCEALED_ALPHA := 0.38
 
 var visual_motion: Node3D
 var model_axis_correction: Node3D
@@ -45,6 +46,7 @@ var _aim_lower_time := 0.18
 var _aim_hand_pose := Transform3D.IDENTITY
 var _ready_hand_pose := Transform3D.IDENTITY
 var _support_weapon_id: StringName = &""
+var _mekatana_weapon: Node3D
 var lower_body_blend: AnimationNodeBlend2
 
 var detected_animation_names: Array[StringName] = []
@@ -76,6 +78,10 @@ var _chassis_scale_factor := 1.0
 
 
 func set_chassis_appearance(identifier: String) -> void:
+	var was_concealed := _bush_concealed
+	if was_concealed:
+		set_bush_concealed(false)
+	_bush_materials.clear()
 	if _chassis_base_scale == Vector3.ZERO:
 		_chassis_base_scale = scale
 	var next_factor: float = CHASSIS_VISUALS.SCALE_FACTORS.get(identifier, 1.0)
@@ -88,6 +94,65 @@ func set_chassis_appearance(identifier: String) -> void:
 	if model_axis_correction != null:
 		var imported_model := model_axis_correction.get_node_or_null("ImportedAnimatedModel") as Node3D
 		_chassis_visuals.apply(imported_model, identifier)
+	if was_concealed:
+		set_bush_concealed(true)
+var _bush_concealed := false
+var _bush_materials: Array[Dictionary] = []
+
+
+func set_bush_concealed(concealed: bool) -> void:
+	if concealed == _bush_concealed:
+		return
+	if _bush_materials.is_empty():
+		_cache_bush_materials()
+	for entry in _bush_materials:
+		var mesh := entry.mesh as MeshInstance3D
+		if not is_instance_valid(mesh):
+			continue
+		var material: Material = entry.concealed if concealed else entry.original
+		if entry.surface == -1:
+			mesh.material_override = material
+		else:
+			mesh.set_surface_override_material(entry.surface, material)
+	_bush_concealed = concealed
+
+
+func _cache_bush_materials() -> void:
+	# GeometryInstance3D.transparency is ignored by the Mobile renderer. Keep
+	# local material copies for camouflage and restore the exact original slots.
+	# Both weapons are already built, including the one currently hidden.
+	for node in find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if _supports_bush_material(mesh.material_override):
+			_bush_materials.append({
+				"mesh": mesh, "surface": -1, "original": mesh.material_override,
+				"concealed": _make_bush_material(mesh.material_override),
+			})
+		elif mesh.material_override == null and mesh.mesh != null:
+			for surface in range(mesh.mesh.get_surface_count()):
+				var source := mesh.get_active_material(surface)
+				if not _supports_bush_material(source):
+					continue
+				_bush_materials.append({
+					"mesh": mesh, "surface": surface,
+					"original": mesh.get_surface_override_material(surface),
+					"concealed": _make_bush_material(source),
+				})
+
+
+func _supports_bush_material(source: Material) -> bool:
+	return source is BaseMaterial3D or (source is ShaderMaterial and source.shader == CHASSIS_VISUALS.PAINT_SHADER)
+
+
+func _make_bush_material(source: Material) -> Material:
+	var material := source.duplicate() as Material
+	if material is BaseMaterial3D:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color.a *= BUSH_CONCEALED_ALPHA
+	elif material is ShaderMaterial:
+		var opacity: Variant = material.get_shader_parameter("visibility_opacity")
+		material.set_shader_parameter("visibility_opacity", (float(opacity) if opacity != null else 1.0) * BUSH_CONCEALED_ALPHA)
+	return material
 
 
 func setup_visual_motion() -> Node3D:
@@ -268,6 +333,9 @@ func equip_weapon(weapon_id: StringName, weapon_root: Node3D, profile: Dictionar
 	weapon_root.transform = Transform3D.IDENTITY
 	socket.add_child(weapon_root)
 	weapon_root.set_meta("weapon_profile_id", weapon_id)
+	if weapon_id == &"mekatana":
+		var blade := weapon_root.find_child("BladeTip", true, false)
+		_mekatana_weapon = blade.get_parent() as Node3D if blade != null else null
 	return true
 
 
@@ -328,6 +396,27 @@ func set_pelto_pose(phase: String, progress: float) -> void:
 func clear_pelto_pose() -> void:
 	if aim_modifier != null:
 		aim_modifier.clear_pelto_pose()
+
+
+func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
+	if aim_modifier != null:
+		aim_modifier.set_mekatana_pose(step, phase, progress)
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("set_phase", step, phase, progress)
+	_aim_requested = true
+	_refresh_aim_state()
+
+
+func clear_mekatana_pose() -> void:
+	if aim_modifier != null:
+		aim_modifier.clear_mekatana_pose()
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("clear_mekatana_pose")
+
+
+func set_mekatana_impact(target: Node3D, power: float = 1.0) -> void:
+	if is_instance_valid(_mekatana_weapon):
+		_mekatana_weapon.call("set_mekatana_impact", target, power)
 
 
 func settle_weapon_attachment_after_transient_pose() -> void:
@@ -670,7 +759,7 @@ func _get_weapon_socket_transform(local_position: Vector3, local_rotation: Vecto
 		desired_world.origin = hand_world.origin
 		if not has_right_grip:
 			desired_world.origin += visual_motion.global_basis * Vector3(0.0, 0.08, -0.08)
-	elif weapon_id == &"shotgun":
+	elif weapon_id in [&"shotgun", &"mekatana", &"longshot"]:
 		# Anchor the authored rear-grip marker to the wrist instead of assuming the
 		# imported mesh origin is the contact point. This keeps the stock and grip
 		# seated in the hand while preserving the calibrated firing direction.
@@ -696,6 +785,10 @@ func configure_left_hand_support(weapon_id: StringName) -> void:
 	_support_weapon_id = weapon_id
 	if aim_modifier == null:
 		return
+	if weapon_id != &"mekatana" and aim_modifier.mekatana_equipped:
+		clear_mekatana_pose()
+		aim_modifier._mekatana_guard_yaw = 0.0
+	aim_modifier.mekatana_equipped = weapon_id == &"mekatana"
 	aim_modifier.support_enabled = false
 	aim_modifier.support_use_orientation = false
 	aim_modifier.grip_from_hand = Transform3D.IDENTITY

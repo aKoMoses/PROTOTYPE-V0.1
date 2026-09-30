@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://art/environment/arena_sand_atlas.png" id="1"]
+
+[resource]
+albedo_texture = ExtResource("1")
+roughness = 0.96
+metallic_specular = 0.18
+texture_filter = 5
+texture_repeat = false

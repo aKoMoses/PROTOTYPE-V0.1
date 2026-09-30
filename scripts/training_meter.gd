@@ -140,6 +140,8 @@ func _damage_category(source_id: String, attack_id: String) -> String:
 		return "Blaster"
 	if attack_id.begins_with("shotgun:"):
 		return "Shotgun"
+	if attack_id.begins_with("longshot:"):
+		return "Longshot"
 	if attack_id.begins_with("modulo_drone:"):
 		return "Drone"
 	if attack_id.begins_with("javelin:"):

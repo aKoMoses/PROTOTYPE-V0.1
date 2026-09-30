@@ -82,14 +82,25 @@ func _initialize() -> void:
 			check(progression.upgrades.weapon.power == power_before, "évolution indépendante de la puissance")
 	# Charged rail really damages the aligned rear target; normal shots do not.
 	configure("blaster", "weapon", "rail")
-	await physics_frame
+	# This harness disables Player physics, so prepare its real aim/idle pose
+	# explicitly and let the warm-up transition settle before muzzle-based shots.
+	player._begin_weapon_aim()
+	player._update_aim_pose_state(true)
+	for settle_frame in 90:
+		player._visual_rig.update_visual_state(Vector3.ZERO, Vector3.FORWARD, 0.0, player.move_speed, 1.0 / 60.0)
+		await physics_frame
+	check(player._visual_rig.is_aim_pose_committed(), "visée préparée avant les tirs du Perforateur")
 	var before: float = targets[1].get_health()
+	var front_before: float = targets[0].get_health()
 	player._fire_blaster_projectile(50.0, 0.0, Vector3.FORWARD)
 	await tick(0.4)
+	check(targets[0].get_health() < front_before, "tir normal atteint la cible avant du Perforateur")
 	check(is_equal_approx(targets[1].get_health(), before), "Perforateur réservé aux tirs chargés")
+	front_before = targets[0].get_health()
 	player._blaster_next_attack_ready_at = -1.0
 	player._fire_blaster_projectile(50.0, 1.0, Vector3.FORWARD)
 	await tick(0.4)
+	check(targets[0].get_health() < front_before, "tir chargé atteint la cible avant du Perforateur")
 	check(targets[1].get_health() < before, "rayon chargé atteint la cible arrière")
 	var cover := StaticBody3D.new()
 	cover.collision_layer = 1

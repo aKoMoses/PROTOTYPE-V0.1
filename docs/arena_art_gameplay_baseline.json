@@ -1,0 +1,6082 @@
+{
+	"bushes": [
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.4000000000000001,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8750000000000002
+					]
+				],
+				"origin": [
+					18.5,
+					0.0,
+					-5.4
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.8750000000000001,
+				"bush_center": [
+					16.3,
+					0.0,
+					-4.9
+				],
+				"bush_height": 2.9375000000000004,
+				"bush_radius": 1.6,
+				"bush_visual_position": [
+					16.3,
+					0.0,
+					-4.9
+				]
+			},
+			"path": "BushEastPocket",
+			"transform": {
+				"basis": [
+					[
+						2.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.4000000000000001,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8750000000000002
+					]
+				],
+				"origin": [
+					18.5,
+					0.0,
+					-5.4
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.4400000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.008,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.35
+					]
+				],
+				"origin": [
+					8.8,
+					0.0,
+					1.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.63,
+				"bush_center": [
+					8.8,
+					0.0,
+					1.0
+				],
+				"bush_height": 2.115,
+				"bush_radius": 1.1520000000000001,
+				"bush_visual_position": [
+					8.8,
+					0.0,
+					1.0
+				]
+			},
+			"path": "BushEastSpine",
+			"transform": {
+				"basis": [
+					[
+						1.4400000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.008,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.35
+					]
+				],
+				"origin": [
+					8.8,
+					0.0,
+					1.0
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.9200000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.344,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					-7.500000000000001
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.8400000000000001,
+				"bush_center": [
+					0.0,
+					0.0,
+					-6.9
+				],
+				"bush_height": 2.8200000000000003,
+				"bush_radius": 1.536,
+				"bush_visual_position": [
+					0.0,
+					0.0,
+					-6.9
+				]
+			},
+			"path": "BushNorthCenter",
+			"transform": {
+				"basis": [
+					[
+						1.9200000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.344,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					-7.500000000000001
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					13.8,
+					0.0,
+					-8.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.9450000000000001,
+				"bush_center": [
+					13.8,
+					0.0,
+					-8.0
+				],
+				"bush_height": 3.1725000000000003,
+				"bush_radius": 1.7280000000000002,
+				"bush_visual_position": [
+					13.8,
+					0.0,
+					-8.0
+				]
+			},
+			"path": "BushNorthEastCover",
+			"transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					13.8,
+					0.0,
+					-8.0
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.6,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.12,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.5000000000000002
+					]
+				],
+				"origin": [
+					-2.8000000000000003,
+					0.0,
+					-20.5
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.7000000000000001,
+				"bush_center": [
+					-2.8000000000000003,
+					0.0,
+					-20.5
+				],
+				"bush_height": 2.35,
+				"bush_radius": 1.28,
+				"bush_visual_position": [
+					-2.8000000000000003,
+					0.0,
+					-20.5
+				]
+			},
+			"path": "BushNorthPad",
+			"transform": {
+				"basis": [
+					[
+						1.6,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.12,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.5000000000000002
+					]
+				],
+				"origin": [
+					-2.8000000000000003,
+					0.0,
+					-20.5
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.28,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						0.896,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.2000000000000002
+					]
+				],
+				"origin": [
+					-19.5,
+					0.0,
+					-12.600000000000001
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.56,
+				"bush_center": [
+					-19.5,
+					0.0,
+					-12.600000000000001
+				],
+				"bush_height": 1.8800000000000001,
+				"bush_radius": 1.024,
+				"bush_visual_position": [
+					-19.5,
+					0.0,
+					-12.600000000000001
+				]
+			},
+			"path": "BushNorthWest",
+			"transform": {
+				"basis": [
+					[
+						1.28,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						0.896,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.2000000000000002
+					]
+				],
+				"origin": [
+					-19.5,
+					0.0,
+					-12.600000000000001
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					-14.000000000000002,
+					0.0,
+					-8.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.9450000000000001,
+				"bush_center": [
+					-14.8,
+					0.0,
+					-6.300000000000001
+				],
+				"bush_height": 3.1725000000000003,
+				"bush_radius": 1.7280000000000002,
+				"bush_visual_position": [
+					-14.8,
+					0.0,
+					-6.300000000000001
+				]
+			},
+			"path": "BushNorthWestCover",
+			"transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					-14.000000000000002,
+					0.0,
+					-8.0
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.9200000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.344,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					9.5
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.8400000000000001,
+				"bush_center": [
+					0.0,
+					0.0,
+					8.9
+				],
+				"bush_height": 2.8200000000000003,
+				"bush_radius": 1.536,
+				"bush_visual_position": [
+					0.0,
+					0.0,
+					8.9
+				]
+			},
+			"path": "BushSouthCenter",
+			"transform": {
+				"basis": [
+					[
+						1.9200000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.344,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					9.5
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.28,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						0.896,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.2000000000000002
+					]
+				],
+				"origin": [
+					19.5,
+					0.0,
+					12.600000000000001
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.56,
+				"bush_center": [
+					19.5,
+					0.0,
+					12.600000000000001
+				],
+				"bush_height": 1.8800000000000001,
+				"bush_radius": 1.024,
+				"bush_visual_position": [
+					19.5,
+					0.0,
+					12.600000000000001
+				]
+			},
+			"path": "BushSouthEast",
+			"transform": {
+				"basis": [
+					[
+						1.28,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						0.896,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.2000000000000002
+					]
+				],
+				"origin": [
+					19.5,
+					0.0,
+					12.600000000000001
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					14.000000000000002,
+					0.0,
+					10.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.9450000000000001,
+				"bush_center": [
+					15.682210000000001,
+					0.0,
+					9.51763
+				],
+				"bush_height": 3.1725000000000003,
+				"bush_radius": 1.7280000000000002,
+				"bush_visual_position": [
+					15.682210000000001,
+					0.0,
+					9.51763
+				]
+			},
+			"path": "BushSouthEastCover",
+			"transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					14.000000000000002,
+					0.0,
+					10.0
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.6,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.12,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.5000000000000002
+					]
+				],
+				"origin": [
+					2.8000000000000003,
+					0.0,
+					20.5
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.7000000000000001,
+				"bush_center": [
+					2.8000000000000003,
+					0.0,
+					20.5
+				],
+				"bush_height": 2.35,
+				"bush_radius": 1.28,
+				"bush_visual_position": [
+					2.8000000000000003,
+					0.0,
+					20.5
+				]
+			},
+			"path": "BushSouthPad",
+			"transform": {
+				"basis": [
+					[
+						1.6,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.12,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.5000000000000002
+					]
+				],
+				"origin": [
+					2.8000000000000003,
+					0.0,
+					20.5
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					-13.8,
+					0.0,
+					10.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.9450000000000001,
+				"bush_center": [
+					-13.000000000000002,
+					0.0,
+					12.200000000000001
+				],
+				"bush_height": 3.1725000000000003,
+				"bush_radius": 1.7280000000000002,
+				"bush_visual_position": [
+					-13.000000000000002,
+					0.0,
+					12.200000000000001
+				]
+			},
+			"path": "BushSouthWestCover",
+			"transform": {
+				"basis": [
+					[
+						2.16,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.5120000000000002,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						2.0250000000000004
+					]
+				],
+				"origin": [
+					-13.8,
+					0.0,
+					10.0
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						2.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.4000000000000001,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8750000000000002
+					]
+				],
+				"origin": [
+					-18.5,
+					0.0,
+					5.4
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.8750000000000001,
+				"bush_center": [
+					-16.3,
+					0.0,
+					4.9
+				],
+				"bush_height": 2.9375000000000004,
+				"bush_radius": 1.6,
+				"bush_visual_position": [
+					-16.3,
+					0.0,
+					4.9
+				]
+			},
+			"path": "BushWestPocket",
+			"transform": {
+				"basis": [
+					[
+						2.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.4000000000000001,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.8750000000000002
+					]
+				],
+				"origin": [
+					-18.5,
+					0.0,
+					5.4
+				]
+			}
+		},
+		{
+			"global_transform": {
+				"basis": [
+					[
+						1.4400000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.008,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.35
+					]
+				],
+				"origin": [
+					-8.8,
+					0.0,
+					1.0
+				]
+			},
+			"metadata": {
+				"bush_base_radius": 0.63,
+				"bush_center": [
+					-8.8,
+					0.0,
+					1.0
+				],
+				"bush_height": 2.115,
+				"bush_radius": 1.1520000000000001,
+				"bush_visual_position": [
+					-8.8,
+					0.0,
+					1.0
+				]
+			},
+			"path": "BushWestSpine",
+			"transform": {
+				"basis": [
+					[
+						1.4400000000000002,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.008,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.35
+					]
+				],
+				"origin": [
+					-8.8,
+					0.0,
+					1.0
+				]
+			}
+		}
+	],
+	"camera": {
+		"cull_mask": 1048575,
+		"current": true,
+		"doppler_tracking": 0,
+		"far": 4000.0000000000005,
+		"fov": 38.0,
+		"frustum_offset": [
+			0.0,
+			0.0
+		],
+		"h_offset": 0.0,
+		"keep_aspect": 1,
+		"near": 0.05,
+		"projection": 0,
+		"size": 1.0,
+		"transform": {
+			"basis": [
+				[
+					1.0,
+					0.0,
+					0.0
+				],
+				[
+					0.0,
+					0.6575700000000001,
+					-0.7533900000000001
+				],
+				[
+					0.0,
+					0.7533900000000001,
+					0.6575700000000001
+				]
+			],
+			"origin": [
+				0.0,
+				20.5,
+				17.5
+			]
+		},
+		"v_offset": 0.0
+	},
+	"camera_rig": {
+		"aim_smoothing_speed": 4.0,
+		"follow_speed": 3.2,
+		"look_ahead_distance": 1.6,
+		"script": "res://scripts/camera_rig.gd"
+	},
+	"kits": [
+		{
+			"collection_radius": 1.4500000000000002,
+			"collision_layer": 0,
+			"collision_mask": 6,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					21.0,
+					0.0,
+					0.0
+				]
+			},
+			"heal_fraction": 0.30000000000000004,
+			"monitorable": false,
+			"monitoring": true,
+			"path": "HealthPadEast",
+			"point_enabled": true,
+			"respawn_delay": 20.0,
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "CollectionShape",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"radius": 1.4500000000000002,
+							"type": "SphereShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.5800000000000001,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					21.0,
+					0.0,
+					0.0
+				]
+			},
+			"type": "Area3D"
+		},
+		{
+			"collection_radius": 1.4500000000000002,
+			"collision_layer": 0,
+			"collision_mask": 6,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					-20.8
+				]
+			},
+			"heal_fraction": 0.30000000000000004,
+			"monitorable": false,
+			"monitoring": true,
+			"path": "HealthPadNorth",
+			"point_enabled": true,
+			"respawn_delay": 20.0,
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "CollectionShape",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"radius": 1.4500000000000002,
+							"type": "SphereShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.5800000000000001,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					-20.8
+				]
+			},
+			"type": "Area3D"
+		},
+		{
+			"collection_radius": 1.4500000000000002,
+			"collision_layer": 0,
+			"collision_mask": 6,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					20.8
+				]
+			},
+			"heal_fraction": 0.30000000000000004,
+			"monitorable": false,
+			"monitoring": true,
+			"path": "HealthPadSouth",
+			"point_enabled": true,
+			"respawn_delay": 20.0,
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "CollectionShape",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"radius": 1.4500000000000002,
+							"type": "SphereShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.5800000000000001,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.0,
+					20.8
+				]
+			},
+			"type": "Area3D"
+		},
+		{
+			"collection_radius": 1.4500000000000002,
+			"collision_layer": 0,
+			"collision_mask": 6,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-21.0,
+					0.0,
+					0.0
+				]
+			},
+			"heal_fraction": 0.30000000000000004,
+			"monitorable": false,
+			"monitoring": true,
+			"path": "HealthPadWest",
+			"point_enabled": true,
+			"respawn_delay": 20.0,
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "CollectionShape",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"radius": 1.4500000000000002,
+							"type": "SphereShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.5800000000000001,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-21.0,
+					0.0,
+					0.0
+				]
+			},
+			"type": "Area3D"
+		}
+	],
+	"schema": 1,
+	"solids": [
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					29.000000000000004,
+					1.5000000000000002,
+					0.0
+				]
+			},
+			"path": "EastLimit",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8,
+								3.0000000000000004,
+								58.00000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					29.000000000000004,
+					1.5000000000000002,
+					0.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-24.8
+				]
+			},
+			"path": "EastPanel0",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-24.8
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-16.53
+				]
+			},
+			"path": "EastPanel1",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-16.53
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-8.260000000000002
+				]
+			},
+			"path": "EastPanel2",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					-8.260000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					0.01
+				]
+			},
+			"path": "EastPanel3",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					0.01
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					8.280000000000001
+				]
+			},
+			"path": "EastPanel4",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					8.280000000000001
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					16.55
+				]
+			},
+			"path": "EastPanel5",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					16.55
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					24.82
+				]
+			},
+			"path": "EastPanel6",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					28.1,
+					1.05,
+					24.82
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					18.5,
+					1.0,
+					-8.0
+				]
+			},
+			"path": "EastPocketLong",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								1.8,
+								2.0,
+								5.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					18.5,
+					1.0,
+					-8.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.0,
+					1.0,
+					-10.0
+				]
+			},
+			"path": "EastPocketShort",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								4.6000000000000005,
+								2.0,
+								1.6
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.0,
+					1.0,
+					-10.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					7.000000000000001,
+					1.1,
+					1.2000000000000002
+				]
+			},
+			"path": "EastSpine",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								2.1500000000000004,
+								2.2,
+								9.600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					7.000000000000001,
+					1.1,
+					1.2000000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.9500000000000001,
+					-9.0
+				]
+			},
+			"path": "NorthCenterCover",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								10.8,
+								1.9000000000000001,
+								1.55
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.9500000000000001,
+					-9.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						0.9063100000000001,
+						0.0,
+						-0.42262000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.42262000000000005,
+						0.0,
+						0.9063100000000001
+					]
+				],
+				"origin": [
+					12.000000000000002,
+					0.9500000000000001,
+					-6.7
+				]
+			},
+			"path": "NorthEastAngle",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								5.0,
+								1.9000000000000001,
+								1.3
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						0.9063100000000001,
+						0.0,
+						-0.42262000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.42262000000000005,
+						0.0,
+						0.9063100000000001
+					]
+				],
+				"origin": [
+					12.000000000000002,
+					0.9500000000000001,
+					-6.7
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					17.8,
+					1.1500000000000001,
+					-16.0
+				]
+			},
+			"path": "NorthEastBlock",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								3.2,
+								2.3000000000000003,
+								3.2
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					17.8,
+					1.1500000000000001,
+					-16.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					1.5000000000000002,
+					-29.000000000000004
+				]
+			},
+			"path": "NorthLimit",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								58.00000000000001,
+								3.0000000000000004,
+								0.8
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					1.5000000000000002,
+					-29.000000000000004
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-24.8,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel0",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-24.8,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.53,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel1",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.53,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-8.260000000000002,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel2",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-8.260000000000002,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.01,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel3",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.01,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					8.280000000000001,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel4",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					8.280000000000001,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.55,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel5",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.55,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					24.82,
+					1.05,
+					-28.1
+				]
+			},
+			"path": "NorthPanel6",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					24.82,
+					1.05,
+					-28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						0.9135500000000001,
+						0.0,
+						0.40674000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						-0.40674000000000005,
+						0.0,
+						0.9135500000000001
+					]
+				],
+				"origin": [
+					-11.3,
+					1.0,
+					-9.4
+				]
+			},
+			"path": "NorthWestAngle",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								6.2,
+								2.0,
+								1.4000000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						0.9135500000000001,
+						0.0,
+						0.40674000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						-0.40674000000000005,
+						0.0,
+						0.9135500000000001
+					]
+				],
+				"origin": [
+					-11.3,
+					1.0,
+					-9.4
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-17.5,
+					1.1500000000000001,
+					-15.000000000000002
+				]
+			},
+			"path": "NorthWestBlock",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								4.0,
+								2.3000000000000003,
+								3.5000000000000004
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-17.5,
+					1.1500000000000001,
+					-15.000000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.9500000000000001,
+					11.000000000000002
+				]
+			},
+			"path": "SouthCenterCover",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								9.5,
+								1.9000000000000001,
+								1.55
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					0.9500000000000001,
+					11.000000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						0.9135500000000001,
+						0.0,
+						0.40674000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						-0.40674000000000005,
+						0.0,
+						0.9135500000000001
+					]
+				],
+				"origin": [
+					11.3,
+					1.0,
+					10.8
+				]
+			},
+			"path": "SouthEastAngle",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								6.2,
+								2.0,
+								1.4000000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						0.9135500000000001,
+						0.0,
+						0.40674000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						-0.40674000000000005,
+						0.0,
+						0.9135500000000001
+					]
+				],
+				"origin": [
+					11.3,
+					1.0,
+					10.8
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					17.5,
+					1.1500000000000001,
+					15.000000000000002
+				]
+			},
+			"path": "SouthEastBlock",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								4.0,
+								2.3000000000000003,
+								3.5000000000000004
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					17.5,
+					1.1500000000000001,
+					15.000000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					1.5000000000000002,
+					29.000000000000004
+				]
+			},
+			"path": "SouthLimit",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								58.00000000000001,
+								3.0000000000000004,
+								0.8
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					0.0,
+					1.5000000000000002,
+					29.000000000000004
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					24.8,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel0",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					24.8,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.53,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel1",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					16.53,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					8.260000000000002,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel2",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					8.260000000000002,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-0.01,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel3",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-0.01,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-8.280000000000001,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel4",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-8.280000000000001,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.55,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel5",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.1,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.55,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-24.82,
+					1.05,
+					28.1
+				]
+			},
+			"path": "SouthPanel6",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								7.500000000000001,
+								2.45,
+								0.8600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-24.82,
+					1.05,
+					28.1
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						0.9063100000000001,
+						0.0,
+						-0.42262000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.42262000000000005,
+						0.0,
+						0.9063100000000001
+					]
+				],
+				"origin": [
+					-12.000000000000002,
+					0.9500000000000001,
+					8.100000000000001
+				]
+			},
+			"path": "SouthWestAngle",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								5.0,
+								1.9000000000000001,
+								1.3
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						0.9063100000000001,
+						0.0,
+						-0.42262000000000005
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.42262000000000005,
+						0.0,
+						0.9063100000000001
+					]
+				],
+				"origin": [
+					-12.000000000000002,
+					0.9500000000000001,
+					8.100000000000001
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-17.8,
+					1.1500000000000001,
+					16.0
+				]
+			},
+			"path": "SouthWestBlock",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								3.2,
+								2.3000000000000003,
+								3.2
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-17.8,
+					1.1500000000000001,
+					16.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-29.000000000000004,
+					1.5000000000000002,
+					0.0
+				]
+			},
+			"path": "WestLimit",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8,
+								3.0000000000000004,
+								58.00000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-29.000000000000004,
+					1.5000000000000002,
+					0.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					24.8
+				]
+			},
+			"path": "WestPanel0",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					24.8
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					16.53
+				]
+			},
+			"path": "WestPanel1",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					16.53
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					8.260000000000002
+				]
+			},
+			"path": "WestPanel2",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					8.260000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-0.01
+				]
+			},
+			"path": "WestPanel3",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-0.01
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-8.280000000000001
+				]
+			},
+			"path": "WestPanel4",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-8.280000000000001
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-16.55
+				]
+			},
+			"path": "WestPanel5",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.45,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-16.55
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-24.82
+				]
+			},
+			"path": "WestPanel6",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								0.8600000000000001,
+								2.1,
+								7.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-28.1,
+					1.05,
+					-24.82
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-18.5,
+					1.0,
+					8.0
+				]
+			},
+			"path": "WestPocketLong",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								1.8,
+								2.0,
+								5.500000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-18.5,
+					1.0,
+					8.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.0,
+					1.0,
+					10.0
+				]
+			},
+			"path": "WestPocketShort",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								4.6000000000000005,
+								2.0,
+								1.6
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-16.0,
+					1.0,
+					10.0
+				]
+			},
+			"type": "StaticBody3D"
+		},
+		{
+			"collision_layer": 1,
+			"collision_mask": 0,
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-7.000000000000001,
+					1.1,
+					1.2000000000000002
+				]
+			},
+			"path": "WestSpine",
+			"shapes": [
+				{
+					"disabled": false,
+					"owner_path": "Collision",
+					"shapes": [
+						{
+							"custom_solver_bias": 0.0,
+							"margin": 0.04,
+							"size": [
+								2.1500000000000004,
+								2.2,
+								9.600000000000001
+							],
+							"type": "BoxShape3D"
+						}
+					],
+					"transform": {
+						"basis": [
+							[
+								1.0,
+								0.0,
+								0.0
+							],
+							[
+								0.0,
+								1.0,
+								0.0
+							],
+							[
+								0.0,
+								0.0,
+								1.0
+							]
+						],
+						"origin": [
+							0.0,
+							0.0,
+							0.0
+						]
+					}
+				}
+			],
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-7.000000000000001,
+					1.1,
+					1.2000000000000002
+				]
+			},
+			"type": "StaticBody3D"
+		}
+	],
+	"spawns": {
+		"Player": {
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-3.5000000000000004,
+					0.0,
+					17.0
+				]
+			},
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					-3.5000000000000004,
+					0.0,
+					17.0
+				]
+			}
+		},
+		"TargetDummy": {
+			"global_transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					3.5000000000000004,
+					0.0,
+					15.500000000000002
+				]
+			},
+			"transform": {
+				"basis": [
+					[
+						1.0,
+						0.0,
+						0.0
+					],
+					[
+						0.0,
+						1.0,
+						0.0
+					],
+					[
+						0.0,
+						0.0,
+						1.0
+					]
+				],
+				"origin": [
+					3.5000000000000004,
+					0.0,
+					15.500000000000002
+				]
+			}
+		}
+	}
+}
