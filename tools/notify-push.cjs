@@ -43,6 +43,8 @@ function buildPush(event, fallbackPaths = []) {
     changes: titles.slice(0, 10),
     source: event.compare || event.head_commit?.url
   };
+  record.workReferences = commits.flatMap(commit => [...String(commit.message || '').matchAll(/^Prototype-Work:\s*([a-f0-9-]{36})\s*$/gm)]
+    .map(match => ({ id: match[1], commit: commit.id }))).filter(ref => /^[a-f0-9]{40}$/i.test(ref.commit));
   const content = `🎮 **Nouveau push de ${author}**\n${summary}\n[Voir le push et confirmer mon pull](${SITE_URL}/patchs.html#push-${commit})`;
   return { record, content };
 }
@@ -57,6 +59,23 @@ async function main() {
     changedPaths = execFileSync('git', ['diff', '--name-only', event.before, event.after], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
   } catch (_) { /* Commit metadata remains usable if this diff is unavailable. */ }
   const { record, content } = buildPush(event, changedPaths);
+  // Reconcile unfinished records against recent main history, including a missed notification.
+  // This is a bounded Git read, with no model call and no scan of the entire history.
+  try {
+    const current = await fetch(`${SITE_URL}/api/developments`, { signal: AbortSignal.timeout(6000) });
+    if (!current.ok) throw new Error('Coordination history unavailable');
+    const pending = new Set((await current.json()).developments.filter(work => work.status !== 'published').map(work => work.id));
+    const log = execFileSync('git', ['log', '-100', '--format=%H%x00%B%x00', event.after], { encoding: 'utf8' });
+    const parts = log.split('\0');
+    for (let i = 0; i + 1 < parts.length; i += 2) {
+      const commit = parts[i].trim();
+      if (!/^[a-f0-9]{40}$/i.test(commit)) continue;
+      for (const match of parts[i + 1].matchAll(/^Prototype-Work:\s*([a-f0-9-]{36})\s*$/gm)) {
+        if (pending.has(match[1])) record.workReferences.push({ id: match[1], commit });
+      }
+    }
+    record.workReferences = [...new Map(record.workReferences.map(ref => [`${ref.id}:${ref.commit}`, ref])).values()].slice(0, 100);
+  } catch (_) { /* Event commit metadata still covers ordinary pushes. */ }
   const saved = await fetch(`${SITE_URL}/api/game-pushes`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
     body: JSON.stringify(record)

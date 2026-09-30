@@ -7,3 +7,5 @@ addons/GD-Sync/keys.cfg
 /captures/*.log
 /captures/*suite.json
 /captures/comfort-test.cfg
+/.codex/coordination.local.json
+/.codex/coordination-state/
