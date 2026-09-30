@@ -169,7 +169,7 @@ async function main() {
       sectors: (opts.sectors || '').split(',').filter(Boolean), files: (opts.files || '').split(',').filter(Boolean),
       baseCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8', windowsHide: true }).trim() });
     write(local.state, { record: result.record });
-    console.log(`Réservé : ${result.record.title}\nRéférence de commit : Prototype-Work: ${result.record.id}`);
+    console.log(`${result.resumed ? 'Repris' : 'Réservé'} : ${result.record.title}\nRéférence de commit : Prototype-Work: ${result.record.id}`);
     for (const warning of result.warnings || []) console.log(`À vérifier : ${warning.actor} · ${LABELS[warning.status]} · ${warning.title} (${warning.id})`);
     return;
   }

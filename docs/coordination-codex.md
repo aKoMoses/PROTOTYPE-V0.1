@@ -18,7 +18,11 @@ node tools/coordinate.cjs catalog
 node tools/coordinate.cjs claim --title "Corriger les bots bloqués derrière un couvert" --topic "ia-contournement-couverts" --sectors "intelligence-artificielle" --files "scripts/training_bot.gd"
 ```
 
-Si CODEX_THREAD_ID n’est pas exposé, ajouter `--session IDENTIFIANT` donné par le hook. Une conversation garde une réservation pour le travail en cours. Un sujet identique occupé ou terminé localement est refusé. Un fichier commun ou un titre proche déclenche un avertissement que Codex doit examiner. Cette détection n’est pas une compréhension parfaite des intentions : des titres très différents peuvent encore décrire le même besoin. Utiliser des sujets précis et stables.
+Si CODEX_THREAD_ID n’est pas exposé, ajouter `--session IDENTIFIANT` donné par le hook. Une conversation garde une réservation pour le travail en cours. Un sujet identique occupé ou terminé localement dans une autre conversation est refusé. Un fichier commun ou un titre proche déclenche un avertissement que Codex doit examiner. Cette détection n’est pas une compréhension parfaite des intentions : des titres très différents peuvent encore décrire le même besoin. Utiliser des sujets précis et stables.
+
+Pour continuer un travail après `finish`, consulter à nouveau `context`, puis répéter le même `claim` avec le même sujet et la même session. Le tableau affiche « Repris » et réactive la réservation existante seulement pour son auteur et sa conversation d’origine. La référence de commit et la date de création restent identiques ; les huit dernières fins locales sont conservées dans l’historique. Le nouveau bail invalide les anciennes écritures en attente. Si cette conversation travaille déjà sur une autre modification, la terminer d’abord. Une réservation publiée n’est pas rouverte par cette commande.
+
+Une reprise attend une nouvelle publication : les commits précédant sa reprise ne peuvent pas la marquer comme publiée. Le workflow confirme seulement les nouveaux commits de ce cycle contenant le même trailer `Prototype-Work`.
 
 Avant chaque écriture couverte, le hook renouvelle et vérifie la réservation. Sans activité pendant 45 minutes, elle apparaît interrompue ; il faut réserver à nouveau. Une interruption ou une fermeture la libère immédiatement lorsque le hook peut joindre le site. Une panne réseau bloque les écritures couvertes et laisse les lectures possibles. Rien n’est effacé automatiquement du disque.
 

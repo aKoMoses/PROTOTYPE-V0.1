@@ -64,7 +64,8 @@ async function main() {
   try {
     const current = await fetch(`${SITE_URL}/api/developments`, { signal: AbortSignal.timeout(6000) });
     if (!current.ok) throw new Error('Coordination history unavailable');
-    const pending = new Set((await current.json()).developments.filter(work => work.status !== 'published').map(work => work.id));
+    const developments = (await current.json()).developments;
+    const pending = new Set(developments.filter(work => work.status !== 'published').map(work => work.id));
     const log = execFileSync('git', ['log', '-100', '--format=%H%x00%B%x00', event.after], { encoding: 'utf8' });
     const parts = log.split('\0');
     for (let i = 0; i + 1 < parts.length; i += 2) {
@@ -74,6 +75,7 @@ async function main() {
         if (pending.has(match[1])) record.workReferences.push({ id: match[1], commit });
       }
     }
+    record.workReferences = scopeReferences(record.workReferences, developments, commitIsAncestor);
     record.workReferences = [...new Map(record.workReferences.map(ref => [`${ref.id}:${ref.commit}`, ref])).values()].slice(0, 100);
   } catch (_) { /* Event commit metadata still covers ordinary pushes. */ }
   const saved = await fetch(`${SITE_URL}/api/game-pushes`, {
@@ -89,5 +91,29 @@ async function main() {
   console.log(`Announced game push ${record.commit.slice(0, 7)}.`);
 }
 
+function commitIsAncestor(base, commit) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', base, commit], { stdio: 'ignore', windowsHide: true });
+    return true;
+  } catch (error) {
+    if (error.status === 1) return false;
+    throw error;
+  }
+}
+
+function scopeReferences(refs, developments, isAncestor) {
+  const workById = new Map(developments.map(work => [work.id, work]));
+  return refs.flatMap(ref => {
+    const work = workById.get(ref.id);
+    if (!work?.resumedAt) return [ref];
+    const base = work.publicationBaseCommit;
+    if (!/^[a-f0-9]{40}$/i.test(base || '') || ref.commit === base) return [];
+    try {
+      return isAncestor(base, ref.commit) ? [{ ...ref, resumedAt: work.resumedAt }] : [];
+    } catch (_) { return []; } // An unavailable base cannot prove publication of resumed work.
+  });
+}
+
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
 module.exports.buildPush = buildPush;
+module.exports.scopeReferences = scopeReferences;

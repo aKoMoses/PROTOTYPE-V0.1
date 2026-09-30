@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
+const { execFile, execFileSync } = require('node:child_process');
+const { promisify } = require('node:util');
 const { compact, isReadOnly, isPublicationOnly, hook, files } = require('./coordinate.cjs');
 test('reads need no claim; shell writes and patches do; only coordination commands are exempt', () => {
   const shell = command => ({ tool_name: 'Bash', tool_input: { command } });
@@ -27,6 +29,45 @@ test('context is bounded and prioritizes unfinished work over published history'
   assert.ok(text.length <= 850);
   assert.match(text.split('\n')[0], /terminé localement/);
   assert.match(text, /autres sur le site/);
+});
+
+test('the CLI reports a resumed reservation and saves its new lease under the existing id', async () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'prototype-coordination-resume-cli-'));
+  const session = 'resume-cli-test-session', local = files(repo, session);
+  const id = 'bdcf58da-7c52-4f4d-ab8e-e19a6701e3a7';
+  const record = { id, title: 'Préparer les sons des pièges', status: 'active', leaseToken: 'fresh-test-lease' };
+  let seen;
+  const server = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    seen = JSON.parse(raw);
+    assert.equal(req.headers.authorization, 'Bearer private-test-token');
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ record, resumed: true, warnings: [] }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: repo, windowsHide: true });
+    execFileSync('git', ['-c', 'user.name=Coordination Test', '-c', 'user.email=coordination@example.invalid', 'commit', '--quiet', '--allow-empty', '-m', 'Fixture'], { cwd: repo, windowsHide: true });
+    fs.mkdirSync(path.dirname(local.config), { recursive: true });
+    fs.writeFileSync(local.config, JSON.stringify({ actor: 'morepudding', token: 'private-test-token', site: `http://127.0.0.1:${server.address().port}` }));
+    fs.mkdirSync(path.dirname(local.state), { recursive: true });
+    fs.writeFileSync(local.state, JSON.stringify({ record: { ...record, status: 'local', leaseToken: 'previous-test-lease' } }));
+    const { stdout } = await promisify(execFile)(process.execPath, [path.join(__dirname, 'coordinate.cjs'), 'claim', '--session', session,
+      '--title', record.title, '--topic', 'audio-pieges-duel', '--sectors', 'effets-sonores', '--files', 'audio-lab/arena-traps'], { cwd: repo, windowsHide: true });
+    assert.match(stdout, /^Repris : Préparer les sons des pièges/);
+    assert.ok(stdout.includes(`Prototype-Work: ${id}`));
+    assert.ok(!stdout.includes('test-token') && !stdout.includes('test-lease'));
+    assert.deepEqual(JSON.parse(fs.readFileSync(local.state, 'utf8')).record, record);
+    assert.equal(seen.action, 'claim');
+    assert.equal(seen.session, session);
+    assert.deepEqual(seen.files, ['audio-lab/arena-traps']);
+    assert.match(seen.baseCommit, /^[a-f0-9]{40}$/);
+    assert.deepEqual(Object.keys(seen).sort(), ['action', 'baseCommit', 'files', 'sectors', 'session', 'title', 'topic']);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    assert.equal(path.dirname(path.resolve(repo)), path.resolve(os.tmpdir()));
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
 });
 test('finished local or published work can be staged without enabling file edits or bypassing outages', async () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'prototype-coordination-finished-'));
