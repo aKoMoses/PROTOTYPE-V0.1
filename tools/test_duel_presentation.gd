@@ -94,19 +94,20 @@ func _initialize() -> void:
 
 func _on_node_added(node: Node) -> void:
 	if node.get_script() != null and node.get_script().resource_path == "res://scripts/live_projectile.gd":
-		# Freeze travel until configuration has completed and the spawn is sampled.
-		node.set_physics_process(false)
-		call_deferred("_record_shot", node, player_shots)
+		var muzzle := Vector3.ZERO
+		if player_shots:
+			var marker: Node3D = player.get("_blaster_muzzle" if player.call("get_weapon_id") == "blaster" else "_shotgun_muzzle")
+			muzzle = marker.global_position
+		call_deferred("_record_shot", node, player_shots, muzzle)
 
-func _record_shot(node: Node3D, from_player: bool) -> void:
+func _record_shot(node: Node3D, from_player: bool, muzzle: Vector3) -> void:
 	if not is_instance_valid(node):
 		return
-	var muzzle := node.global_position
-	if from_player:
-		var marker: Node3D = player.get("_blaster_muzzle" if player.call("get_weapon_id") == "blaster" else "_shotgun_muzzle")
-		muzzle = marker.global_position
-	shots.append({"origin": node.global_position, "direction": node.get("_direction"), "muzzle": muzzle})
-	node.set_physics_process(true)
+	var direction: Vector3 = node.get("_direction")
+	# A physics tick can precede this deferred sample. Undo its measured travel,
+	# and compare with the muzzle sampled at creation, before recoil advances.
+	var origin := node.global_position - direction * float(node.get("_distance"))
+	shots.append({"origin": origin, "direction": direction, "muzzle": muzzle if from_player else origin})
 
 func _clear_shots(scene: Node) -> void:
 	scene.call("clear_transient_fx")

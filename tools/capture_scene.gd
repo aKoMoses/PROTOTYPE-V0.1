@@ -64,6 +64,25 @@ func _initialize() -> void:
 			if arena_target != null:
 				arena_target.position = Vector3(5.0, 0.0, -20.0)
 				arena_target.call("set_training_bot_enabled", false)
+		elif arguments[1] == "shotgun_cursor":
+			flow.call("_start_duel")
+			flow.call("_begin_live_round")
+			var cursor_player: Node3D = scene.get_node("Player")
+			var cursor_target: Node3D = scene.get_node("TargetDummy")
+			cursor_player.set_physics_process(false)
+			cursor_player.set_process(false)
+			cursor_player.position = Vector3.ZERO
+			cursor_target.position = Vector3(-2.5, 0.0, 0.0)
+			cursor_target.call("set_training_bot_enabled", false)
+			cursor_target.call("reset_combat_state")
+			cursor_player.call("set_weapon", "shotgun")
+			await process_frame
+			var camera := root.get_camera_3d()
+			var cursor := camera.unproject_position(cursor_target.global_position + Vector3.UP * 1.35)
+			cursor_player.call("_aim_at_screen_position", cursor, camera)
+			cursor_player.call("_perform_shotgun_attack")
+			await create_timer(0.24).timeout
+			print("CURSOR SHOTGUN CAPTURE: bot health=", cursor_target.call("get_health"))
 		elif arguments[1] == "shotgun_damage":
 			flow.call("_start_duel")
 			flow.call("_begin_live_round")

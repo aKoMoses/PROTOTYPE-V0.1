@@ -6,11 +6,15 @@ Passe du 28 septembre 2026, corrigée pour le duel le 30 septembre 2026.
 
 `Player.aim_direction` est la source de vérité horizontale commune au joystick droit, au facing de combat, à la direction centrale du blaster/shotgun, au muzzle flash et aux projectiles. Les directions de tir ne sont plus recalculées depuis la rotation visuelle momentanée du squelette. Le recul reste donc un delta visuel et ne peut pas devenir la nouvelle direction logique.
 
+La souris est projetée sur le plan de combat à hauteur du corps (`MOUSE_AIM_HEIGHT`, 1,35 m), plutôt que sur le sol. Avec la caméra inclinée, une projection au sol décalait le tir lorsque le curseur était posé sur le torse d’un robot placé sur le côté.
+
 Chaque arme possède un `Marker3D` `Muzzle` et déclare son axe local avant via la métadonnée `weapon_forward_axis` (`-Z` Godot). Les rotations `±90°` restantes ne concernent que les wrappers des meshes GLB importés ; elles ne participent ni à la visée ni au calcul des projectiles.
 
 Le shotgun échantillonne la pose finale du squelette au moment réel de l’émission, après ses 100 ms de préparation. Ses six projectiles forment un cône symétrique autour de la visée, sans convergence artificielle vers un point situé devant le joueur. Le blaster conserve sa trajectoire sur l’axe logique, sans redirection vers le centre d’une cible proche.
 
 Un tap de blaster trop court pour terminer la montée et chaque salve de shotgun attendent le prochain `skeleton_updated` avant de lire `Muzzle.global_position`. Les projectiles partent ainsi de la pose de tir à jour. Si le canon traverse un obstacle, l’origine de sécurité reste au niveau du corps pour éviter de tirer à travers un mur.
+
+Les contrôles de l’origine et du déplacement des projectiles acceptent les collisions dont le point de départ est déjà à l’intérieur du volume. Au contact, un canon dépassant le bot ne permet donc plus aux plombs de naître derrière lui. Les mêmes règles s’appliquent aux tirs du bot et aux obstacles ; aucun dégât n’est accordé à une trajectoire qui manque réellement la cible.
 
 ## Machine d’états
 
@@ -56,3 +60,5 @@ Le bot affiche le blaster ou le shotgun correspondant à son équipement. Sa vis
 Le HUD standard masque le bloc de vie/munitions en double, conserve les informations au-dessus des robots et aligne le score, la pause et les trois modules compacts. Les détails des modules sont accessibles dans les infobulles.
 
 Validation : tests de poses joueur (299 contrôles), poses bot (510 contrôles), blaster, shotgun, équipements du duel, déroulement du match, HUD, verrouillage des actions et contrôles tactiles. `tools/test_duel_presentation.gd` vérifie les tirs réels des deux armes à 2 et 5 mètres, les origines des projectiles et l’alignement du HUD à 1280×720, 1600×720 et 1024×600. Les captures du duel et des poses ont été inspectées ; le ressenti pendant un duel joué manuellement reste à retester.
+
+La régression de tirs traversants est couverte par `tools/test_shotgun_contact.gd` : 136 cas avec le vrai rig, les vraies collisions et les dégâts, de 0,65 à 6,5 mètres, huit directions, des poses de déplacement et le curseur sur trois hauteurs du torse. Avant correction, 12 des 88 premiers cas échouaient ; après correction, les 136 passent. Les tests shotgun (mur, esquive, critique, munitions/recharge), blaster, équipements du duel et effets visuels passent également. `captures/shotgun-cursor-fixed.png` montre le tir à 2,5 mètres sur le bot placé à gauche et les dégâts obtenus.

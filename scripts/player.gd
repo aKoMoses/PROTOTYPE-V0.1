@@ -32,6 +32,7 @@ const SHOTGUN_CYCLE_SOUND: AudioStream = preload("res://art/audio/shotgun-cycle-
 const SHOTGUN_RELOAD_SOUND: AudioStream = preload("res://art/audio/shotgun-reload-a.wav")
 const PLAYER_BASE_VISUAL_SCALE := 0.88
 const HEALTH_READOUT_BASE_HEIGHT := 2.95
+const MOUSE_AIM_HEIGHT := 1.35
 
 @export var move_speed := 5.0
 var _robot_id := COMBAT_DATA.DEFAULT_ROBOT
@@ -715,14 +716,21 @@ func _update_aim() -> void:
 	if camera == null:
 		return
 	var mouse_position := get_viewport().get_mouse_position()
+	_aim_at_screen_position(mouse_position, camera)
+
+
+func _aim_at_screen_position(mouse_position: Vector2, camera: Camera3D) -> void:
 	var ray_origin := camera.project_ray_origin(mouse_position)
 	var ray_direction := camera.project_ray_normal(mouse_position)
 	if absf(ray_direction.y) < 0.001:
 		return
-	var distance_to_ground := -ray_origin.y / ray_direction.y
-	if distance_to_ground <= 0.0:
+	# The isometric camera projects the torso and the floor to different pixels.
+	# Aim on the combat plane so pointing at a robot's body does not turn the
+	# barrel toward a point behind it, especially when it stands to either side.
+	var distance_to_aim_plane := (global_position.y + MOUSE_AIM_HEIGHT - ray_origin.y) / ray_direction.y
+	if distance_to_aim_plane <= 0.0:
 		return
-	var aim_point := ray_origin + ray_direction * distance_to_ground
+	var aim_point := ray_origin + ray_direction * distance_to_aim_plane
 	var flat_direction := aim_point - global_position
 	flat_direction.y = 0.0
 	if flat_direction.length_squared() > 0.04:
@@ -4012,6 +4020,9 @@ func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
 	var query := PhysicsRayQueryParameters3D.create(origin, muzzle)
 	query.collision_mask = 1 | 2 | 4 | 8
 	query.collide_with_areas = true
+	# A contact overlap can put the reference point inside the target. Without
+	# inside hits this segment ignores it and emits beyond the far side.
+	query.hit_from_inside = true
 	query.exclude = [get_rid()]
 	return origin if not get_world_3d().direct_space_state.intersect_ray(query).is_empty() else muzzle
 

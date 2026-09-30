@@ -36,9 +36,13 @@ func _physics_process(delta: float) -> void:
 	query.collision_mask = _collision_mask
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
+	# Close shots and moving actors can overlap the start of this sweep.
+	query.hit_from_inside = true
 	query.exclude = _excluded
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
+		if (hit["normal"] as Vector3).is_zero_approx():
+			hit["normal"] = -_direction
 		_distance += global_position.distance_to(hit["position"])
 		global_position = hit["position"]
 		_finish(hit)

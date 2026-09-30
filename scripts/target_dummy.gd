@@ -115,6 +115,7 @@ func prepare_training_bot_shot(aim_point: Vector3) -> Transform3D:
 		var query := PhysicsRayQueryParameters3D.create(origin, shot.origin)
 		query.collision_mask = 1 | 2 | 4 | 8
 		query.collide_with_areas = true
+		query.hit_from_inside = true
 		query.exclude = [get_rid()]
 		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
 			shot.origin = origin
