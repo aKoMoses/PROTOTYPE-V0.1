@@ -211,6 +211,7 @@ var visibility_state
 var _current_bush: Node3D
 var _current_bush_name := ""
 var _bush_transition_clock := 0.0
+var _low_health_sound_armed := true
 var _dash_active := false
 var _dash_token := 0
 var _dash_direction := Vector3.ZERO
@@ -414,6 +415,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.reset_locomotion()
 	_blaster_attack_token += 1
 	_shotgun_attack_token += 1
 	_module_token += 1
@@ -507,6 +511,7 @@ func _physics_process(delta: float) -> void:
 	_update_baroud_presentation()
 	if passive_state != null and passive_state.real_dead:
 		velocity = Vector3.ZERO
+		get_node("/root/GameSfx").reset_locomotion()
 		return
 	var stasis_active := _stasis_remaining > 0.0
 	if stasis_active:
@@ -531,6 +536,8 @@ func _physics_process(delta: float) -> void:
 	if combat_state != null and combat_state.is_stunned() and _pelto_phase != "":
 		_cancel_pelto_smash("PELTO SMASH  •  INTERROMPU")
 	_try_execute_defensive_buffer()
+	var sound_start_position := global_position
+	var sound_walking := not (_dash_active or _fulguro_projection_active or _pelto_pull_active or _stasis_remaining > 0.0)
 	_update_movement(delta)
 	# Sample action commands while the current cast still owns the frame. This
 	# prevents a held input from slipping through on the exact recovery frame.
@@ -542,6 +549,9 @@ func _physics_process(delta: float) -> void:
 	_update_robot_motion(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
+	get_node("/root/GameSfx").update_locomotion(
+		global_position.distance_to(sound_start_position), delta,
+		_current_bush != null, sound_walking)
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and (_blaster_charge_active or _touch_fire_active):
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
@@ -1246,6 +1256,7 @@ func clear_touch_inputs() -> void:
 
 func set_gameplay_enabled(value: bool) -> void:
 	_gameplay_enabled = value
+	get_node("/root/GameSfx").reset_locomotion()
 	if not value:
 		_static_pulse_token += 1
 		_reset_weapon_pose_to_locomotion(true)
@@ -1282,6 +1293,7 @@ func _consume_touch_action(action: String) -> bool:
 
 
 func _mark_combat_event() -> void:
+	get_node("/root/GameSfx").mark_combat()
 	if visibility_state != null:
 		visibility_state.mark_combat_event()
 
@@ -1339,10 +1351,13 @@ func _update_bush_state(delta: float) -> void:
 
 func _sync_bush_state() -> void:
 	var next_bush := _find_bush_at_position()
+	var was_in_bush := _current_bush != null
 	var changed := next_bush != _current_bush
 	_current_bush = next_bush
 	_current_bush_name = str(next_bush.name) if next_bush != null else ""
 	if changed:
+		if _gameplay_enabled and was_in_bush != (_current_bush != null):
+			get_node("/root/GameSfx").play_event("bush_entry" if _current_bush != null else "bush_exit")
 		_bush_transition_clock = 0.22
 		bush_state_changed.emit(_current_bush != null, _current_bush_name)
 
@@ -1381,6 +1396,8 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 		visibility_state.mark_combat_event()
 	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
 	if bool(result["triggered_baroud"]):
+		get_node("/root/GameSfx").play_event("baroud_activation")
+		_low_health_sound_armed = false
 		if survival_mode and survival_evolution_effects != null:
 			combat_state.health = 1.0
 			combat_state.health_changed.emit(combat_state.health, combat_state.max_health)
@@ -1740,6 +1757,12 @@ func get_active_effect_types() -> Array[String]:
 
 
 func _on_health_changed(current: float, maximum: float) -> void:
+	var ratio := current / maxf(maximum, 1.0)
+	if ratio >= 0.4:
+		_low_health_sound_armed = true
+	elif current > 0.0 and ratio <= 0.25 and _low_health_sound_armed and _gameplay_enabled and not training_invulnerable:
+		_low_health_sound_armed = false
+		get_node("/root/GameSfx").play_event("low_health")
 	if _health_readout != null:
 		_health_readout.call("set_health", current, maximum)
 
@@ -1799,6 +1822,8 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	_low_health_sound_armed = true
+	get_node("/root/GameSfx").reset_locomotion()
 	_received_attack_ids.clear()
 	clear_touch_inputs()
 	_clear_defensive_buffer()

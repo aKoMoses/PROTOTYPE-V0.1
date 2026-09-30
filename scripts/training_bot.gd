@@ -908,6 +908,7 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_charge_target = player.global_position
 				_windup_player = player
 				_windup_remaining = 0.75
+				get_node("/root/GameSfx").play_enemy("enemy_charge_warning", bot_body.global_position, player.global_position)
 				_update_telegraph()
 			else:
 				_action_gate.release(_attack_action_token)
@@ -927,6 +928,7 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_charge_remaining = 0.8
 				_charge_hit = false
 			elif survival_role == "chaser":
+				get_node("/root/GameSfx").play_enemy("enemy_melee", bot_body.global_position, player.global_position)
 				if distance < 2.2 and _line_of_sight_clear(bot_body, player):
 					player.call("take_damage", training_attack_damage, "survival_melee", "melee:%d:%d" % [get_instance_id(), _attack_serial])
 			else:
@@ -967,6 +969,8 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		_charge_target = player.global_position
 		_windup_player = player
 		_windup_remaining = (0.65 if boss_phase_two else 0.85) if survival_role in ["charger", "boss"] else 0.6 if survival_elite == "spread" else 0.45
+		if survival_role == "charger" or (survival_role == "boss" and _attack_serial % 2 == 1):
+			get_node("/root/GameSfx").play_enemy("enemy_charge_warning", bot_body.global_position, player.global_position)
 		_update_telegraph()
 
 
@@ -1555,6 +1559,8 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
+	if offset == Vector3.ZERO:
+		get_node("/root/GameSfx").play_enemy("enemy_shot", bot_body.global_position, player.global_position)
 	if survival_role != "" and offset != Vector3.ZERO:
 		var toward := (player.global_position - bot_body.global_position).normalized()
 		offset = Vector3(-toward.z, 0.0, toward.x).normalized() * offset.x
