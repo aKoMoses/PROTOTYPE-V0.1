@@ -49,6 +49,23 @@ func _process(delta: float) -> void:
 		var fade: float = 1.0 - progress
 		if effect.kind == "decal":
 			fade = 1.0 - smoothstep(0.65, 1.0, progress)
+		elif effect.kind == "shotgun_trail":
+			if effect.attachment != null:
+				var projectile: Node3D = effect.attachment.get_ref()
+				var length := minf(0.95, projectile.global_position.distance_to(effect.origin))
+				node.scale = Vector3(0.13, 0.09, maxf(length, 0.001))
+				fade = 1.0
+		elif effect.kind == "shotgun_flame":
+			node.scale *= Vector3.ONE * (0.75 + sin(progress * PI) * 0.35)
+			fade = 1.0 - smoothstep(0.16, 1.0, progress)
+		elif effect.kind == "shotgun_pressure":
+			node.position += effect.drift * delta
+			node.scale = effect.size * lerpf(0.35, 1.65, 1.0 - pow(1.0 - progress, 2.0))
+			fade = pow(1.0 - progress, 2.0)
+		elif effect.kind == "shotgun_spark":
+			node.position += effect.drift * delta
+			node.scale = effect.size * Vector3(1.0 - progress, 1.0 - progress, 1.0 + progress * 0.5)
+			fade = pow(1.0 - progress, 1.5)
 		elif effect.kind == "smoke":
 			node.position += effect.drift * delta
 			node.scale = effect.size * (1.0 + progress * 1.3)
@@ -69,20 +86,22 @@ func _process(delta: float) -> void:
 func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 	if not is_instance_valid(socket) or not socket.is_inside_tree():
 		return
-	var shotgun := weapon == "shotgun"
+	if weapon == "shotgun":
+		_shotgun_muzzle(socket)
+		return
 	var enemy := weapon == "enemy"
 	var charge_curve := charge * charge
-	var color := Color("#ff8f3f") if shotgun else (Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.72))
-	var length := 0.92 if shotgun else (0.48 if enemy else lerpf(0.46, 0.80, charge_curve))
-	var radius := 0.30 if shotgun else (0.16 if enemy else lerpf(0.145, 0.24, charge_curve))
-	var life := muzzle_lifetime + (0.014 if shotgun or charge > 0.6 else 0.0)
+	var color := Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.72)
+	var length := 0.48 if enemy else lerpf(0.46, 0.80, charge_curve)
+	var radius := 0.16 if enemy else lerpf(0.145, 0.24, charge_curve)
+	var life := muzzle_lifetime + (0.014 if charge > 0.6 else 0.0)
 	if weapon == "longshot":
 		color = Color("#55e5f2") if charge < 0.5 else Color("#a7f5ff")
 		length = 0.58 if charge < 0.5 else 0.78
 		radius = 0.15 if charge < 0.5 else 0.225
 	var variation := _rng.randf_range(0.92, 1.08)
 	for core in [false, true]:
-		var core_color := Color("#fff3d2") if shotgun else (Color("#ffe0d8") if enemy else Color("#e8fdff"))
+		var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
 		var effect := _mesh_effect("muzzle", core_color if core else color, life, 0.96 if core else 0.62)
 		effect.attachment = weakref(socket)
 		effect.offset = Vector3(0.0, 0.0, -length * 0.5)
@@ -90,10 +109,7 @@ func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 		effect.node.scale = effect.size
 		_follow_attachment(effect)
 	var direction := -socket.global_basis.z.normalized()
-	if shotgun:
-		burst(socket.global_position, direction, Color("#ffd49a"), 5, 3.4, 0.15, 0.032, 32.0)
-		_smoke(socket.global_position + direction * 0.15, direction, 0.24, 0.32, Color("#41474b"))
-	elif charge > 0.6:
+	if charge > 0.6:
 		burst(socket.global_position, direction, color, 4, 2.6, 0.15, 0.032, 24.0)
 
 
@@ -102,35 +118,90 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 	if weapon == "longshot":
 		_longshot_projectile_visual(parent, charge >= 0.5)
 		return
-	var shotgun := weapon == "shotgun"
+	if weapon == "shotgun":
+		_shotgun_projectile(parent)
+		return
 	var enemy := weapon == "enemy"
 	var charge_curve := charge * charge
-	var color := Color("#ff974a") if shotgun else (Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.74))
+	var color := Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.74)
 	var core := MeshInstance3D.new()
 	core.name = "ProjectileCore"
 	core.mesh = _mesh("tracer")
-	var core_color := Color("#fff3d2") if shotgun else (Color("#ffe0d8") if enemy else Color("#e8fdff"))
+	var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
 	core.material_override = _material(core_color, 0.98, true)
-	core.scale = Vector3(0.085 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.065 if shotgun else (0.050 if enemy else lerpf(0.048, 0.095, charge_curve)), 0.55 if shotgun else (0.62 if enemy else lerpf(0.62, 1.00, charge_curve)))
+	core.scale = Vector3(0.050 if enemy else lerpf(0.048, 0.095, charge_curve), 0.050 if enemy else lerpf(0.048, 0.095, charge_curve), 0.62 if enemy else lerpf(0.62, 1.00, charge_curve))
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(core)
-	if not shotgun:
-		var sheath := MeshInstance3D.new()
-		sheath.name = "ProjectileSheath"
-		sheath.mesh = core.mesh
-		sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
-		sheath.scale = core.scale * Vector3(2.10 + charge_curve * 0.35, 2.10 + charge_curve * 0.35, 1.28)
-		sheath.position.z = 0.10 + charge_curve * 0.08
-		sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(sheath)
-	else:
-		var sheath := MeshInstance3D.new()
-		sheath.name = "ProjectileSheath"
-		sheath.mesh = core.mesh
-		sheath.material_override = _material(color, 0.48, true)
-		sheath.scale = core.scale * Vector3(1.8, 1.8, 1.2)
-		sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(sheath)
+	var sheath := MeshInstance3D.new()
+	sheath.name = "ProjectileSheath"
+	sheath.mesh = core.mesh
+	sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
+	sheath.scale = core.scale * Vector3(2.10 + charge_curve * 0.35, 2.10 + charge_curve * 0.35, 1.28)
+	sheath.position.z = 0.10 + charge_curve * 0.08
+	sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(sheath)
+
+
+func _shotgun_muzzle(socket: Node3D) -> void:
+	var variation := _rng.randf_range(0.93, 1.07)
+	for layer in [0, 1, 2]:
+		var color: Color = [Color("#ff641c"), Color("#ffb54f"), Color("#fff5d9")][layer]
+		var effect := _mesh_effect("shotgun_flame", color, [0.11, 0.085, 0.065][layer], [0.45, 0.68, 0.96][layer])
+		effect.attachment = weakref(socket)
+		effect.size = [Vector3(0.72, 0.50, 1.30), Vector3(0.44, 0.32, 1.04), Vector3(0.18, 0.17, 0.80)][layer] * variation
+		effect.offset = Vector3(0.0, 0.0, -effect.size.z * 0.48)
+		_follow_attachment(effect)
+	var direction := -socket.global_basis.z.normalized()
+	var pressure := _mesh_effect("shotgun_pressure", Color("#ffc789"), 0.15, 0.42)
+	pressure.node.position = socket.global_position + direction * 0.18
+	pressure.node.basis = _surface_basis(direction)
+	pressure.size = Vector3(0.48, 0.48, 0.48)
+	pressure.node.scale = pressure.size * 0.35
+	pressure.drift = direction * 3.4
+	burst(socket.global_position + direction * 0.12, direction, Color("#ffd18a"), 9, 5.0, 0.22, 0.036, 28.0)
+	_smoke(socket.global_position + direction * 0.25, direction, 0.30, 0.36, Color("#525052"))
+
+
+func _shotgun_projectile(projectile: Node3D) -> void:
+	var core := MeshInstance3D.new()
+	core.name = "ProjectileCore"
+	core.mesh = _mesh("tracer")
+	core.material_override = _material(Color("#fff1cb"), 0.98, true)
+	# The sweep position is the leading edge; all light stays behind it.
+	core.scale = Vector3(0.085, 0.07, 0.24)
+	core.position.z = 0.12
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	projectile.add_child(core)
+	var trail := _mesh_effect("shotgun_trail", Color("#ff9b38"), 2.0, 0.72)
+	trail.attachment = weakref(projectile)
+	trail.origin = projectile.global_position
+	trail.size = Vector3(0.13, 0.09, 0.001)
+	_follow_attachment(trail)
+	if projectile.has_signal("finished"):
+		projectile.connect("finished", func(_hit: Dictionary, _distance: float) -> void:
+			if _active.has(trail):
+				_follow_attachment(trail)
+				trail.node.scale.z = maxf(0.001, minf(0.95, projectile.global_position.distance_to(trail.origin)))
+				trail.attachment = null
+				trail.age = 0.0
+				trail.life = 0.065
+		)
+
+
+func shotgun_impact(position: Vector3, normal: Vector3, surface: String, power: float = 1.0) -> void:
+	impact(position, normal, surface, power, Color("#ffaf59"))
+	var n := normal.normalized() if not normal.is_zero_approx() else Vector3.UP
+	var basis := _surface_basis(n)
+	# A few authored streaks give contacts a readable silhouette even on mobile.
+	for index in range(2 if quality == Quality.LOW else 4):
+		var angle := _rng.randf_range(-PI, PI)
+		var direction := (n * 0.75 + (basis.x * cos(angle) + basis.z * sin(angle)) * 0.65).normalized()
+		var spark := _mesh_effect("shotgun_spark", Color("#ffcd81"), _rng.randf_range(0.16, 0.23), 0.85)
+		spark.node.position = position + n * 0.03
+		spark.node.basis = _forward_basis(direction)
+		spark.size = Vector3(0.038, 0.038, _rng.randf_range(0.18, 0.34))
+		spark.node.scale = spark.size
+		spark.drift = direction * _rng.randf_range(3.5, 6.0)
 
 
 func _longshot_projectile_visual(parent: Node3D, enhanced: bool) -> void:
@@ -419,10 +490,12 @@ func _make_node(kind: String) -> Node3D:
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = _mesh(kind)
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var additive := kind in ["muzzle", "tracer", "flash", "ring"]
+		var additive := kind in ["muzzle", "tracer", "flash", "ring", "shotgun_flame", "shotgun_pressure", "shotgun_trail", "shotgun_spark"]
 		var material := _material(Color.WHITE, 0.92, additive)
 		if additive:
 			material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		if kind == "shotgun_trail":
+			material.vertex_color_use_as_albedo = true
 		if kind in ["decal", "smoke"]:
 			material.emission_enabled = false
 			material.albedo_texture = _texture(kind)
@@ -445,7 +518,7 @@ func _mesh(kind: String) -> Mesh:
 		mesh.size = Vector2.ONE
 	elif kind == "smoke":
 		mesh = QuadMesh.new()
-	elif kind == "ring":
+	elif kind in ["ring", "shotgun_pressure"]:
 		mesh = TorusMesh.new()
 		mesh.inner_radius = 0.84
 		mesh.outer_radius = 1.0
@@ -453,8 +526,12 @@ func _mesh(kind: String) -> Mesh:
 		mesh.ring_segments = 20
 	elif kind == "muzzle":
 		mesh = _faceted_bolt_mesh([Vector2(0.06, 0.50), Vector2(0.48, 0.18), Vector2(0.30, -0.22), Vector2(0.02, -0.50)])
-	elif kind == "tracer":
+	elif kind in ["tracer", "shotgun_spark"]:
 		mesh = _faceted_bolt_mesh([Vector2(0.08, 0.50), Vector2(0.46, 0.34), Vector2(0.46, -0.34), Vector2(0.08, -0.50)])
+	elif kind == "shotgun_flame":
+		mesh = _faceted_bolt_mesh([Vector2(0.10, 0.50), Vector2(0.42, 0.28), Vector2(0.50, 0.06), Vector2(0.22, -0.10), Vector2(0.31, -0.28), Vector2(0.0, -0.50)])
+	elif kind == "shotgun_trail":
+		mesh = _shotgun_trail_mesh()
 	elif kind == "flash":
 		mesh = _impact_star_mesh()
 	else:
@@ -546,5 +623,22 @@ func _impact_star_mesh() -> ImmediateMesh:
 		mesh.surface_add_vertex(Vector3.ZERO)
 		mesh.surface_add_vertex(Vector3(cos(angle_a) * radius_a, 0.0, sin(angle_a) * radius_a))
 		mesh.surface_add_vertex(Vector3(cos(angle_b) * radius_b, 0.0, sin(angle_b) * radius_b))
+	mesh.surface_end()
+	return mesh
+
+
+func _shotgun_trail_mesh() -> ImmediateMesh:
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for side in range(4):
+		var a := TAU * float(side) / 4.0 + PI * 0.25
+		var b := a + PI * 0.5
+		var front_a := Vector3(cos(a) * 0.5, sin(a) * 0.5, 0.0)
+		var front_b := Vector3(cos(b) * 0.5, sin(b) * 0.5, 0.0)
+		var tail_a := Vector3(cos(a) * 0.04, sin(a) * 0.04, 1.0)
+		var tail_b := Vector3(cos(b) * 0.04, sin(b) * 0.04, 1.0)
+		for point in [front_a, front_b, tail_b, front_a, tail_b, tail_a]:
+			mesh.surface_set_color(Color(1.0, 0.86, 0.60, 1.0) if point.z < 0.5 else Color(1.0, 0.22, 0.03, 0.0))
+			mesh.surface_add_vertex(point)
 	mesh.surface_end()
 	return mesh

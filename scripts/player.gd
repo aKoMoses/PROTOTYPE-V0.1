@@ -1657,7 +1657,7 @@ func _visual_contact(start: Vector3, end: Vector3, target: Node = null) -> Dicti
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 
-func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0) -> void:
+func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0, weapon: String = "") -> void:
 	var vfx := _vfx_manager()
 	if vfx == null or contact.is_empty():
 		return
@@ -1665,7 +1665,10 @@ func _contact_fx(contact: Dictionary, color: Color, power: float = 1.0) -> void:
 	if not is_instance_valid(collider):
 		collider = null
 	var surface: String = vfx.call("surface_for", collider)
-	vfx.call("impact", contact["position"], contact["normal"], surface, power, color)
+	if weapon == "shotgun":
+		vfx.call("shotgun_impact", contact["position"], contact["normal"], surface, power)
+	else:
+		vfx.call("impact", contact["position"], contact["normal"], surface, power, color)
 	if surface == "shield" and collider != null and collider.name == "MagneticField":
 		get_node("/root/GameSfx").play_event("magnetic_absorb")
 	elif surface != "robot" and surface != "shield":
@@ -2638,8 +2641,6 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, salvo: Diction
 	var vfx := _vfx_manager()
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "shotgun", 0.0)
-		if index % 2 == 0:
-			vfx.call("tracer", start, start + direction * 2.2, 0.055, Color("#ffc077"), 0.11)
 
 
 func _on_shotgun_pellet_finished(hit: Dictionary, distance: float, salvo: Dictionary, index: int) -> void:
@@ -2650,7 +2651,7 @@ func _on_shotgun_pellet_finished(hit: Dictionary, distance: float, salvo: Dictio
 		_resolve_shotgun_projectile(salvo, index, true, target, distance)
 	# Three readable impact clusters communicate the six-pellet spread.
 	if index % 2 == 0:
-		_contact_fx(hit, Color("#e39a54"), 0.72)
+		_contact_fx(hit, Color("#e39a54"), 1.05, "shotgun")
 
 func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, target: Node, distance: float) -> void:
 	if not did_hit or target == null or not is_instance_valid(target):
