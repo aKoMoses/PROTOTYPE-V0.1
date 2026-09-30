@@ -176,14 +176,29 @@ func _initialize() -> void:
 	var shotgun_player := shotgun_scene.get_node("Player")
 	_check(str(shotgun_player.call("get_weapon_id")) == "shotgun", "départ au Shotgun")
 	_check(float(shotgun_player.get("_shotgun_pellet_damage")) < 20.0, "Shotgun affaibli au départ")
+	# Emission waits for the final skeleton pose after preparation. Observe each
+	# actual projectile after its initialization, rather than one platform-specific
+	# instant or its name (Godot renames the second and subsequent siblings).
+	var visible_pellets: Dictionary = {}
+	var source_id := shotgun_player.get_instance_id()
+	var observe_pellet := func(reference: WeakRef) -> void:
+		var pellet := reference.get_ref() as Node3D
+		if pellet == null or pellet.get_parent() != shotgun_scene or int(pellet.get_meta("ai_projectile_source", 0)) != source_id:
+			return
+		var core := pellet.get_node_or_null("ProjectileCore") as MeshInstance3D
+		if core != null and core.mesh != null and core.is_visible_in_tree():
+			visible_pellets[pellet.get_instance_id()] = true
+	var observe_added := func(node: Node) -> void:
+		if node is Node3D and node.get_parent() == shotgun_scene:
+			observe_pellet.call_deferred(weakref(node))
+	node_added.connect(observe_added)
 	shotgun_player.call("set_touch_aim_vector", Vector2.UP)
 	shotgun_player.call("_perform_shotgun_attack")
-	await create_timer(0.16).timeout
-	var visible_pellets := 0
-	for pellet in get_nodes_in_group("prototype0_gameplay_projectiles"):
-		if pellet.name == "ShotgunPellet" and pellet.get_node_or_null("ProjectileCore") != null:
-			visible_pellets += 1
-	_check(visible_pellets > 0, "projectiles du Shotgun visibles en Survie")
+	var emission_deadline := Time.get_ticks_msec() + 2000
+	while visible_pellets.size() < 6 and Time.get_ticks_msec() < emission_deadline:
+		await process_frame
+	node_added.disconnect(observe_added)
+	_check(visible_pellets.size() == 6, "les six projectiles du Shotgun sont visibles dès leur émission en Survie")
 	shotgun_player.call("set_weapon", "blaster")
 	_check(str(shotgun_player.call("get_weapon_id")) == "shotgun", "Shotgun verrouillé pendant la partie")
 	var alternate: SurvivalProgression = shotgun_scene.get("progression")
