@@ -2009,6 +2009,8 @@ func reset_shotgun_state() -> void:
 	_shotgun_reload_remaining = 0.0
 	_shotgun_ammo = _shotgun_magazine_size
 	_kill_weapon_recoil_tweens(_shotgun_recoil_tweens)
+	if _shotgun_pivot != null:
+		_shotgun_pivot.transform = _shotgun_pivot_home_transform
 	if _shotgun_recoil_pivot != null:
 		_shotgun_recoil_pivot.transform = Transform3D.IDENTITY
 	if _shotgun_light != null:
@@ -2303,12 +2305,19 @@ func _update_shotgun_reload(delta: float) -> void:
 
 
 func _update_shotgun_reload_visual() -> void:
-	if not _shotgun_reloading or _shotgun_pivot == null or _weapon_id != "shotgun":
+	if _shotgun_pivot == null:
+		return
+	_shotgun_pivot.transform = _shotgun_pivot_home_transform
+	# The skeletal root is hand-local. The old body-space lift detaches the
+	# grip during reload and leaves the next muzzle more than a metre away.
+	if not _shotgun_reloading or _weapon_id != "shotgun" or _has_skeletal_weapon_attachment():
 		return
 	var phase := get_shotgun_reload_progress()
 	var lift := sin(phase * PI)
-	_shotgun_pivot.position = Vector3(0.58, 0.88 + 0.14 * lift, -0.36 + 0.12 * lift)
-	_shotgun_pivot.rotation = Vector3(-0.22 * lift, 0.0, 0.12 * lift)
+	var reload_transform := _shotgun_pivot_home_transform
+	reload_transform.origin += Vector3(0.0, 0.14 * lift, 0.12 * lift)
+	reload_transform.basis *= Basis.from_euler(Vector3(-0.22 * lift, 0.0, 0.12 * lift))
+	_shotgun_pivot.transform = reload_transform
 
 
 func _sync_weapon_readout() -> void:

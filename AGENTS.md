@@ -10,6 +10,8 @@ If a lease expires, recheck the board and claim again. Finish with `node tools/c
 
 If the local setup is missing, prepare read-only work and request activation with `node tools/coordinate.cjs setup` and `/hooks`. Never commit the local identity/token, disable the hooks, use a trust bypass, or silently continue edits when coordination is unavailable. Preserve unrelated changes and stage only the requested work.
 
+To continue locally finished work, recheck context and repeat the same claim with the original topic and session. This reopens the same reservation only for its original owner and conversation, and only when that conversation has no other active work. Published reservations are not reopened by claim.
+
 ## Prototype 0 paths
 
 - Godot project root (the directory containing `project.godot`): `C:\RomainOpen\perso\Studio\game-source`
