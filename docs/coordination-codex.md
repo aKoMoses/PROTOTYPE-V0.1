@@ -22,7 +22,7 @@ Si CODEX_THREAD_ID n’est pas exposé, ajouter `--session IDENTIFIANT` donné p
 
 Avant chaque écriture couverte, le hook renouvelle et vérifie la réservation. Sans activité pendant 45 minutes, elle apparaît interrompue ; il faut réserver à nouveau. Une interruption ou une fermeture la libère immédiatement lorsque le hook peut joindre le site. Une panne réseau bloque les écritures couvertes et laisse les lectures possibles. Rien n’est effacé automatiquement du disque.
 
-Après vérification du travail, `node tools/coordinate.cjs finish` affiche « Terminé localement, non publié ». Ajouter le trailer fourni à chaque commit contenant ce travail :
+Après vérification du travail, `node tools/coordinate.cjs finish --summary "Les bots contournent les couverts sans rester bloqués. Le comportement a été vérifié."` affiche « Terminé localement, non publié ». Codex fournit ce bref résumé public en français (deux phrases maximum) ; il est repris dans le bilan Discord du lendemain. Sans résumé, le titre sert de description. Ajouter le trailer fourni à chaque commit contenant ce travail :
 
 ```text
 Prototype-Work: identifiant-fourni-par-la-reservation
@@ -34,4 +34,6 @@ Le workflow GitHub de la branche main confirme « Publié » seulement pour les 
 
 Aucun modèle supplémentaire, agent PMD ou analyse de l’historique entier à chaque prompt. Le contexte initial est plafonné ; les appels de vérification ne produisent pas de texte lorsqu’ils réussissent. Le site reçoit seulement le titre court, les secteurs, les chemins relatifs et les références Git. Aucun prompt brut, transcript, code ou secret n’est envoyé au tableau.
 
-Les hooks complètent AGENTS.md. Ils couvrent les outils d’écriture et les commandes shell habituels ; ce ne sont pas une sandbox ni une protection contre un outil qui contourne volontairement ce parcours. Les anciennes conversations déjà ouvertes doivent relire les instructions, et les hooks nécessitent leur activation sur chaque machine. Le point quotidien Discord sur les responsabilités continue séparément.
+Les hooks complètent AGENTS.md. Ils couvrent les outils d’écriture et les commandes shell habituels ; ce ne sont pas une sandbox ni une protection contre un outil qui contourne volontairement ce parcours. Les anciennes conversations déjà ouvertes doivent relire les instructions, et les hooks nécessitent leur activation sur chaque machine.
+
+Chaque matin vers 9 h (heure de Paris), le salon Discord affiche les travaux terminés localement ou publiés la veille, regroupés par secteur et par personne. Une modification couvrant plusieurs secteurs apparaît une seule fois avec tous ses secteurs. Les travaux locaux portent la mention « sur le PC, à publier » ; une livraison ultérieure est signalée comme publication. Les heures de fin et de publication sont conservées indépendamment. Si rien n’a été terminé ou publié, le bot le dit simplement. Le message est limité à 1 900 caractères, avec un lien vers l’historique pour le complément éventuel et la répartition permanente.

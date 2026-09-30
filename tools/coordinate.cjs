@@ -50,9 +50,9 @@ function isReadOnly(payload) {
   if (/[|<>`]|\$\(|--output\b|\b(?:Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Invoke-Expression)\b/i.test(command)) return false;
   return command.split(/[;\r\n]+/).filter(Boolean).every(part => /^(?:git\s+(?:status|diff|log|show|rev-parse|ls-files|ls-remote|remote\s+-v)\b|rg\b|Get-(?:Content|ChildItem|Item|Location|Command)\b|Test-Path\b|pwd\b|ls\b|cat\b|head\b|tail\b)/i.test(part.trim()));
 }
-async function touch(config, state, session, action = 'heartbeat', timeout) {
+async function touch(config, state, session, action = 'heartbeat', timeout, extras = {}) {
   if (!state.record) throw new Error('Réserve cette modification avant d’écrire : node tools/coordinate.cjs claim --title "Modification précise" --topic "sujet-precis" --sectors "secteur" --files "scripts/fichier.gd"');
-  return request(config, { action, id: state.record.id, leaseToken: state.record.leaseToken, session }, timeout);
+  return request(config, { ...extras, action, id: state.record.id, leaseToken: state.record.leaseToken, session }, timeout);
 }
 async function hook(payload, repo = root(payload.cwd)) {
   const session = payload.session_id;
@@ -136,7 +136,7 @@ async function main() {
     return;
   }
   if (!['finish', 'cancel', 'heartbeat'].includes(command)) throw new Error('Commandes : setup, context, catalog, claim, heartbeat, finish, cancel, status.');
-  const result = await touch(config, state, session, command);
+  const result = await touch(config, state, session, command, undefined, command === 'finish' ? { summary: opts.summary || state.record?.title } : {});
   write(local.state, { ...state, record: result.record });
   console.log(`${LABELS[result.record.status]} : ${result.record.title}\nPrototype-Work: ${result.record.id}`);
 }
