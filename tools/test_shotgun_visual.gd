@@ -23,7 +23,7 @@ class ShotgunProbe:
 	var emissions: Array[Dictionary] = []
 	var shot_started_at := 0
 
-	func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, distance: float, did_hit: bool, target: Node, salvo: Dictionary, index: int) -> void:
+	func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, salvo: Dictionary, index: int) -> void:
 		emissions.append({
 			"start": start,
 			"endpoint": endpoint,
@@ -38,7 +38,7 @@ class ShotgunProbe:
 			"elapsed_ms": Time.get_ticks_msec() - shot_started_at,
 		})
 		# Keep the real projectile creation, spread and travel path under test.
-		super(start, endpoint, distance, did_hit, target, salvo, index)
+		super(start, endpoint, salvo, index)
 
 
 func _initialize() -> void:
@@ -220,7 +220,7 @@ func _test_emission_and_touch_attack() -> void:
 	_check(_player._shotgun_attack_busy and _player.get_shotgun_ammo() == 2, "touch fire starts one attack and consumes one shell")
 	_check(_player.emissions.is_empty() and not _rig.is_shot_kick_active(), "preparation does not emit pellets or start recoil early")
 	# Move and turn between the trigger and the delayed emission. Capture inside
-	# projectile creation, before any travel tween can advance the real pellets.
+	# projectile creation, before physics can advance the real pellets.
 	_player.global_position = Vector3(2.0, 0.0, 1.0)
 	_player.set_touch_aim_vector(Vector2.RIGHT)
 	_player._update_aim()
@@ -239,7 +239,9 @@ func _test_emission_and_touch_attack() -> void:
 		fresh_origin_and_aim = fresh_origin_and_aim and record.attack_origin.distance_to(record.player_origin) < 0.0001
 		fresh_origin_and_aim = fresh_origin_and_aim and record.attack_direction.dot(Vector3.RIGHT) >= 0.9999 and record.aim.dot(Vector3.RIGHT) >= 0.9999
 		minimum_elapsed = mini(minimum_elapsed, int(record.elapsed_ms))
-		var expected_direction: Vector3 = record.attack_direction.rotated(Vector3.UP, deg_to_rad(float(_player._shotgun_pellet_angles[int(record.index)])))
+		var crosshair: Vector3 = record.attack_origin + Vector3.UP * 0.9 + record.attack_direction * 2.2
+		var center_direction: Vector3 = (crosshair - record.start).normalized()
+		var expected_direction: Vector3 = center_direction.rotated(Vector3.UP, deg_to_rad(float(_player._shotgun_pellet_angles[int(record.index)])))
 		var actual_direction: Vector3 = record.endpoint - record.start
 		spread_preserved = spread_preserved and actual_direction.normalized().dot(expected_direction) >= 0.9999 and record.muzzle_forward.dot(record.aim) >= 0.98
 	_check(starts_at_muzzle, "all six pellets originate at the current nested GLB muzzle")

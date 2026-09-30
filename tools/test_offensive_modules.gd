@@ -14,9 +14,11 @@ func _initialize() -> void:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
 		await _test_drone_hit(player, target)
+		await _test_drone_live_collision(player, target)
 		await _test_drone_absorption(player, target, scene)
 		await _test_drone_cooldown(player, target)
 		await _test_javelin_mark_and_recast(player, target)
+		await _test_javelin_live_collision(player, target)
 		await _test_javelin_blocked_recast(player, target, scene)
 	if _failures.is_empty():
 		print("P0-105 OFFENSIVE MODULES TEST: PASS")
@@ -48,6 +50,29 @@ func _test_drone_hit(player: Node, target: Node) -> void:
 	var effects: Array = target.call("get_active_effect_types")
 	if not effects.has("BURN") or not effects.has("SPOTTED"):
 		_failures.append("Drone : BURN ou SPOTTED absent")
+
+
+func _test_drone_live_collision(player: Node, target: Node) -> void:
+	_prepare(player, target, Vector3(0.0, 0.0, -5.0))
+	player.call("_perform_modulo_drone")
+	var projectile := await _wait_for_projectile("ModuloDroneProjectile")
+	if projectile == null:
+		_failures.append("Drone : projectile non lancé")
+		return
+	target.global_position = Vector3(4.0, 0.0, -5.0)
+	await _wait_for_module(player)
+	if float(target.call("get_health")) < 999.95:
+		_failures.append("Drone : touche une cible qui a esquivé pendant le vol")
+	_prepare(player, target, Vector3(4.0, 0.0, -5.0))
+	player.call("_perform_modulo_drone")
+	projectile = await _wait_for_projectile("ModuloDroneProjectile")
+	if projectile == null:
+		_failures.append("Drone : second projectile non lancé")
+		return
+	target.global_position = Vector3(projectile.global_position.x, 0.0, -5.0)
+	await _wait_for_module(player)
+	if float(target.call("get_health")) >= 999.95:
+		_failures.append("Drone : ignore une cible entrée dans sa trajectoire")
 
 
 func _test_drone_absorption(player: Node, target: Node, scene: Node) -> void:
@@ -113,6 +138,29 @@ func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:
 		_failures.append("Javelin recast : second cooldown déclenché")
 
 
+func _test_javelin_live_collision(player: Node, target: Node) -> void:
+	_prepare(player, target, Vector3(0.0, 0.0, -5.0))
+	player.call("_perform_javelin")
+	var projectile := await _wait_for_projectile("JavelinProjectile")
+	if projectile == null:
+		_failures.append("Javelin : projectile non lancé")
+		return
+	target.global_position = Vector3(4.0, 0.0, -5.0)
+	await _wait_for_module(player)
+	if float(target.call("get_health")) < 999.95 or bool(target.call("has_javelin_mark")):
+		_failures.append("Javelin : touche ou marque une cible qui a esquivé")
+	_prepare(player, target, Vector3(4.0, 0.0, -5.0))
+	player.call("_perform_javelin")
+	projectile = await _wait_for_projectile("JavelinProjectile")
+	if projectile == null:
+		_failures.append("Javelin : second projectile non lancé")
+		return
+	target.global_position = Vector3(projectile.global_position.x, 0.0, -5.0)
+	await _wait_for_module(player)
+	if float(target.call("get_health")) >= 999.95 or not bool(target.call("has_javelin_mark")):
+		_failures.append("Javelin : ignore une cible entrée dans sa trajectoire")
+
+
 func _test_javelin_blocked_recast(player: Node, target: Node, scene: Node) -> void:
 	_prepare(player, target, Vector3(0.0, 0.0, -2.0))
 	player.call("_perform_javelin")
@@ -143,3 +191,12 @@ func _wait_for_module(player: Node) -> void:
 		# projectile is deliberately allowed to finish without owning the actor.
 		if not bool(player.call("is_module_busy")) and get_nodes_in_group("prototype0_gameplay_projectiles").is_empty():
 			return
+
+
+func _wait_for_projectile(projectile_name: String) -> Node3D:
+	for _frame in range(90):
+		await physics_frame
+		for projectile in get_nodes_in_group("prototype0_gameplay_projectiles"):
+			if projectile.name == projectile_name:
+				return projectile as Node3D
+	return null

@@ -9,6 +9,7 @@ const KICK_TIME := 0.05
 const RECOVERY_TIME := 0.12
 
 var aiming := false
+var carrying := false
 var spine_index := -1
 var spine_basis := Basis.IDENTITY
 var hips_index := -1
@@ -79,7 +80,7 @@ func is_fulguro_pose_active() -> bool:
 
 func _process_modification_with_delta(delta: float) -> void:
 	var rig_skeleton := get_skeleton()
-	if rig_skeleton == null or (not aiming and punch_phase == "" and pelto_phase == "") or spine_index < 0 or right_hand_index < 0:
+	if rig_skeleton == null or (not aiming and not carrying and punch_phase == "" and pelto_phase == "") or spine_index < 0 or right_hand_index < 0:
 		cancel_shot()
 		return
 	if punch_phase != "":
@@ -91,6 +92,15 @@ func _process_modification_with_delta(delta: float) -> void:
 		cancel_shot()
 		_apply_pelto_pose(rig_skeleton)
 		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		return
+	if not aiming:
+		cancel_shot()
+		# The unarmed run pitches the pelvis strongly. Keep the ready torso upright
+		# while preserving the legs and bob, as in the firing stance.
+		_set_global_basis(rig_skeleton, spine_index, spine_basis)
+		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		if support_enabled:
+			_solve_support_arm(rig_skeleton)
 		return
 	var was_active := is_shot_active()
 	shot_time = minf(shot_time + delta, KICK_TIME + RECOVERY_TIME)

@@ -545,8 +545,9 @@ func _build_spell_bar(ui: Control) -> void:
 		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(cooldown_ring)
 		_spell_labels["%s_ring" % module_id] = cooldown_ring
-		var key_label := _spell_label(str(slot.key), 13, AMBER, Vector2(63.0, 9.0), Vector2(23.0, 23.0), HORIZONTAL_ALIGNMENT_CENTER)
+		var key_label := _spell_label(get_node("/root/GamePreferences").key_label(module_id), 13, AMBER, Vector2(63.0, 9.0), Vector2(23.0, 23.0), HORIZONTAL_ALIGNMENT_CENTER)
 		content.add_child(key_label)
+		_spell_labels["%s_key" % module_id] = key_label
 		var module_label := _spell_label("", 11, CREAM, Vector2(88.0, 9.0), Vector2(89.0, 23.0), HORIZONTAL_ALIGNMENT_LEFT)
 		module_label.name = "ModuleName"
 		module_label.clip_text = true
@@ -609,6 +610,7 @@ func _update_spell_bar() -> void:
 	var recast_fraction := float(player.call("get_javelin_recast_fraction"))
 	for key in modules.keys():
 		var identifier: String = modules[key]
+		_spell_labels["%s_key" % key].text = get_node("/root/GamePreferences").key_label(key)
 		var cooldown := float(player.call("get_module_cooldown", identifier))
 		var name_label: Label = _spell_labels[key]
 		var icon: TextureRect = _spell_labels["%s_icon" % key]
@@ -624,7 +626,7 @@ func _update_spell_bar() -> void:
 			if recast_active:
 				_spell_labels.recast_fill.size = Vector2(160.0 * recast_fraction, 3.0)
 		if recast_active:
-			status.text = "A →"
+			status.text = get_node("/root/GamePreferences").key_label("offensive") + " →"
 			status.add_theme_color_override("font_color", AMBER)
 			name_label.add_theme_color_override("font_color", CREAM)
 			icon.texture = JAVELIN_RECAST_ICON

@@ -16,8 +16,9 @@ func _initialize() -> void:
 		player.call("set_weapon", "shotgun")
 		await _test_audio(player, target)
 		await _test_six_of_six(player, target)
-		await _test_five_of_six(player, target)
+		await _test_four_of_six(player, target)
 		await _test_absorption(player, target, scene)
+		await _test_moving_target(player, target)
 		await _test_magazine_and_reload(player, target)
 	current_scene = null
 	scene.queue_free()
@@ -34,6 +35,9 @@ func _initialize() -> void:
 
 
 func _prepare(player: Node, target: Node, target_position: Vector3) -> void:
+	current_scene.call("clear_transient_fx")
+	player.call("set_gameplay_enabled", true)
+	target.call("set_training_bot_enabled", false)
 	player.global_position = Vector3.ZERO
 	player.call("reset_combat_state")
 	player.call("set_weapon", "shotgun")
@@ -88,16 +92,17 @@ func _test_six_of_six(player: Node, target: Node) -> void:
 		_failures.append("6/6 : BURN absent")
 
 
-func _test_five_of_six(player: Node, target: Node) -> void:
-	_prepare(player, target, Vector3(0.20, 0.0, -2.98))
+func _test_four_of_six(player: Node, target: Node) -> void:
+	# Offset target: the two leftmost pellets miss the new barrel-centred cone.
+	_prepare(player, target, Vector3(0.80, 0.0, -2.98))
 	player.call("_perform_shotgun_attack")
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
 	var health := float(target.call("get_health"))
-	if absf(health - 900.0) > 1.2:
-		_failures.append("5/6 : %.2f PV au lieu de 900" % health)
+	if absf(health - 920.0) > 1.2:
+		_failures.append("4/6 : %.2f PV au lieu de 920" % health)
 	if (target.call("get_active_effect_types") as Array).has("BURN"):
-		_failures.append("5/6 : BURN appliqué à tort")
+		_failures.append("4/6 : BURN appliqué à tort")
 
 
 func _test_absorption(player: Node, target: Node, scene: Node) -> void:
@@ -122,6 +127,41 @@ func _test_absorption(player: Node, target: Node, scene: Node) -> void:
 		_failures.append("absorption : BURN appliqué malgré le mur")
 	blocker.queue_free()
 	await process_frame
+
+
+func _test_moving_target(player: Node, target: Node) -> void:
+	_prepare(player, target, Vector3(0.0, 0.0, -5.0))
+	player.call("_perform_shotgun_attack")
+	await _wait_for_pellet()
+	target.global_position.x = 3.0
+	await _wait_seconds(0.45)
+	if float(target.call("get_health")) < 999.9:
+		_failures.append("cible mobile : des plombs esquivés infligent encore des dégâts")
+	_prepare(player, target, Vector3(3.0, 0.0, -3.0))
+	player.call("_perform_shotgun_attack")
+	await _wait_for_pellet()
+	var pellet: Node3D
+	for projectile in get_nodes_in_group("prototype0_gameplay_projectiles"):
+		if projectile.name == "ShotgunPellet":
+			pellet = projectile
+			break
+	if pellet == null:
+		_failures.append("cible mobile : plomb absent après lancement")
+		return
+	var direction: Vector3 = pellet.get("_direction")
+	var distance: float = (target.global_position.z - pellet.global_position.z) / direction.z
+	target.global_position.x = pellet.global_position.x + direction.x * distance
+	await _wait_seconds(0.45)
+	if float(target.call("get_health")) >= 999.9:
+		_failures.append("cible mobile : des plombs traversant la cible ne la touchent pas")
+
+
+func _wait_for_pellet() -> void:
+	for _frame in range(30):
+		await physics_frame
+		for projectile in current_scene.get_tree().get_nodes_in_group("prototype0_gameplay_projectiles"):
+			if projectile.name == "ShotgunPellet":
+				return
 
 
 func _test_magazine_and_reload(player: Node, target: Node) -> void:

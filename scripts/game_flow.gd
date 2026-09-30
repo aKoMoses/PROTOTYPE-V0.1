@@ -4,10 +4,13 @@ extends CanvasLayer
 ## Navigation, loadout, HUD and round presentation. Combat remains in Player,
 ## TargetDummy and the existing state objects.
 
+const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
+const COMFORT_SETTINGS := preload("res://scripts/comfort_settings.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
+const ROBOT_FORGE_PREVIEW := preload("res://scripts/robot_forge_preview.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
 const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
@@ -17,7 +20,6 @@ const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
-const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
 const EQUIPMENT_CATEGORIES := [
@@ -32,6 +34,7 @@ const MENU_PANEL_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-panel.png"
 const MENU_BUTTON_PRIMARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-primary.png")
 const MENU_BUTTON_SECONDARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu-button-secondary.png")
 const MENU_DISPLAY_FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
+const MENU_SETTINGS_ICON: Texture2D = preload("res://art/ui/icons/settings.svg")
 const COUNTDOWN_SECONDS := 3.0
 const FIGHT_SECONDS := 0.9
 const WINNER_FOCUS_SECONDS := 1.55
@@ -83,6 +86,7 @@ var _settings: Dictionary = {"camera_shake": true, "touch_scale": 1.0}
 var _screen_root: Control
 var _hud: Control
 var _menu_panel: Control
+var _menu_settings_button: Button
 var _equipment_panel: Control
 var _title_label: Label
 var _status_label: Label
@@ -157,6 +161,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_countdown_audio.volume_db = -8.0
 	add_child(_countdown_audio)
 	_match_music = AudioStreamPlayer.new()
+	_match_music.bus = &"Music"
 	_match_music.name = "MatchMusic"
 	_match_music.volume_db = -17.0
 	if ResourceLoader.exists(MATCH_MUSIC_PATH):
@@ -167,6 +172,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 			(_match_music.stream as AudioStreamWAV).loop_end = int(_match_music.stream.get_length() * (_match_music.stream as AudioStreamWAV).mix_rate)
 	add_child(_match_music)
 	_menu_music = AudioStreamPlayer.new()
+	_menu_music.bus = &"Music"
 	_menu_music.name = "MenuMusic"
 	_menu_music.volume_db = -60.0
 	_menu_music.stream = load(MENU_MUSIC_PATH) as AudioStream
@@ -178,6 +184,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		menu_stream.loop_end = int(menu_stream.get_length() * menu_stream.mix_rate)
 	add_child(_menu_music)
 	_result_audio = AudioStreamPlayer.new()
+	_result_audio.bus = &"Music"
 	_result_audio.name = "ResultAudio"
 	_result_audio.volume_db = -6.0
 	add_child(_result_audio)
@@ -217,6 +224,9 @@ func _process(delta: float) -> void:
 		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# An online match cannot pause the local SceneTree independently of its peer.
+	if main != null and is_instance_valid(main.get("network_match")):
+		return
 	if _hud_editor != null and _hud_editor.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -228,6 +238,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _screen_root != null:
+		if main != null and is_instance_valid(main.get("network_match")):
+			return
 		if _hud_editor != null and _hud_editor.visible:
 			return
 		if current_screen == Screen.COMBAT:
@@ -293,6 +305,7 @@ func _load_settings() -> void:
 func _save_settings() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://"))
 	var config := ConfigFile.new()
+	config.load("user://prototype0_settings.cfg")
 	config.set_value("settings", "camera_shake", _settings.camera_shake)
 	config.set_value("settings", "touch_scale", _settings.touch_scale)
 	config.save("user://prototype0_settings.cfg")
@@ -384,6 +397,7 @@ func _show_screen(screen: Screen) -> void:
 	match screen:
 		Screen.MENU:
 			_menu_panel.visible = true
+			_menu_settings_button.visible = true
 		Screen.EQUIPMENT:
 			_equipment_panel.visible = true
 			_refresh_equipment()
@@ -411,7 +425,7 @@ func _touch_preview_requested() -> bool:
 	return false
 
 func _build_menu() -> void:
-	var panel_size := Vector2(620.0, 660.0)
+	var panel_size := Vector2(620.0, 600.0)
 	_menu_panel = Control.new()
 	_menu_panel.name = "MainMenuPanel"
 	_menu_panel.custom_minimum_size = panel_size
@@ -432,8 +446,8 @@ func _build_menu() -> void:
 	box.name = "MenuContent"
 	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	box.position = Vector2(136.0, 94.0)
-	box.size = Vector2(422.0, 474.0)
-	box.add_theme_constant_override("separation", 6)
+	box.size = Vector2(422.0, 416.0)
+	box.add_theme_constant_override("separation", 7)
 	_menu_panel.add_child(box)
 	var title := HBoxContainer.new()
 	title.add_theme_constant_override("separation", 0)
@@ -446,7 +460,7 @@ func _build_menu() -> void:
 	title_zero.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	title.add_child(title_zero)
 	box.add_child(title)
-	var subtitle := _label("COMBAT DE ROBOTS  •  ARÈNE LOCALE", 16, CYAN)
+	var subtitle := _label("COMBAT DE ROBOTS", 16, CYAN)
 	subtitle.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	box.add_child(subtitle)
 	var divider := ColorRect.new()
@@ -454,17 +468,43 @@ func _build_menu() -> void:
 	divider.custom_minimum_size = Vector2(0.0, 2.0)
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(divider)
-	var intro := _label("Choisis un duel, une survie ou un entraînement.", 16, CREAM)
-	intro.custom_minimum_size = Vector2(0.0, 38.0)
-	box.add_child(intro)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 2.0)
+	spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("JOUER", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 64.0))
-	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
-	box.add_child(_menu_art_button("MODE SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
-	box.add_child(_menu_art_button("TRAINING GROUND", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
-	box.add_child(_menu_art_button("RÉGLAGES", Callable(self, "_open_settings"), MENU_BUTTON_SECONDARY_TEXTURE, 56.0))
+	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
+	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	var training_spacer := Control.new()
+	training_spacer.custom_minimum_size = Vector2(0.0, 10.0)
+	box.add_child(training_spacer)
+	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	_build_menu_settings_shortcut()
+
+
+func _build_menu_settings_shortcut() -> void:
+	_menu_settings_button = Button.new()
+	_menu_settings_button.name = "MenuSettingsShortcut"
+	_menu_settings_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_menu_settings_button.offset_left = 24.0
+	_menu_settings_button.offset_top = -72.0
+	_menu_settings_button.offset_right = 72.0
+	_menu_settings_button.offset_bottom = -24.0
+	_menu_settings_button.icon = MENU_SETTINGS_ICON
+	_menu_settings_button.expand_icon = true
+	_menu_settings_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu_settings_button.add_theme_constant_override("icon_max_width", 28)
+	_menu_settings_button.tooltip_text = "Réglages"
+	_menu_settings_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var active: bool = state != "normal"
+		var style := _panel_style(Color("#26363b") if active else Color("#20272b"), CYAN if active else Color("#536064"), 10)
+		style.content_margin_left = 8.0
+		style.content_margin_right = 8.0
+		style.content_margin_top = 8.0
+		style.content_margin_bottom = 8.0
+		_menu_settings_button.add_theme_stylebox_override(state, style)
+	_menu_settings_button.pressed.connect(_open_settings)
+	_screen_root.add_child(_menu_settings_button)
 
 
 func _build_lobby() -> void:
@@ -480,12 +520,13 @@ func _open_lobby() -> void:
 
 
 func _menu_art_button(text: String, callback: Callable, texture: Texture2D, height: float) -> Control:
+	var primary := texture == MENU_BUTTON_PRIMARY_TEXTURE
 	var item := Control.new()
 	item.custom_minimum_size = Vector2(0.0, height)
 	var art := TextureRect.new()
 	var cropped := AtlasTexture.new()
 	cropped.atlas = texture
-	cropped.region = Rect2(40.0, 120.0 if text == "JOUER" else 140.0, 2100.0, 450.0 if text == "JOUER" else 430.0)
+	cropped.region = Rect2(40.0, 120.0 if primary else 140.0, 2100.0, 450.0 if primary else 430.0)
 	art.texture = cropped
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_SCALE
@@ -495,7 +536,7 @@ func _menu_art_button(text: String, callback: Callable, texture: Texture2D, heig
 	var button := Button.new()
 	button.text = text
 	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	button.add_theme_font_size_override("font_size", 26 if text == "JOUER" else 21)
+	button.add_theme_font_size_override("font_size", 26 if primary else 21)
 	button.add_theme_font_override("font", MENU_DISPLAY_FONT)
 	button.add_theme_color_override("font_color", CREAM)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -750,16 +791,24 @@ func _add_equipment_choice(category: String, identifier: String) -> void:
 		info.add_theme_stylebox_override(state, info_style)
 	button.add_child(info)
 	info.pressed.connect(func() -> void: _show_equipment_info(identifier))
-	var icon := TextureRect.new()
-	icon.texture = _equipment_icon(identifier)
-	# Multi-line module names still need room for the equipped marker inside
-	# the card. The expanding image takes the remaining space, without overflow.
-	icon.custom_minimum_size.y = 150 if category == "offensive" else 160
-	icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(icon)
+	if category == "robot":
+		var robot_preview := ROBOT_FORGE_PREVIEW.new()
+		robot_preview.name = "RobotPreview"
+		robot_preview.chassis_id = identifier
+		robot_preview.custom_minimum_size.y = 160
+		robot_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		robot_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(robot_preview)
+	else:
+		var icon := TextureRect.new()
+		icon.texture = _equipment_icon(identifier)
+		# Multi-line module names still need room for the equipped marker.
+		icon.custom_minimum_size.y = 150 if category == "offensive" else 160
+		icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(icon)
 	var name_label := _label(LOADOUT.display_name(identifier), 19 if category in ["robot", "offensive"] else 21, CREAM)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -839,13 +888,21 @@ func _equipment_preview_style(active: bool) -> StyleBoxFlat:
 	return style
 
 func _build_settings() -> void:
-	_settings_panel = _center_panel(620, 470)
+	_settings_panel = _center_panel(680, 640)
 	_screen_root.add_child(_settings_panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settings_panel.add_child(scroll)
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 14)
-	_settings_panel.add_child(box)
+	scroll.add_child(box)
 	box.add_child(_label("RÉGLAGES", 32, CREAM))
 	box.add_child(_label("CONFORT ET INTERFACE", 14, CYAN))
+	var comfort := COMFORT_SETTINGS.new()
+	comfort.name = "ComfortSettings"
+	comfort.add_theme_font_override("font", MENU_DISPLAY_FONT)
+	box.add_child(comfort)
 	var shake := CheckButton.new()
 	shake.name = "CameraShake"
 	shake.text = "Secousses de caméra"
@@ -900,6 +957,8 @@ func _build_hud() -> void:
 	vitals.size = Vector2(280, 90)
 	vitals.call("set_player", player)
 	_hud.add_child(vitals)
+	# Health/ammo already follow the player in the arena. Keep the optional fixed
+	# duplicate available in the HUD editor, without cluttering the default duel.
 	var score_backdrop := TextureRect.new()
 	score_backdrop.texture = MATCH_SUMMARY_FRAME
 	score_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -942,9 +1001,9 @@ func _build_hud() -> void:
 	spell_frame.name = "SpellBar"
 	spell_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spell_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	spell_frame.offset_left = -284.0
+	spell_frame.offset_left = -124.0
 	spell_frame.offset_top = -82.0
-	spell_frame.offset_right = 284.0
+	spell_frame.offset_right = 124.0
 	spell_frame.offset_bottom = -10.0
 	_hud.add_child(spell_frame)
 	var spell_slots := [
@@ -957,20 +1016,18 @@ func _build_hud() -> void:
 		var module_id: String = slot["id"]
 		var slot_content := Control.new()
 		slot_content.name = "%sSlot" % module_id.capitalize()
-		slot_content.position = Vector2(float(index) * 192.0, 0.0)
-		slot_content.size = Vector2(184.0, 72.0)
-		slot_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_content.position = Vector2(float(index) * 86.0, 0.0)
+		slot_content.size = Vector2(76.0, 72.0)
+		slot_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		spell_frame.add_child(slot_content)
-		var slot_backdrop := TextureRect.new()
-		slot_backdrop.texture = SPELL_BAR_FRAME
+		var slot_backdrop := Panel.new()
+		slot_backdrop.add_theme_stylebox_override("panel", _panel_style(Color("#171d20ee"), Color("#80694e"), 7))
 		slot_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		slot_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		slot_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
 		slot_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(slot_backdrop)
 		var placeholder := TextureRect.new()
-		placeholder.position = Vector2(13.0, 12.0)
-		placeholder.size = Vector2(42.0, 48.0)
+		placeholder.position = Vector2(14.0, 8.0)
+		placeholder.size = Vector2(48.0, 48.0)
 		placeholder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		placeholder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -979,18 +1036,19 @@ func _build_hud() -> void:
 		var cooldown_ring := Control.new()
 		cooldown_ring.name = "CooldownRing"
 		cooldown_ring.set_script(COOLDOWN_RING)
-		cooldown_ring.position = Vector2(10.0, 9.0)
-		cooldown_ring.size = Vector2(48.0, 54.0)
+		cooldown_ring.position = Vector2(11.0, 5.0)
+		cooldown_ring.size = Vector2(54.0, 54.0)
 		cooldown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(cooldown_ring)
 		_hud_labels["%s_ring" % module_id] = cooldown_ring
-		var key_label := _label(str(slot["key"]), 13, AMBER)
-		key_label.position = Vector2(63.0, 9.0)
-		key_label.size = Vector2(23.0, 23.0)
+		var key_label := _label(get_node("/root/GamePreferences").key_label(module_id), 13, AMBER)
+		key_label.position = Vector2(3.0, 50.0)
+		key_label.size = Vector2(23.0, 20.0)
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_content.add_child(key_label)
+		_hud_labels["%s_key" % module_id] = key_label
 		var module_label := _label("", 11, CREAM)
 		module_label.position = Vector2(88.0, 9.0)
 		module_label.size = Vector2(89.0, 23.0)
@@ -999,11 +1057,12 @@ func _build_hud() -> void:
 		module_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		module_label.clip_text = true
 		module_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		module_label.visible = false
 		slot_content.add_child(module_label)
 		_hud_labels[module_id] = module_label
 		var status := _label("", 13, CYAN)
-		status.position = Vector2(63.0, 39.0)
-		status.size = Vector2(112.0, 22.0)
+		status.position = Vector2(25.0, 51.0)
+		status.size = Vector2(48.0, 19.0)
 		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		status.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1012,8 +1071,8 @@ func _build_hud() -> void:
 		if module_id == "offensive":
 			var recast_frame := Panel.new()
 			recast_frame.name = "JavelinRecastFrame"
-			recast_frame.position = Vector2(10.0, 9.0)
-			recast_frame.size = Vector2(48.0, 54.0)
+			recast_frame.position = Vector2(11.0, 5.0)
+			recast_frame.size = Vector2(54.0, 54.0)
 			recast_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var frame_style := StyleBoxFlat.new()
 			frame_style.bg_color = Color.TRANSPARENT
@@ -1026,8 +1085,8 @@ func _build_hud() -> void:
 			_hud_labels.offensive_recast_frame = recast_frame
 			var recast_track := ColorRect.new()
 			recast_track.name = "JavelinRecastTrack"
-			recast_track.position = Vector2(12.0, 66.0)
-			recast_track.size = Vector2(160.0, 3.0)
+			recast_track.position = Vector2(7.0, 68.0)
+			recast_track.size = Vector2(62.0, 2.0)
 			recast_track.color = Color("#5f4737")
 			recast_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			recast_track.visible = false
@@ -1227,8 +1286,10 @@ func _update_hud() -> void:
 		_javelin_recast_display_fraction = float(player.call("get_javelin_recast_fraction"))
 	for key in spell_modules.keys():
 		var identifier: String = spell_modules[key]
+		_hud_labels["%s_key" % key].text = get_node("/root/GamePreferences").key_label(key)
 		var cooldown := float(player.call("get_module_cooldown", identifier))
 		_hud_labels[key].text = LOADOUT.display_name(identifier)
+		_hud_labels[key].get_parent().tooltip_text = LOADOUT.display_name(identifier) + "\n" + LOADOUT.category_description(identifier)
 		_hud_labels["%s_icon" % key].texture = _equipment_icons.get_icon(identifier)
 		var recast_active: bool = key == "offensive" and identifier == "javelin" and _javelin_recast_display_fraction > 0.0
 		var fulguro_charging: bool = key == "offensive" and identifier == "fulguro_punch" and player.has_method("is_fulguro_charging") and bool(player.call("is_fulguro_charging"))
@@ -1241,20 +1302,20 @@ func _update_hud() -> void:
 			_hud_labels.offensive_recast_frame.visible = recast_active
 			_hud_labels.offensive_recast_track.visible = recast_active
 			if recast_active:
-				_hud_labels.offensive_recast_fill.size = Vector2(160.0 * _javelin_recast_display_fraction, 3.0)
+				_hud_labels.offensive_recast_fill.size = Vector2(62.0 * _javelin_recast_display_fraction, 2.0)
 		if recast_active:
-			_hud_labels["%s_status" % key].text = "A →"
+			_hud_labels["%s_status" % key].text = get_node("/root/GamePreferences").key_label("offensive") + " →"
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].texture = JAVELIN_RECAST_ICON
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 		elif fulguro_charging:
-			_hud_labels["%s_status" % key].text = "CHARGE %d%%" % int(round(fulguro_charge * 100.0))
+			_hud_labels["%s_status" % key].text = "%d%%" % int(round(fulguro_charge * 100.0))
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#ffb34f"))
 			_hud_labels[key].add_theme_color_override("font_color", Color("#fff0b0"))
 			_hud_labels["%s_icon" % key].modulate = Color("#ffcb78")
 		elif pelto_preparing:
-			_hud_labels["%s_status" % key].text = "FRAPPE %d%%" % int(round(pelto_preparation * 100.0))
+			_hud_labels["%s_status" % key].text = "%d%%" % int(round(pelto_preparation * 100.0))
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#d9a060"))
 			_hud_labels[key].add_theme_color_override("font_color", Color("#f4d4a2"))
 			_hud_labels["%s_icon" % key].modulate = Color("#e3b06e")
@@ -1264,7 +1325,7 @@ func _update_hud() -> void:
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color("#b7aaa0")
 		else:
-			_hud_labels["%s_status" % key].text = "PRÊT"
+			_hud_labels["%s_status" % key].text = ""
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE
@@ -1685,6 +1746,10 @@ func _set_combat_audio_paused(value: bool) -> void:
 func _update_pause_labels() -> void:
 	if _hud_labels.has("pause_status"):
 		_hud_labels.pause_status.text = "La manche est suspendue."
+		if main != null and main.has_method("get_bot_build"):
+			var opponent: Dictionary = main.call("get_bot_build")
+			if not opponent.is_empty():
+				_hud_labels.pause_status.text = str(opponent.title) + "\n" + BOT_BUILDS.describe(opponent)
 
 func _restart() -> void:
 	_end_pause(false)

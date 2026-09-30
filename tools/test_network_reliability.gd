@@ -16,25 +16,47 @@ class RelayProbe:
 	func lobby_get_name() -> String: return "Probe"
 	func lobby_leave() -> void: pass
 	func get_public_lobbies() -> void: pass
-	func call_func(callback: Callable, _a = null, _b = null, _c = null, _d = null) -> void:
+	func call_func(callback: Callable, _a = null, _b = null, _c = null, _d = null, _e = null, _f = null) -> void:
 		sent.append(str(callback.get_method()))
 
 class FlowProbe:
 	extends CanvasLayer
 	var opened := 0
 	var stopped := 0
+	var player: Node3D
+	var target: Node3D
 	func _open_lobby() -> void: opened += 1
 	func _stop_match_music() -> void: stopped += 1
 
 class PlayerProbe:
 	extends CharacterBody3D
+	var module_resets := 0
 	func set_gameplay_enabled(_enabled: bool) -> void: pass
+	func reset_module_state() -> void: module_resets += 1
 
 class TargetProbe:
 	extends StaticBody3D
-	var network_proxy := true
-	func set_training_bot_enabled(_enabled: bool) -> void: pass
-	func set_duel_mode(_enabled: bool) -> void: pass
+
+class TouchProbe:
+	extends Control
+	var player: Node3D
+	func set_player(value: Node3D) -> void: player = value
+
+class CameraProbe:
+	extends Node3D
+	var target: Node3D
+	func set_target(value: Node3D) -> void: target = value
+
+class MainProbe:
+	extends Node3D
+	var cleared := 0
+	func clear_transient_fx() -> void: cleared += 1
+
+class LobbyProbe:
+	extends Control
+	var notifications := 0
+	func _on_connection_changed(_connected: bool, _message: String) -> void:
+		notifications += 1
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -65,16 +87,43 @@ func _run() -> void:
 	var flow_root := Control.new()
 	flow_root.name = "FlowRoot"
 	flow.add_child(flow_root)
+	var lobby := LobbyProbe.new()
+	lobby.name = "NetworkLobby"
+	flow_root.add_child(lobby)
+	var hud := Control.new()
+	hud.name = "CombatHUD"
+	flow_root.add_child(hud)
+	var pause_button := Button.new()
+	pause_button.name = "PauseButton"
+	hud.add_child(pause_button)
+	var spell_bar := Control.new()
+	spell_bar.name = "SpellBar"
+	hud.add_child(spell_bar)
+	var main := MainProbe.new()
+	var camera := CameraProbe.new()
+	camera.name = "CameraRig"
+	main.add_child(camera)
+	var original_player := PlayerProbe.new()
+	var original_target := TargetProbe.new()
+	main.add_child(original_player)
+	main.add_child(original_target)
+	var actors := Node3D.new()
+	main.add_child(actors)
 	var player := PlayerProbe.new()
-	var target := TargetProbe.new()
-	var touch := Control.new()
+	var target := PlayerProbe.new()
+	actors.add_child(player)
+	actors.add_child(target)
+	var touch := TouchProbe.new()
 	root.add_child(flow)
-	root.add_child(player)
-	root.add_child(target)
+	root.add_child(main)
 	root.add_child(touch)
 	root.add_child(controller)
+	controller._main = main
 	controller._player = player
 	controller._target = target
+	controller._original_player = original_player
+	controller._original_target = original_target
+	controller._actors = actors
 	controller._flow = flow
 	controller._touch = touch
 	controller._session = session
@@ -82,6 +131,10 @@ func _run() -> void:
 	session.room_changed.connect(controller._on_room_changed)
 	controller._leave_match()
 	_check(flow.opened == 1 and flow.stopped == 1, "quitter ferme le match et ouvre le salon une seule fois")
+	_check(controller._phase == "closed" and controller._cleanup_done, "le contrôleur fermé termine son nettoyage une seule fois")
+	_check(player.module_resets == 1 and target.module_resets == 1 and main.cleared == 1, "les deux combattants réseau et leurs effets sont nettoyés une seule fois")
+	_check(touch.player == original_player and camera.target == original_player and flow.player == original_player and flow.target == original_target, "les contrôles, la caméra et le HUD retrouvent les acteurs locaux")
+	_check(lobby.notifications == 1, "la fermeture synchrone ne notifie le salon qu'une fois")
 	await process_frame
 	# Autoloads also support SceneTree scripts with no current scene at startup.
 	var sdk := root.get_node("GDSync")
@@ -90,8 +143,7 @@ func _run() -> void:
 	session.queue_free()
 	relay.queue_free()
 	flow.queue_free()
-	player.queue_free()
-	target.queue_free()
+	main.queue_free()
 	touch.queue_free()
 	await process_frame
 	for failure in failures:

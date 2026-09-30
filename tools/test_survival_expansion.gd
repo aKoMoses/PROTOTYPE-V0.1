@@ -72,10 +72,10 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	check(is_equal_approx(player.get_health(), 1000.0 - bot_a.training_attack_damage - bot_b.training_attack_damage), "attaques simultanées de deux ennemis comptent séparément")
 	player.set_training_options(true, false, false)
-	var build := {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "", "evolutions": {}, "upgrades": {}}
+	var build := {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "", "evolutions": {}, "upgrades": {}, "synergies": ["thermal", "relay"]}
 	player.configure_survival_build(build)
 	var synergy: Node = player.survival_synergies
-	check(SYNERGIES.active_for(build).size() == 2, "deux synergies automatiques pour ce build")
+	check(SYNERGIES.active_for(build).size() == 2, "deux synergies choisies pour ce build")
 	check(SYNERGIES.active_for({"weapon": "blaster"}).is_empty(), "aucune synergie avec un seul élément")
 	check(SYNERGIES.preview({"weapon": "blaster"}, {"category": "mobility", "kind": "item", "id": "pyro_boots"}).contains("thermique"), "carte annonce la synergie qui sera activée")
 	synergy.pyro_step(targets[0].global_position)
@@ -118,6 +118,7 @@ func _initialize() -> void:
 	build.mobility = "bio_injector"
 	build.offensive = "javelin"
 	build.defensive = "static_shield"
+	build.synergies = ["double", "trail"]
 	player.configure_survival_build(build)
 	player.set_touch_aim_vector(Vector2.UP)
 	player._perform_bio_injector()
@@ -132,10 +133,10 @@ func _initialize() -> void:
 	# Recast Javelin creates a persistent, bounded burning line.
 	build.mobility = "pyro_boots"
 	player.configure_survival_build(build)
-	targets[0].apply_javelin_mark(4.0)
-	player._javelin_mark_target = targets[0]
+	player.survival_evolution_effects.javelin_hit(targets[0], targets[0].global_position)
+	var recall_origin: Vector3 = player.global_position
 	player._recast_javelin()
-	check(synergy.zones.size() > 1, "téléportation réelle laisse une ligne brûlante")
+	check(synergy.zones.size() > 1 and player.global_position.is_equal_approx(recall_origin), "rappel réel laisse une ligne brûlante sans téléporter le joueur")
 	synergy._physics_process(0.02)
 	check(synergy.marked.has(targets[0].get_instance_id()), "ennemi dans le sillage brûlé")
 	var zone_position: Vector3 = synergy.zones[0].visual.global_position

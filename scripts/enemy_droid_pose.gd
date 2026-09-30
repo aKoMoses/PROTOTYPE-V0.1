@@ -100,17 +100,18 @@ func _apply_impulses(recoil: float, hit: float) -> void:
 
 func _aim_right_arm(target: Vector3, weight: float) -> void:
 	var authored_rotation := _skeleton.get_bone_pose_rotation(_right_arm)
-	# Swing the complete arm chain about its shoulder. Recompute the muzzle
-	# after the first swing, since rotating the arm also translates the muzzle.
-	# Shortest-arc swings preserve the authored twist instead of rebuilding a
-	# look-at frame (which can flip roll near a vertical target).
-	for iteration in range(4):
-		var weapon_pose := _skeleton.get_bone_global_pose(_right_hand) * _hand_to_weapon
-		var muzzle := weapon_pose * _muzzle_from_weapon
-		var toward_target := target - muzzle
-		if toward_target.length_squared() < EPSILON:
-			break
-		_swing_bone(_right_arm, -weapon_pose.basis.z, toward_target)
+	# Solve the ray length before swinging about the shoulder. Repeatedly turning
+	# toward target - muzzle oscillates at close range because the muzzle moves
+	# with the arm, and can leave the barrel pointing above the target.
+	var shoulder := _skeleton.get_bone_global_pose(_right_arm).origin
+	var weapon_pose := _skeleton.get_bone_global_pose(_right_hand) * _hand_to_weapon
+	var muzzle_offset := weapon_pose * _muzzle_from_weapon - shoulder
+	var forward := -weapon_pose.basis.z.normalized()
+	var target_offset := target - shoulder
+	var along := muzzle_offset.dot(forward)
+	var discriminant := along * along + target_offset.length_squared() - muzzle_offset.length_squared()
+	var ray_length := maxf(0.0, -along + sqrt(maxf(0.0, discriminant)))
+	_swing_bone(_right_arm, muzzle_offset + forward * ray_length, target_offset)
 	var solved_rotation := _skeleton.get_bone_pose_rotation(_right_arm)
 	_skeleton.set_bone_pose_rotation(_right_arm, authored_rotation.slerp(solved_rotation, weight).normalized())
 

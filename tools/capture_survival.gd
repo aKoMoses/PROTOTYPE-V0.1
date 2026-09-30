@@ -14,6 +14,9 @@ func _initialize() -> void:
 	var frames_to_wait := 15
 	if state != "selection":
 		scene.call("_choose_weapon", "shotgun" if state == "shotgun_fire" else "blaster")
+		if state == "synergy":
+			scene.progression.equipment.mobility = "pyro_boots"
+			scene.player.configure_survival_build(scene.progression.build())
 		if state != "arrival":
 			scene.call("_begin_wave_combat")
 		if state == "shotgun_fire":
@@ -25,7 +28,7 @@ func _initialize() -> void:
 			await create_timer(0.16).timeout
 			frames_to_wait = 0
 		if state in ["reward", "evolution", "result", "synergy"]:
-			var waves_to_complete := 12 if state == "result" else 5 if state == "evolution" else 2 if state == "synergy" else 1
+			var waves_to_complete := 12 if state == "result" else 5 if state == "evolution" else 1
 			for completed in range(waves_to_complete):
 				scene.call("_spawn_reinforcements")
 				for enemy in scene.call("get_training_targets"):

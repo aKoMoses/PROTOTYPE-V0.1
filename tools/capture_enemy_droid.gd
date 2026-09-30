@@ -3,14 +3,16 @@ extends SceneTree
 var rig: Node3D
 var camera: Camera3D
 var target := Vector3(0, 0.92, -8)
+var output_directory := "res://exports/enemy-droid-review"
 
 func _initialize() -> void:
-	call_deferred("capture")
-
-func capture() -> void:
 	var stage := Node3D.new()
 	root.add_child(stage)
 	current_scene = stage
+	call_deferred("capture")
+
+func capture() -> void:
+	var stage := current_scene as Node3D
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("#252c38")
@@ -38,13 +40,17 @@ func capture() -> void:
 	if not rig.setup():
 		quit(1)
 		return
+	var arguments := OS.get_cmdline_user_args()
+	if arguments.has("shotgun"):
+		rig.set_weapon("shotgun")
+		output_directory = "res://exports/enemy-droid-shotgun-review"
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = 2.8
 	stage.add_child(camera)
 	camera.position = Vector3(3, 2, -4)
 	camera.look_at(Vector3(0, 0.95, -0.10))
-	DirAccess.make_dir_recursive_absolute("res://exports/enemy-droid-review")
+	DirAccess.make_dir_recursive_absolute(output_directory)
 	await frame("01_idle")
 	tick(Vector3.ZERO, 60)
 	await frame("02_aim")
@@ -72,7 +78,7 @@ func capture() -> void:
 	rig.reset_visual()
 	tick(Vector3.ZERO, 20)
 	await frame("10_reset")
-	print("ENEMY_DROID_CAPTURE: exports/enemy-droid-review")
+	print("ENEMY_DROID_CAPTURE: ", output_directory)
 	quit()
 
 func tick(velocity: Vector3, frames: int) -> void:
@@ -82,6 +88,6 @@ func tick(velocity: Vector3, frames: int) -> void:
 func frame(name: String) -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://exports/enemy-droid-review/%s.png" % name)
+	root.get_texture().get_image().save_png("%s/%s.png" % [output_directory, name])
 	var muzzle: Transform3D = rig.get_muzzle_transform()
 	print(name, " state=", rig.animation_state, " muzzle=", muzzle.origin, " forward=", -muzzle.basis.z, " grip_error=", rig.left_grip_error)

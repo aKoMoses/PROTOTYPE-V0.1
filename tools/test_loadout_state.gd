@@ -1,6 +1,9 @@
 extends SceneTree
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	var loadout_script := load("res://scripts/loadout_state.gd")
 	var test_path := "user://prototype0_loadout_test.cfg"
 	var value: Dictionary = {"robot": "puissant", "weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"}

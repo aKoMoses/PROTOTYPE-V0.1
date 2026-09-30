@@ -13,8 +13,12 @@ func _initialize() -> void:
 	player.call("set_robot", "polyvalent")
 	_check(str(scene.get("_state")) == "selection", "choix de l'arme au départ")
 	_check(not bool(player.call("is_gameplay_enabled")), "combat désactivé avant le choix")
+	var start_overlay: Control = scene.get("_reward_overlay")
+	_check(start_overlay.is_visible_in_tree() and start_overlay.find_child("RewardChoice1", true, false) != null and start_overlay.find_child("RewardChoice2", true, false) != null, "Blaster et Shotgun présentés en cartes")
+	_check(not (start_overlay.find_child("RewardChoice1", true, false) as Button).disabled, "cartes de départ sélectionnables")
 	scene.call("_choose_weapon", "blaster")
 	await physics_frame
+	_check(not start_overlay.visible, "cartes de départ fermées après le choix")
 	_check(int(scene.get("wave")) == 1, "première vague lancée")
 	_check(str(scene.get("_state")) == "incoming" and scene.get("_arrival_markers").size() == 2, "arrivée de vague annoncée")
 	scene.call("_begin_wave_combat")
@@ -26,7 +30,7 @@ func _initialize() -> void:
 	_check(str(player.call("get_weapon_id")) == "blaster", "arme sélectionnée")
 	_check(str(player.call("get_offensive_module_id")) == "", "aucun module au départ")
 	_check(str(player.call("get_passive_id")) == "", "aucun passif au départ")
-	_check(float(player.get("_blaster_damage")) < 20.0, "blaster affaibli au départ")
+	_check(float(player.get("_blaster_damage")) >= 20.0 and float(player.get("_blaster_charge_time")) < 1.0, "Blaster de départ renforcé et charge plus rapide")
 	player.call("set_weapon", "shotgun")
 	_check(str(player.call("get_weapon_id")) == "blaster", "arme de départ verrouillée")
 	var first_targets: Array = scene.call("get_training_targets")
@@ -79,7 +83,7 @@ func _initialize() -> void:
 			break
 		_check(str(scene.get("_state")) == "reward" and paused, "choix de récompense après la vague %d" % completed_wave)
 		var reward_overlay: Control = scene.get("_reward_overlay")
-		_check(reward_overlay.is_visible_in_tree() and reward_overlay.find_child("RewardChoice1", true, false) != null and reward_overlay.find_child("RewardChoice2", true, false) != null, "deux cartes de récompense visibles")
+		_check(reward_overlay.is_visible_in_tree() and reward_overlay.find_child("RewardChoice1", true, false) != null and reward_overlay.find_child("RewardChoice2", true, false) != null and reward_overlay.find_child("RewardChoice3", true, false) != null, "trois cartes de récompense visibles")
 		var first_card := reward_overlay.find_child("RewardChoice1", true, false) as Button
 		_check(first_card.disabled, "cartes bloquées au moment où la vague se termine")
 		if completed_wave == 1:
@@ -97,13 +101,14 @@ func _initialize() -> void:
 			_check(not first_card.disabled, "cartes sélectionnables après le délai de sécurité")
 		var progression: SurvivalProgression = scene.get("progression")
 		var choices := progression.reward_choices(completed_wave)
-		_check(choices.size() == 2, "deux propositions à la vague %d" % completed_wave)
+		_check(choices.size() == 3, "trois propositions à la vague %d" % completed_wave)
 		for choice in choices:
 			_check(not str(scene.call("_reward_card_description", choice)).contains("%"), "description de carte sans pourcentage")
 		_check(not progression.apply_reward(completed_wave, {"category": "invalid"}), "récompense non proposée refusée")
 		if completed_wave == 3:
 			player.get("combat_state").health = 500.0
-		scene.call("_choose_reward", choices[0])
+		var picked: Dictionary = choices[0]
+		scene.call("_choose_reward", picked)
 		if completed_wave == 3:
 			_check(is_equal_approx(float(player.call("get_health")), 600.0), "soin de 100 PV au troisième palier")
 		await physics_frame
@@ -113,10 +118,7 @@ func _initialize() -> void:
 		if completed_wave == 1:
 			var next_targets: Array = scene.call("get_training_targets")
 			_check(str(next_targets[1].get_node("TrainingBot").get("survival_role")) == "charger", "chargeur présent à la deuxième vague")
-			_check(str(player.call("get_offensive_module_id")) == "modulo_drone", "Modulo Drone obtenu après la première vague")
-			player.call("trigger_touch_action", "offensive")
-			await physics_frame
-			_check(float(player.call("get_module_cooldown", "modulo_drone")) > 0.0, "commande offensive active le drone en Survie")
+			_check(str(progression.build().get(str(picked.category), "")) == str(picked.id) if picked.kind == "item" else true, "nouvel équipement appliqué après choix")
 			for enemy in next_targets:
 				enemy.call("set_training_bot_enabled", false)
 			var charger: Node3D = next_targets[1]
@@ -145,7 +147,7 @@ func _initialize() -> void:
 			charger_bot.set("_move_velocity", Vector3(18.0, 0.0, 0.0))
 			charger_bot.call("_move_bot", charger, 0.3)
 			_check(charger.global_position.x <= 21.01, "ennemi reste dans les murs de Survie")
-		if completed_wave == 5:
+		if completed_wave == 5 and progression.aspects.weapon.path == "rail":
 			var pierce_targets: Array = scene.call("get_training_targets")
 			for enemy in pierce_targets:
 				enemy.call("set_training_bot_enabled", false)
@@ -155,14 +157,11 @@ func _initialize() -> void:
 			player.set("aim_direction", Vector3(0, 0, -1))
 			player.set("_blaster_next_attack_ready_at", -10.0)
 			var rear_health := float(pierce_targets[1].call("get_health"))
-			player.call("_fire_blaster_projectile", float(player.get("_blaster_damage")), 0.0, Vector3(0, 0, -1))
+			player.call("_fire_blaster_projectile", float(player.get("_blaster_max_damage")), 1.0, Vector3(0, 0, -1))
 			await create_timer(0.5).timeout
 			_check(float(pierce_targets[1].call("get_health")) < rear_health, "Blaster évolué traverse et touche une deuxième cible")
 		if completed_wave == 4:
-			_check(str(player.call("get_offensive_module_id")) != "" and str(player.call("get_defensive_module_id")) != "" and str(player.call("get_mobility_module_id")) != "" and str(player.call("get_passive_id")) != "", "build acquis en quatre choix")
-		if completed_wave == 10:
-			_check(float(player.get("_blaster_damage")) > 20.0, "arme plus puissante que dans le duel")
-			_check(bool(progression.evolutions.weapon), "évolution du Blaster acquise")
+			_check(progression.build().weapon == "blaster", "arme de départ conservée après quatre choix")
 	paused = false
 	scene.queue_free()
 	await process_frame
@@ -190,25 +189,30 @@ func _initialize() -> void:
 	var alternate: SurvivalProgression = shotgun_scene.get("progression")
 	for completed_wave in range(1, 12):
 		var offer := alternate.reward_choices(completed_wave)
+		_check(offer.size() == 3, "trois secondes propositions disponibles vague %d" % completed_wave)
 		_check(alternate.apply_reward(completed_wave, offer[1]), "seconde proposition acceptée vague %d" % completed_wave)
-	_check(str(alternate.equipment.offensive) == "javelin" and str(alternate.equipment.defensive) == "static_shield" and str(alternate.equipment.mobility) == "bio_injector" and str(alternate.equipment.passive) == "omnivamp", "secondes options d'équipement")
+	alternate.equipment.passive = "omnivamp"
+	alternate.upgrades.weapon.tempo = 3
+	alternate.upgrades.passive.tempo = 1
 	shotgun_player.call("configure_survival_build", alternate.build())
 	_check(float(shotgun_player.get("_shotgun_recovery")) < 0.60, "voie rythme du Shotgun plus rapide que le duel")
 	_check(float(shotgun_player.call("get_max_health")) == 1250.0, "endurance du passif augmente les PV maximum")
 	var evolved: SurvivalProgression = load("res://scripts/survival_progression.gd").new()
 	evolved.choose_weapon("shotgun")
-	for completed_wave in range(1, 9):
-		var offer := evolved.reward_choices(completed_wave)
-		_check(evolved.apply_reward(completed_wave, offer[1] if completed_wave <= 4 or completed_wave in [6, 7] else offer[0]), "build évolué vague %d" % completed_wave)
+	evolved.equipment.mobility = "bio_injector"
+	evolved.aspects.weapon = {"path": "sweeper", "rank": 3}
+	evolved.aspects.mobility = {"path": "overdrive", "rank": 3}
+	evolved.evolutions.weapon = true
+	evolved.evolutions.mobility = true
 	shotgun_player.call("configure_survival_build", evolved.build())
-	_check(shotgun_player.get("_shotgun_pellet_angles").size() == 8, "Shotgun évolué tire huit projectiles")
+	_check(shotgun_player.get("_shotgun_pellet_angles").size() == 12, "Éventail ultime tire douze projectiles")
 	_check(bool(evolved.evolutions.mobility), "Bio Injector évolué acquis")
 	var pulse_target: Node3D = shotgun_scene.call("get_training_targets")[0]
 	pulse_target.call("set_training_bot_enabled", false)
 	pulse_target.global_position = shotgun_player.global_position + Vector3(2, 0, 0)
 	var pulse_health := float(pulse_target.call("get_health"))
 	shotgun_player.call("_perform_bio_injector")
-	_check(float(pulse_target.call("get_health")) < pulse_health, "onde du Bio Injector évolué inflige des dégâts")
+	_check(is_equal_approx(float(pulse_target.call("get_health")), pulse_health) and float(shotgun_player.call("get_attack_speed_multiplier")) > 1.5, "Survoltage accélère les attaques sans onde artificielle")
 	shotgun_scene.call("_pause_run")
 	_check(paused and str(shotgun_scene.get("_state")) == "pause", "pause suspend la vague")
 	shotgun_scene.call("_resume_run")

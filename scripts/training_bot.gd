@@ -2,6 +2,7 @@ class_name TrainingBot
 extends Node
 
 const DUEL_EQUIPMENT := preload("res://scripts/duel_bot_equipment.gd")
+const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const AI_PROFILE := preload("res://scripts/bot_ai_profile.gd")
 
@@ -20,7 +21,8 @@ const WINDUP_DURATION := 0.55
 const MOVE_RADIUS_X := 2.8
 const MOVE_RADIUS_Z := 2.0
 const MOVE_SPEED := 1.8
-const PROJECTILE_TRAVEL_TIME := 0.16
+const PROJECTILE_SPEED := 48.0
+const PROJECTILE_MAX_RANGE := 14.0
 const IDEAL_RANGE_MIN := 5.6
 const IDEAL_RANGE_MAX := 8.4
 const DODGE_DURATION := 0.34
@@ -906,6 +908,7 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_charge_target = player.global_position
 				_windup_player = player
 				_windup_remaining = 0.75
+				get_node("/root/GameSfx").play_enemy("enemy_charge_warning", bot_body.global_position, player.global_position)
 				_update_telegraph()
 			else:
 				_action_gate.release(_attack_action_token)
@@ -925,6 +928,7 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 				_charge_remaining = 0.8
 				_charge_hit = false
 			elif survival_role == "chaser":
+				get_node("/root/GameSfx").play_enemy("enemy_melee", bot_body.global_position, player.global_position)
 				if distance < 2.2 and _line_of_sight_clear(bot_body, player):
 					player.call("take_damage", training_attack_damage, "survival_melee", "melee:%d:%d" % [get_instance_id(), _attack_serial])
 			else:
@@ -965,6 +969,8 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		_charge_target = player.global_position
 		_windup_player = player
 		_windup_remaining = (0.65 if boss_phase_two else 0.85) if survival_role in ["charger", "boss"] else 0.6 if survival_elite == "spread" else 0.45
+		if survival_role == "charger" or (survival_role == "boss" and _attack_serial % 2 == 1):
+			get_node("/root/GameSfx").play_enemy("enemy_charge_warning", bot_body.global_position, player.global_position)
 		_update_telegraph()
 
 
@@ -1005,20 +1011,21 @@ func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
 
 func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_visible: bool, delta: float) -> void:
 	var desired := _tactical_destination if _has_tactical_destination else pursuit_position
-	var speed := COMBAT_DATA.MOVE_SPEED * 0.82
+	var base_speed := float(COMBAT_DATA.ROBOT_DEFINITIONS[str(_duel_equipment.get("robot_id"))].move_speed)
+	var speed := base_speed * 0.82
 	if target_visible:
 		_has_angle_destination = false
 		if _current_intent == "pressure":
-			speed = COMBAT_DATA.MOVE_SPEED * 0.94
+			speed = base_speed * 0.94
 		elif _current_intent in ["retreat", "break_line"]:
-			speed = COMBAT_DATA.MOVE_SPEED * 0.88
+			speed = base_speed * 0.88
 	elif _has_last_observed_position:
 		if not _has_tactical_destination or bot_body.global_position.distance_to(desired) < 0.65 or (_blocked_time > 0.6 and _elapsed >= _next_angle_at):
 			_select_duel_angle(bot_body, pursuit_position)
 			_next_angle_at = _elapsed + DUEL_ANGLE_INTERVAL
 		if _has_angle_destination:
 			desired = _angle_destination
-			speed = DUEL_FLANK_SPEED
+			speed = base_speed * 0.64
 	else:
 		_has_angle_destination = false
 	var to_desired := desired - bot_body.global_position
@@ -1541,8 +1548,7 @@ func _attack_player(player: Node3D) -> void:
 	if not player.has_method("take_damage"):
 		return
 	_attack_serial += 1
-	# Le dégât est résolu à l'arrivée du projectile : le flash, la secousse et
-	# l'impact visuel restent ainsi synchronisés avec le tir réellement affiché.
+	# Damage comes from the projectile crossing the player's current collision.
 	_spawn_attack_visual(player, "training_bot:%d" % _attack_serial)
 
 
@@ -1553,6 +1559,8 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if bot_body == null or scene == null:
 		return
+	if offset == Vector3.ZERO:
+		get_node("/root/GameSfx").play_enemy("enemy_shot", bot_body.global_position, player.global_position)
 	if survival_role != "" and offset != Vector3.ZERO:
 		var toward := (player.global_position - bot_body.global_position).normalized()
 		offset = Vector3(-toward.z, 0.0, toward.x).normalized() * offset.x
@@ -1561,7 +1569,8 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 	if bot_body.has_method("prepare_training_bot_shot"):
 		shot_transform = bot_body.call("prepare_training_bot_shot", impact_position)
 	var start_position := shot_transform.origin
-	var tracer := Node3D.new()
+	start_position.y = maxf(start_position.y, bot_body.global_position.y + 0.85)
+	var tracer := LIVE_PROJECTILE.new()
 	tracer.name = "TrainingBotProjectile"
 	tracer.process_mode = Node.PROCESS_MODE_PAUSABLE
 	scene.add_child(tracer)
@@ -1570,6 +1579,9 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 	tracer.global_position = start_position
 	var direction := (impact_position - start_position).normalized()
 	tracer.basis = Basis.looking_at(direction, Vector3.RIGHT if absf(direction.y) > 0.98 else Vector3.UP)
+	var excluded: Array[RID] = [bot_body.get_rid()]
+	tracer.configure(direction, PROJECTILE_SPEED, PROJECTILE_MAX_RANGE, 1 | 4 | 8, excluded)
+	tracer.finished.connect(_resolve_projectile.bind(player, scene, attack_id))
 	var vfx := scene.get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("projectile_visual", tracer, "enemy")
@@ -1578,42 +1590,28 @@ func _spawn_attack_visual(player: Node3D, attack_id: String, offset: Vector3 = V
 			vfx.call("muzzle", socket, "enemy")
 		else:
 			vfx.call("burst", start_position, direction, Color("#ffcf87"), 4, 2.8, 0.10, 0.03, 30.0)
-	var travel := tracer.create_tween()
-	travel.tween_property(tracer, "global_position", impact_position, PROJECTILE_TRAVEL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	travel.tween_callback(Callable(self, "_resolve_projectile").bind(player, scene, impact_position, attack_id, start_position))
-	travel.tween_callback(tracer.queue_free)
 
 
-func _resolve_projectile(player: Node3D, scene: Node, impact_position: Vector3, attack_id: String, start_position: Vector3 = Vector3.ZERO) -> void:
-	var bot_body := get_parent() as Node3D
-	var impact_confirmed := false
-	if player != null and is_instance_valid(player) and bot_body != null:
-		var current_target := player.global_position + Vector3.UP * 0.92
-		var still_near := current_target.distance_to(impact_position) <= 1.35
-		impact_confirmed = still_near and _line_of_sight_clear(bot_body, player)
-		if impact_confirmed and player.has_method("take_damage"):
-			player.call("take_damage", training_attack_damage, "training_bot", attack_id)
+func _resolve_projectile(hit: Dictionary, _distance: float, player: Node3D, scene: Node, attack_id: String) -> void:
+	if hit.is_empty():
+		return
+	var collider: Object = hit.get("collider")
+	if is_instance_valid(collider) and collider.has_meta("survival_evolution_controller"):
+		var controller: Node = collider.get_meta("survival_evolution_controller")
+		if is_instance_valid(controller):
+			controller.wall_absorb(training_attack_damage)
+	if is_instance_valid(player) and hit.get("collider") == player and player.has_method("take_damage"):
+		player.call("take_damage", training_attack_damage, "training_bot", attack_id)
 	if not is_instance_valid(scene):
 		return
 	var vfx := scene.get_node_or_null("VFXManager")
-	if vfx == null:
-		return
-	var normal := (start_position - impact_position).normalized()
-	if impact_confirmed:
-		vfx.call("impact", impact_position, normal, "robot", 1.0, Color("#ffbf83"))
-	elif bot_body != null and bot_body.get_world_3d() != null:
-		var query := PhysicsRayQueryParameters3D.create(start_position, impact_position)
-		query.collision_mask = 1 | 8
-		query.collide_with_areas = true
-		query.exclude = [bot_body.get_rid()]
-		var hit := bot_body.get_world_3d().direct_space_state.intersect_ray(query)
-		if not hit.is_empty():
-			var surface: String = vfx.call("surface_for", hit.collider)
-			vfx.call("impact", hit.position, hit.normal, surface, 0.75, Color("#ffbf83"))
-			if surface == "shield" and hit.collider.name == "MagneticField":
-				get_node("/root/GameSfx").play_event("magnetic_absorb")
-			elif surface != "robot" and surface != "shield":
-				get_node("/root/GameSfx").play_event("impact_decor")
+	if vfx != null:
+		var surface: String = vfx.call("surface_for", hit["collider"])
+		vfx.call("impact", hit["position"], hit["normal"], surface, 1.0 if surface == "robot" else 0.75, Color("#ffbf83"))
+		if surface == "shield" and hit["collider"].name == "MagneticField":
+			get_node("/root/GameSfx").play_event("magnetic_absorb")
+		elif surface != "robot" and surface != "shield":
+			get_node("/root/GameSfx").play_event("impact_decor")
 
 
 func _fx_material(color: Color, alpha: float, emission: Color) -> StandardMaterial3D:

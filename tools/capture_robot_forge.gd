@@ -13,6 +13,16 @@ func _initialize() -> void:
 	flow.set("loadout", build)
 	flow.call("_refresh_equipment")
 	await _capture("robot_forge")
+	var views := scene.find_children("RobotPreview", "SubViewportContainer", true, false)
+	for view in views:
+		view.set_process(false)
+	for sample in [[1, 0.8, 0.7, "warmup"], [2, 0.5, 1.6, "walk"], [3, 0.4, 3.14, "run_back"], [4, 0.7, 4.6, "boxing"], [5, 0.6, 0.2, "bow"]]:
+		for view in views:
+			view.set("_clip_index", int(sample[0]))
+			view.call("_play_clip")
+			(view.get("_animation_player") as AnimationPlayer).advance(float(sample[1]))
+			(view.get("_turntable") as Node3D).rotation.y = float(sample[2])
+		await _capture("robot_forge_3d_" + str(sample[3]))
 	flow.call("_open_equipment_category", "weapon")
 	await _capture("robot_forge_weapon")
 	(flow.get_node("MenuMusic") as AudioStreamPlayer).stop()

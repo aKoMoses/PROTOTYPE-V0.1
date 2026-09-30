@@ -4,6 +4,7 @@ class_name PlayerVisualRig
 signal action_finished(animation_name: StringName)
 
 const PLAYER_MODEL_PATH := "res://art/player_mecha_animated.glb"
+const CHASSIS_VISUALS := preload("res://scripts/robot_chassis_visuals.gd")
 const LOWER_BODY_MODIFIER_SCRIPT := preload("res://scripts/player_lower_body_direction_modifier.gd")
 const AIM_MODIFIER_SCRIPT := preload("res://scripts/player_aim_modifier.gd")
 const MODEL_AXIS_CORRECTION_YAW := PI
@@ -42,6 +43,8 @@ var _aim_blend_amount := 0.0
 var _aim_raise_time := 0.10
 var _aim_lower_time := 0.18
 var _aim_hand_pose := Transform3D.IDENTITY
+var _ready_hand_pose := Transform3D.IDENTITY
+var _support_weapon_id: StringName = &""
 var lower_body_blend: AnimationNodeBlend2
 
 var detected_animation_names: Array[StringName] = []
@@ -67,6 +70,24 @@ var _right_hand_bone_index := -1
 var _hips_bone_index := -1
 var _spine_bone_index := -1
 var _animation_library_names: Array[StringName] = []
+var _chassis_visuals := CHASSIS_VISUALS.new()
+var _chassis_base_scale := Vector3.ZERO
+var _chassis_scale_factor := 1.0
+
+
+func set_chassis_appearance(identifier: String) -> void:
+	if _chassis_base_scale == Vector3.ZERO:
+		_chassis_base_scale = scale
+	var next_factor: float = CHASSIS_VISUALS.SCALE_FACTORS.get(identifier, 1.0)
+	scale = _chassis_base_scale * next_factor
+	# Keep the existing stride-to-speed matching correct after uniform resizing.
+	var stride_ratio := next_factor / _chassis_scale_factor
+	for state in _locomotion_reference_speeds:
+		_locomotion_reference_speeds[state] *= stride_ratio
+	_chassis_scale_factor = next_factor
+	if model_axis_correction != null:
+		var imported_model := model_axis_correction.get_node_or_null("ImportedAnimatedModel") as Node3D
+		_chassis_visuals.apply(imported_model, identifier)
 
 
 func setup_visual_motion() -> Node3D:
@@ -122,13 +143,18 @@ func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -
 	_configure_animation_tree(imported_root)
 	# Evaluate the actual authored pose before creating ANY hand-local socket.
 	animation_tree.set(AIM_BLEND_PARAMETER, 0.0)
-	animation_tree.advance(0.0)
+	animation_tree.advance(0.000001)
 	skeleton.force_update_all_bone_transforms()
 	animation_tree.set(AIM_BLEND_PARAMETER, 1.0)
-	animation_tree.advance(0.0)
+	animation_tree.advance(0.000001)
 	skeleton.force_update_all_bone_transforms()
 	aim_modifier.spine_basis = skeleton.get_bone_global_pose(_spine_bone_index).basis
 	_aim_hand_pose = skeleton.get_bone_global_pose(_right_hand_bone_index)
+	animation_tree.set(AIM_BLEND_PARAMETER, 0.0)
+	animation_tree.advance(0.000001)
+	aim_modifier._set_global_basis(skeleton, _spine_bone_index, aim_modifier.spine_basis)
+	skeleton.force_update_all_bone_transforms()
+	_ready_hand_pose = skeleton.get_bone_global_pose(_right_hand_bone_index)
 	_refresh_aim_state()
 	if procedural_body != null:
 		procedural_body.visible = false
@@ -232,12 +258,11 @@ func equip_weapon(weapon_id: StringName, weapon_root: Node3D, profile: Dictionar
 		"right_grip_from_root": right_grip_from_root,
 	})
 	var aim_transform := _get_weapon_socket_transform(local_position, local_rotation, local_scale, weapon_id, right_grip_from_root.origin, right_grip != null)
-	var carry_rotation := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(carry_pitch_degrees)), Vector3.ZERO)
-	var grip_pivot := Transform3D(Basis.IDENTITY, right_grip_from_root.origin)
 	socket.set_meta("weapon_aim_transform", aim_transform)
-	# Lower the weapon around its rear grip, rather than around the imported scene
-	# origin, so the handle cannot peel away from the hand in the ready pose.
-	socket.set_meta("weapon_carry_transform", aim_transform * grip_pivot * carry_rotation * grip_pivot.affine_inverse())
+	# The ready hand has a different orientation from the firing hand. Calibrate
+	# both poses independently so the carried barrel cannot turn toward the floor.
+	var carry_rotation := local_rotation + Vector3(deg_to_rad(carry_pitch_degrees), 0.0, 0.0)
+	socket.set_meta("weapon_carry_transform", _get_weapon_socket_transform(local_position, carry_rotation, local_scale, weapon_id, right_grip_from_root.origin, right_grip != null, true))
 	socket.transform = _get_weapon_socket_pose(socket)
 	weapon_root.name = "Weapon_%s" % String(weapon_id)
 	weapon_root.transform = Transform3D.IDENTITY
@@ -342,6 +367,7 @@ func _refresh_aim_state() -> void:
 		animation_tree.set(AIM_BLEND_PARAMETER, _aim_blend_amount if _active_action == &"" else 0.0)
 	if aim_modifier != null:
 		aim_modifier.aiming = enabled
+		aim_modifier.carrying = _active_action == &""
 		if not enabled:
 			aim_modifier.cancel_shot()
 
@@ -378,6 +404,8 @@ func _update_weapon_socket_poses() -> void:
 		if socket == null or not socket.has_meta("weapon_aim_transform"):
 			continue
 		socket.transform = _get_weapon_socket_pose(socket)
+	if _support_weapon_id != &"":
+		configure_left_hand_support(_support_weapon_id)
 
 
 func is_aim_pose_committed() -> bool:
@@ -630,10 +658,10 @@ func _cancel_shot_kick() -> void:
 		aim_modifier.cancel_shot()
 
 
-func _get_weapon_socket_transform(local_position: Vector3, local_rotation: Vector3, local_scale: Vector3, weapon_id: StringName, right_grip_position: Vector3 = Vector3.ZERO, has_right_grip: bool = false) -> Transform3D:
+func _get_weapon_socket_transform(local_position: Vector3, local_rotation: Vector3, local_scale: Vector3, weapon_id: StringName, right_grip_position: Vector3 = Vector3.ZERO, has_right_grip: bool = false, carrying: bool = false) -> Transform3D:
 	var desired_basis := Basis.from_euler(local_rotation).scaled(local_scale)
-	# Always calibrate against the cached, evaluated AimPose, even if equipped mid-kick.
-	var hand_pose := _aim_hand_pose
+	# Calibrate against the cached authored ready/aim pose, even if equipped mid-kick.
+	var hand_pose := _ready_hand_pose if carrying else _aim_hand_pose
 	var hand_world := skeleton.global_transform * hand_pose
 	var desired_world := visual_motion.global_transform * Transform3D(desired_basis, local_position)
 	if weapon_id == &"blaster":
@@ -665,6 +693,7 @@ func _descendant_transform_from(ancestor: Node3D, descendant: Node3D) -> Transfo
 
 
 func configure_left_hand_support(weapon_id: StringName) -> void:
+	_support_weapon_id = weapon_id
 	if aim_modifier == null:
 		return
 	aim_modifier.support_enabled = false
@@ -679,11 +708,6 @@ func configure_left_hand_support(weapon_id: StringName) -> void:
 	var node: Node3D = grip
 	while node != right_hand_attachment:
 		var node_transform := node.transform
-		# Support is only solved while aiming. If the weapon was equipped in its
-		# lowered carry pose, cache the grip against the canonical firing socket
-		# rather than against that temporary carry rotation.
-		if node.get_parent() == right_hand_attachment and node.has_meta("weapon_aim_transform"):
-			node_transform = node.get_meta("weapon_aim_transform", node_transform)
 		grip_local = node_transform * grip_local
 		node = node.get_parent() as Node3D
 	aim_modifier.grip_from_hand = grip_local
@@ -773,22 +797,31 @@ func _configure_locomotion_clips() -> void:
 
 
 func _create_ready_pose() -> void:
-	var source_name: StringName = &""
-	for preferred_state in [&"run", &"walk"]:
-		for animation_name in animation_player.get_animation_list():
-			if _canonical_animation_name(animation_name) == preferred_state:
-				source_name = animation_name
-				break
-		if source_name != &"":
-			break
+	var source_name := _fire_animation_name
 	if source_name == &"":
 		return
 	var source := animation_player.get_animation(source_name)
 	var upper_paths := _collect_upper_body_track_paths(source_name)
-	# This phase has both arms beside the body in the authored run cycle. Freezing
-	# only the arm rotations gives a stable one-handed carry while the pelvis,
-	# legs and torso retain their complete locomotion animation.
-	ready_pose_sample_time = minf(0.30, source.length * 0.5)
+	# Preserve the authored two-handed grip, lowered together at the shoulders.
+	# An unarmed running arm pose twists the wrist and leaves the other hand loose.
+	ready_pose_sample_time = aim_pose_sample_time
+	animation_player.play(source_name)
+	animation_player.seek(ready_pose_sample_time, true)
+	skeleton.force_update_all_bone_transforms()
+	var lowered_rotations := {}
+	for side in ["rightarm", "leftarm"]:
+		for index in range(skeleton.get_bone_count()):
+			if _normalize_bone_name(skeleton.get_bone_name(index)) != side:
+				continue
+			var parent := skeleton.get_bone_parent(index)
+			var parent_basis := skeleton.get_bone_global_pose(parent).basis
+			var hand_index := skeleton.find_bone(right_hand_bone_name if side == "rightarm" else left_hand_bone_name)
+			var arm_pose := skeleton.get_bone_global_pose(index)
+			var reach := skeleton.get_bone_global_pose(hand_index).origin - arm_pose.origin
+			var lowered_reach := reach - Vector3.UP * 0.14
+			var lowered := Basis(Quaternion(reach.normalized(), lowered_reach.normalized())) * arm_pose.basis
+			lowered_rotations[side] = (parent_basis.inverse() * lowered).orthonormalized().get_rotation_quaternion()
+	animation_player.stop(true)
 	var pose := Animation.new()
 	pose.length = 1.0
 	pose.loop_mode = Animation.LOOP_LINEAR
@@ -801,7 +834,7 @@ func _create_ready_pose() -> void:
 			continue
 		var track := pose.add_track(Animation.TYPE_ROTATION_3D)
 		pose.track_set_path(track, path)
-		var rotation_value := source.rotation_track_interpolate(source_track, ready_pose_sample_time)
+		var rotation_value: Quaternion = lowered_rotations.get(bone_name, source.rotation_track_interpolate(source_track, ready_pose_sample_time))
 		pose.rotation_track_insert_key(track, 0.0, rotation_value)
 		pose.rotation_track_insert_key(track, pose.length, rotation_value)
 		ready_filtered_track_paths.append(path)

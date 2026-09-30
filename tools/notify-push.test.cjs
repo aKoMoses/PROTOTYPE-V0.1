@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 const { buildPush } = require('./notify-push.cjs');
 
 test('summarizes a push in three sentences and links to its pull confirmation', () => {
@@ -22,4 +23,14 @@ test('uses Git diff paths when the push event omits file lists', () => {
     commits: [{ message: 'Tune combat', added: [], modified: [], removed: [] }]
   }, ['scripts/combat_state.gd']);
   assert.match(result.record.summary, /le gameplay/);
+});
+
+test('only explicit work trailers from pushed commits confirm publication', () => {
+  const id = randomUUID(), sha = 'c'.repeat(40);
+  const result = buildPush({ after: sha, sender: { login: 'morepudding' }, commits: [
+    { id: sha, message: `Install coordination\n\nPrototype-Work: ${id}` },
+    { id: 'd'.repeat(40), message: 'Another change without a work reference' },
+    { id: 'fake', message: `Prototype-Work: ${randomUUID()}` }
+  ] });
+  assert.deepEqual(result.record.workReferences, [{ id, commit: sha }]);
 });

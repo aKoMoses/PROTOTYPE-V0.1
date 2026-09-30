@@ -1,10 +1,14 @@
 extends Node
 
+const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
 const PASSIVE_STATE := preload("res://scripts/passive_state.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 
 var profile := "blaster"
+var robot_id := COMBAT_DATA.DEFAULT_ROBOT
+var build_title := "ADVERSAIRE"
 var offensive_id := "modulo_drone"
 var defensive_id := "magnetic_field"
 var mobility_id := "bio_injector"
@@ -19,6 +23,7 @@ var bio_cooldown := 0.0
 var bio_remaining := 0.0
 var dash_remaining := 0.0
 var dash_direction := Vector3.ZERO
+var _generation := 0
 var _shot_serial := 0
 var _decision_serial := 0
 var _aim_position := Vector3.ZERO
@@ -61,6 +66,8 @@ func set_profile(value: String) -> void:
 
 
 func set_loadout(value: Dictionary) -> void:
+	robot_id = str(LOADOUT.sanitize(value).robot)
+	build_title = str(value.get("title", "ADVERSAIRE"))
 	profile = "shotgun" if str(value.get("weapon", profile)) == "shotgun" else "blaster"
 	offensive_id = str(value.get("offensive", "pelto_smash" if profile == "shotgun" else "modulo_drone"))
 	if not offensive_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"]:
@@ -78,10 +85,11 @@ func set_loadout(value: Dictionary) -> void:
 
 
 func get_loadout() -> Dictionary:
-	return {"weapon": profile, "offensive": offensive_id, "defensive": defensive_id, "mobility": mobility_id, "passive": passive_id}
+	return {"robot": robot_id, "title": build_title, "weapon": profile, "offensive": offensive_id, "defensive": defensive_id, "mobility": mobility_id, "passive": passive_id}
 
 
 func reset() -> void:
+	_generation += 1
 	_action_gate.reset()
 	_weapon_action_token = 0
 	_module_action_token = 0
@@ -213,11 +221,6 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	_javelin_mark_remaining = maxf(0.0, _javelin_mark_remaining - delta)
 	if _javelin_mark_remaining <= 0.0:
 		_javelin_marked_player = null
-	if _passive_state.process(delta):
-		var combat_state = body.get("combat_state")
-		if combat_state != null and not combat_state.is_dead():
-			combat_state.apply_damage(combat_state.health, "baroud", "duel_bot:baroud:expiry")
-		return
 	if static_remaining > 0.0:
 		static_remaining = maxf(0.0, static_remaining - delta)
 		body.set_meta("duel_static_shield", static_remaining > 0.0)
@@ -513,7 +516,7 @@ func _activate_magnetic_field(body: Node3D, toward: Vector3) -> void:
 	wall.rotation.y = atan2(direction.x, direction.z)
 	_magnetic_wall = wall
 	_start_module_cooldown("magnetic_field")
-	get_tree().create_timer(float(definition["duration"]), true, false, false).timeout.connect(func() -> void:
+	get_tree().create_timer(float(definition["duration"]), false, false, false).timeout.connect(func() -> void:
 		if is_instance_valid(wall):
 			wall.queue_free()
 		if _magnetic_wall == wall:
@@ -533,38 +536,29 @@ func _fire_module_projectile(module_id: String, body: Node3D, player: Node3D, ta
 		return
 	direction = direction.normalized()
 	var maximum := float(definition["max_range"])
-	var endpoint := muzzle + direction * maximum
-	var world := body.get_world_3d()
-	if world != null:
-		var ray := PhysicsRayQueryParameters3D.create(muzzle, endpoint)
-		ray.collision_mask = 1 | 4 | 8
-		ray.collide_with_areas = true
-		ray.exclude = [body.get_rid()]
-		var hit := world.direct_space_state.intersect_ray(ray)
-		if not hit.is_empty():
-			endpoint = hit.position
-	var projectile := Node3D.new()
+	var generation := _generation
+	var projectile := LIVE_PROJECTILE.new()
 	projectile.name = "DuelBotModuloDrone" if module_id == "modulo_drone" else "DuelBotJavelin"
-	projectile.add_to_group("prototype0_gameplay_projectiles")
 	get_tree().current_scene.add_child(projectile)
 	projectile.global_position = muzzle
-	var vfx := get_tree().current_scene.get_node_or_null("VFXManager")
-	if vfx != null:
-		vfx.call("projectile_visual", projectile, "enemy")
-	var speed := float(definition["speed"])
-	var travel := projectile.create_tween()
-	travel.tween_property(projectile, "global_position", endpoint, maxf(0.025, muzzle.distance_to(endpoint) / speed))
-	travel.tween_callback(Callable(self, "_resolve_module_projectile").bind(module_id, body, player, endpoint, attack_serial))
-	travel.tween_callback(projectile.queue_free)
+	projectile.configure(direction, float(definition.speed), maximum, 1 | 4 | 8, [body.get_rid()])
+	var visual := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.16 if module_id == "modulo_drone" else 0.10
+	mesh.height = mesh.radius * 2.0
+	visual.mesh = mesh
+	visual.material_override = _fx_material(Color("#45ddff") if module_id == "modulo_drone" else Color("#ffe48b"), 0.96)
+	projectile.add_child(visual)
+	projectile.finished.connect(func(hit: Dictionary, _distance: float) -> void:
+		if generation == _generation and hit.get("collider") == player:
+			_resolve_module_projectile(module_id, body, player, hit.position, attack_serial)
+	)
 
 
 func _resolve_module_projectile(module_id: String, body: Node3D, player: Node3D, endpoint: Vector3, attack_serial: int) -> void:
 	if player == null or not is_instance_valid(player) or body == null or not is_instance_valid(body):
 		return
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS[module_id]
-	var radius := 1.05 if module_id == "modulo_drone" else 0.72
-	if (player.global_position + Vector3.UP * 0.90).distance_to(endpoint) > radius:
-		return
 	var dealt := float(player.call("take_damage", float(definition["damage"]), "duel_bot", "duel_bot:%s:%d" % [module_id, attack_serial]))
 	_register_damage(body, dealt)
 	if dealt <= 0.0:
@@ -618,7 +612,7 @@ func _register_damage(body: Node3D, effective_damage: float) -> void:
 	if effective_damage <= 0.0 or passive_id != "omnivamp" or body == null or not is_instance_valid(body):
 		return
 	if body.has_method("heal"):
-		body.call("heal", _passive_state.omnivamp_heal_for(effective_damage), "duel_bot:omnivamp")
+		body.call("heal", body.combat_state.passive.omnivamp_heal_for(effective_damage) if body.combat_state.get("passive") != null else _passive_state.omnivamp_heal_for(effective_damage), "duel_bot:omnivamp")
 
 
 func register_damage(body: Node3D, effective_damage: float) -> void:
@@ -706,23 +700,24 @@ func _fire(body: Node3D, player: Node3D) -> void:
 		_release_weapon_action()
 		return
 	var muzzle := body.global_position + Vector3.UP * 0.9
+	var muzzle_direction := (aim_target - muzzle).normalized()
 	if body.has_method("prepare_training_bot_shot"):
 		var shot_transform: Transform3D = body.call("prepare_training_bot_shot", aim_target)
 		muzzle = shot_transform.origin
-	var direction := aim_target - muzzle
-	if direction.length_squared() < 0.01:
+		muzzle_direction = -shot_transform.basis.z.normalized()
+	if muzzle_direction.length_squared() < 0.01:
 		_release_weapon_action()
 		return
-	direction = direction.normalized()
+	muzzle_direction = muzzle_direction.normalized()
 	if profile == "shotgun":
 		var volley := {"hits": 0, "base": 0.0}
 		var angles: Array = definition["pellet_angles"]
 		for index in range(angles.size()):
-			_launch_projectile(body, player, muzzle, direction.rotated(Vector3.UP, deg_to_rad(float(angles[index]))), index, volley)
+			_launch_projectile(body, player, muzzle, muzzle_direction.rotated(Vector3.UP, deg_to_rad(float(angles[index]))), index, volley)
 		if ammo <= 0:
 			_start_reload()
 	else:
-		_launch_projectile(body, player, muzzle, direction, 0, {})
+		_launch_projectile(body, player, muzzle, muzzle_direction, 0, {})
 	_release_weapon_action()
 	_update_readout()
 
@@ -734,22 +729,15 @@ func _launch_projectile(body: Node3D, player: Node3D, muzzle: Vector3, direction
 	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS[profile]
 	var maximum := float(definition["max_range"])
 	var speed := float(definition["pellet_speed"] if profile == "shotgun" else definition["projectile_speed"])
-	var endpoint := muzzle + direction * maximum
-	var world := body.get_world_3d()
-	if world != null:
-		var query := PhysicsRayQueryParameters3D.create(muzzle, endpoint)
-		query.collision_mask = 1 | 4 | 8
-		query.collide_with_areas = true
-		query.exclude = [body.get_rid()]
-		var hit := world.direct_space_state.intersect_ray(query)
-		if not hit.is_empty():
-			endpoint = hit.position
-	var distance := muzzle.distance_to(endpoint)
-	var projectile := Node3D.new()
+	var projectile := LIVE_PROJECTILE.new()
 	projectile.name = "DuelBotPellet" if profile == "shotgun" else "DuelBotBlaster"
+	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 	scene.add_child(projectile)
 	projectile.add_to_group("prototype0_gameplay_projectiles")
 	projectile.global_position = muzzle
+	projectile.look_at(muzzle + direction, Vector3.UP)
+	var excluded: Array[RID] = [body.get_rid()]
+	projectile.configure(direction, speed, maximum, 1 | 4 | 8, excluded)
 	var vfx := scene.get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "enemy")
@@ -757,20 +745,20 @@ func _launch_projectile(body: Node3D, player: Node3D, muzzle: Vector3, direction
 	var shot_profile := profile
 	var shot_damage := float(definition["pellet_damage"]) if profile == "shotgun" else lerpf(float(definition["damage"]), float(definition["max_damage"]), clampf(charge_duration / float(definition["charge_time"]), 0.0, 1.0))
 	var shot_id := "duel_bot:%d:%d" % [_shot_serial, pellet]
-	var travel := projectile.create_tween()
-	travel.tween_property(projectile, "global_position", endpoint, maxf(0.025, distance / speed))
-	travel.tween_callback(Callable(self, "_resolve_projectile").bind(player, body, endpoint, distance, shot_profile, shot_damage, shot_id, volley))
-	travel.tween_callback(projectile.queue_free)
+	projectile.finished.connect(_resolve_projectile.bind(player, body, shot_profile, shot_damage, shot_id, volley))
 
 
-func _resolve_projectile(player: Node3D, body: Node3D, endpoint: Vector3, distance: float, shot_profile: String, base_damage: float, shot_id: String, volley: Dictionary) -> void:
+func _resolve_projectile(hit: Dictionary, distance: float, player: Node3D, body: Node3D, shot_profile: String, base_damage: float, shot_id: String, volley: Dictionary) -> void:
 	if not is_instance_valid(player) or not is_instance_valid(body) or not player.has_method("take_damage"):
 		return
-	if not body.has_method("is_duel_mode") or not bool(body.call("is_duel_mode")) or not bool(get_parent().get("enabled")):
+	if not hit.is_empty():
+		var scene := get_tree().current_scene
+		var vfx := scene.get_node_or_null("VFXManager") if scene != null else null
+		if vfx != null:
+			vfx.call("impact", hit["position"], hit["normal"], vfx.call("surface_for", hit["collider"]), 0.75, Color("#ffbf83"))
+	if hit.is_empty() or hit.get("collider") != player:
 		return
-	var target_point := player.global_position + Vector3.UP * 0.9
-	var radius := float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["hitbox_radius"]) if shot_profile == "shotgun" else 0.95
-	if target_point.distance_to(endpoint) > radius:
+	if not body.has_method("is_duel_mode") or not bool(body.call("is_duel_mode")) or not bool(get_parent().get("enabled")):
 		return
 	var damage := base_damage
 	if shot_profile == "shotgun":
@@ -798,6 +786,6 @@ func _update_readout() -> void:
 	var readout := body.get_node_or_null("TargetHealthReadout")
 	if readout == null:
 		return
-	readout.call("update_actor_identity", Color("#ee6b4e"), "ASSAILLANT · SHOTGUN" if profile == "shotgun" else "HARCELEUR · BLASTER")
+	readout.call("update_actor_identity", Color("#ee6b4e"), build_title + " · " + LOADOUT.display_name(robot_id))
 	readout.call("set_shotgun_ammo", profile == "shotgun", ammo, int(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["magazine_size"]), reload_remaining > 0.0, 1.0 - reload_remaining / float(COMBAT_DATA.WEAPON_DEFINITIONS["shotgun"]["reload_duration"]))
 	readout.call("set_blaster_charge", profile == "blaster", charge_remaining > 0.0, 1.0 - charge_remaining / maxf(0.01, charge_duration))

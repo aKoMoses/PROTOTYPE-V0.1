@@ -7,6 +7,9 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	var state := COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	var healing_events: Array[float] = []
 	state.healing_applied.connect(func(amount: float, _source_id: String) -> void: healing_events.append(amount))

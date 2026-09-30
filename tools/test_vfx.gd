@@ -12,6 +12,9 @@ var _target: Node3D
 
 
 func _initialize() -> void:
+	var startup_fixture := Node.new()
+	root.add_child(startup_fixture)
+	current_scene = startup_fixture
 	call_deferred("_run")
 
 
@@ -206,7 +209,7 @@ func _test_budget_preserves_damage() -> void:
 	var start := Vector3(0.0, 0.82, -0.75)
 	var endpoint := _target.position + Vector3.UP * 0.82
 	for index in range(20):
-		_player.call("_spawn_blaster_projectile", start, endpoint, start.distance_to(endpoint), true, _target, 20.0, 0.0, 5000 + index, (endpoint - start).normalized())
+		_player.call("_spawn_blaster_projectile", start, 20.0, 0.0, 5000 + index, (endpoint - start).normalized())
 	_scene.call("_trim_fx_budget")
 	await create_timer(0.65).timeout
 	var damage := 1000.0 - float(_target.call("get_health"))
