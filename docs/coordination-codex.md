@@ -30,6 +30,8 @@ Prototype-Work: identifiant-fourni-par-la-reservation
 
 Le workflow GitHub de la branche main confirme « Publié » seulement pour les réservations citées dans les commits effectivement poussés. `node tools/coordinate.cjs cancel` abandonne un travail ; cela ne supprime pas ses fichiers. Un simple arrêt de réponse de Codex n’est jamais traité comme une livraison.
 
+Après `finish`, `git add`, `git commit` et `git push` restent autorisés pour cette conversation : ils vérifient la réservation existante sans rouvrir le développement. Une suite de ces commandes accompagnée de lectures (par exemple `git diff --cached --check`) est également acceptée. Toute commande mêlant une nouvelle écriture dans les fichiers doit encore disposer d’une réservation active. En cas de commande shell complexe non reconnue, lancer les étapes Git séparément.
+
 ## Limites et coût
 
 Aucun modèle supplémentaire, agent PMD ou analyse de l’historique entier à chaque prompt. Le contexte initial est plafonné ; les appels de vérification ne produisent pas de texte lorsqu’ils réussissent. Le site reçoit seulement le titre court, les secteurs, les chemins relatifs et les références Git. Aucun prompt brut, transcript, code ou secret n’est envoyé au tableau.

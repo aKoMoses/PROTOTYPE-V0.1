@@ -40,15 +40,54 @@ function compact(records) {
   const lines = selected.slice(0, 6).map(r => `${r.actor} · ${LABELS[r.status]} · ${r.title.slice(0, 80)}${r.commit ? ` (${r.commit.slice(0, 7)})` : ''}`);
   return `${lines.join('\n') || 'Aucun travail déclaré.'}${selected.length > 6 ? `\n+ ${selected.length - 6} autres sur le site.` : ''}`.slice(0, 850);
 }
+const SHELL_TOOLS = /^(Bash|exec_command|shell|shell_command)$/;
+const GIT_PREFIX = "git(?:\\.exe)?(?:\\s+(?:--no-pager|-C\\s+(?:\"[^\"]+\"|'[^']+'|[^\\s;]+)))*\\s+";
+const GIT_DELIVERY = new RegExp(`^${GIT_PREFIX}(?:add|commit|push)\\b`, 'i');
+const READ_COMMAND = new RegExp(`^(?:${GIT_PREFIX}(?:status|diff|log|show|rev-parse|ls-files|ls-remote|remote\\s+-v)\\b|rg\\b|Get-(?:Content|ChildItem|Item|Location|Command)\\b|Test-Path\\b|pwd\\b|ls\\b|cat\\b|head\\b|tail\\b)`, 'i');
+function shellStatements(command) {
+  const statements = [];
+  let quote = '', current = '';
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i], next = command[i + 1];
+    // Ambiguous escaping/interpolation stays on the guarded editing path.
+    if (ch === '`' || ch === '\0' || (ch === '$' && next === '(' && quote !== "'")) return null;
+    if (quote) {
+      current += ch;
+      if (ch === '\\' && next === quote) return null;
+      if (ch === quote) {
+        if (next === quote) { current += next; i++; } else quote = '';
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; current += ch; continue; }
+    if (ch === ';' || ch === '\n' || ch === '\r' || (ch === '&' && next === '&')) {
+      if (current.trim()) statements.push(current.trim());
+      current = ''; if (ch === '&') i++; continue;
+    }
+    if ('|<>&(){}'.includes(ch)) return null;
+    current += ch;
+  }
+  if (quote) return null;
+  if (current.trim()) statements.push(current.trim());
+  return statements.length ? statements : null;
+}
+function readCommand(command) {
+  // Only the coordination entrypoint is exempt. Arbitrary Node/Python/shell code needs a claim.
+  if (/^(?:&\s*)?(?:node|"[^"]*node(?:\.exe)?")\s+["']?(?:[^\r\n"';|&]+[\/])?tools[\/]coordinate\.cjs["']?\s+(?:claim|context|catalog|status|finish|cancel|setup|heartbeat)\b[^\r\n;|&<>]*$/.test(command)) return true;
+  return !/--output\b|\b(?:Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Invoke-Expression)\b/i.test(command) && READ_COMMAND.test(command);
+}
 function isReadOnly(payload) {
   const name = payload.tool_name || '';
   if (/^(apply_patch|Edit|Write)$/.test(name)) return false;
-  if (!/^(Bash|exec_command|shell|shell_command)$/.test(name)) return true;
-  const command = String(payload.tool_input?.command || payload.tool_input?.cmd || '').trim();
-  // Only the coordination entrypoint is exempt. Arbitrary Node/Python/shell code needs a claim.
-  if (/^(?:&\s*)?(?:node|"[^"]*node(?:\.exe)?")\s+["']?(?:[^\r\n"';|&]+[\/])?tools[\/]coordinate\.cjs["']?\s+(?:claim|context|catalog|status|finish|cancel|setup|heartbeat)\b[^\r\n;|&<>]*$/.test(command)) return true;
-  if (/[|<>`]|\$\(|--output\b|\b(?:Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Invoke-Expression)\b/i.test(command)) return false;
-  return command.split(/[;\r\n]+/).filter(Boolean).every(part => /^(?:git\s+(?:status|diff|log|show|rev-parse|ls-files|ls-remote|remote\s+-v)\b|rg\b|Get-(?:Content|ChildItem|Item|Location|Command)\b|Test-Path\b|pwd\b|ls\b|cat\b|head\b|tail\b)/i.test(part.trim()));
+  if (!SHELL_TOOLS.test(name)) return true;
+  const statements = shellStatements(String(payload.tool_input?.command || payload.tool_input?.cmd || '').trim());
+  return Boolean(statements && statements.every(readCommand));
+}
+function isPublicationOnly(payload) {
+  if (!SHELL_TOOLS.test(payload.tool_name || '')) return false;
+  const statements = shellStatements(String(payload.tool_input?.command || payload.tool_input?.cmd || '').trim());
+  return Boolean(statements && statements.some(command => GIT_DELIVERY.test(command)) &&
+    statements.every(command => GIT_DELIVERY.test(command) || readCommand(command)));
 }
 async function touch(config, state, session, action = 'heartbeat', timeout, extras = {}) {
   if (!state.record) throw new Error('Réserve cette modification avant d’écrire : node tools/coordinate.cjs claim --title "Modification précise" --topic "sujet-precis" --sectors "secteur" --files "scripts/fichier.gd"');
@@ -68,10 +107,9 @@ async function hook(payload, repo = root(payload.cwd)) {
   if (event === 'PreToolUse') {
     if (isReadOnly(payload)) return null;
     try {
-      const command = String(payload.tool_input?.command || payload.tool_input?.cmd || '').trim();
-      const publication = /^(Bash|exec_command|shell|shell_command)$/.test(payload.tool_name || '') && /^git\s+(?:commit|push)\b[^;\r\n|&<>]*$/.test(command);
-      // Publishing verified local work does not reopen it or allow additional file edits.
-      const result = await touch(config, state, session, publication ? 'check' : 'heartbeat');
+      // Staging/committing/pushing verified work checks ownership without reopening editing.
+      // Every command in a shell batch must be a delivery step or a permitted read.
+      const result = await touch(config, state, session, isPublicationOnly(payload) ? 'check' : 'heartbeat');
       write(local.state, { ...state, record: result.record });
       return null;
     } catch (error) {
@@ -153,4 +191,4 @@ if (require.main === module) main().catch(error => {
     process.stderr.write(`Coordination : ${error.message}\n`); process.exitCode = 2;
   } else { console.error(error.message); process.exitCode = 1; }
 });
-module.exports = { compact, isReadOnly, hook, files, request, runHook };
+module.exports = { compact, isReadOnly, isPublicationOnly, hook, files, request, runHook };

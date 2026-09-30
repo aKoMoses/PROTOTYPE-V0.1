@@ -4,13 +4,22 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const { compact, isReadOnly, hook, files } = require('./coordinate.cjs');
+const { compact, isReadOnly, isPublicationOnly, hook, files } = require('./coordinate.cjs');
 test('reads need no claim; shell writes and patches do; only coordination commands are exempt', () => {
   const shell = command => ({ tool_name: 'Bash', tool_input: { command } });
   assert.ok(isReadOnly(shell('git status --short; Get-Content AGENTS.md')));
   assert.ok(isReadOnly(shell('node tools/coordinate.cjs claim --title "Corriger la visée"')));
-  for (const command of ['node -e "require(\'fs\').writeFileSync(\'test\',\'x\')"', 'git status; Set-Content test x', 'Get-Content test > other', 'git commit -m test', 'node tools/coordinate.cjs status; Remove-Item test']) assert.equal(isReadOnly(shell(command)), false);
+  for (const command of ['node -e "require(\'fs\').writeFileSync(\'test\',\'x\')"', 'git status; Set-Content test x', 'git status && Set-Content test x', 'Get-Content test > other', 'git commit -m test', 'node tools/coordinate.cjs status; Remove-Item test']) assert.equal(isReadOnly(shell(command)), false);
   assert.equal(isReadOnly({ tool_name: 'apply_patch', tool_input: {} }), false);
+});
+test('staging, commits and pushes are delivery, including batches and quoted paths', () => {
+  const shell = command => ({ tool_name: 'Bash', tool_input: { command } });
+  for (const command of ['git add -- tools/coordinate.cjs', 'git commit -m "Sujet; avec ponctuation"', 'git push origin main', 'git add -- file.gd; git diff --cached --check; git commit -m "Fix"; git push origin main', 'git add -- "file; name.gd" && git status --short && git commit -m "Fix"', 'git -C "C:\\Game Project" add -- file.gd\ngit -C "C:\\Game Project" diff --cached --check']) {
+    assert.equal(isPublicationOnly(shell(command)), true, command);
+  }
+  for (const command of ['git status', 'git add -- file.gd; Set-Content file.gd changed', 'git add -- file.gd && node -e "write()"', 'git add -- file.gd | node -e "write()"', 'git reset --hard', 'git add -- "$(Set-Content file.gd changed)"', 'git add -- file.gd; git checkout -- file.gd']) {
+    assert.equal(isPublicationOnly(shell(command)), false, command);
+  }
 });
 test('context is bounded and prioritizes unfinished work over published history', () => {
   const records = Array.from({ length: 40 }, (_, index) => ({ actor: 'akomoses', status: index === 39 ? 'local' : 'published', title: 'x'.repeat(120), updatedAt: Date.now(), commit: 'a'.repeat(40) }));
@@ -18,6 +27,40 @@ test('context is bounded and prioritizes unfinished work over published history'
   assert.ok(text.length <= 850);
   assert.match(text.split('\n')[0], /terminé localement/);
   assert.match(text, /autres sur le site/);
+});
+test('finished local or published work can be staged without enabling file edits or bypassing outages', async () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'prototype-coordination-finished-'));
+  const session = 'finished-test-session', local = files(repo, session);
+  let status = 'local', unavailable = false, seen = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw); seen.push(body);
+    res.setHeader('Content-Type', 'application/json');
+    if (unavailable) { res.writeHead(503); res.end(JSON.stringify({ error: 'Indisponible' })); return; }
+    if (body.action === 'heartbeat' || !['local', 'published'].includes(status)) { res.writeHead(409); res.end(JSON.stringify({ error: 'expired' })); return; }
+    res.end(JSON.stringify({ record: { id: 'finished-work', status, leaseToken: 'finished-lease' } }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    fs.mkdirSync(path.dirname(local.config), { recursive: true });
+    fs.writeFileSync(local.config, JSON.stringify({ actor: 'morepudding', token: 'private-token', site: `http://127.0.0.1:${server.address().port}` }));
+    fs.mkdirSync(path.dirname(local.state), { recursive: true });
+    fs.writeFileSync(local.state, JSON.stringify({ record: { id: 'finished-work', status, leaseToken: 'finished-lease' } }));
+    const payload = { session_id: session, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git add -- file.gd; git diff --cached --check; git commit -m "Fix"; git push origin main' } };
+    for (status of ['local', 'published']) {
+      assert.equal(await hook(payload, repo), null);
+      assert.equal(seen.at(-1).action, 'check');
+      assert.equal((await hook({ ...payload, tool_name: 'apply_patch' }, repo)).hookSpecificOutput.permissionDecision, 'deny');
+      assert.equal((await hook({ ...payload, tool_input: { command: 'git add -- file.gd; Set-Content file.gd changed' } }, repo)).hookSpecificOutput.permissionDecision, 'deny');
+    }
+    status = 'interrupted';
+    assert.equal((await hook(payload, repo)).hookSpecificOutput.permissionDecision, 'deny');
+    status = 'local'; unavailable = true;
+    assert.equal((await hook(payload, repo)).hookSpecificOutput.permissionDecision, 'deny');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
 });
 test('hook denies an unreserved patch, renews a claim, and fails closed during an outage', async () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'prototype-coordination-'));
