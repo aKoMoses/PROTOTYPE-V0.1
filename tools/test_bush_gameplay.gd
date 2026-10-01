@@ -248,12 +248,13 @@ func _capture_local_materials() -> void:
 	var rig := _player.get_node("VisualRoot")
 	var blaster := _player.get("_blaster_pivot") as Node3D
 	var shotgun := _player.get("_shotgun_pivot") as Node3D
+	var charge_visual := _player.get("_blaster_charge_visual") as Node3D
 	_local_materials = {"body": [], "blaster": [], "shotgun": []}
 	for node in rig.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D
 		# The charge glow animates its own alpha during attack tests. Snapshot
 		# the robot and weapon surfaces, whose source colors are stable.
-		if mesh.mesh == null or mesh.name == "BlasterChargeGlow":
+		if mesh.mesh == null or (charge_visual != null and charge_visual.is_ancestor_of(mesh)):
 			continue
 		var group := "body"
 		if blaster.is_ancestor_of(mesh):
@@ -327,6 +328,9 @@ func _test_conceal_presentation_and_reveal() -> void:
 	_target.global_position = BUSH_STATE.center(_bush)
 	_target.call("apply_slow", 1.0, 30.0, "bush_test")
 	_target.call("apply_javelin_mark", 1.0, "bush_test")
+	_check(bool(_target.call("is_visible_to", _player)), "Javelin's SPOTTED mark reveals its target in foliage")
+	_target.call("clear_javelin_mark")
+	_target.get("visibility_state").update(1.01)
 	_target.call("_update_visibility_presentation")
 	for node_name in ["VisualRoot", "TargetHealthReadout", "StatusReadout", "JavelinMark"]:
 		var node := _target.get_node_or_null(node_name) as Node3D

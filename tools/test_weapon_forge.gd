@@ -40,22 +40,23 @@ func _run() -> void:
 	var garage: Control = flow.get("_forge_garage")
 	var stage = garage.get("stage")
 	var choices: Dictionary = garage.get("weapon_buttons")
+	var saved_before_choices := LOADOUT.load_local()
+	var combat_weapon_before := str(scene.get("player").call("get_weapon_id"))
 	_check(garage.visible and choices.size() == LOADOUT.WEAPONS.size(), "toutes les armes dans la forge officielle")
 	for identifier in LOADOUT.WEAPONS:
 		var button: Button = choices[identifier]
 		button.pressed.emit()
-		_check(str(flow.get("loadout").weapon) == identifier and LOADOUT.load_local().weapon == identifier, "selection et sauvegarde immediate : " + identifier)
+		_check(str(garage.get("loadout").weapon) == identifier and LOADOUT.load_local() == saved_before_choices, "selection dans le brouillon sans sauvegarde immediate : " + identifier)
 		var model := stage.weapon_socket.get_child(0).get_child(0) as Node3D
 		var expected_path: String = MODEL_PATHS.get(identifier, "res://art/weapons/%s.glb" % identifier)
 		_check(model.scene_file_path == expected_path, "vrai GLB equipe dans la main : " + identifier)
 		_check(stage.weapon_socket.global_transform.is_finite(), "transformation finie : " + identifier)
-		var info := button.get_node("Info") as Button
-		info.pressed.emit()
-		_check(garage.get("_module_panel").visible and garage.get("_weapon_info_id") == identifier, "fiche de l'arme accessible : " + identifier)
-		var details: VBoxContainer = garage.get("_module_options")
-		_check(details.get_child(0).text == LOADOUT.category_description(identifier) and details.get_child(1).text == LOADOUT.stat_line(identifier), "description et statistiques conservees : " + identifier)
-		_check(str(flow.get("loadout").weapon) == identifier, "ouvrir une fiche ne change pas l'equipement")
-		garage.get("_module_panel").hide()
+		button.mouse_entered.emit()
+		_check(garage.get("_detail_title").text == LOADOUT.display_name(identifier), "fiche de l'arme accessible au survol : " + identifier)
+		_check(garage.get("_detail_description").text == LOADOUT.category_description(identifier) and garage.get("_detail_stats").tooltip_text == LOADOUT.stat_line(identifier), "description et statistiques conservees : " + identifier)
+		var other_id: String = LOADOUT.WEAPONS[(LOADOUT.WEAPONS.find(identifier) + 1) % LOADOUT.WEAPONS.size()]
+		(choices[other_id] as Button).mouse_entered.emit()
+		_check(str(garage.get("loadout").weapon) == identifier and garage.get("_detail_title").text == LOADOUT.display_name(other_id), "survoler une autre fiche ne change pas l'equipement")
 	for dimensions in [Vector2i(1280, 720), Vector2i(800, 600), Vector2i(2340, 1080)]:
 		root.size = dimensions
 		await process_frame
@@ -63,7 +64,7 @@ func _run() -> void:
 		for button: Button in choices.values():
 			var bounds := button.get_global_rect()
 			_check(bounds.position.x >= 0 and bounds.position.y >= 0 and bounds.end.x <= root.size.x + 1 and bounds.end.y <= root.size.y + 1, "carte visible : %s / %s" % [button.name, dimensions])
-	var selected := str(flow.get("loadout").weapon)
+	var selected := str(garage.get("loadout").weapon)
 	flow.call("_open_menu")
 	await process_frame
 	var stopped_time: float = stage.robot_animator.current_animation_position
@@ -74,7 +75,7 @@ func _run() -> void:
 	await create_timer(0.15).timeout
 	_check(garage.visible and garage.get("loadout").weapon == selected, "equipement conserve a la reouverture")
 	_check(stage.viewport.render_target_update_mode != SubViewport.UPDATE_DISABLED and stage.is_processing(), "rendu reprend au retour dans la forge")
-	_check(scene.get("player").call("get_weapon_id") == "blaster", "la forge ne modifie pas le controleur de combat avant JOUER")
+	_check(scene.get("player").call("get_weapon_id") == combat_weapon_before, "la forge ne modifie pas le controleur de combat avant sauvegarde et JOUER")
 	flow.set_process(false)
 	for audio_node in scene.find_children("*", "AudioStreamPlayer", true, false):
 		(audio_node as AudioStreamPlayer).stop()
@@ -85,6 +86,7 @@ func _run() -> void:
 	if _save_existed:
 		var file := FileAccess.open(LOADOUT.SAVE_PATH, FileAccess.WRITE)
 		file.store_buffer(_saved_bytes)
+		file.close()
 	else:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOADOUT.SAVE_PATH))
 	for failure in _failures:

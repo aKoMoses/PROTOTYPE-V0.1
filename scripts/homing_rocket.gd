@@ -17,6 +17,7 @@ var _bar: MeshInstance3D
 var _trail: MeshInstance3D
 var _points: Array[Vector3] = []
 var _cast: ShapeCast3D
+var _propulsion: AudioStreamPlayer3D
 
 
 func configure(actor: Node3D, identifier: String, heading: Vector3, visual_only: bool = false) -> void:
@@ -50,6 +51,17 @@ func _ready() -> void:
 	_cast.collide_with_areas = true
 	add_child(_cast)
 	_build_visual()
+	_propulsion = AudioStreamPlayer3D.new()
+	var loop := preload("res://art/audio/game-sfx/rocket-flight.wav").duplicate() as AudioStreamWAV
+	loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	loop.loop_begin = 0
+	loop.loop_end = int(loop.get_length() * loop.mix_rate)
+	_propulsion.stream = loop
+	_propulsion.volume_db = -17.0 # Five quiet engines stay below their impacts.
+	_propulsion.unit_size = 3.0
+	_propulsion.max_distance = 22.0
+	add_child(_propulsion)
+	_propulsion.play()
 
 
 static func owned_exclusions(context: Node, excluded: Array[RID]) -> Array[RID]:
@@ -99,6 +111,7 @@ func _physics_process(delta: float) -> void:
 		global_position += motion * _cast.get_closest_collision_safe_fraction()
 		_finished = true
 		collision_layer = 0
+		_play_terminal_sound("rocket_impact")
 		if is_instance_valid(collider) and collider != caster and collider.has_method("take_damage"):
 			impacted.emit(collider, self)
 		if is_instance_valid(collider) and collider.has_method("projectile_impact"):
@@ -164,6 +177,7 @@ func take_damage(amount: float, _source: String = "", _attack: String = "") -> f
 	var applied := minf(health, maxf(0.0, amount))
 	health -= applied
 	if health <= 0.0:
+		_play_terminal_sound("rocket_destroyed")
 		_destroy()
 	else:
 		_update_visual()
@@ -173,7 +187,16 @@ func take_damage(amount: float, _source: String = "", _attack: String = "") -> f
 func _destroy() -> void:
 	_finished = true
 	collision_layer = 0
+	if _propulsion != null:
+		_propulsion.stop()
 	queue_free()
+
+
+func _play_terminal_sound(event_id: String) -> void:
+	_propulsion.stop()
+	get_node("/root/GameSfx").play_module_event(event_id, global_position)
+	if not replica and is_instance_valid(caster) and caster.has_method("_notify"):
+		caster.call("_notify", "rocket_end", {"sound": event_id, "center": global_position})
 
 
 func flash_impact(_critical: bool = false) -> void:

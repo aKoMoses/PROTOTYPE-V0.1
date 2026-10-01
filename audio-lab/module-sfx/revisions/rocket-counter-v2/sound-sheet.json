@@ -1,0 +1,172 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "runtime": "local official optimized TFLite",
+  "generation_seconds": 4,
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, voice, digital beep, sonar ping, sine wave, videogame power up, cartoon bloop, laser chirp, alarm, squeaky metal, drill, jackhammer, clipping",
+  "negative_prompt_note": "At CFG 1 the negative branch is not used; exclusions are stated in each positive prompt as well.",
+  "rejected_previous_batch": true,
+  "direction": "Complete physical gestures, distinct causal roles; no universal envelope or notification beep.",
+  "modules": {
+    "rocket_basket": {
+      "name": "Panier roquettes",
+      "meaning": "Des roquettes physiques : on ouvre le rack, elles s'arrachent du lanceur, puis frappent ou sont détruites en vol.",
+      "scenario": [
+        [
+          "rocket-arm",
+          0.5,
+          1
+        ],
+        [
+          "rocket-launch",
+          1.0,
+          1
+        ],
+        [
+          "rocket-flight",
+          1.22,
+          0.7
+        ],
+        [
+          "rocket-impact",
+          2.5,
+          1
+        ],
+        [
+          "rocket-destroyed",
+          3.9,
+          1
+        ]
+      ]
+    },
+    "counter": {
+      "name": "Counter",
+      "meaning": "Le coup est stoppé. Son énergie est aspirée dans le robot, puis violemment rendue au prochain impact.",
+      "scenario": [
+        [
+          "counter-guard",
+          0.5,
+          1
+        ],
+        [
+          "counter-parry",
+          1.1,
+          1
+        ],
+        [
+          "counter-capture",
+          1.17,
+          0.8
+        ],
+        [
+          "counter-release",
+          2.85,
+          1
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "rocket-arm",
+      "module": "rocket_basket",
+      "label": "Ouverture / armement",
+      "meaning": "Le rack s'ouvre et verrouille les roquettes : poids, glissière, clac final.",
+      "maximum_duration": 0.52,
+      "rms_db": -22,
+      "kind": "accent",
+      "prompt": "Close-up Foley of one heavy steel ammunition rack being cocked. A solid mechanical clack, a brief rough sliding metal track, then a firm final locking thunk. Dense dry low metal weight, realistic tool mechanism, clearly articulated complete action. One action followed by silence. No electrical or tonal sounds.",
+      "seed": 26100301
+    },
+    {
+      "id": "rocket-launch",
+      "module": "rocket_basket",
+      "label": "Départ des roquettes",
+      "meaning": "Une poussée brûlante arrache la salve au lanceur, sans tir de fusil.",
+      "maximum_duration": 0.66,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "A cluster of small missiles firing from a launcher in one burst. Abrupt punchy rocket ignition, ripping hot gas exhaust rushing outward, short layered fiery whooshes overlapping. Strong physical jet thrust, airy coarse roar, no gunshot crack. One short missile launch burst with a natural quick decay into silence.",
+      "seed": 26100302
+    },
+    {
+      "id": "rocket-flight",
+      "module": "rocket_basket",
+      "label": "Propulsion en vol",
+      "meaning": "La poussée continue des moteurs suit les roquettes ; elle reste sous les impacts.",
+      "maximum_duration": 1.25,
+      "rms_db": -29,
+      "kind": "loop",
+      "prompt": "A small rocket motor burning steadily in flight. Close textured rushing combustion gases with gritty fluttering turbulent air and a restrained coarse fiery roar. Continuous non musical exhaust sound, no startup, no ignition bang, no explosions, no metallic rattling, no electronic tone. Natural soft irregular texture.",
+      "seed": 26100303
+    },
+    {
+      "id": "rocket-impact",
+      "module": "rocket_basket",
+      "label": "Impact explosif",
+      "meaning": "La roquette atteint sa cible : détonation courte, pression et débris.",
+      "maximum_duration": 0.88,
+      "rms_db": -19,
+      "kind": "accent",
+      "prompt": "One compact missile detonating against a thick steel plate. Forceful sharp explosion with a chesty low punch, harsh bursting fragments and brief gritty metallic debris. Physical explosive impact, tight dry recording, full initial detonation followed by a short falling debris tail and silence. No long bass drone.",
+      "seed": 26100304
+    },
+    {
+      "id": "rocket-destroyed",
+      "module": "rocket_basket",
+      "label": "Roquette détruite en vol",
+      "meaning": "La carcasse éclate avant la cible : petit éclatement fragile, distinct de l'impact.",
+      "maximum_duration": 0.54,
+      "rms_db": -23,
+      "kind": "accent",
+      "prompt": "One small flying rocket breaking apart when shot. Short hollow casing crunch and brittle metal crack, followed by a little sputtering fuel puff and light scattered fragment ticks. Fragile airy destruction with much less explosive weight than a missile impact. One complete brief burst and silence. No sonar or electronic tones.",
+      "seed": 26100305
+    },
+    {
+      "id": "counter-guard",
+      "module": "counter",
+      "label": "Mise en garde",
+      "meaning": "Le robot se ferme au coup : une tension physique brève, pas un signal d'interface.",
+      "maximum_duration": 0.25,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One heavy protective metal brace snapping firmly into position. Tight muted steel clack with a brief taut air squeeze, dry short solid defensive mechanism. Compact physical lock with weight but without ringing, chirping or electronic sounds. One immediate movement and silence.",
+      "seed": 26100306
+    },
+    {
+      "id": "counter-parry",
+      "module": "counter",
+      "label": "Attaque arrêtée",
+      "meaning": "Le choc est net : on doit sentir que le coup adverse vient d'être bloqué.",
+      "maximum_duration": 0.36,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "One violent strike stopped dead against a thick steel guard. Hard sharp metal-on-metal crack with a solid lower body and a very brief crushed air burst. Tactile decisive defensive collision, no ricochet whistle, no melodic ring. Single dry close-up impact with a short natural decay and silence.",
+      "seed": 26100307
+    },
+    {
+      "id": "counter-capture",
+      "module": "counter",
+      "label": "Énergie capturée / surcharge",
+      "meaning": "Après la parade, l'énergie rentre dans le robot : aspiration et crépitement contenu.",
+      "maximum_duration": 0.58,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One short burst of high voltage arcing being sucked inward and extinguished. A coarse irregular electrical crackle gathering rapidly into a compressed gritty fizz, ending abruptly in a dry muted snap. Textured electricity and inward air suction, an energy capture gesture rather than a UI notification. No pitched hum, no chirp, no ping, no melody. One burst then silence.",
+      "seed": 26100308
+    },
+    {
+      "id": "counter-release",
+      "module": "counter",
+      "label": "Énergie renvoyée à l'impact",
+      "meaning": "L'énergie stockée ressort au contact : décharge plus brutale que l'absorption.",
+      "maximum_duration": 0.72,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "One forceful high voltage discharge erupting at a steel impact. A hard immediate electrical snap layered with a dense physical metal crack and a compact crackling blast tearing outward. Strong aggressive stored energy release, short rough non tonal electrical tail, then silence. No laser beam, no UI beep, no long buzz.",
+      "seed": 26100309
+    }
+  ],
+  "integrated_in_game": false
+}

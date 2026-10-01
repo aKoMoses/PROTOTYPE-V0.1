@@ -440,10 +440,13 @@ func _test_player_integration() -> void:
 	flow.call("_open_equipment")
 	await process_frame
 	var choices: Dictionary = flow.get("_forge_garage").get("weapon_buttons")
+	var saved_before_selection := LOADOUT.load_local()
+	var combat_build_before: Dictionary = flow.get("loadout").duplicate(true)
 	_check(choices.has("mekatana"), "the real equipment selector exposes Mekatana")
 	if choices.has("mekatana"):
 		(choices["mekatana"] as Button).pressed.emit()
-		_check(str(flow.get("loadout").weapon) == "mekatana" and LOADOUT.load_local().weapon == "mekatana", "real selection equips and persists Mekatana")
+		var garage = flow.get("_forge_garage")
+		_check(str(garage.loadout.weapon) == "mekatana" and garage.stage.weapon_id == "mekatana" and flow.get("loadout") == combat_build_before and LOADOUT.load_local() == saved_before_selection, "real selection previews Mekatana and preserves the saved combat build until Save")
 	flow.call("_open_menu")
 	await _prepare_player(player, target, controls)
 	await _desktop_key(true)

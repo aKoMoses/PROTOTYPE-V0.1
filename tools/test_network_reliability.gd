@@ -27,6 +27,7 @@ class FlowProbe:
 	var target: Node3D
 	func _open_lobby() -> void: opened += 1
 	func _stop_match_music() -> void: stopped += 1
+	func hide_network_precombat() -> void: pass
 
 class PlayerProbe:
 	extends CharacterBody3D
@@ -77,10 +78,10 @@ func _run() -> void:
 	session.current_room = {"host_id": 11, "guest_id": 22}
 	session.start_match()
 	session._host_prepare_round()
-	await create_timer(3.34).timeout
+	await create_timer(session.round_intro_seconds(1) - 0.16).timeout
 	_check(live_count == 0 and session._phase == "countdown", "un ancien décompte ne démarre pas le nouveau match")
 	await create_timer(0.25).timeout
-	_check(live_count == 1 and session._phase == "live", "le nouveau match conserve ses propres 3,5 secondes")
+	_check(live_count == 1 and session._phase == "live", "le nouveau match conserve son propre décompte de pré-combat")
 	# leave_room emits synchronously, then the leave button closes once more.
 	var controller := MATCH.new()
 	var flow := FlowProbe.new()

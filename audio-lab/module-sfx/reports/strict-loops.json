@@ -1,0 +1,18 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\candidates\\rocket-propulsion.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.2,
+    "peak": 0.115265,
+    "rms": 0.03161,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.0,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

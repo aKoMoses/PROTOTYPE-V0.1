@@ -6,6 +6,8 @@ extends CanvasLayer
 
 const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
 const COMFORT_SETTINGS := preload("res://scripts/comfort_settings.gd")
+const SETTINGS_SCREEN := preload("res://scripts/ui/settings_screen.gd")
+const PRECOMBAT_SCREEN := preload("res://scripts/ui/precombat_screen.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
@@ -39,6 +41,7 @@ const MENU_BUTTON_SECONDARY_TEXTURE: Texture2D = preload("res://art/ui/menu/menu
 const MENU_DISPLAY_FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const MENU_SETTINGS_ICON: Texture2D = preload("res://art/ui/icons/settings.svg")
 const COUNTDOWN_SECONDS := 3.0
+const PRECOMBAT_SECONDS := 8.0
 const FIGHT_SECONDS := 0.9
 const WINNER_FOCUS_SECONDS := 1.55
 const COUNTDOWN_DIGITS := [
@@ -108,8 +111,11 @@ var _equipment_info_stats: Label
 var _equipment_info_id := ""
 var _selection_buttons: Dictionary = {}
 var _selection_markers: Dictionary = {}
+var _arena_buttons: Dictionary = {}
+var _arena_variant := "classic"
 var _hud_labels: Dictionary = {}
 var _countdown_overlay: Control
+var _precombat_overlay: Control
 var _countdown_dim: ColorRect
 var _countdown_glow: TextureRect
 var _countdown_image: TextureRect
@@ -123,7 +129,7 @@ var _result_audio: AudioStreamPlayer
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
-var _settings_panel: PanelContainer
+var _settings_panel: Control
 var _lobby_panel: Control
 var _hud_controller
 var _hud_editor
@@ -197,6 +203,11 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
 	_show_screen(Screen.MENU)
+	if get_tree().has_meta("garage_return_draft"):
+		var draft: Dictionary = get_tree().get_meta("garage_return_draft")
+		get_tree().remove_meta("garage_return_draft")
+		_open_equipment()
+		_forge_garage.call("restore_draft", draft)
 
 func _process(delta: float) -> void:
 	if not _pause_active and round_phase == RoundPhase.COUNTDOWN:
@@ -228,6 +239,9 @@ func _process(delta: float) -> void:
 		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if current_screen == Screen.EQUIPMENT and _forge_garage != null and _forge_garage.installation.active:
+		get_viewport().set_input_as_handled()
+		return
 	# An online match cannot pause the local SceneTree independently of its peer.
 	if main != null and is_instance_valid(main.get("network_match")):
 		return
@@ -242,6 +256,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _screen_root != null:
+		if current_screen == Screen.EQUIPMENT and _forge_garage != null and _forge_garage.installation.active:
+			return
 		if main != null and is_instance_valid(main.get("network_match")):
 			return
 		if _hud_editor != null and _hud_editor.visible:
@@ -274,6 +290,9 @@ func _build_ui() -> void:
 	_build_equipment()
 	_build_settings()
 	_build_hud()
+	_precombat_overlay = PRECOMBAT_SCREEN.new()
+	_precombat_overlay.name = "PrecombatScreen"
+	_screen_root.add_child(_precombat_overlay)
 	_build_winner_transition()
 	_build_pause()
 	_build_result()
@@ -287,7 +306,7 @@ func _layout_navigation_panels() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	var available := viewport_size - Vector2(32.0, 24.0)
-	for panel in [_menu_panel, _equipment_panel, _settings_panel, _pause_panel, _result_panel]:
+	for panel in [_menu_panel, _equipment_panel, _pause_panel, _result_panel]:
 		if panel == null:
 			continue
 		var design: Vector2 = panel.get_meta("navigation_size", panel.custom_minimum_size)
@@ -474,13 +493,14 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_open_equipment"), MENU_BUTTON_PRIMARY_TEXTURE, 70.0))
-	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
-	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_start_duel"), MENU_BUTTON_PRIMARY_TEXTURE, 58.0))
+	box.add_child(_menu_art_button("GARAGE", Callable(self, "_open_equipment"), MENU_BUTTON_SECONDARY_TEXTURE, 55.0))
+	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
+	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
 	var training_spacer := Control.new()
 	training_spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(training_spacer)
-	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 61.0))
+	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
 	_build_menu_settings_shortcut()
 
 
@@ -608,8 +628,12 @@ func _build_equipment() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 12)
 	columns.add_child(right)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
+	right.add_child(header)
 	_equipment_category_label = _label("", 21, AMBER)
-	right.add_child(_equipment_category_label)
+	_equipment_category_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_equipment_category_label)
 	_equipment_content = HBoxContainer.new()
 	_equipment_content.custom_minimum_size.y = 292
 	_equipment_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -628,6 +652,30 @@ func _build_equipment() -> void:
 	preview.add_child(preview_items)
 	for item in EQUIPMENT_CATEGORIES:
 		_add_equipment_preview(preview_items, str(item.id), str(item.title))
+	var arenas := HBoxContainer.new()
+	arenas.name = "ArenaChoice"
+	arenas.alignment = BoxContainer.ALIGNMENT_CENTER
+	arenas.add_theme_constant_override("separation", 8)
+	var arena_label := _label("ARÈNE", 14, MUTED)
+	arena_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	arenas.add_child(arena_label)
+	for choice in [{"id": "classic", "title": "CLASSIQUE"}, {"id": "hazards", "title": "PIÉGÉE"}]:
+		var button := _button(str(choice.title), Callable(self, "_select_arena").bind(str(choice.id)), 132)
+		button.custom_minimum_size.y = 38
+		button.add_theme_font_size_override("font_size", 14)
+		for state in ["normal", "hover", "pressed", "focus"]:
+			var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+			style.content_margin_top = 6
+			style.content_margin_bottom = 6
+			style.content_margin_left = 12
+			style.content_margin_right = 12
+			button.add_theme_stylebox_override(state, style)
+		button.name = "Arena%s" % str(choice.id).capitalize()
+		button.tooltip_text = "Même arène, dalles et canons progressifs" if choice.id == "hazards" else "Arène sans pièges"
+		_arena_buttons[choice.id] = button
+		arenas.add_child(button)
+	header.add_child(arenas)
+	_select_arena(_arena_variant)
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 16)
@@ -647,7 +695,9 @@ func _open_forge_garage() -> void:
 	if _forge_garage == null:
 		_forge_garage = FORGE_GARAGE.new()
 		_screen_root.add_child(_forge_garage)
-		_forge_garage.connect("equipment_selected", _on_garage_equipment_selected)
+		_forge_garage.connect("build_saved", _on_garage_build_saved)
+		_forge_garage.connect("test_requested", _on_garage_test_requested)
+		_forge_garage.connect("settings_requested", _open_settings)
 		_forge_garage.connect("back_requested", _close_forge_garage)
 		_forge_garage.connect("start_requested", _start_duel)
 		_forge_garage.connect("arena_selected", _on_garage_arena_selected)
@@ -660,10 +710,20 @@ func _open_forge_garage() -> void:
 
 
 func _on_garage_equipment_selected(category: String, identifier: String) -> void:
-	loadout[category] = identifier
-	loadout = LOADOUT.sanitize(loadout)
-	LOADOUT.save_local(loadout)
+	# Compatibility entry point; selections remain in the Garage draft.
+	if _forge_garage != null:
+		_forge_garage.call("_select_equipment", category, identifier)
+
+
+func _on_garage_build_saved(equipment: Dictionary) -> void:
+	loadout = LOADOUT.sanitize(equipment)
 	_refresh_equipment()
+
+
+func _on_garage_test_requested(equipment: Dictionary) -> void:
+	get_tree().set_meta("garage_test_loadout", LOADOUT.sanitize(equipment))
+	get_tree().set_meta("garage_return_draft", _forge_garage.call("draft_state"))
+	_open_training_ground()
 
 
 func _close_forge_garage() -> void:
@@ -676,6 +736,21 @@ func _on_garage_arena_selected(value: String) -> void:
 		call("_select_arena", value)
 	elif main != null and main.has_method("set_arena_variant"):
 		main.call("set_arena_variant", value)
+
+
+func _select_arena(value: String) -> void:
+	_arena_variant = "hazards" if value == "hazards" else "classic"
+	for key in _arena_buttons:
+		var selected: bool = key == _arena_variant
+		var button: Button = _arena_buttons[key]
+		var style := _panel_style(Color("#124a53") if selected else PANEL_ALT, CYAN if selected else Color("#69543e"), 4)
+		style.content_margin_top = 6
+		style.content_margin_bottom = 6
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		button.add_theme_stylebox_override("normal", style)
+	if main != null and main.has_method("set_arena_variant"):
+		main.call("set_arena_variant", _arena_variant)
 
 
 func _build_equipment_info_bubble() -> void:
@@ -937,54 +1012,10 @@ func _equipment_preview_style(active: bool) -> StyleBoxFlat:
 	return style
 
 func _build_settings() -> void:
-	_settings_panel = _center_panel(680, 640)
+	_settings_panel = SETTINGS_SCREEN.new()
+	_settings_panel.name = "SettingsScreen"
 	_screen_root.add_child(_settings_panel)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settings_panel.add_child(scroll)
-	var box := VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 14)
-	scroll.add_child(box)
-	box.add_child(_label("RÉGLAGES", 32, CREAM))
-	box.add_child(_label("CONFORT ET INTERFACE", 14, CYAN))
-	var comfort := COMFORT_SETTINGS.new()
-	comfort.name = "ComfortSettings"
-	comfort.add_theme_font_override("font", MENU_DISPLAY_FONT)
-	box.add_child(comfort)
-	var shake := CheckButton.new()
-	shake.name = "CameraShake"
-	shake.text = "Secousses de caméra"
-	shake.add_theme_font_size_override("font_size", 18)
-	shake.add_theme_color_override("font_color", CREAM)
-	shake.button_pressed = bool(_settings.camera_shake)
-	shake.toggled.connect(func(value: bool) -> void:
-		_settings.camera_shake = value
-		_save_settings()
-		if main != null:
-			main.set_meta("camera_shake_enabled", value)
-	)
-	box.add_child(shake)
-	var touch := HSlider.new()
-	touch.name = "TouchScale"
-	touch.min_value = 0.85
-	touch.max_value = 1.15
-	touch.step = 0.05
-	touch.value = float(_settings.touch_scale)
-	touch.tooltip_text = "Taille des contrôles tactiles"
-	touch.value_changed.connect(func(value: float) -> void:
-		_settings.touch_scale = clampf(value, 0.85, 1.15)
-		_save_settings()
-		if touch_controls != null and touch_controls.has_method("set_control_scale"):
-			touch_controls.call("set_control_scale", _settings.touch_scale)
-		_touch_scale_label.text = "Taille des contrôles tactiles  ·  %d %%" % roundi(_settings.touch_scale * 100.0)
-	)
-	_touch_scale_label = _label("Taille des contrôles tactiles  ·  %d %%" % roundi(_settings.touch_scale * 100.0), 16, CREAM)
-	box.add_child(_touch_scale_label)
-	box.add_child(touch)
-	box.add_child(_label("INTERFACE", 18, CYAN))
-	box.add_child(_button("PERSONNALISER L'INTERFACE", Callable(self, "_open_hud_editor"), 300))
-	box.add_child(_button("RETOUR", Callable(self, "_open_menu"), 300))
+	_settings_panel.call("configure", self)
 
 func _build_hud() -> void:
 	_hud = Control.new()
@@ -1195,11 +1226,17 @@ func _build_countdown_overlay() -> void:
 func _update_countdown_overlay() -> void:
 	if _countdown_overlay == null:
 		return
+	# Online round presentation is driven by the host's session, never a local timer.
+	if main != null and is_instance_valid(main.get("network_match")):
+		return
 	var showing_intro := round_phase == RoundPhase.COUNTDOWN or round_phase == RoundPhase.FIGHT
+	_precombat_overlay.visible = current_screen == Screen.COMBAT and not _pause_active and round_phase == RoundPhase.COUNTDOWN
+	if _precombat_overlay.visible:
+		_precombat_overlay.call("set_remaining", _countdown_remaining)
 	if current_screen == Screen.COMBAT and round_phase in [RoundPhase.COUNTDOWN, RoundPhase.FIGHT, RoundPhase.LIVE]:
 		_hud.visible = not showing_intro
-	_countdown_overlay.visible = current_screen == Screen.COMBAT and not _pause_active and showing_intro
-	if not _countdown_overlay.visible:
+	_countdown_overlay.visible = current_screen == Screen.COMBAT and not _pause_active and round_phase == RoundPhase.FIGHT
+	if current_screen != Screen.COMBAT or _pause_active or not showing_intro:
 		return
 	if round_phase == RoundPhase.FIGHT:
 		if _countdown_digit_index != 3:
@@ -1215,6 +1252,8 @@ func _update_countdown_overlay() -> void:
 		_countdown_glow.scale = _countdown_image.scale * 1.06
 		_countdown_glow.modulate = Color(CYAN.r, CYAN.g, CYAN.b, fight_opacity * 0.35)
 		_countdown_dim.modulate.a = 0.55 + 0.45 * fight_opacity
+		return
+	if _countdown_remaining > COUNTDOWN_SECONDS:
 		return
 	var number := ceili(_countdown_remaining)
 	var index := clampi(3 - number, 0, 2)
@@ -1595,6 +1634,8 @@ func _open_survival() -> void:
 	get_tree().change_scene_to_file("res://scenes/survival.tscn")
 
 func _start_duel() -> void:
+	if main != null and main.has_method("set_arena_variant"):
+		main.call("set_arena_variant", _arena_variant)
 	loadout = LOADOUT.sanitize(loadout)
 	LOADOUT.save_local(loadout)
 	match_id += 1
@@ -1663,10 +1704,12 @@ func _show_round_result() -> void:
 
 func _begin_round_countdown() -> void:
 	round_phase = RoundPhase.COUNTDOWN
-	_countdown_remaining = COUNTDOWN_SECONDS
+	_countdown_remaining = PRECOMBAT_SECONDS if round_number == 1 else COUNTDOWN_SECONDS
 	_fight_remaining = 0.0
 	_countdown_digit_index = -1
 	_countdown_audio.stop()
+	_countdown_audio.stream = COUNTDOWN_SOUNDS[0]
+	_set_countdown_sprite(COUNTDOWN_DIGITS[0], Vector2(460, 460))
 	_round_resolved = false
 	_result_panel.visible = false
 	_transition_dim.visible = false
@@ -1675,11 +1718,26 @@ func _begin_round_countdown() -> void:
 	_set_result_actions_visible(false)
 	if main != null and main.has_method("prepare_round"):
 		main.call("prepare_round", loadout)
+	var opponent: Dictionary = main.get("_bot_build") if main != null else LOADOUT.defaults()
+	_precombat_overlay.call("reveal", loadout, opponent, _countdown_remaining)
 	if main != null and main.has_method("set_menu_mode"):
 		main.call("set_menu_mode", false)
 	if touch_controls != null:
 		touch_controls.visible = false
 	_update_countdown_overlay()
+
+
+func show_network_precombat(local: Dictionary, opponent: Dictionary, duration: float) -> void:
+	_precombat_overlay.call("reveal", local, opponent, duration)
+	_hud.hide()
+	_countdown_overlay.hide()
+	if touch_controls != null:
+		touch_controls.visible = false
+
+func hide_network_precombat() -> void:
+	_precombat_overlay.hide()
+	if current_screen == Screen.COMBAT:
+		_hud.show()
 
 
 func _begin_fight() -> void:

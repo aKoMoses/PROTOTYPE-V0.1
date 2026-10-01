@@ -20,6 +20,15 @@ const REWARD_CARD_ART: Texture2D = preload("res://art/ui/industrial-reward-card.
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const FLOOR_TEXTURE: Texture2D = preload("res://art/sand_dust.svg")
 const ARENA_HALF := 23.0
+const FACTORY_CENTER := Vector3(54, 0, 0)
+const STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
+const CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
+const RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
+const CONCRETE_TEXTURE: Texture2D = preload("res://art/arena_floor.svg")
+var arena_center := Vector3.ZERO
+var _gate: StaticBody3D
+var _gate_leaf: Node3D
+var _pause_return_state := "combat"
 const REWARD_INPUT_DELAY := 0.55
 const MUSIC_PATHS := [
 	"res://son-musique/musiques/survie_early_loop.wav",
@@ -114,6 +123,8 @@ func _process(delta: float) -> void:
 		if passive_status != "":
 			_synergy_label.text = passive_status + ("\n" + _synergy_label.text if _synergy_label.text != "" else "")
 	_synergy_label.visible = _state == "combat"
+	if _state == "transition" and player.position.x >= 34.0:
+		_enter_factory()
 	if _state == "combat":
 		stats.elapsed += delta
 		if not _reinforcement_roles.is_empty():
@@ -125,7 +136,7 @@ func _process(delta: float) -> void:
 			if float(player.call("heal", 80.0, "repair_pickup")) > 0.0:
 				_repair.queue_free()
 				_repair = null
-	_pause_button.visible = (_state == "combat" or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.pause.v))
+	_pause_button.visible = (_state in ["combat", "transition"] or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.pause.v))
 	if _state == "incoming":
 		_arrival_remaining = maxf(0.0, _arrival_remaining - delta)
 		_arrival_label.text = "VAGUE %d DANS %.1f s" % [wave, _arrival_remaining]
@@ -146,7 +157,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _hud_editor != null and _hud_editor.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if _state == "combat":
+		if _state in ["combat", "transition"]:
 			_pause_run()
 		elif _state == "pause":
 			_resume_run()
@@ -164,22 +175,25 @@ func _build_world() -> void:
 	environment.background_color = Color("#172129")
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#aec4c8")
-	environment.ambient_light_energy = 0.7
+	environment.ambient_light_energy = 0.95
 	var world := WorldEnvironment.new()
+	world.name = "SurvivalEnvironment"
 	world.environment = environment
 	add_child(world)
 	var sun := DirectionalLight3D.new()
+	sun.name = "SurvivalSun"
 	sun.rotation_degrees = Vector3(-58, -35, 0)
 	sun.light_color = Color("#ffebc5")
 	sun.light_energy = 1.2
+	sun.shadow_enabled = true
 	add_child(sun)
 	_make_box("Floor", Vector3(0, -0.3, 0), Vector3(48, 0.6, 48), Color("#68716c"), 4)
 	var floor_mesh := get_node("Floor/Visual") as MeshInstance3D
 	var floor_material := floor_mesh.material_override as StandardMaterial3D
 	floor_material.albedo_texture = FLOOR_TEXTURE
 	floor_material.uv1_scale = Vector3(5, 5, 5)
-	_make_marker(Vector3(0, 0.008, 0), Vector3(12.0, 0.012, 38.0), Color("#343e40"))
-	_make_marker(Vector3(0, 0.012, 0), Vector3(36.0, 0.012, 7.0), Color("#3d4645"))
+	_make_marker(Vector3(0, 0.008, 0), Vector3(7.0, 0.012, 38.0), Color("#535954"))
+	_make_marker(Vector3(0, 0.012, 0), Vector3(36.0, 0.012, 4.0), Color("#535954"))
 	for index in range(-4, 5):
 		if index != 0:
 			_make_marker(Vector3(0, 0.024, float(index) * 4.2), Vector3(0.12, 0.012, 1.4), Color("#c7a560"))
@@ -188,7 +202,8 @@ func _build_world() -> void:
 	_make_box("NorthWall", Vector3(0, 1, -ARENA_HALF), Vector3(48, 2, 1), Color("#3d4447"), 1)
 	_make_box("SouthWall", Vector3(0, 1, ARENA_HALF), Vector3(48, 2, 1), Color("#3d4447"), 1)
 	_make_box("WestWall", Vector3(-ARENA_HALF, 1, 0), Vector3(1, 2, 48), Color("#3d4447"), 1)
-	_make_box("EastWall", Vector3(ARENA_HALF, 1, 0), Vector3(1, 2, 48), Color("#3d4447"), 1)
+	for z in [-14.5, 14.5]:
+		_make_box("EastWall", Vector3(23, 1.5, z), Vector3(1, 3, 17), Color("#3d4447"), 1)
 	for wreck in [
 		{"name": "WreckWest", "at": Vector3(-7.5, 0, -5.0), "turn": -0.28},
 		{"name": "WreckEast", "at": Vector3(7.5, 0, -4.5), "turn": 0.36},
@@ -210,6 +225,8 @@ func _build_world() -> void:
 	for index in range(-2, 3):
 		_make_marker(Vector3(float(index) * 4.0, 0.03, 0), Vector3(0.08, 0.02, 1.0), Color("#a5c0b6"))
 
+	_build_zones()
+
 func _make_box(node_name: String, at: Vector3, dimensions: Vector3, color: Color, layer: int) -> void:
 	var body := StaticBody3D.new()
 	body.name = node_name
@@ -223,6 +240,10 @@ func _make_box(node_name: String, at: Vector3, dimensions: Vector3, color: Color
 	visual.mesh = mesh
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
+	material.albedo_texture = CONCRETE_TEXTURE if layer == 4 else STEEL_TEXTURE
+	material.albedo_color = Color.WHITE if layer == 4 else color.lightened(0.45)
+	material.uv1_scale = Vector3(3, 3, 3) if layer == 4 else Vector3.ONE * 1.5
+	material.roughness = 0.9
 	visual.material_override = material
 	body.add_child(visual)
 	var collision := CollisionShape3D.new()
@@ -250,6 +271,10 @@ func _make_wreck(node_name: String, at: Vector3, turn: float, solid: bool) -> vo
 	wreck.position = at
 	wreck.rotation.y = turn
 	add_child(wreck)
+	for z in [-1.03, 1.03]:
+		for x in [-1.45, -0.7, 0.1, 0.9, 1.6]:
+			_prop_box(wreck, Vector3(x, 0.85, z), Vector3(0.08, 0.95, 0.07), Color("#c2a17c"), false)
+		_prop_box(wreck, Vector3(0, 0.42, z), Vector3(4.2, 0.13, 0.13), Color("#293638"), false)
 	var hull := _prop_box(wreck, Vector3(0, 0.70, 0), Vector3(4.0, 1.25, 2.0), Color("#8b4d35"), solid)
 	hull.name = "Hull"
 	_prop_box(wreck, Vector3(-0.35, 1.55, 0), Vector3(1.7, 0.62, 1.65), Color("#444e4f"), false)
@@ -331,6 +356,11 @@ func _make_stain(at: Vector3) -> void:
 func _material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
+	material.roughness = 0.86
+	if not glow:
+		material.albedo_color = color.lightened(0.4)
+		material.albedo_texture = RUST_TEXTURE if color.r > color.b * 1.3 else CREAM_TEXTURE
+		material.metallic = 0.25
 	if glow:
 		material.emission_enabled = true
 		material.emission = color
@@ -1000,6 +1030,7 @@ func _on_hud_test_started() -> void:
 	_editor_trial_player.set_script(PLAYER_SCRIPT)
 	_editor_trial_player.position = player.global_position
 	add_child(_editor_trial_player)
+	_editor_trial_player.set("gameplay_arena_center", arena_center)
 	_editor_trial_player.call("configure_survival_build", progression.build())
 	_editor_trial_player.call("set_training_options", true, false, true)
 	_editor_trial_player.call("set_gameplay_enabled", true)
@@ -1086,8 +1117,9 @@ func _start_wave() -> void:
 	_reinforcement_positions.clear()
 	for index in range(count):
 		var point: Vector3 = SPAWN_POINTS[index] if index < 5 else Vector3(-15 + (index - 5) * 7, 0, 14)
-		if point.distance_to(player.global_position) < 4.0:
+		if (point + arena_center).distance_to(player.global_position) < 4.0:
 			point = -point
+		point += arena_center
 		if index < split:
 			_spawn_positions.append(point)
 		else:
@@ -1136,6 +1168,7 @@ func _spawn_enemy(at: Vector3, role: String) -> void:
 	enemy.scale = Vector3.ONE * (1.5 if role == "boss" else 1.18 if role == "charger" else 0.86 if role == "shooter" else 1.0)
 	var readout: Node = enemy.get_node("TargetHealthReadout")
 	var bot := enemy.get_node("TrainingBot")
+	bot.set("survival_arena_center", arena_center)
 	bot.set("survival_role", role)
 	bot.set("training_attack_damage", 36.0 if role == "boss" else (15.0 if role == "charger" else 10.0 if role == "chaser" else 7.0) + 1.2 * float(wave))
 	bot.set("training_attack_interval", 2.6 if role == "boss" else 3.2 if role == "charger" else 1.5 if role == "chaser" else 2.5)
@@ -1207,7 +1240,10 @@ func _choose_reward(choice: Dictionary) -> void:
 	player.call("configure_survival_build", progression.build())
 	if wave % 3 == 0:
 		player.call("heal", 100.0, "wave_reward")
-	_start_wave()
+	if wave == 6 and arena_center == Vector3.ZERO:
+		_open_passage()
+	else:
+		_start_wave()
 
 func _on_player_died() -> void:
 	if _state == "combat":
@@ -1271,7 +1307,7 @@ func _create_repair() -> void:
 	_repair = Node3D.new()
 	_repair.name = "RepairPickup"
 	add_child(_repair)
-	_repair.position = Vector3(14 if wave % 2 == 0 else -14, 0, 7)
+	_repair.position = arena_center + Vector3(14 if wave % 2 == 0 else -14, 0, 7)
 	var label := Label3D.new()
 	label.text = "+80 PV"
 	label.font_size = 40
@@ -1289,8 +1325,9 @@ func _create_repair() -> void:
 		_repair.add_child(visual)
 
 func _pause_run() -> void:
-	if _state != "combat":
+	if _state not in ["combat", "transition"]:
 		return
+	_pause_return_state = _state
 	_state = "pause"
 	_pause_started_at_msec = Time.get_ticks_msec()
 	_set_combat_sound_state(true)
@@ -1314,7 +1351,7 @@ func _resume_run() -> void:
 		player.call("shift_pause_timers", float(Time.get_ticks_msec() - _pause_started_at_msec) / 1000.0)
 		_pause_started_at_msec = -1
 	_set_combat_sound_state(false)
-	_state = "combat"
+	_state = _pause_return_state
 	_update_spell_bar(progression.build())
 	get_tree().paused = false
 	_music.stream_paused = false
@@ -1387,13 +1424,22 @@ func _reward_card_description(choice: Dictionary) -> String:
 			return "Tirs précis à distance. Charge rapide pour frapper plus fort en restant mobile." if identifier == "blaster" else "Salves de plombs puissantes de près. Recharge entre les séries de tirs."
 		"item":
 			return {
+				"rocket_basket": "Envoie cinq roquettes autoguidées. Les impacts ralentissent ; une salve complète brûle la cible et réduit la recharge.",
 				"javelin": "Lance un javelot. Réappuie sur A pour le rappeler et blesser sur son trajet.",
+				"counter": "Intercepte une attaque directe, puis renforce ta prochaine attaque d'arme.",
+				"projector": "Une onde repousse et ralentit les ennemis. Elle protège aussi quand tes PV deviennent faibles.",
 				"magnetic_field": "Pose un mur qui bloque les ennemis et leurs tirs tout en laissant passer les tiens.",
 				"static_shield": "Absorbe une quantité limitée de dégâts. Tu peux bouger et tirer.",
 				"pyro_boots": "Te propulse de quelques mètres dans ta direction.",
 				"bio_injector": "Accélère tes déplacements et tes tirs un instant.",
+				"eclipse": "Choisis une destination et disparais pendant le trajet. L'arrivée brûle les ennemis et te protège si elle touche.",
+				"permutation": "Échange ta position avec celle de l'ennemi. Après l'échange, tu gagnes de la vitesse et un bouclier.",
 				"baroud": "Après un coup fatal, évite les coups un instant pour survivre. Une fois par partie.",
 				"omnivamp": "Tes dégâts te rendent de la vie.",
+				"auxiliary_reactor": "Les impacts directs de tes armes raccourcissent la recharge offensive en cours.",
+				"tracker": "Des attaques d'arme successives sur la même cible la révèlent temporairement.",
+				"alternator": "Un impact offensif renforce ta prochaine attaque d'arme, à lancer rapidement.",
+				"inertia": "Après un dash réussi, ta prochaine attaque d'arme ralentit la cible.",
 			}.get(identifier, _reward_description(choice))
 		"evolution":
 			return str(choice.description)
@@ -1418,3 +1464,162 @@ func _reward_card_description(choice: Dictionary) -> String:
 				return "Tu gagnes plus de vie maximale."
 			return "Tu tires plus souvent." if str(choice.category) == "weapon" else "Ce module se recharge plus vite."
 	return _reward_description(choice)
+
+
+func _build_zones() -> void:
+	_make_box("PassageFloor", Vector3(27, -0.3, 0), Vector3(8, 0.6, 12), Color("#73766e"), 4)
+	for z in [-6.0, 6.0]:
+		_make_box("PassageWall", Vector3(27, 1.5, z), Vector3(8, 3, 0.6), Color("#5a625f"), 1)
+	_make_box("FactoryFloor", FACTORY_CENTER + Vector3(0, -0.3, 0), Vector3(48, 0.6, 48), Color("#72878b"), 4)
+	for z in [-23.0, 23.0]:
+		_make_box("FactoryWall", FACTORY_CENTER + Vector3(0, 2, z), Vector3(48, 4, 1), Color("#394e58"), 1)
+	_make_box("FactoryEastWall", FACTORY_CENTER + Vector3(23, 2, 0), Vector3(1, 4, 48), Color("#394e58"), 1)
+	for z in [-14.5, 14.5]:
+		_make_box("FactoryWestWall", FACTORY_CENTER + Vector3(-23, 2, z), Vector3(1, 4, 17), Color("#394e58"), 1)
+	_gate = StaticBody3D.new()
+	_gate.name = "FactoryGate"
+	_gate.position = Vector3(23, 0, 0)
+	_gate.collision_layer = 1
+	add_child(_gate)
+	var collision := CollisionShape3D.new()
+	collision.name = "GateCollision"
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.8, 5, 12)
+	collision.shape = shape
+	collision.position.y = 2.5
+	_gate.add_child(collision)
+	_gate_leaf = Node3D.new()
+	_gate.add_child(_gate_leaf)
+	_prop_box(_gate_leaf, Vector3(0, 2.5, 0), Vector3(0.7, 5, 12), Color("#96634b"), false)
+	for z in range(-5, 6):
+		_prop_box(_gate_leaf, Vector3(-0.42, 2.5, z), Vector3(0.13, 4.8, 0.13), Color("#cbb88a"), false)
+	for z in [-6.3, 6.3]:
+		_prop_box(self, Vector3(23, 3, z), Vector3(1.2, 6, 0.7), Color("#334348"), false)
+	_zone_sign("FONDERIE 02", Vector3(22.4, 5.6, 0), Color("#ffce83"))
+	for x in [24.5, 27, 29.5]:
+		_make_marker(Vector3(x, 0.035, 0), Vector3(1, 0.025, 0.18), Color("#e5be6d"))
+	for x in [-16.0, -3.0, 13.0]:
+		for z in [-12.0, 4.0, 14.0]:
+			_prop_box(self, Vector3(x, 0.035, z), Vector3(3.2, 0.04, 2.1), Color("#65716d"), false)
+	for z in range(-18, 19, 2):
+		for x in [-3.6, -2.2]:
+			_make_marker(Vector3(x, 0.045, z), Vector3(0.24, 0.012, 0.8), Color("#303736"))
+	for side in [-1.0, 1.0]:
+		for index in range(9):
+			_prop_box(self, Vector3(side * 22.4, 1.2, -20 + index * 5), Vector3(0.3, 2.7, 0.25), Color("#bf9461"), false)
+		for index in range(4):
+			var z := -18.0 + index * 12.0
+			_make_wreck("ExteriorStack", Vector3(side * 27, 0, z), 0.12 * index, false)
+			_make_wreck("ExteriorStackUpper", Vector3(side * 27, 1.8, z), -0.15, false)
+			if side < 0 or absf(z + 4) > 8:
+				_industrial_tank(Vector3(side * 31, 0, z + 4), false)
+		_prop_box(self, Vector3(side * 30, 3, -30), Vector3(13, 6, 9), Color("#736650"), false)
+		_prop_box(self, Vector3(side * 29, 6, 18), Vector3(0.7, 12, 0.7), Color("#a7814e"), false)
+		_prop_box(self, Vector3(side * 24, 11.5, 18), Vector3(12, 0.6, 0.7), Color("#a7814e"), false)
+		_prop_box(self, Vector3(side * 20, 8, 18), Vector3(0.08, 6, 0.08), Color("#303c41"), false)
+	for local in [Vector3(-7, 0, -4), Vector3(7, 0, 7), Vector3(-5, 0, 11), Vector3(10, 0, -11)]:
+		var machine := Node3D.new()
+		machine.position = FACTORY_CENTER + local
+		add_child(machine)
+		_prop_box(machine, Vector3(0, 1, 0), Vector3(4, 2, 2.6), Color("#526b72"), true)
+		_prop_box(machine, Vector3(0, 2.1, 0), Vector3(4.3, 0.22, 2.9), Color("#9caa9e"), false)
+		for x in [-1.6, -0.8, 0.0, 0.8, 1.6]:
+			_prop_box(machine, Vector3(x, 1.15, 1.34), Vector3(0.17, 1.1, 0.08), Color("#263e49"), false)
+		_prop_box(machine, Vector3(-0.9, 1.65, 1.36), Vector3(0.45, 0.25, 0.08), Color("#80d8e8"), false)
+	for local in [Vector3(-15, 0, -13), Vector3(16, 0, 12)]:
+		_industrial_tank(FACTORY_CENTER + local, true)
+	for z in [-20.0, 20.0]:
+		for x in [-18.0, -9.0, 0.0, 9.0, 18.0]:
+			_prop_box(self, FACTORY_CENTER + Vector3(x, 3, z), Vector3(0.45, 6, 0.45), Color("#4d6570"), false)
+			_prop_box(self, FACTORY_CENTER + Vector3(x, 3.6, z), Vector3(8.6, 0.24, 2), Color("#6b7f85"), false)
+			_prop_box(self, FACTORY_CENTER + Vector3(x, 4.4, z), Vector3(8.6, 0.12, 0.12), Color("#c1a778"), false)
+			_factory_light(FACTORY_CENTER + Vector3(x, 4.5, z * 0.85))
+	for x in [-18.0, 18.0]:
+		_make_marker(FACTORY_CENTER + Vector3(x, 0.04, 0), Vector3(0.15, 0.025, 38), Color("#d0bd76"))
+	for x in [-12.0, 0.0, 12.0]:
+		_factory_light(FACTORY_CENTER + Vector3(x, 4, -9))
+	for local in [Vector3(-7, 0, -4), Vector3(7, 0, 7), Vector3(-5, 0, 11), Vector3(10, 0, -11)]:
+		for z in [-1.4, 1.4]:
+			_prop_box(self, FACTORY_CENTER + local + Vector3(0, 0.35, z), Vector3(4.2, 0.15, 0.12), Color("#c7a865"), false)
+			for x in [-1.75, 1.75]:
+				_prop_box(self, FACTORY_CENTER + local + Vector3(x, 1.1, z), Vector3(0.12, 1.65, 0.12), Color("#b6bdb4"), false)
+		for x in range(-3, 4):
+			_prop_box(self, FACTORY_CENTER + local + Vector3(x * 0.5, 2.24, 0), Vector3(0.1, 0.08, 2.5), Color("#394d58"), false)
+	for z in [-22.4, 22.4]:
+		for x in range(-20, 21, 4):
+			_prop_box(self, FACTORY_CENTER + Vector3(x, 1.6, z), Vector3(3.7, 2.8, 0.15), Color("#728c98"), false)
+			_prop_box(self, FACTORY_CENTER + Vector3(x, 1.6, z), Vector3(0.12, 3, 0.3), Color("#c1b58f"), false)
+	_zone_sign("02 / USINE", FACTORY_CENTER + Vector3(0, 3.4, -22), Color("#99d8ed"))
+
+func _industrial_tank(at: Vector3, solid: bool) -> void:
+	var tank := Node3D.new()
+	tank.position = at
+	add_child(tank)
+	_prop_box(tank, Vector3(0, 1.2, 0), Vector3(3, 2.4, 3), Color("#415b63"), solid)
+	var visual := MeshInstance3D.new()
+	var cylinder := CylinderMesh.new()
+	cylinder.top_radius = 1.65
+	cylinder.bottom_radius = 1.65
+	cylinder.height = 2.8
+	visual.mesh = cylinder
+	visual.position.y = 1.4
+	visual.material_override = _material(Color("#829395"))
+	tank.add_child(visual)
+	for y in [0.3, 2.4]:
+		var band := MeshInstance3D.new()
+		var ring := TorusMesh.new()
+		ring.inner_radius = 1.61
+		ring.outer_radius = 1.74
+		band.mesh = ring
+		band.position.y = y
+		band.material_override = _material(Color("#b6a17b"))
+		tank.add_child(band)
+	_prop_box(tank, Vector3(2.1, 0.8, 0), Vector3(1.3, 0.25, 0.25), Color("#7f999f"), false)
+
+func _factory_light(at: Vector3) -> void:
+	_prop_box(self, at, Vector3(2, 0.12, 0.4), Color("#99d9eb"), false)
+	var light := OmniLight3D.new()
+	light.position = at
+	light.light_color = Color("#9bd4f1")
+	light.light_energy = 1.1
+	light.omni_range = 14
+	add_child(light)
+
+func _zone_sign(text: String, at: Vector3, color: Color) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.position = at
+	label.font = FONT
+	label.font_size = 58
+	label.modulate = color
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(label)
+
+func _open_passage() -> void:
+	_clear_enemies()
+	for projectile in get_tree().get_nodes_in_group("prototype0_gameplay_projectiles"):
+		projectile.queue_free()
+	_state = "transition"
+	(_gate.get_node("GateCollision") as CollisionShape3D).set_deferred("disabled", true)
+	var tween := create_tween()
+	tween.tween_property(_gate_leaf, "position:z", 12.5, 1.2)
+	_arrival_label.text = "PORTE OUVERTE · REJOINS L'USINE >"
+	_arrival_label.visible = true
+	player.call("set_gameplay_enabled", true)
+	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
+
+func _enter_factory() -> void:
+	if _state != "transition":
+		return
+	arena_center = FACTORY_CENTER
+	var sun := get_node("SurvivalSun") as DirectionalLight3D
+	sun.light_color = Color("#afcee8")
+	sun.light_energy = 0.75
+	var environment := (get_node("SurvivalEnvironment") as WorldEnvironment).environment
+	environment.ambient_light_color = Color("#a3c5df")
+	environment.ambient_light_energy = 0.9
+	player.set("gameplay_arena_center", arena_center)
+	(_gate.get_node("GateCollision") as CollisionShape3D).set_deferred("disabled", false)
+	_gate.position.x = 31
+	_gate_leaf.position.z = 0
+	_start_wave()

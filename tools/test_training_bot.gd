@@ -47,7 +47,12 @@ func _initialize() -> void:
 		if not telegraph_seen:
 			_failures.append("télégraphe absent avant l'attaque")
 		else:
-			await create_timer(0.70, true, false, false).timeout
+			# An actual projectile can reach the actor after the telegraph ends.
+			# Observe its impact instead of assuming a fixed 700 ms arrival.
+			for impact_frame in 120:
+				await physics_frame
+				if float(player.call("get_health")) < float(player.call("get_max_health")) and not bool(target.get_node("TrainingBot").call("is_telegraph_active")):
+					break
 		var moved_distance := start_position.distance_to((target as Node3D).global_position)
 		if moved_distance < 0.03:
 			_failures.append("bot immobile après activation")

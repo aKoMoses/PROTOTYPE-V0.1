@@ -2,15 +2,21 @@ extends SceneTree
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const CHASSIS_PAINT := preload("res://scripts/robot_chassis_visuals.gd")
+const LIBRARY := preload("res://scripts/garage_build_library.gd")
 var failures: Array[String] = []
 var saved_bytes := PackedByteArray()
 var save_existed := false
+var library_bytes := PackedByteArray()
+var library_existed := false
 
 
 func _initialize() -> void:
 	save_existed = FileAccess.file_exists(LOADOUT.SAVE_PATH)
 	if save_existed:
 		saved_bytes = FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH)
+	library_existed = FileAccess.file_exists(LIBRARY.SAVE_PATH)
+	if library_existed:
+		library_bytes = FileAccess.get_file_as_bytes(LIBRARY.SAVE_PATH)
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	current_scene = main
@@ -33,12 +39,13 @@ func _initialize() -> void:
 	check(stage.robot_animator.is_playing(), "robot anime dans le garage")
 	check(stage.weapon_attachment != null and stage.weapon_socket != null, "arme attachee a la main du vrai squelette")
 	for button in garage.get("_nav").values():
-		check((button.get_child(0) as Control).size == Vector2(44, 44), "icone de navigation contenue dans son bouton")
+		check(button.size == Vector2(133, 41), "onglet compact au-dessus du catalogue")
 	for button in garage.weapon_buttons.values():
 		var icon := button.get_child(0) as Control
 		check(icon.size.x <= button.size.x and icon.size.y < button.size.y - 24, "icone d'arme contenue dans sa carte")
 		check(button.get_rect().end.x <= 1245 and button.get_rect().end.y < 615, "chaque arme reste visible au-dessus de JOUER")
-	check((garage.get("_health_bar") as Control).size.y <= 6.0, "barres compactes dans le panneau de statistiques")
+	check((garage.get("_health") as Label).text.ends_with("PV"), "PV dans le bandeau compact sous le robot")
+	check(not stage.automatic_service_enabled, "le bras attend Sauvegarder")
 	var weapon_bounds: AABB = stage.call("_bounds", stage.weapon_socket)
 	weapon_bounds = stage.weapon_socket.global_transform * weapon_bounds
 	check(weapon_bounds.size.length() > 0.7 and weapon_bounds.size.length() < 1.7, "arme normalisee a une taille coherente avec le robot")
@@ -59,11 +66,14 @@ func _initialize() -> void:
 	check(not stage.inspect_robot(), "une deuxieme inspection ne coupe pas la trajectoire")
 	arm.advance_service(4.2)
 	check(arm.active and arm.particles.emitting, "etincelles synchronisees a l'intervention")
+	await check_robot_rotation(garage, stage)
+	await check_robot_gestures(garage, stage)
 	var before: Dictionary = flow.get("loadout").duplicate(true)
+	var saved_before: Dictionary = LOADOUT.load_local()
 	var shared_shader_code: String = CHASSIS_PAINT.PAINT_SHADER.code
 	for identifier in LOADOUT.ROBOTS:
 		(garage.robot_buttons[identifier] as Button).pressed.emit()
-		check(str(flow.get("loadout").robot) == identifier and LOADOUT.load_local().robot == identifier, "choix chassis transmis et sauvegarde : " + identifier)
+		check(str(garage.loadout.robot) == identifier and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "choix chassis en brouillon : " + identifier)
 		check(stage.chassis_id == identifier, "apparence du robot central actualisee : " + identifier)
 		if CHASSIS_PAINT.PROFILES.has(identifier):
 			var armour := stage.robot_model.find_child("tripo_part_0", true, false) as MeshInstance3D
@@ -75,17 +85,23 @@ func _initialize() -> void:
 	check(CHASSIS_PAINT.PAINT_SHADER.code == shared_shader_code, "shader de camouflage du combat preserve")
 	for identifier in LOADOUT.WEAPONS:
 		(garage.weapon_buttons[identifier] as Button).pressed.emit()
-		check(stage.weapon_id == identifier and LOADOUT.load_local().weapon == identifier, "choix d'arme transmis et sauvegarde : " + identifier)
+		check(stage.weapon_id == identifier and garage.loadout.weapon == identifier and LOADOUT.load_local() == saved_before, "choix d'arme en brouillon : " + identifier)
 		var model := stage.weapon_socket.get_child(0).get_child(0) as Node3D
 		check(model.scene_file_path == stage.WEAPON_MODELS[identifier].resource_path, "bon modele 3D dans la main : " + identifier)
 		var box: AABB = stage.weapon_socket.global_transform * stage.call("_bounds", stage.weapon_socket)
 		check(box.size.length() > 0.7 and box.size.length() < 2.1, "taille coherente de chaque arme : " + identifier)
 	(garage.weapon_buttons["shotgun"] as Button).pressed.emit()
-	check(stage.weapon_id == "shotgun" and LOADOUT.load_local().weapon == "shotgun", "vrai shotgun et selection sauvegardee")
+	check(stage.weapon_id == "shotgun" and garage.loadout.weapon == "shotgun", "vrai shotgun et selection en brouillon")
 	garage.call("_open_modules", "defensive")
-	var picker: VBoxContainer = garage.get("_module_options")
+	var picker: GridContainer = garage.get("_module_options")
 	(picker.get_child(1) as Button).pressed.emit()
-	check(flow.get("loadout").defensive == "static_shield" and LOADOUT.load_local().defensive == "static_shield", "module selectionne dans le nouveau garage")
+	check(garage.loadout.defensive == "static_shield" and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "module selectionne sans ecraser le build actif")
+	garage.call("_save_build")
+	check(not garage.get("_ui").visible, "l'interface disparait pour l'installation")
+	garage.installation.set_process(false)
+	for step in 301:
+		garage.installation.advance(1.0 / 60.0)
+	check(flow.get("loadout") == garage.loadout and LOADOUT.load_local() == garage.loadout, "le loadout complet arrive au combat apres l'installation")
 	garage.emit_signal("back_requested")
 	await process_frame
 	check(not garage.visible and int(flow.get("current_screen")) == 0, "retour du garage vers le menu principal")
@@ -109,10 +125,181 @@ func _initialize() -> void:
 		file.close()
 	else:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOADOUT.SAVE_PATH))
+	if library_existed:
+		var file := FileAccess.open(LIBRARY.SAVE_PATH, FileAccess.WRITE)
+		file.store_buffer(library_bytes)
+		file.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LIBRARY.SAVE_PATH))
 	for failure in failures:
 		push_error("FAIL: " + failure)
 	print("FORGE GARAGE TEST: ", "PASS" if failures.is_empty() else "FAIL", " (", failures.size(), " echecs)")
 	quit(0 if failures.is_empty() else 1)
+
+
+func check_robot_rotation(garage: Control, stage) -> void:
+	var original_angle: float = stage.robot.rotation.y
+	var original_camera: Transform3D = stage.camera.global_transform
+	var original_position: Vector3 = stage.robot.global_position
+	var original_loadout: Dictionary = garage.loadout.duplicate(true)
+	stage.set_weapon(stage.weapon_id)
+	var point: Vector2 = stage.camera.unproject_position(original_position + Vector3(0, 1.5, 0)) * stage.size / Vector2(stage.viewport.size)
+	check(stage.is_robot_at_position(point), "le clic vise le vrai robot projete par la camera")
+	await mouse_button(point, true)
+	await mouse_motion(point + Vector2(160, 0), Vector2(160, 0), true)
+	check(absf(angle_difference(original_angle, stage.robot.rotation.y)) > 0.5, "le clic maintenu et le deplacement tournent le robot via les entrees GUI")
+	check(not stage.arm.active and not stage.arm.particles.emitting, "la manipulation met le bras et ses etincelles au repos")
+	check(stage.camera.global_transform.is_equal_approx(original_camera) and stage.robot.global_position.is_equal_approx(original_position), "le robot tourne sur place avec une camera fixe")
+	var socket_before: Transform3D = stage.weapon_socket.transform
+	stage.set_weapon(stage.weapon_id)
+	check(stage.weapon_socket.transform.is_equal_approx(socket_before), "changer l'arme apres rotation conserve sa pose dans la main")
+	var rotated_angle: float = stage.robot.rotation.y
+	await mouse_button(point + Vector2(160, 0), false)
+	await mouse_motion(point, Vector2(-160, 0), false)
+	stage.call("_process", 20.0)
+	check(is_equal_approx(stage.robot.rotation.y, rotated_angle) and not stage.arm.active, "relachement conserve l'angle sans redemarrer le bras sur le robot tourne")
+	await mouse_button(Vector2(350, 60), true)
+	await mouse_motion(Vector2(510, 60), Vector2(160, 0), true)
+	await mouse_button(Vector2(510, 60), false)
+	check(is_equal_approx(stage.robot.rotation.y, rotated_angle), "cliquer le decor ne fait pas tourner le robot")
+	var button: Button = garage.module_buttons["offensive"]
+	var button_point: Vector2 = button.get_global_rect().get_center()
+	await mouse_button(button_point, true)
+	await mouse_motion(button_point + Vector2(12, 0), Vector2(12, 0), true)
+	await mouse_button(button_point + Vector2(12, 0), false)
+	check(is_equal_approx(stage.robot.rotation.y, rotated_angle), "les boutons restent utilisables sans declencher la rotation")
+	garage.get("_module_panel").hide()
+	point = stage.camera.unproject_position(original_position + Vector3(0, 1.5, 0)) * stage.size / Vector2(stage.viewport.size)
+	await mouse_button(point, true)
+	await mouse_motion(point - Vector2(160, 0), Vector2(-160, 0), true)
+	check(is_equal_approx(stage.robot.rotation.y, original_angle), "le mouvement inverse ramene le robot a son angle initial")
+	garage.notification(Control.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	var stopped_angle: float = stage.robot.rotation.y
+	await mouse_motion(point, Vector2(160, 0), true)
+	await mouse_button(point, false)
+	check(is_equal_approx(stage.robot.rotation.y, stopped_angle), "perdre le focus arrete la manipulation")
+	await mouse_button(point, true)
+	garage.hide()
+	garage.show()
+	await mouse_motion(point, Vector2(160, 0), true)
+	await mouse_button(point, false)
+	check(is_equal_approx(stage.robot.rotation.y, stopped_angle), "fermer et rouvrir la forge ne conserve pas un clic bloque")
+	check(garage.loadout == original_loadout, "la rotation ne modifie pas l'equipement")
+	stage.set_process(false)
+	if "--capture-rotation" in OS.get_cmdline_user_args() and DisplayServer.get_name() != "headless":
+		for frame in range(8):
+			await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://captures/forge-garage/rotation-front.png")
+		await mouse_button(point, true)
+		await mouse_motion(point + Vector2(garage.size.x * 0.25, 0), Vector2(garage.size.x * 0.25, 0), true)
+		await mouse_button(point + Vector2(garage.size.x * 0.25, 0), false)
+		for frame in range(8):
+			await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://captures/forge-garage/rotation-back.png")
+	check(stage.inspect_robot() and is_equal_approx(stage.robot.rotation.y, original_angle), "une inspection manuelle remet le robot face au bras")
+	stage.arm.cancel_service()
+
+
+func check_robot_gestures(garage: Control, stage) -> void:
+	var position: Vector3 = stage.robot.position
+	var angle: float = stage.robot.rotation.y
+	var equipment: Dictionary = garage.loadout.duplicate(true)
+	var clips: Array = stage.get("_gesture_clips")
+	check(clips.size() == 2, "salut et echauffement disponibles dans le garage")
+	if clips.is_empty():
+		return
+	stage.arm.cancel_service()
+	stage.set("_next_service", 1000.0)
+	stage.set("_next_gesture", 0.02)
+	stage.call("_process", 0.01)
+	check(stage.robot_animator.current_animation == stage.idle_clip, "le robot attend avant son premier geste")
+	stage.call("_process", 0.02)
+	var first: StringName = stage.get("_gesture_clip")
+	check(first in clips and stage.robot_animator.current_animation == first, "un geste commence automatiquement apres le delai")
+	var shared_robot: Node = stage.ROBOT.instantiate()
+	var shared_animator := shared_robot.find_child("*AnimationPlayer*", true, false) as AnimationPlayer
+	for cycle in range(2):
+		var selected: StringName = stage.get("_gesture_clip")
+		var clip: Animation = stage.robot_animator.get_animation(selected)
+		check(clip.loop_mode == Animation.LOOP_NONE, "chaque geste ne joue qu'une fois")
+		check(clip != shared_animator.get_animation(selected), "les clips du garage sont independants du robot de combat")
+		stage.call("_process", 1.5)
+		stage.skeleton.force_update_all_bone_transforms()
+		var hand_before: Transform3D = stage.skeleton.get_bone_global_pose(stage.weapon_attachment.bone_idx)
+		stage.call("_process", 0.5)
+		stage.skeleton.force_update_all_bone_transforms()
+		check(not stage.skeleton.get_bone_global_pose(stage.weapon_attachment.bone_idx).is_equal_approx(hand_before), "la main du squelette portant l'arme bouge reellement pendant le geste")
+		if "--capture-gestures" in OS.get_cmdline_user_args() and DisplayServer.get_name() != "headless":
+			for frame in range(8):
+				await process_frame
+			await RenderingServer.frame_post_draw
+			var label := String(selected).get_slice("/", String(selected).get_slice_count("/") - 1)
+			root.get_texture().get_image().save_png("res://captures/forge-garage/gesture-" + label + ".png")
+			for fraction in [0.5, 0.8]:
+				stage.robot_animator.seek(clip.length * fraction, true)
+				stage.robot_animator.advance(0.0)
+				for frame in range(8):
+					await process_frame
+				await RenderingServer.frame_post_draw
+				root.get_texture().get_image().save_png("res://captures/forge-garage/gesture-%s-%d.png" % [label, int(fraction * 100)])
+		stage.call("_process", clip.length / stage.GESTURE_SPEED + 0.1)
+		check(stage.get("_gesture_clip") == &"" and stage.robot_animator.current_animation == stage.idle_clip, "retour automatique a l'attente apres le geste")
+		var delay: float = stage.get("_next_gesture")
+		check(delay >= 8.0 and delay <= 14.0, "repos de huit a quatorze secondes entre les gestes")
+		check(stage.robot.position.is_equal_approx(position) and is_equal_approx(stage.robot.rotation.y, angle), "les gestes conservent la plateforme et l'angle choisi")
+		stage.set("_next_gesture", 0.0)
+		stage.call("_process", 0.01)
+		if cycle == 0:
+			check(stage.get("_gesture_clip") != first, "pas de repetition immediate du meme geste")
+	shared_robot.free()
+	stage.begin_robot_rotation()
+	var delay_during_drag: float = stage.get("_next_gesture")
+	stage.call("_process", 2.0)
+	check(stage.get("_gesture_clip") == &"" and is_equal_approx(stage.get("_next_gesture"), delay_during_drag), "le clic maintenu interrompt les gestes et suspend leur delai")
+	stage.end_robot_rotation()
+	stage.set("_next_gesture", 0.0)
+	stage.call("_process", 0.01)
+	check(stage.inspect_robot() and stage.get("_gesture_clip") == &"", "l'inspection interrompt un geste et rend le robot au bras")
+	var delay_during_service: float = stage.get("_next_gesture")
+	stage.call("_process", 2.0)
+	check(stage.get("_gesture_clip") == &"" and is_equal_approx(stage.get("_next_gesture"), delay_during_service), "aucun geste pendant l'intervention du bras")
+	stage.arm.cancel_service()
+	stage.set("_next_gesture", 0.1)
+	garage.hide()
+	stage.call("_process", 20.0)
+	check(is_equal_approx(stage.get("_next_gesture"), 0.1), "le temps cache ne declenche pas de geste")
+	garage.show()
+	stage.set_process(false)
+	stage.set("_next_gesture", 0.0)
+	stage.call("_process", 0.01)
+	stage.set_weapon(stage.weapon_id)
+	check(stage.get("_gesture_clip") == &"", "changer l'arme pendant un geste remet le robot en attente")
+	check(garage.loadout == equipment, "les gestes ne modifient pas l'equipement")
+	stage.set("_next_service", 15.0)
+	stage.call("_schedule_gesture")
+
+
+func mouse_button(point: Vector2, pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.position = point
+	event.global_position = point
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	event.pressed = pressed
+	root.push_input(event, true)
+	await process_frame
+
+
+func mouse_motion(point: Vector2, relative: Vector2, held: bool) -> void:
+	var event := InputEventMouseMotion.new()
+	event.position = point
+	event.global_position = point
+	event.relative = relative
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if held else 0
+	root.push_input(event, true)
+	await process_frame
 
 
 func check(condition: bool, message: String) -> void:

@@ -2,6 +2,13 @@
 
 Premier essai technique du jeu d'arène 1 contre 1 en vue 2,5D.
 
+## Site des choix dans Godot
+
+Le bouton **Site des choix** de la barre supérieure de l'éditeur ouvre
+[les propositions et les votes](https://prototype-zero-site.vercel.app/choix.html)
+dans le navigateur. Le même accès est disponible dans **Projet > Outils > Site des choix**.
+L'extension `addons/choices_site` est activée par défaut pour ce projet.
+
 ## Version actuelle
 
 La passe V0.2 ajoute la boucle de match locale complète : décompte de 3 secondes,

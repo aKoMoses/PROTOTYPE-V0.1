@@ -1,0 +1,42 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "runtime": "local official optimized TFLite",
+  "generation_seconds": 4,
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, voices, notification beep, sonar ping, sine wave, cartoon bloop, drill, clipping",
+  "negative_prompt_note": "At CFG 1 the negative branch is not used; exclusions are stated in each positive prompt as well.",
+  "rejected_previous_batch": true,
+  "direction": "Eclipse arrival: one explosive rematerialization with physical weight and scattering particles. No teleport chime or notification tone.",
+  "modules": {
+    "eclipse": {
+      "name": "Éclipse",
+      "meaning": "Le robot se reforme brutalement à l'arrivée et libère une explosion au contact. Un seul son d'arrivée, court, dense et rugueux.",
+      "scenario": [
+        [
+          "eclipse-arrival",
+          0.5,
+          1
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "eclipse-arrival",
+      "module": "eclipse",
+      "label": "Explosion à l'arrivée",
+      "meaning": "La matière se reforme dans une détonation courte : impact grave et éclatement de particules, sans signal de téléportation.",
+      "maximum_duration": 0.85,
+      "rms_db": -20,
+      "kind": "accent",
+      "seed": 26100601,
+      "prompt": "One sudden explosive rematerialization of a heavy object at close range. Immediate dense low impact thump and a sharp dry bursting pressure crack, followed by a short coarse shower of crackling particles scattering outward and fading into silence. Strong violent physical arrival, compact explosion with weight and rough granular texture. One clearly articulated detonation, no preparatory rise, no long rumble, no metal ricochet, no notification beep, no pitched tone, no laser chirp, no voices or music. Clean isolated sound effect.",
+      "source_interval": [
+        0,
+        0.82
+      ]
+    }
+  ],
+  "integrated_in_game": false
+}

@@ -21,6 +21,9 @@ func _initialize() -> void:
 	var player: Node = scene.get_node("Player")
 	flow.call("_open_equipment")
 	var garage: Control = flow.get("_forge_garage")
+	garage.set("library_path", "user://robot_forge_test_builds.cfg")
+	garage.call("set_loadout", LOADOUT.defaults())
+	var saved_before_choices := LOADOUT.load_local()
 	var choices: Dictionary = garage.get("robot_buttons")
 	_check(garage.visible and choices.size() == 3, "trois chassis dans le garage officiel")
 	var stage = garage.get("stage")
@@ -46,8 +49,8 @@ func _initialize() -> void:
 		button.pressed.emit()
 		_check(garage.get("_health").text.contains(str(int(entry[1]))), "PV visibles dans le garage : " + identifier)
 		_check(stage.chassis_id == identifier and garage.get("loadout").robot == identifier, "selection du chassis central : " + identifier)
-		_check(LOADOUT.load_local().robot == identifier, "choix sauvegardé immédiatement : " + identifier)
-		player.call("apply_loadout", flow.get("loadout"))
+		_check(LOADOUT.load_local() == saved_before_choices, "choix garde le brouillon sans sauvegarde : " + identifier)
+		player.call("apply_loadout", garage.get("loadout"))
 		player.call("reset_combat_state")
 		_check(player.call("get_robot_id") == identifier, "robot transmis au joueur : " + identifier)
 		_check(is_equal_approx(float(player.call("get_health")), entry[1]), "PV de départ : " + identifier)
@@ -57,7 +60,12 @@ func _initialize() -> void:
 		_check(is_equal_approx(float(player.call("get_health")), entry[1]), "reset conserve le châssis : " + identifier)
 	(garage.get("_nav")["ARMES"] as Button).pressed.emit()
 	(garage.get("_nav")["ROBOT"] as Button).pressed.emit()
-	_check(flow.get("loadout").robot == "puissant", "choix conserve entre les categories")
+	_check(garage.get("loadout").robot == "puissant", "choix conserve entre les categories")
+	garage.call("_save_build")
+	garage.get("installation").set_process(false)
+	for frame in 360:
+		garage.get("installation").advance(1.0 / 60.0)
+	_check(not garage.get("installation").active and LOADOUT.load_local().robot == "puissant" and flow.get("loadout").robot == "puissant", "la fin du travail du bras transmet le build sauvegarde au duel")
 	flow.call("_start_duel")
 	await process_frame
 	_check(float(player.call("get_max_health")) == 1200.0 and float(player.call("get_health")) == 1200.0, "PV du Puissant au départ du duel")
@@ -105,6 +113,7 @@ func _initialize() -> void:
 		file.close()
 	else:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOADOUT.SAVE_PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://robot_forge_test_builds.cfg"))
 	for failure in _failures:
 		push_error("FAIL: " + failure)
 	print("ROBOT FORGE TEST: ", "PASS" if _failures.is_empty() else "FAIL")

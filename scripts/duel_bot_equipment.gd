@@ -95,6 +95,7 @@ func refresh_permutation_sweeps() -> void:
 
 func _clear_permutation() -> void:
 	if is_instance_valid(_permutation_mark):
+		_permutation_mark.stop_audio()
 		_permutation_mark.queue_free()
 	_permutation_mark = null
 	_permutation_target = null
@@ -864,6 +865,8 @@ func _begin_pending_module(module_id: String, duration: float, perception: Dicti
 	_module_aim_position = Vector3(perception.get("position", Vector3.ZERO))
 	var body := get_parent().get_parent() as Node3D if get_parent() != null else null
 	if body != null:
+		if module_id == "rocket_basket":
+			body.get_node("/root/GameSfx").play_module_event("rocket_arm", body.global_position)
 		var error := deg_to_rad(float(_latest_tuning.get("aim_error_degrees", 4.5)))
 		_aim_error_angle = randf_range(-error, error)
 		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS[module_id]
@@ -894,7 +897,7 @@ func _resolve_pending_module(body: Node3D, player: Node3D, controller: Node, vis
 				permutation_speed_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.duration)
 				body.get("combat_state").grant_shield(float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_amount), float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_duration))
 				_permutation_shield_body = body
-				get_node("/root/GameSfx").play_event("javelin_teleport")
+				get_node("/root/GameSfx").play_module_event("permutation_shield", body.global_position)
 			)
 			get_tree().current_scene.add_child(mark)
 			_permutation_mark = mark

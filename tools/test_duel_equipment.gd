@@ -66,10 +66,15 @@ func _initialize() -> void:
 	if equipment.get("profile") != "blaster":
 		_failures.append("blaster profile was not selected")
 	# The shot is committed to its original line. Moving after launch must evade it.
+	# Charged shots are faster now. Leave a physics step of travel so this
+	# scripted teleport is synchronized before the ray reaches its old body.
+	player.global_position = Vector3(0.0, 0.0, 9.0)
+	await physics_frame
+	await physics_frame
 	before = float(player.call("get_health"))
 	equipment.set("_aim_position", player.global_position)
 	equipment.call("_fire", target, player)
-	player.global_position = Vector3(4.0, 0.0, 7.0)
+	player.global_position = Vector3(4.0, 0.0, 9.0)
 	await create_timer(0.25, true, false, false).timeout
 	if float(player.call("get_health")) < before:
 		_failures.append("blaster projectile followed a moving target")

@@ -1,0 +1,76 @@
+{
+  "revision": 2,
+  "model": "Stable Audio 3 Small-SFX",
+  "module_count": 1,
+  "candidate_count": 1,
+  "integrated_in_game": false,
+  "selection": "pending user listening",
+  "modules": {
+    "eclipse": {
+      "name": "Éclipse",
+      "meaning": "Le robot se reforme brutalement à l'arrivée et libère une explosion au contact. Un seul son d'arrivée, court, dense et rugueux.",
+      "scenario": [
+        [
+          "eclipse-arrival",
+          0.5,
+          1
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "eclipse-arrival",
+      "module": "eclipse",
+      "label": "Explosion à l'arrivée",
+      "meaning": "La matière se reforme dans une détonation courte : impact grave et éclatement de particules, sans signal de téléportation.",
+      "kind": "accent",
+      "file": "candidates\\eclipse-arrival.wav",
+      "sha256": "20449c3753ad012469f1da0b3eb4fbe6307ef1469689cbc6a0b895b470dc79f8",
+      "source": "raw\\eclipse-arrival.wav",
+      "source_sha256": "b230fb728d32a84b2b8568edfffe2d330dcbbeefefa8c5fa1ed7b738ca6fb53c",
+      "source_interval_seconds": [
+        0.0,
+        0.82
+      ],
+      "duration_seconds": 0.82,
+      "main_peak_offset": 0.23447,
+      "source_rms_dbfs": -18.61,
+      "gain_db": -2.11,
+      "output_rms_dbfs": -20.72,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "pending user listening"
+    }
+  ],
+  "previews": {
+    "eclipse": {
+      "isolated": {
+        "file": "previews\\eclipse-isolated.wav",
+        "events": [
+          {
+            "id": "eclipse-arrival",
+            "time": 0.45,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 2.22,
+        "headroom_gain": 1,
+        "sha256": "0ce068c5e05549216a0f3fbb8832afcfc76ef06e9531bd07507dee166f7097c2"
+      },
+      "scenario": {
+        "file": "previews\\eclipse-scenario.wav",
+        "events": [
+          {
+            "id": "eclipse-arrival",
+            "time": 0.5,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 2.12,
+        "headroom_gain": 1,
+        "sha256": "c71bafad55d31289689dd99186720e724c22b9f2d7c6cc5d3f479654d4e67023"
+      }
+    }
+  },
+  "review_boundary": "Proposals with technical checks; no self-hearing or live-game acceptance claimed."
+}

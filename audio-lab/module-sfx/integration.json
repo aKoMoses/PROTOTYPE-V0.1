@@ -1,0 +1,110 @@
+{
+  "status": "integrated locally",
+  "generator": "Stable Audio 3 Small-SFX",
+  "accepted_modules": [
+    "rocket_basket",
+    "counter",
+    "projector",
+    "permutation"
+  ],
+  "files": [
+    {
+      "id": "rocket-arm",
+      "file": "art\\audio\\game-sfx\\rocket-arm.wav",
+      "sha256": "21e1af35de1356dbdd34c4fdaa82d8072b7f4b4405e75a86f788ec67b2024f46"
+    },
+    {
+      "id": "rocket-launch",
+      "file": "art\\audio\\game-sfx\\rocket-launch.wav",
+      "sha256": "9b3c56ea6430a0f30456dede966ce5805a8812c0fb16319aabb1b08450bcd0b8"
+    },
+    {
+      "id": "rocket-flight",
+      "file": "art\\audio\\game-sfx\\rocket-flight.wav",
+      "sha256": "1c53678ce8684d4163f24cd9b5bd1469d7afcabbc994b1271706a12e82afd1db"
+    },
+    {
+      "id": "rocket-impact",
+      "file": "art\\audio\\game-sfx\\rocket-impact.wav",
+      "sha256": "f552039d83fe6a3165d56f31beea5e228e1d0f0bb3b08470065fb183d0bc1b68"
+    },
+    {
+      "id": "rocket-destroyed",
+      "file": "art\\audio\\game-sfx\\rocket-destroyed.wav",
+      "sha256": "42f4a90a78a523bb95496f331499a51e2c32455d55afd6b18072e60465ba2d90"
+    },
+    {
+      "id": "counter-guard",
+      "file": "art\\audio\\game-sfx\\counter-guard.wav",
+      "sha256": "855a4965e44a24c2b1b1800f55a5debc75572428905141a15ba17d95406d04b4"
+    },
+    {
+      "id": "counter-parry",
+      "file": "art\\audio\\game-sfx\\counter-parry.wav",
+      "sha256": "7737795d935cf52b5085073d0bc264c1a90e4f20e9c3861d9944d4681a883689"
+    },
+    {
+      "id": "counter-capture",
+      "file": "art\\audio\\game-sfx\\counter-capture.wav",
+      "sha256": "b456b80e7d3469abe7c38058a661cb3f60067e23c1f54318ae4c075c8d84bb35"
+    },
+    {
+      "id": "counter-release",
+      "file": "art\\audio\\game-sfx\\counter-release.wav",
+      "sha256": "0978b34c56330d2b24134156ed68159ce8be873a3a1bab65109a15160af482c7"
+    },
+    {
+      "id": "projector-charge",
+      "file": "art\\audio\\game-sfx\\projector-charge.wav",
+      "sha256": "a181c87740c242bea5079e20e192003d299194aa2699b3bf2e64c3e893ed2b5f"
+    },
+    {
+      "id": "projector-wave",
+      "file": "art\\audio\\game-sfx\\projector-wave.wav",
+      "sha256": "26225bb7eae1dce65fde258e61f4b6cc138222138543b36e3cc73a2c70041e63"
+    },
+    {
+      "id": "projector-push",
+      "file": "art\\audio\\game-sfx\\projector-push.wav",
+      "sha256": "0b0ce4b3e0dea43d67fff3166ed25680e63c532d4f8c0f4676456b57b38eea60"
+    },
+    {
+      "id": "projector-passive",
+      "file": "art\\audio\\game-sfx\\projector-passive.wav",
+      "sha256": "972afb810fe47396c6fc4866ca7e41fee52b23f39b743f1f258a042c8b75943b"
+    },
+    {
+      "id": "permutation-send",
+      "file": "art\\audio\\game-sfx\\permutation-send.wav",
+      "sha256": "05e2c2d2ea9888f40cf9846425a9229edaea3c4cc5aa26ad184296dc10711bb7"
+    },
+    {
+      "id": "permutation-flight",
+      "file": "art\\audio\\game-sfx\\permutation-flight.wav",
+      "sha256": "7998e48d5c5b788d7207456a6d0edfbbe8cabe8abe86e17fb47d327457a267c8"
+    },
+    {
+      "id": "permutation-swap",
+      "file": "art\\audio\\game-sfx\\permutation-swap.wav",
+      "sha256": "b10b9e20ecff49deb213163af474e246c26a21ed970f460c38a546cc7c4a5b70"
+    },
+    {
+      "id": "permutation-shield",
+      "file": "art\\audio\\game-sfx\\permutation-shield.wav",
+      "sha256": "f89bc1a936900c4d97bf92f079b8a59d2c6a32cd83368c8d31e88335f97cb890"
+    }
+  ],
+  "checks": [
+    "MODULE SFX TEST: PASS",
+    "COUNTER TEST: PASS (53 checks)",
+    "TEST ROCKET BASKET: PASS",
+    "PROJECTOR TEST: PASS",
+    "PERMUTATION TEST: PASS",
+    "PROJECTOR PERMUTATION SFX TEST: PASS",
+    "NETWORK COMBAT TEST: PASS"
+  ],
+  "remaining_review": [
+    "Eclipse deferred"
+  ],
+  "limits": "Headless runtime checks; no live listening or separate-PC network acceptance."
+}

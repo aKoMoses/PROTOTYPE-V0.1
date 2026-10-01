@@ -1,0 +1,359 @@
+{
+  "revision": 2,
+  "model": "Stable Audio 3 Small-SFX",
+  "module_count": 2,
+  "candidate_count": 8,
+  "integrated_in_game": true,
+  "selection": "accepted by user",
+  "modules": {
+    "projector": {
+      "name": "Projector",
+      "meaning": "L'air se comprime autour du robot, puis une onde de pression chasse les adversaires. Le déclenchement de survie est immédiat et plus sec.",
+      "scenario": [
+        [
+          "projector-charge",
+          0.45,
+          1
+        ],
+        [
+          "projector-wave",
+          0.95,
+          1
+        ],
+        [
+          "projector-push",
+          1.05,
+          0.85
+        ],
+        [
+          "projector-passive",
+          2.7,
+          1
+        ]
+      ]
+    },
+    "permutation": {
+      "name": "Permutation",
+      "meaning": "Une ombre électrique se détache du robot et rejoint sa cible. Deux positions s'échangent ; le bouclier se referme sur le robot.",
+      "scenario": [
+        [
+          "permutation-send",
+          0.45,
+          1
+        ],
+        [
+          "permutation-flight",
+          0.65,
+          0.75
+        ],
+        [
+          "permutation-swap",
+          1.7,
+          1
+        ],
+        [
+          "permutation-shield",
+          1.88,
+          0.85
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "projector-charge",
+      "module": "projector",
+      "label": "Compression avant l'onde",
+      "meaning": "Une aspiration resserre la pression avant la répulsion ; pas de montée de synthé.",
+      "kind": "accent",
+      "file": "candidates\\projector-charge.wav",
+      "sha256": "a181c87740c242bea5079e20e192003d299194aa2699b3bf2e64c3e893ed2b5f",
+      "source": "raw\\projector-charge.wav",
+      "source_sha256": "90631f2b7dbf851580fd916b19536d527a05199925a4bd164095db6604bbdf86",
+      "source_interval_seconds": [
+        2.68,
+        3.05
+      ],
+      "duration_seconds": 0.37,
+      "main_peak_offset": 0.27438,
+      "source_rms_dbfs": -29.06,
+      "gain_db": 4.06,
+      "output_rms_dbfs": -25.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "projector-wave",
+      "module": "projector",
+      "label": "Départ de l'onde",
+      "meaning": "Un coup de pression large et grave marque le départ de l'onde circulaire.",
+      "kind": "accent",
+      "file": "candidates\\projector-wave.wav",
+      "sha256": "26225bb7eae1dce65fde258e61f4b6cc138222138543b36e3cc73a2c70041e63",
+      "source": "raw\\projector-wave.wav",
+      "source_sha256": "942ea65f2ad989b59fc47b1e3f5490b75a9c0a67e34fa7e4eafc5d35e12d7d20",
+      "source_interval_seconds": [
+        0.09875,
+        0.49875
+      ],
+      "duration_seconds": 0.4,
+      "main_peak_offset": 0.24048,
+      "source_rms_dbfs": -14.88,
+      "gain_db": -5.12,
+      "output_rms_dbfs": -20.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "projector-push",
+      "module": "projector",
+      "label": "Souffle de répulsion",
+      "meaning": "L'air balaye l'espace et pousse les corps loin du robot.",
+      "kind": "accent",
+      "file": "candidates\\projector-push.wav",
+      "sha256": "0b0ce4b3e0dea43d67fff3166ed25680e63c532d4f8c0f4676456b57b38eea60",
+      "source": "raw\\projector-push.wav",
+      "source_sha256": "bddef9eeae9c4041fabe3541ea77a75749928323dbbf695093fae2980a057f36",
+      "source_interval_seconds": [
+        0.13866,
+        0.71866
+      ],
+      "duration_seconds": 0.58,
+      "main_peak_offset": 0.17562,
+      "source_rms_dbfs": -15.21,
+      "gain_db": -8.79,
+      "output_rms_dbfs": -24.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "projector-passive",
+      "module": "projector",
+      "label": "Expulsion de secours · faibles PV",
+      "meaning": "Une expulsion instantanée et sèche : le robot se sauve sans préparation.",
+      "kind": "accent",
+      "file": "candidates\\projector-passive.wav",
+      "sha256": "972afb810fe47396c6fc4866ca7e41fee52b23f39b743f1f258a042c8b75943b",
+      "source": "raw\\projector-passive.wav",
+      "source_sha256": "bb021779a48559d7f4971f579a72f5edd259a8952729fccb3c57b76e9f2b8d76",
+      "source_interval_seconds": [
+        0.0,
+        0.12483
+      ],
+      "duration_seconds": 0.12482993197278912,
+      "main_peak_offset": 0.01995,
+      "source_rms_dbfs": -19.91,
+      "gain_db": -1.71,
+      "output_rms_dbfs": -21.62,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "permutation-send",
+      "module": "permutation",
+      "label": "Envoi de l'ombre",
+      "meaning": "L'ombre se détache : une déchirure électrique fine et rapide.",
+      "kind": "accent",
+      "file": "candidates\\permutation-send.wav",
+      "sha256": "05e2c2d2ea9888f40cf9846425a9229edaea3c4cc5aa26ad184296dc10711bb7",
+      "source": "raw\\permutation-send.wav",
+      "source_sha256": "445eb42bba4260e71f0e1e344a17000d860ed5a385b2bd01ad505729fb31a30f",
+      "source_interval_seconds": [
+        2.77268,
+        3.0432
+      ],
+      "duration_seconds": 0.27052154195011335,
+      "main_peak_offset": 0.08084,
+      "source_rms_dbfs": -24.4,
+      "gain_db": 0.4,
+      "output_rms_dbfs": -24.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "permutation-flight",
+      "module": "permutation",
+      "label": "Trajet de l'ombre",
+      "meaning": "Une traînée électrique légère accompagne l'ombre jusqu'à sa cible.",
+      "kind": "loop",
+      "file": "candidates\\permutation-flight.wav",
+      "sha256": "7998e48d5c5b788d7207456a6d0edfbbe8cabe8abe86e17fb47d327457a267c8",
+      "source": "raw\\permutation-flight.wav",
+      "source_sha256": "63f2f4311584fef0248434ee7374e9eb2ae66bc5edab15eeb79763ba546e1f33",
+      "source_interval_seconds": [
+        0.45333,
+        1.60834
+      ],
+      "duration_seconds": 1.1,
+      "main_peak_offset": null,
+      "source_rms_dbfs": -26.64,
+      "gain_db": -2.36,
+      "output_rms_dbfs": -29.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "permutation-swap",
+      "module": "permutation",
+      "label": "Échange des positions",
+      "meaning": "Deux claquements spatiaux liés par un souffle bref font sentir le déplacement croisé.",
+      "kind": "accent",
+      "file": "candidates\\permutation-swap.wav",
+      "sha256": "b10b9e20ecff49deb213163af474e246c26a21ed970f460c38a546cc7c4a5b70",
+      "source": "raw\\permutation-swap.wav",
+      "source_sha256": "afaeba452eedca033c88b36257f2f33bde60d2c85ab3f69a33b6f99482795daa",
+      "source_interval_seconds": [
+        2.53,
+        3.03
+      ],
+      "duration_seconds": 0.5,
+      "main_peak_offset": 0.24444,
+      "source_rms_dbfs": -23.52,
+      "gain_db": 2.52,
+      "output_rms_dbfs": -21.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "permutation-shield",
+      "module": "permutation",
+      "label": "Bouclier obtenu",
+      "meaning": "Une membrane énergétique se tend puis se ferme : protection légère et ferme.",
+      "kind": "accent",
+      "file": "candidates\\permutation-shield.wav",
+      "sha256": "f89bc1a936900c4d97bf92f079b8a59d2c6a32cd83368c8d31e88335f97cb890",
+      "source": "raw\\permutation-shield.wav",
+      "source_sha256": "f223d3997aacebae4d2e9710799abe171f44d15c1125b3a9ef7811f9eff020eb",
+      "source_interval_seconds": [
+        0.95,
+        1.2
+      ],
+      "duration_seconds": 0.25,
+      "main_peak_offset": 0.06485,
+      "source_rms_dbfs": -31.42,
+      "gain_db": 6.42,
+      "output_rms_dbfs": -25.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    }
+  ],
+  "previews": {
+    "projector": {
+      "isolated": {
+        "file": "previews\\projector-isolated.wav",
+        "events": [
+          {
+            "id": "projector-charge",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "projector-wave",
+            "time": 1.67,
+            "gain": 1
+          },
+          {
+            "id": "projector-push",
+            "time": 2.92,
+            "gain": 1
+          },
+          {
+            "id": "projector-passive",
+            "time": 4.35,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 5.4248299319727895,
+        "headroom_gain": 1,
+        "sha256": "e44d48bb4eb7806862063bff308cc143171d5391e707a485b332a61efcc4769b"
+      },
+      "scenario": {
+        "file": "previews\\projector-scenario.wav",
+        "events": [
+          {
+            "id": "projector-charge",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "projector-wave",
+            "time": 0.95,
+            "gain": 1
+          },
+          {
+            "id": "projector-push",
+            "time": 1.05,
+            "gain": 0.85
+          },
+          {
+            "id": "projector-passive",
+            "time": 2.7,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 3.6248299319727892,
+        "headroom_gain": 1,
+        "sha256": "dccb872683f70db3065258a2eb81548513ce7420a54fb1b0786c21d128c31bc5"
+      }
+    },
+    "permutation": {
+      "isolated": {
+        "file": "previews\\permutation-isolated.wav",
+        "events": [
+          {
+            "id": "permutation-send",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "permutation-flight",
+            "time": 1.5705,
+            "gain": 1
+          },
+          {
+            "id": "permutation-swap",
+            "time": 3.5205,
+            "gain": 1
+          },
+          {
+            "id": "permutation-shield",
+            "time": 4.8705,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 6.0705215419501135,
+        "headroom_gain": 1,
+        "sha256": "d053908ae81ca9c72f9f6e1d5e3263b61df816506f5d672cebc18b00de9aa081"
+      },
+      "scenario": {
+        "file": "previews\\permutation-scenario.wav",
+        "events": [
+          {
+            "id": "permutation-send",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "permutation-flight",
+            "time": 0.65,
+            "gain": 0.75
+          },
+          {
+            "id": "permutation-swap",
+            "time": 1.7,
+            "gain": 1
+          },
+          {
+            "id": "permutation-shield",
+            "time": 1.88,
+            "gain": 0.85
+          }
+        ],
+        "duration_seconds": 3.0,
+        "headroom_gain": 1,
+        "sha256": "1e760f86cfc15a94b5b43756c46b89f3407585d9fd740dd37dd6db80310166e1"
+      }
+    }
+  },
+  "review_boundary": "User accepted the pair. Gameplay wiring and cleanup verified headlessly; live listening and two-computer network test not performed."
+}

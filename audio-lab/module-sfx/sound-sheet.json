@@ -1,0 +1,375 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "provider": "local Stability AI",
+  "runtime": "official optimized TFLite",
+  "generation_seconds": 4,
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, melody, speech, voices, narration, drill, jackhammer, automatic gunfire, regular repeated impacts, alarm siren, long reverb, room ambience, clipping, low fidelity",
+  "integrated_in_game": false,
+  "selection": "pending user audition",
+  "modules": {
+    "rocket_basket": {
+      "name": "Panier roquettes",
+      "direction": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "scenario": [
+        [
+          "rocket-arm",
+          0.5,
+          1
+        ],
+        [
+          "rocket-volley",
+          0.8,
+          1
+        ],
+        [
+          "rocket-propulsion",
+          1.02,
+          0.6
+        ],
+        [
+          "rocket-impact",
+          2.08,
+          1
+        ],
+        [
+          "rocket-destroyed",
+          3.15,
+          1
+        ]
+      ]
+    },
+    "counter": {
+      "name": "Counter",
+      "direction": "Garde tendue, interception sèche et énergie capturée puis libérée.",
+      "scenario": [
+        [
+          "counter-guard",
+          0.5,
+          1
+        ],
+        [
+          "counter-intercept",
+          0.96,
+          1
+        ],
+        [
+          "counter-overload",
+          1.05,
+          0.85
+        ],
+        [
+          "counter-discharge",
+          2.4,
+          1
+        ]
+      ]
+    },
+    "projector": {
+      "name": "Projector",
+      "direction": "Pression brève, onde grave et souffle physique ; déclenchement automatique distinct.",
+      "scenario": [
+        [
+          "projector-charge",
+          0.5,
+          1
+        ],
+        [
+          "projector-wave",
+          0.68,
+          1
+        ],
+        [
+          "projector-repulse",
+          0.73,
+          0.75
+        ],
+        [
+          "projector-passive",
+          2.4,
+          1
+        ]
+      ]
+    },
+    "permutation": {
+      "name": "Permutation",
+      "direction": "Ombre électrique furtive, échange rapide et verrouillage du bouclier.",
+      "scenario": [
+        [
+          "permutation-send",
+          0.5,
+          1
+        ],
+        [
+          "permutation-travel",
+          0.68,
+          0.65
+        ],
+        [
+          "permutation-swap",
+          0.96,
+          1
+        ],
+        [
+          "permutation-shield",
+          1.02,
+          0.8
+        ]
+      ]
+    },
+    "eclipse": {
+      "name": "Éclipse",
+      "direction": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "scenario": [
+        [
+          "eclipse-aim",
+          0.5,
+          1
+        ],
+        [
+          "eclipse-vanish",
+          1.35,
+          1
+        ],
+        [
+          "eclipse-travel",
+          1.35,
+          0.7
+        ],
+        [
+          "eclipse-arrival",
+          1.6,
+          1
+        ],
+        [
+          "eclipse-shield",
+          1.66,
+          0.85
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "rocket-arm",
+      "module": "rocket_basket",
+      "label": "Ouverture / armement",
+      "duration": 0.3,
+      "rms_db": -23,
+      "kind": "accent",
+      "prompt": "One compact robotic rocket rack opening and arming, a short pneumatic metal latch slide ending in one firm steel locking click, close dry isolated studio game sound effect, one short mechanical action then silence",
+      "seed": 26100201
+    },
+    {
+      "id": "rocket-volley",
+      "module": "rocket_basket",
+      "label": "Lancement de la salve",
+      "duration": 0.48,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "One compact volley of five miniature rockets leaving a robot launcher almost together, one punchy clustered ignition puff with compressed air thrust and a short metal rack kick, close dry isolated game sound effect, brief cohesive launch then silence, not machine gun fire",
+      "seed": 26100202
+    },
+    {
+      "id": "rocket-propulsion",
+      "module": "rocket_basket",
+      "label": "Propulsion en vol · boucle",
+      "duration": 1.2,
+      "rms_db": -30,
+      "kind": "loop",
+      "prompt": "Close small rocket exhaust already in flight, steady restrained rushing hot gas with soft turbulent fiery grit, smooth continuous propulsion texture, dry isolated game sound effect, no ignition blast, no impacts, no repeating pulses, no music",
+      "seed": 26100203
+    },
+    {
+      "id": "rocket-impact",
+      "module": "rocket_basket",
+      "label": "Explosion à l’impact",
+      "duration": 0.65,
+      "rms_db": -19,
+      "kind": "accent",
+      "prompt": "One small guided rocket hitting steel robot armor, sharp compact explosive crack, short low pressure punch and gritty metal fragments falling away, close dry isolated game sound effect, single fast explosion then silence, no cinematic long boom",
+      "seed": 26100204
+    },
+    {
+      "id": "rocket-destroyed",
+      "module": "rocket_basket",
+      "label": "Destruction en vol",
+      "duration": 0.38,
+      "rms_db": -23,
+      "kind": "accent",
+      "prompt": "One miniature rocket destroyed in midair, brittle metal shell snapping with a compact fiery pop and light debris fizz, close dry isolated game sound effect, one small brief disintegration then silence, lighter than a direct impact explosion",
+      "seed": 26100205
+    },
+    {
+      "id": "counter-guard",
+      "module": "counter",
+      "label": "Activation de la garde",
+      "duration": 0.12,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One robot defensive guard snapping into place, tense steel shield latch and a very short restrained electrical thrum, close dry isolated game sound effect, instant tight mechanical activation then silence, no long charge",
+      "seed": 26100206
+    },
+    {
+      "id": "counter-intercept",
+      "module": "counter",
+      "label": "Interception",
+      "duration": 0.22,
+      "rms_db": -21,
+      "kind": "accent",
+      "prompt": "One incoming energy shot intercepted by a robot guard, crisp bright steel deflection crack followed by a compact electrical absorption snap, close dry isolated game sound effect, single sharp parry then silence, no explosion",
+      "seed": 26100207
+    },
+    {
+      "id": "counter-overload",
+      "module": "counter",
+      "label": "Surcharge obtenue",
+      "duration": 0.25,
+      "rms_db": -27,
+      "kind": "accent",
+      "prompt": "One robot capacitor capturing energy after a successful parry, a short rising restrained electrical resonance ending in a firm dry energized latch, close isolated game sound effect, clear brief energy ready cue then silence, no melody, no alarm",
+      "seed": 26100208
+    },
+    {
+      "id": "counter-discharge",
+      "module": "counter",
+      "label": "Décharge de surcharge à l’impact",
+      "duration": 0.48,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "One stored defensive energy charge releasing into steel armor at contact, punchy compact electrical burst with a solid metal crack and a short low pressure kick, close dry isolated game sound effect, single discharge then silence, no long laser beam",
+      "seed": 26100209
+    },
+    {
+      "id": "projector-charge",
+      "module": "projector",
+      "label": "Montée en puissance",
+      "duration": 0.18,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One compact robot pressure projector building up quickly, tight compressed air intake with a low tense physical resonance rising briefly, close dry isolated game sound effect, single short charging gesture then silence, no sustained hum",
+      "seed": 26100210
+    },
+    {
+      "id": "projector-wave",
+      "module": "projector",
+      "label": "Départ de l’onde",
+      "duration": 0.46,
+      "rms_db": -22,
+      "kind": "accent",
+      "prompt": "One circular repulsion shockwave released by a robot projector, deep rounded pressure thump followed by a short expanding air wash, close dry isolated game sound effect, one compact non explosive force pulse then silence",
+      "seed": 26100211
+    },
+    {
+      "id": "projector-repulse",
+      "module": "projector",
+      "label": "Souffle de répulsion",
+      "duration": 0.42,
+      "rms_db": -26,
+      "kind": "accent",
+      "prompt": "One short forceful air shove pushing heavy metal away, broad dry low rushing pressure sweep with a restrained gritty air edge, close isolated game sound effect, one quick push then silence, no impact explosion",
+      "seed": 26100212
+    },
+    {
+      "id": "projector-passive",
+      "module": "projector",
+      "label": "Déclenchement automatique · faibles PV",
+      "duration": 0.62,
+      "rms_db": -22,
+      "kind": "accent",
+      "prompt": "One emergency robot repulsion field activating instantly, two close compact pressure pulses within one brief burst with a crisp mechanical safety latch and a short outward air wash, dry isolated game sound effect, distinctive urgent force release then silence, no alarm siren, no melody",
+      "seed": 26100213
+    },
+    {
+      "id": "permutation-send",
+      "module": "permutation",
+      "label": "Envoi de l’ombre électrique",
+      "duration": 0.18,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One dark electrical shadow dart launched from a robot, compact dry electrostatic snap and fast wispy air release, close isolated game sound effect, one quick furtive gesture then silence, no firearm shot",
+      "seed": 26100214
+    },
+    {
+      "id": "permutation-travel",
+      "module": "permutation",
+      "label": "Déplacement de l’ombre",
+      "duration": 0.32,
+      "rms_db": -29,
+      "kind": "accent",
+      "prompt": "One electrical shadow gliding swiftly through the air, soft flowing granular static and a thin dark air whisper, close dry isolated game sound effect, single very short smooth passing sweep then silence, no tonal laser, no repeating pulses",
+      "seed": 26100215
+    },
+    {
+      "id": "permutation-swap",
+      "module": "permutation",
+      "label": "Échange des positions",
+      "duration": 0.38,
+      "rms_db": -22,
+      "kind": "accent",
+      "prompt": "One instantaneous exchange of two robot positions, paired inward air suction and outward electrical snap joined in one compact spatial flip, close dry isolated game sound effect, one fast teleport swap then silence, no long whoosh",
+      "seed": 26100216
+    },
+    {
+      "id": "permutation-shield",
+      "module": "permutation",
+      "label": "Apparition du bouclier",
+      "duration": 0.28,
+      "rms_db": -27,
+      "kind": "accent",
+      "prompt": "One protective energy shell locking around a robot, short clear glassy metal resonance with a firm electrical seal click, close dry isolated game sound effect, one discreet shield activation then silence, no melody, no alarm",
+      "seed": 26100217
+    },
+    {
+      "id": "eclipse-aim",
+      "module": "eclipse",
+      "label": "Préparation pendant la sélection",
+      "duration": 0.48,
+      "rms_db": -27,
+      "kind": "accent",
+      "prompt": "One robot preparing a shadow teleport destination, restrained dark air gathering with fine ember-like crackles and a short low tension swell, close dry isolated game sound effect, one brief preparation gesture then silence, no ominous music drone",
+      "seed": 26100218
+    },
+    {
+      "id": "eclipse-vanish",
+      "module": "eclipse",
+      "label": "Disparition",
+      "duration": 0.12,
+      "rms_db": -24,
+      "kind": "accent",
+      "prompt": "One robot vanishing into dark particles, extremely quick inward vacuum pop with a dry dusty ember hiss, close isolated game sound effect, single abrupt disappearance then silence, no explosion",
+      "seed": 26100219
+    },
+    {
+      "id": "eclipse-travel",
+      "module": "eclipse",
+      "label": "Trajet en particules",
+      "duration": 0.25,
+      "rms_db": -29,
+      "kind": "accent",
+      "prompt": "One stream of dark glowing particles rushing past, light textured air streak with tiny dry ember sparks, close isolated game sound effect, one very short flowing transit gesture then silence, no motor, no music",
+      "seed": 26100220
+    },
+    {
+      "id": "eclipse-arrival",
+      "module": "eclipse",
+      "label": "Explosion à l’arrivée",
+      "duration": 0.78,
+      "rms_db": -19,
+      "kind": "accent",
+      "prompt": "One robot rematerializing in a compact fiery shadow explosion, strong rounded low pressure punch with a gritty ember crack and short dusty flame release, close dry isolated game sound effect, single immediate explosive arrival then silence, no long cinematic rumble",
+      "seed": 26100221
+    },
+    {
+      "id": "eclipse-shield",
+      "module": "eclipse",
+      "label": "Bouclier obtenu après une touche",
+      "duration": 0.3,
+      "rms_db": -27,
+      "kind": "accent",
+      "prompt": "One robot gaining a protective shield from a successful fiery teleport hit, short warm steel and glass energy locking resonance with a tiny ember crackle, close dry isolated game sound effect, one discreet success cue then silence, no music or melody",
+      "seed": 26100222
+    }
+  ]
+}

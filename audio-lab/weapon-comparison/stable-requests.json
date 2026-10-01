@@ -1,0 +1,61 @@
+{
+  "provider": "local Stability AI",
+  "model": "Stable Audio 3 Small-SFX",
+  "runtime": "official optimized TFLite",
+  "duration": 4,
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, melody, speech, voices, narration, automatic gunfire, machine gun, drill, jackhammer, continuous motor, long ambience, repeated attacks, clipping, low fidelity",
+  "sources": [
+    {
+      "id": "mekatana-windup",
+      "seed": 26100101,
+      "prompt": "A robotic electric katana energizing for one quick strike, a short taut steel resonance rising into a tiny dry electrical snap, close microphone, dry isolated studio game sound effect, one brief gesture then silence, no music"
+    },
+    {
+      "id": "mekatana-slash-1",
+      "seed": 26100102,
+      "prompt": "One fast light katana blade swing cutting the air, tight sharp metallic swish with a tiny electrical crackle, close dry isolated game sound effect, single very short attack then silence, realistic air movement, no music"
+    },
+    {
+      "id": "mekatana-slash-2",
+      "seed": 26100103,
+      "prompt": "One forceful broad katana blade swing cutting the air, weighty rushing air and tense steel edge with a brief electrical crackle, close dry isolated game sound effect, one short sweeping attack then silence, no music"
+    },
+    {
+      "id": "mekatana-slash-3",
+      "seed": 26100104,
+      "prompt": "One heavy overhead electric katana finishing swing, powerful deep blade whoosh with a sharp electric release and restrained metallic resonance, close dry isolated game sound effect, one decisive short attack then silence, no music"
+    },
+    {
+      "id": "mekatana-impact-1",
+      "seed": 26100105,
+      "prompt": "One light energized steel sword strike against robot armor, sharp dry metal contact with a tiny electrical spark and short steel ring, close isolated studio game sound effect, single impact then silence, no music"
+    },
+    {
+      "id": "mekatana-impact-2",
+      "seed": 26100106,
+      "prompt": "One solid electric katana strike into heavy steel robot armor, crunchy metal impact and brief crackling discharge, close dry isolated studio game sound effect, single short hit then silence, no music"
+    },
+    {
+      "id": "mekatana-impact-3",
+      "seed": 26100107,
+      "prompt": "One powerful electric katana finishing strike into thick robot armor, deep physical metallic slam, tearing steel crunch and a short fierce electrical discharge, close dry isolated game sound effect, one punchy impact then silence, no music"
+    },
+    {
+      "id": "longshot-shot",
+      "seed": 26100108,
+      "prompt": "One precision futuristic rifle shot, an extremely sharp dry ballistic crack over a compact low punch with a subtle metal breech clack and brief air release, close isolated studio game sound effect, single shot then silence, no laser whine, no music"
+    },
+    {
+      "id": "longshot-enhanced",
+      "seed": 26100109,
+      "prompt": "One powerful overcharged precision rifle shot, sharp explosive ballistic crack, heavy compact chest punch and a short electrical discharge followed by a dry metal breech clack, close isolated studio game sound effect, single shot then silence, no long laser whine, no music"
+    },
+    {
+      "id": "longshot-ready",
+      "seed": 26100110,
+      "prompt": "One small futuristic rifle chamber locking an enhanced round into place, two close crisp metallic clicks ending in a tiny taut electrical ping, dry isolated studio game sound effect, one short readiness cue then silence, no music"
+    }
+  ]
+}

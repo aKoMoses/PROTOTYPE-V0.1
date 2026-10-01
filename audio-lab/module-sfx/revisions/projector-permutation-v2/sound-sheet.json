@@ -1,0 +1,168 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "runtime": "local official optimized TFLite",
+  "generation_seconds": 4,
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, voices, notification beep, sonar ping, sine wave, cartoon bloop, drill, clipping",
+  "negative_prompt_note": "At CFG 1 the negative branch is not used; exclusions are stated in each positive prompt as well.",
+  "rejected_previous_batch": true,
+  "direction": "Projector: compression and outward pressure. Permutation: charged shadow and spatial exchange. No notification tones or shared ramps.",
+  "modules": {
+    "projector": {
+      "name": "Projector",
+      "meaning": "L'air se comprime autour du robot, puis une onde de pression chasse les adversaires. Le déclenchement de survie est immédiat et plus sec.",
+      "scenario": [
+        [
+          "projector-charge",
+          0.45,
+          1
+        ],
+        [
+          "projector-wave",
+          0.95,
+          1
+        ],
+        [
+          "projector-push",
+          1.05,
+          0.85
+        ],
+        [
+          "projector-passive",
+          2.7,
+          1
+        ]
+      ]
+    },
+    "permutation": {
+      "name": "Permutation",
+      "meaning": "Une ombre électrique se détache du robot et rejoint sa cible. Deux positions s'échangent ; le bouclier se referme sur le robot.",
+      "scenario": [
+        [
+          "permutation-send",
+          0.45,
+          1
+        ],
+        [
+          "permutation-flight",
+          0.65,
+          0.75
+        ],
+        [
+          "permutation-swap",
+          1.7,
+          1
+        ],
+        [
+          "permutation-shield",
+          1.88,
+          0.85
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "projector-charge",
+      "module": "projector",
+      "label": "Compression avant l'onde",
+      "meaning": "Une aspiration resserre la pression avant la répulsion ; pas de montée de synthé.",
+      "maximum_duration": 0.45,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "Close sound of air sucked rapidly into a compact pressure chamber. A short dry inward rush becoming tight and dense, a rough compressed air texture ending in a tiny muffled restraint. One brief intake with a clear natural stop. Physical air pressure, no motor, no pitched sound, no electronic beep, no music, clean isolated sound effect.",
+      "seed": 26100401,
+      "source_interval": [
+        2.68,
+        3.05
+      ]
+    },
+    {
+      "id": "projector-wave",
+      "module": "projector",
+      "label": "Départ de l'onde",
+      "meaning": "Un coup de pression large et grave marque le départ de l'onde circulaire.",
+      "maximum_duration": 0.4,
+      "rms_db": -20,
+      "kind": "accent",
+      "prompt": "One sudden pneumatic pressure wave exploding outward from a small chamber. A forceful low dry air thump, broad compressed gas punch with a hollow chesty body and a very short rough decay. Physical concussion without fire, metal debris or a gunshot crack. One isolated pressure release then silence, no pitched tone, no electronic chirp.",
+      "seed": 26100402
+    },
+    {
+      "id": "projector-push",
+      "module": "projector",
+      "label": "Souffle de répulsion",
+      "meaning": "L'air balaye l'espace et pousse les corps loin du robot.",
+      "maximum_duration": 0.58,
+      "rms_db": -24,
+      "kind": "accent",
+      "prompt": "One broad forceful rush of displaced air sweeping outward close to the microphone. Dense windy shove, soft low pressure body and a coarse airy rushing tail fading quickly to silence. A brief physical gust pushing heavy objects, no explosion, no metal crash, no voices, no tonal wind whistle. Clean isolated short sound effect.",
+      "seed": 26100403
+    },
+    {
+      "id": "projector-passive",
+      "module": "projector",
+      "label": "Expulsion de secours · faibles PV",
+      "meaning": "Une expulsion instantanée et sèche : le robot se sauve sans préparation.",
+      "maximum_duration": 0.55,
+      "rms_db": -21,
+      "kind": "accent",
+      "prompt": "One emergency pneumatic safety vent abruptly blasting open. A hard low air slap immediately followed by a short torn compressed air hiss, urgent physical pressure expulsion, fast aggressive onset and short falling tail. No alarm, no siren, no notification ping, no electronic tone, no voice, no melodic rise. One isolated release then silence.",
+      "seed": 26100404
+    },
+    {
+      "id": "permutation-send",
+      "module": "permutation",
+      "label": "Envoi de l'ombre",
+      "meaning": "L'ombre se détache : une déchirure électrique fine et rapide.",
+      "maximum_duration": 0.35,
+      "rms_db": -24,
+      "kind": "accent",
+      "prompt": "One thin sheet of static electricity tearing away and shooting forward. A brief crisp irregular electrical rip and a narrow airy flick, delicate charged crackling dust, immediate clean launch gesture ending quickly. No heavy impact, no laser chirp, no sonar ping, no pitched buzz, no voice. Dry isolated electrical movement sound effect.",
+      "seed": 26100405
+    },
+    {
+      "id": "permutation-flight",
+      "module": "permutation",
+      "label": "Trajet de l'ombre",
+      "meaning": "Une traînée électrique légère accompagne l'ombre jusqu'à sa cible.",
+      "maximum_duration": 1.1,
+      "rms_db": -29,
+      "kind": "loop",
+      "prompt": "A flowing cloud of electrically charged particles moving through the air close to the microphone. Clearly audible fine irregular static crackles mixed with a coarse narrow air stream, steady non tonal electric friction and flowing motion. Dense delicate charged dust texture, continuous without gaps. No motor, no mechanical pulses, no pitched whine, no beep, no explosions, no voices or music.",
+      "seed": 26100506
+    },
+    {
+      "id": "permutation-swap",
+      "module": "permutation",
+      "label": "Échange des positions",
+      "meaning": "Deux claquements spatiaux liés par un souffle bref font sentir le déplacement croisé.",
+      "maximum_duration": 0.55,
+      "rms_db": -21,
+      "kind": "accent",
+      "prompt": "One sudden spatial exchange sound, a tight air implosion snapping inward followed immediately by a crisp dry outward air pop with scattered static crackles. A compact double sided displacement gesture with a brief hollow sucking gap and decisive arrival. No explosion, no pitched laser, no sci fi beep, no music, one short complete gesture then silence.",
+      "seed": 26100407,
+      "source_interval": [
+        2.53,
+        3.03
+      ]
+    },
+    {
+      "id": "permutation-shield",
+      "module": "permutation",
+      "label": "Bouclier obtenu",
+      "meaning": "Une membrane énergétique se tend puis se ferme : protection légère et ferme.",
+      "maximum_duration": 0.45,
+      "rms_db": -25,
+      "kind": "accent",
+      "prompt": "One taut protective membrane snapping into place. A brief soft elastic air flap tightening into a rounded muted firm pop, with a delicate grain of static on the edge. Light flexible protective enclosure forming, one compact gesture and silence. No metal impact, no magic chime, no beep, no pitched hum, no voice, clean isolated sound effect.",
+      "seed": 26100408,
+      "source_interval": [
+        0.95,
+        1.2
+      ]
+    }
+  ],
+  "integrated_in_game": false
+}

@@ -5,6 +5,7 @@ signal action_finished(animation_name: StringName)
 
 const PLAYER_MODEL_PATH := "res://art/player_mecha_animated.glb"
 const CHASSIS_VISUALS := preload("res://scripts/robot_chassis_visuals.gd")
+const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
 const LOWER_BODY_MODIFIER_SCRIPT := preload("res://scripts/player_lower_body_direction_modifier.gd")
 const AIM_MODIFIER_SCRIPT := preload("res://scripts/player_aim_modifier.gd")
 const MODEL_AXIS_CORRECTION_YAW := PI
@@ -27,6 +28,7 @@ const BUSH_CONCEALED_ALPHA := 0.38
 var visual_motion: Node3D
 var model_axis_correction: Node3D
 var skeleton: Skeleton3D
+var module_visuals: MODULE_VISUALS
 var animation_player: AnimationPlayer
 var animation_tree: AnimationTree
 var lower_body_modifier: PlayerLowerBodyDirectionModifier
@@ -96,6 +98,13 @@ func set_chassis_appearance(identifier: String) -> void:
 		_chassis_visuals.apply(imported_model, identifier)
 	if was_concealed:
 		set_bush_concealed(true)
+
+
+func set_mobility_module(identifier: String) -> void:
+	if module_visuals != null:
+		module_visuals.set_mobility_module(identifier)
+
+
 var _bush_concealed := false
 var _bush_materials: Array[Dictionary] = []
 
@@ -221,6 +230,9 @@ func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -
 	skeleton.force_update_all_bone_transforms()
 	_ready_hand_pose = skeleton.get_bone_global_pose(_right_hand_bone_index)
 	_refresh_aim_state()
+	module_visuals = MODULE_VISUALS.new()
+	imported_root.add_child(module_visuals)
+	module_visuals.configure(skeleton)
 	if procedural_body != null:
 		procedural_body.visible = false
 	print("[PlayerVisualRig] animations=%s | bones=%d | mesh=%d | right=%s | left=%s | hips=%s | forward=+Z | root_motion=Hips(run/walk)" % [

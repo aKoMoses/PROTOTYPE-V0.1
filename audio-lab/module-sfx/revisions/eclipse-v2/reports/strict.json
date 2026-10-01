@@ -1,0 +1,61 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\eclipse-v2\\candidates\\eclipse-arrival.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.82,
+    "peak": 0.769958,
+    "rms": 0.092007,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.2439,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\eclipse-v2\\previews\\eclipse-isolated.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 2.22,
+    "peak": 0.769958,
+    "rms": 0.055918,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.48,
+      0.68,
+      0.82,
+      1.08
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7928,
+    "median_transient_gap_seconds": 0.2,
+    "transient_gap_cv": 0.2449,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\eclipse-v2\\previews\\eclipse-scenario.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 2.12,
+    "peak": 0.769958,
+    "rms": 0.057221,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.54,
+      0.72,
+      0.86,
+      1.06,
+      1.18
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7075,
+    "median_transient_gap_seconds": 0.16,
+    "transient_gap_cv": 0.1976,
+    "quality": "ok"
+  }
+]

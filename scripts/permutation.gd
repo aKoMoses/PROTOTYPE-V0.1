@@ -18,6 +18,7 @@ var _trail_positions: Array[Vector3] = []
 var _arcs: MeshInstance3D
 var _arc_clock := 0.0
 var _settled := false
+var _flight_audio: AudioStreamPlayer3D
 
 
 static func actor_available(actor: Node3D) -> bool:
@@ -53,6 +54,20 @@ func _ready() -> void:
 	_build_shadow()
 	if is_instance_valid(caster):
 		global_position = caster.global_position + Vector3.UP * 0.95
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_module_event", "permutation_send", global_position)
+	_flight_audio = AudioStreamPlayer3D.new()
+	var loop := preload("res://art/audio/game-sfx/permutation-flight.wav").duplicate() as AudioStreamWAV
+	loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	loop.loop_begin = 0
+	loop.loop_end = int(loop.get_length() * loop.mix_rate)
+	_flight_audio.stream = loop
+	_flight_audio.volume_db = -10.0
+	_flight_audio.unit_size = 3.0
+	_flight_audio.max_distance = 24.0
+	add_child(_flight_audio)
+	_flight_audio.play()
 	for ghost in _trail:
 		ghost.global_position = global_position
 		_trail_positions.append(global_position)
@@ -63,6 +78,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if not is_instance_valid(caster) or not is_instance_valid(target) or not actor_available(caster) or not actor_available(target) or epoch(caster) != _caster_epoch or epoch(target) != _target_epoch:
 		_settled = true
+		stop_audio()
 		failed.emit()
 		queue_free()
 		return
@@ -94,16 +110,29 @@ func _physics_process(delta: float) -> void:
 	if global_position.distance_squared_to(destination) > 0.0001 or _elapsed < float(DATA.MODULE_DEFINITIONS.permutation.minimum_travel_time):
 		return
 	_settled = true
+	stop_audio()
 	if resolves_swap:
 		var origin := caster.global_position
 		var arrival := target.global_position
 		if exchange(caster, target):
 			pulse(caster.get_tree().current_scene, origin)
 			pulse(caster.get_tree().current_scene, arrival)
+			play_exchange_sound(caster.get_tree().current_scene, arrival)
 			arrived.emit(origin, arrival)
 		else:
 			failed.emit()
 	queue_free()
+
+
+func stop_audio() -> void:
+	if is_instance_valid(_flight_audio):
+		_flight_audio.stop()
+
+
+static func play_exchange_sound(scene: Node, destination: Vector3) -> void:
+	var sfx := scene.get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_module_event", "permutation_swap", destination)
 
 
 static func exchange(source: Node3D, victim: Node3D) -> bool:

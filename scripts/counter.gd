@@ -60,6 +60,7 @@ func update(delta: float) -> void:
 			break
 		if phase == "preparation":
 			phase = "guard"
+			_play_sound("counter_guard")
 			remaining = float(definition.guard_duration)
 		elif phase == "guard":
 			phase = "recovery"
@@ -89,9 +90,8 @@ func intercept(attack: Dictionary) -> bool:
 	successes += 1
 	_sync_visual()
 	spawn_ring(get_tree().current_scene, global_position + Vector3.UP * 0.85, 0.85, 0.10)
-	var sfx := get_node_or_null("/root/GameSfx")
-	if sfx != null:
-		sfx.call("play_event", "counter_intercept")
+	_play_sound("counter_intercept")
+	_play_sound("counter_capture")
 	intercepted.emit()
 	return true
 
@@ -211,6 +211,9 @@ static func explode(actor: Node3D, point: Vector3, attack: Dictionary) -> void:
 		# Dedicated source prevents Omnivamp/weapon synergies/recursive hit chains.
 		target.call("take_damage", float(attack.get("damage", 10.0)), "surcharge", str(attack.id) + ":surcharge")
 	spawn_ring(actor.get_tree().current_scene, point, radius, 0.22)
+	var sfx := actor.get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_module_event", "counter_release", point)
 	if guard != null:
 		guard.explosions += 1
 		guard.exploded.emit(point)
@@ -249,6 +252,7 @@ func restore(value: Dictionary) -> void:
 	if authoritative:
 		return
 	var previous_successes := successes
+	var previous_phase := phase
 	phase = str(value.get("phase", ""))
 	if phase not in ["preparation", "guard", "recovery"]:
 		phase = ""
@@ -258,11 +262,18 @@ func restore(value: Dictionary) -> void:
 	surcharge_remaining = clampf(float(value.get("surcharge", 0.0)), 0.0, float(definition.surcharge_duration))
 	successes = int(value.get("successes", successes))
 	_sync_visual()
+	if phase == "guard" and previous_phase != "guard":
+		_play_sound("counter_guard")
 	if successes > previous_successes:
 		spawn_ring(get_tree().current_scene, global_position + Vector3.UP * 0.85, 0.85, 0.10)
-		var sfx := get_node_or_null("/root/GameSfx")
-		if sfx != null:
-			sfx.call("play_event", "counter_intercept")
+		_play_sound("counter_intercept")
+		_play_sound("counter_capture")
+
+
+func _play_sound(event_id: String) -> void:
+	var sfx := get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_module_event", event_id, global_position + Vector3.UP * 0.85)
 
 
 func _sync_visual() -> void:

@@ -35,6 +35,7 @@ const DODGE_SPEED := 7.2
 const MOVE_ACCELERATION := 7.0
 const CHARGER_ATTACK_RANGE := 6.0
 const BOSS_ATTACK_RANGE := 8.0
+var survival_arena_center := Vector3.ZERO
 const SURVIVAL_ARENA_LIMIT := 21.0
 const CHARGE_OBSTACLE_MARGIN := 0.7
 const BOT_COLLISION_MARGIN := 0.04
@@ -102,6 +103,8 @@ var _duel_equipment: Node
 var _threat_serial := 0
 var _threat_position := Vector3.ZERO
 var _projectile_previous: Dictionary = {}
+var _hazard_observed_at := -1.0
+var _hazard_threat_id := 0
 var _attack_mode := "ranged"
 var _fulguro_direction := Vector3.FORWARD
 var _fulguro_charge_ratio := 0.0
@@ -299,6 +302,8 @@ func _reset_duel_decisions() -> void:
 	_has_angle_destination = false
 	_threat_serial = 0
 	_projectile_previous.clear()
+	_hazard_observed_at = -1.0
+	_hazard_threat_id = 0
 
 
 func _reset_tactical_state() -> void:
@@ -539,11 +544,12 @@ func _physics_process(delta: float) -> void:
 	elif training_stationary:
 		_move_velocity = Vector3.ZERO
 	elif duel_tactics and bool(_duel_equipment.call("is_dashing")):
-		# A mobility cast owns this movement; an ordinary dodge must not pause
-		# its travel clock and resume a stale dash from a different position.
+		# A committed mobility cast owns movement until its swept path completes.
 		_dodge_remaining = 0.0
 		_move_velocity = Vector3.ZERO
 		_duel_equipment.call("advance_dash", bot_body, self, delta)
+	elif duel_tactics and _update_hazard_avoidance(bot_body, delta):
+		pass
 	elif _dodge_remaining > 0.0:
 		_dodge_remaining = maxf(0.0, _dodge_remaining - delta)
 		_move_velocity = _move_velocity.move_toward(_dodge_direction * DODGE_SPEED, MOVE_ACCELERATION * delta)
@@ -1168,19 +1174,21 @@ func _select_search_destination(bot_body: Node3D) -> Vector3:
 	# Sweep lanes, health pads and map quadrants without consulting a hidden target.
 	var sectors := [Vector3(-13, 0, -18), Vector3(0, 0, -20.8), Vector3(13, 0, -18), Vector3(21, 0, 0), Vector3(13, 0, 18), Vector3(0, 0, 20.8), Vector3(-13, 0, 18), Vector3(-21, 0, 0), Vector3(0, 0, 0)]
 	var limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	for index in range(sectors.size()):
+		sectors[index] += survival_arena_center
 	# Grass is also worth inspecting when no entrance was witnessed. Sweep all
 	# map patches in the same schedule, never selecting the occupied one by fiat.
 	for node in get_tree().get_nodes_in_group("bush_placeholder"):
 		var bush := node as Node3D
 		if bush != null and is_instance_valid(bush):
 			var point := BUSH_STATE.center(bush)
-			if absf(point.x) < limit - 1.0 and absf(point.z) < limit - 1.0:
+			if absf(point.x - survival_arena_center.x) < limit - 1.0 and absf(point.z - survival_arena_center.z) < limit - 1.0:
 				sectors.append(point)
 	for _attempt in range(sectors.size()):
 		_search_index = (_search_index + 1) % sectors.size()
 		var candidate: Vector3 = sectors[_search_index]
-		candidate.x = clampf(candidate.x, -limit + 1.0, limit - 1.0)
-		candidate.z = clampf(candidate.z, -limit + 1.0, limit - 1.0)
+		candidate.x = clampf(candidate.x, survival_arena_center.x - limit + 1.0, survival_arena_center.x + limit - 1.0)
+		candidate.z = clampf(candidate.z, survival_arena_center.z - limit + 1.0, survival_arena_center.z + limit - 1.0)
 		if bot_body.global_position.distance_to(candidate) <= 1.2:
 			continue
 		if _navigation.is_destination_clear(bot_body, candidate, limit) and _navigation.route_distance(bot_body, candidate, _elapsed, limit) < INF:
@@ -1369,6 +1377,7 @@ func _position_exposed_from_known(observer: Node3D, known_threat_position: Vecto
 
 
 func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> void:
+	_navigation.arena_center = survival_arena_center
 	_elapsed += delta
 	_telegraph_clock += delta
 	var target_visible := (not player.has_method("is_visible_to") or bool(player.call("is_visible_to", bot_body))) and _line_of_sight_clear(bot_body, player)
@@ -1383,8 +1392,8 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		# Keep its fixed location as an investigation goal, without retaining
 		# current target knowledge or enabling attacks after memory has expired.
 		_survival_search_goal = _last_observed_position
-		_survival_search_goal.x = clampf(_survival_search_goal.x, -20.0, 20.0)
-		_survival_search_goal.z = clampf(_survival_search_goal.z, -20.0, 20.0)
+		_survival_search_goal.x = clampf(_survival_search_goal.x, survival_arena_center.x - 20.0, survival_arena_center.x + 20.0)
+		_survival_search_goal.z = clampf(_survival_search_goal.z, survival_arena_center.z - 20.0, survival_arena_center.z + 20.0)
 		_survival_search_seeded = true
 	elif _elapsed - _last_seen_at > DUEL_MEMORY_SECONDS:
 		_has_last_observed_position = false
@@ -1491,8 +1500,8 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 		desired_speed = 2.8 if survival_role == "chaser" else 2.4
 	elif not _has_last_observed_position:
 		desired = _select_survival_search_destination(bot_body)
-		desired.x = clampf(desired.x, -20.0, 20.0)
-		desired.z = clampf(desired.z, -20.0, 20.0)
+		desired.x = clampf(desired.x, survival_arena_center.x - 20.0, survival_arena_center.x + 20.0)
+		desired.z = clampf(desired.z, survival_arena_center.z - 20.0, survival_arena_center.z + 20.0)
 		desired_speed = 3.4 if survival_role == "chaser" else 2.4
 	elif survival_role in ["shooter", "boss"] or survival_role not in ["chaser", "charger"]:
 		var away := -toward.normalized() if distance > 0.1 else Vector3.RIGHT
@@ -1503,8 +1512,8 @@ func _update_survival_bot(bot_body: Node3D, player: Node3D, delta: float) -> voi
 	elif survival_role == "chaser" and distance < 7.0:
 		var angle := TAU * float(get_instance_id() % 7) / 7.0
 		desired = pursuit + Vector3(cos(angle), 0, sin(angle)) * 1.3
-	desired.x = clampf(desired.x, -20.0, 20.0)
-	desired.z = clampf(desired.z, -20.0, 20.0)
+	desired.x = clampf(desired.x, survival_arena_center.x - 20.0, survival_arena_center.x + 20.0)
+	desired.z = clampf(desired.z, survival_arena_center.z - 20.0, survival_arena_center.z + 20.0)
 	if not _navigation.is_destination_clear(bot_body, desired, SURVIVAL_ARENA_LIMIT):
 		desired = pursuit
 	if bot_body.global_position.distance_to(desired) > 0.5:
@@ -1537,8 +1546,8 @@ func _select_survival_search_destination(bot_body: Node3D) -> Vector3:
 	# Commit to a reachable investigation until arrival. The generic ten-second
 	# sector clock must not reverse a route halfway around a large obstacle.
 	if _survival_search_goal.is_finite():
-		_survival_search_goal.x = clampf(_survival_search_goal.x, -20.0, 20.0)
-		_survival_search_goal.z = clampf(_survival_search_goal.z, -20.0, 20.0)
+		_survival_search_goal.x = clampf(_survival_search_goal.x, survival_arena_center.x - 20.0, survival_arena_center.x + 20.0)
+		_survival_search_goal.z = clampf(_survival_search_goal.z, survival_arena_center.z - 20.0, survival_arena_center.z + 20.0)
 	if _survival_search_goal.is_finite() and bot_body.global_position.distance_to(_survival_search_goal) > 1.2:
 		if _navigation.is_destination_clear(bot_body, _survival_search_goal, SURVIVAL_ARENA_LIMIT):
 			return _survival_search_goal
@@ -1547,20 +1556,20 @@ func _select_survival_search_destination(bot_body: Node3D) -> Vector3:
 		_survival_search_seeded = true
 		# With no observation, inspect the opposite map half using only our own
 		# position. This crosses a useful lane instead of circling the spawn.
-		var origin := bot_body.global_position
+		var origin := bot_body.global_position - survival_arena_center
 		var opposite := Vector3(-13.0 if origin.x >= 0.0 else 13.0, 0.0, clampf(origin.z, -10.0, 10.0))
 		if absf(origin.z) > absf(origin.x):
 			opposite = Vector3(clampf(origin.x, -10.0, 10.0), 0.0, -13.0 if origin.z >= 0.0 else 13.0)
 		for offset in [Vector3.ZERO, Vector3(0.0, 0.0, 3.0), Vector3(0.0, 0.0, -3.0), Vector3(3.0, 0.0, 0.0), Vector3(-3.0, 0.0, 0.0)]:
-			var candidate: Vector3 = opposite + offset
+			var candidate: Vector3 = survival_arena_center + opposite + offset
 			if _navigation.is_destination_clear(bot_body, candidate, SURVIVAL_ARENA_LIMIT) and _navigation.route_distance(bot_body, candidate, _elapsed, SURVIVAL_ARENA_LIMIT) < INF:
 				_survival_search_goal = candidate
 				return candidate
 	# After checking the last sighting or the initial lane, sweep the authored
 	# sectors in their ordinary schedule. Each selected route stays committed.
 	_survival_search_goal = _select_search_destination(bot_body)
-	_survival_search_goal.x = clampf(_survival_search_goal.x, -20.0, 20.0)
-	_survival_search_goal.z = clampf(_survival_search_goal.z, -20.0, 20.0)
+	_survival_search_goal.x = clampf(_survival_search_goal.x, survival_arena_center.x - 20.0, survival_arena_center.x + 20.0)
+	_survival_search_goal.z = clampf(_survival_search_goal.z, survival_arena_center.z - 20.0, survival_arena_center.z + 20.0)
 	if not _navigation.is_destination_clear(bot_body, _survival_search_goal, SURVIVAL_ARENA_LIMIT):
 		# Clamping an edge observation can land on cover. Advance the search
 		# schedule next frame instead of repeatedly steering at a blocked goal.
@@ -1587,8 +1596,8 @@ func _advance_charge(bot_body: Node3D, delta: float) -> void:
 	var previous_position := bot_body.global_position
 	var safe_motion := _safe_bot_motion(bot_body, direction * (step + CHARGE_OBSTACLE_MARGIN))
 	var next_position := previous_position + direction * minf(step, safe_motion.length())
-	next_position.x = clampf(next_position.x, -SURVIVAL_ARENA_LIMIT, SURVIVAL_ARENA_LIMIT)
-	next_position.z = clampf(next_position.z, -SURVIVAL_ARENA_LIMIT, SURVIVAL_ARENA_LIMIT)
+	next_position.x = clampf(next_position.x, survival_arena_center.x - SURVIVAL_ARENA_LIMIT, survival_arena_center.x + SURVIVAL_ARENA_LIMIT)
+	next_position.z = clampf(next_position.z, survival_arena_center.z - SURVIVAL_ARENA_LIMIT, survival_arena_center.z + SURVIVAL_ARENA_LIMIT)
 	next_position.y = 0.0
 	bot_body.global_position = next_position
 	if next_position.distance_to(_charge_target) <= 0.01 or next_position.distance_to(previous_position) < step - 0.01:
@@ -1603,6 +1612,65 @@ func _observe_duel_reload(player: Node3D, target_visible: bool) -> void:
 			_reload_observed_at = _elapsed
 	else:
 		_reload_observed_at = -1.0
+
+
+func _update_hazard_avoidance(bot_body: Node3D, delta: float) -> bool:
+	var hazards := get_tree().current_scene.get_node_or_null("ArenaHazards")
+	if hazards == null or not bool(hazards.get("running")):
+		_hazard_observed_at = -1.0
+		_hazard_threat_id = 0
+		return false
+	var threats: Array[Dictionary] = hazards.call("get_threats")
+	if threats.is_empty():
+		_hazard_observed_at = -1.0
+		_hazard_threat_id = 0
+		return false
+	var threat: Dictionary = hazards.call("threat_at", bot_body.global_position, 0.65, threats)
+	if threat.is_empty():
+		threat = hazards.call("threat_at", bot_body.global_position + _move_velocity * 0.65, 0.65, threats)
+	if threat.is_empty():
+		_hazard_observed_at = -1.0
+		_hazard_threat_id = 0
+		return false
+	var threat_id := int(threat.id)
+	if _hazard_threat_id != threat_id:
+		_hazard_threat_id = threat_id
+		_hazard_observed_at = _elapsed
+	var reaction := float(_tuning.get("reaction_delay", 0.22))
+	# Its normal difficulty delay applies; occasional committed mistakes remain.
+	var mistake_cycle := 4 if difficulty_profile == "easy" else (12 if difficulty_profile == "hard" else 8)
+	if threat_id % mistake_cycle == 0 or _elapsed - _hazard_observed_at < reaction:
+		return false
+	var origin := bot_body.global_position
+	var best := origin
+	var best_score := INF
+	for radius in [2.8, 4.2, 5.5]:
+		for index in range(16):
+			var angle := TAU * float(index) / 16.0
+			var motion := Vector3(cos(angle), 0, sin(angle)) * float(radius)
+			var candidate := origin + motion
+			if absf(candidate.x) > 26.0 or absf(candidate.z) > 26.0:
+				continue
+			if not (hazards.call("threat_at", candidate, 0.85, threats) as Dictionary).is_empty():
+				continue
+			if _safe_bot_motion(bot_body, motion).length() < motion.length() - 0.08:
+				continue
+			var score := motion.length() - motion.normalized().dot(_move_velocity.normalized()) * 0.4
+			if score < best_score:
+				best_score = score
+				best = candidate
+		if best != origin:
+			break
+	if best == origin:
+		_move_velocity = _move_velocity.move_toward(Vector3.ZERO, MOVE_ACCELERATION * delta)
+		return true
+	_dodge_remaining = 0.0
+	var speed := float(COMBAT_DATA.ROBOT_DEFINITIONS[str(_duel_equipment.get("robot_id"))].move_speed)
+	var slow := 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
+	_move_velocity = _move_velocity.move_toward((best - origin).normalized() * speed * slow * float(_duel_equipment.call("get_speed_multiplier")), MOVE_ACCELERATION * delta)
+	_move_bot(bot_body, delta)
+	_force_intent("avoid_hazard", "zone piégée annoncée")
+	return true
 
 
 func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_visible: bool, delta: float) -> void:
@@ -1762,8 +1830,8 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 		_blocked_time = maxf(0.0, _blocked_time - delta * 0.5)
 		_avoid_direction = Vector3.ZERO
 	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
-	bot_body.global_position.x = clampf(bot_body.global_position.x, -arena_limit, arena_limit)
-	bot_body.global_position.z = clampf(bot_body.global_position.z, -arena_limit, arena_limit)
+	bot_body.global_position.x = clampf(bot_body.global_position.x, survival_arena_center.x - arena_limit, survival_arena_center.x + arena_limit)
+	bot_body.global_position.z = clampf(bot_body.global_position.z, survival_arena_center.z - arena_limit, survival_arena_center.z + arena_limit)
 	bot_body.global_position.y = 0.0
 	if _elapsed >= _progress_anchor_at + PROGRESS_SAMPLE_INTERVAL:
 		var progressed := bot_body.global_position.distance_to(_progress_anchor)
@@ -1856,7 +1924,7 @@ func _recover_bot_from_cover(bot_body: Node3D) -> bool:
 		for index in range(16):
 			var angle := TAU * float(index) / 16.0
 			var candidate: Vector3 = origin + Vector3(cos(angle), 0.0, sin(angle)) * radius
-			if absf(candidate.x) > arena_limit or absf(candidate.z) > arena_limit:
+			if absf(candidate.x - survival_arena_center.x) > arena_limit or absf(candidate.z - survival_arena_center.z) > arena_limit:
 				continue
 			query.transform.origin = candidate + shape_offset
 			if world.direct_space_state.intersect_shape(query, 1).is_empty():
@@ -1980,7 +2048,7 @@ func _choose_dodge_direction(bot_body: Node3D, incoming: Vector3) -> Vector3:
 		var direction := side.rotated(Vector3.UP, TAU * float(index) / 8.0)
 		var motion := direction * DODGE_SPEED * DODGE_DURATION
 		var destination := bot_body.global_position + motion
-		if absf(destination.x) > arena_limit or absf(destination.z) > arena_limit:
+		if absf(destination.x - survival_arena_center.x) > arena_limit or absf(destination.z - survival_arena_center.z) > arena_limit:
 			continue
 		var safe := _safe_bot_motion(bot_body, motion)
 		if safe.length() < motion.length() * 0.92:

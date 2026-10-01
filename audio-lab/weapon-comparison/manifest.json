@@ -1,0 +1,357 @@
+{
+  "sample_rate": 44100,
+  "channels": 2,
+  "bit_depth": 16,
+  "selection": "B selected for Mekatana and Longshot by user",
+  "integrated_in_game": false,
+  "A": {
+    "method": "Original seeded procedural sound design: filtered air/noise, physical attack envelopes, inharmonic steel resonators, pressure impulse and irregular spark transients.",
+    "seed": 261001
+  },
+  "B": {
+    "model": "Stable Audio 3 Small-SFX",
+    "provider": "local Stability AI optimized TFLite",
+    "requests": "stable-requests.json"
+  },
+  "cues": [
+    {
+      "id": "mekatana-windup",
+      "duration": 0.12,
+      "matched_rms_dbfs": -25.0,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-windup.wav",
+        "start_seconds": 3.37508,
+        "end_seconds": 3.49508,
+        "main_energy_peak_offset": 0.02463,
+        "raw_peak": 0.368805
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-windup.wav",
+          "sha256": "78fccc2ef190845b4f6159bb626eb950980044aeaed6365b73cc4ecac5542225"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-windup.wav",
+          "sha256": "b3f2593a4efd106c133dbff9509a6ac3284f7bdb5d2047bfa9c654376070f0a4"
+        }
+      }
+    },
+    {
+      "id": "mekatana-slash-1",
+      "duration": 0.18,
+      "matched_rms_dbfs": -22.0,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-slash-1.wav",
+        "start_seconds": 0.42705,
+        "end_seconds": 0.60705,
+        "main_energy_peak_offset": 0.02571,
+        "raw_peak": 0.414246
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-slash-1.wav",
+          "sha256": "091465a6869c4a3451900b2ebeb262a8c7c9d12c2d141664edc06f472a9eafa8"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-slash-1.wav",
+          "sha256": "33e2773c8690a386fc43fa7643bfcd159adf12c43605a3d5b7f988073cf1b4b4"
+        }
+      }
+    },
+    {
+      "id": "mekatana-slash-2",
+      "duration": 0.23,
+      "matched_rms_dbfs": -20.0,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-slash-2.wav",
+        "start_seconds": 1.17664,
+        "end_seconds": 1.40664,
+        "main_energy_peak_offset": 0.05458,
+        "raw_peak": 0.243073
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-slash-2.wav",
+          "sha256": "2df1457de7944b63efe7dfd271a3972ac1b55a9adc0fd380343d621c74795def"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-slash-2.wav",
+          "sha256": "63a2725f450493d92cd60fda50f75706ea13c8f3f9ae4517ab8ba4399a5f220a"
+        }
+      }
+    },
+    {
+      "id": "mekatana-slash-3",
+      "duration": 0.32,
+      "matched_rms_dbfs": -17.7,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-slash-3.wav",
+        "start_seconds": 0.20472,
+        "end_seconds": 0.52472,
+        "main_energy_peak_offset": 0.06399,
+        "raw_peak": 0.909393
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-slash-3.wav",
+          "sha256": "5930ae946c6a58bbf60e304ebe6efe55ab830fdf03110ab3afc13f65abcc603e"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-slash-3.wav",
+          "sha256": "8ddd433924034f30c60c9082d4d62fa690a8b55b33bd084954ff7691c5903529"
+        }
+      }
+    },
+    {
+      "id": "mekatana-impact-1",
+      "duration": 0.22,
+      "matched_rms_dbfs": -22.0,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-impact-1.wav",
+        "start_seconds": 0.16556,
+        "end_seconds": 0.38556,
+        "main_energy_peak_offset": 0.01966,
+        "raw_peak": 0.571899
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-impact-1.wav",
+          "sha256": "f9a290bb2db037e6f247250beb98ab20eec77da16233ad998c904b04d38072e1"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-impact-1.wav",
+          "sha256": "e80d048bcae2e8db1302d53c993078b505f52f5095ae9693418acc881c1049c7"
+        }
+      }
+    },
+    {
+      "id": "mekatana-impact-2",
+      "duration": 0.28,
+      "matched_rms_dbfs": -24.2,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-impact-2.wav",
+        "start_seconds": 2.13737,
+        "end_seconds": 2.41737,
+        "main_energy_peak_offset": 0.01902,
+        "raw_peak": 0.770416
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-impact-2.wav",
+          "sha256": "f1f1d9850957f80fe207c28d35c6e9ba7ab4bba33c247a47de7a394da6e0f730"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-impact-2.wav",
+          "sha256": "9d8c74c9398586017a088122f7a983d7cc55f8163fca779bf4083e63b99c185b"
+        }
+      }
+    },
+    {
+      "id": "mekatana-impact-3",
+      "duration": 0.42,
+      "matched_rms_dbfs": -23.97,
+      "stable_extraction": {
+        "source": "raw\\stable\\mekatana-impact-3.wav",
+        "start_seconds": 1.18989,
+        "end_seconds": 1.60989,
+        "main_energy_peak_offset": 0.06227,
+        "raw_peak": 0.976959
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\mekatana-impact-3.wav",
+          "sha256": "c6b3e2e4fa3473d7914fbfa6c06521b0f864e632e1e91a19b41d8d3f4a24222e"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\mekatana-impact-3.wav",
+          "sha256": "a856b6e67382ca6a8e59be3a96df3de9ba2d9a9f84a8eec4a0028ed8f1f3b6b2"
+        }
+      }
+    },
+    {
+      "id": "longshot-shot",
+      "duration": 0.65,
+      "matched_rms_dbfs": -26.95,
+      "stable_extraction": {
+        "source": "raw\\stable\\longshot-shot.wav",
+        "start_seconds": 1.58315,
+        "end_seconds": 2.23315,
+        "main_energy_peak_offset": 0.01773,
+        "raw_peak": 0.682678
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\longshot-shot.wav",
+          "sha256": "ba46c6458810c705e2856380597309cb9a14aa2e8e2f3f10823848d74cd93b30"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\longshot-shot.wav",
+          "sha256": "f65d01c6612b02104697087327b869bac9ddec7160824e8390e3e2ba36bae61d"
+        }
+      }
+    },
+    {
+      "id": "longshot-enhanced",
+      "duration": 0.85,
+      "matched_rms_dbfs": -26.25,
+      "stable_extraction": {
+        "source": "raw\\stable\\longshot-enhanced.wav",
+        "start_seconds": 0.51776,
+        "end_seconds": 1.36776,
+        "main_energy_peak_offset": 0.01848,
+        "raw_peak": 0.709686
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\longshot-enhanced.wav",
+          "sha256": "176dbc332d788df1ad34d1c7baf6d40d08acebe81f1a956268c965d6173266a6"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\longshot-enhanced.wav",
+          "sha256": "8c222298b873769e1dd2edfc2735322ff7e91791ba572d8fe314b57ab657f22a"
+        }
+      }
+    },
+    {
+      "id": "longshot-ready",
+      "duration": 0.22,
+      "matched_rms_dbfs": -27.9,
+      "stable_extraction": {
+        "source": "raw\\stable\\longshot-ready.wav",
+        "start_seconds": 3.01349,
+        "end_seconds": 3.23349,
+        "main_energy_peak_offset": 0.01472,
+        "raw_peak": 0.392181
+      },
+      "files": {
+        "A": {
+          "path": "candidates\\A-codex\\longshot-ready.wav",
+          "sha256": "88ec6f83d9667536da8d9a4a02f46d52b240d80552ab126164451f74a13b92f7"
+        },
+        "B": {
+          "path": "candidates\\B-stable\\longshot-ready.wav",
+          "sha256": "78907cccc609103a5b4d0f32e49bb751863cbef43447121a776c0b9dccea5586"
+        }
+      }
+    }
+  ],
+  "previews": {
+    "mekatana": {
+      "events": [
+        {
+          "cue": "mekatana-windup",
+          "time": 0.55,
+          "gain": 0.85
+        },
+        {
+          "cue": "mekatana-slash-1",
+          "time": 0.67,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-windup",
+          "time": 1.4,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-slash-2",
+          "time": 1.54,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-windup",
+          "time": 2.35,
+          "gain": 1.15
+        },
+        {
+          "cue": "mekatana-slash-3",
+          "time": 2.53,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-windup",
+          "time": 4.65,
+          "gain": 0.85
+        },
+        {
+          "cue": "mekatana-slash-1",
+          "time": 4.77,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-impact-1",
+          "time": 4.805,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-windup",
+          "time": 5.5,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-slash-2",
+          "time": 5.64,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-impact-2",
+          "time": 5.675,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-windup",
+          "time": 6.45,
+          "gain": 1.15
+        },
+        {
+          "cue": "mekatana-slash-3",
+          "time": 6.63,
+          "gain": 1
+        },
+        {
+          "cue": "mekatana-impact-3",
+          "time": 6.665,
+          "gain": 1
+        }
+      ],
+      "common_headroom_gain": 0.62443
+    },
+    "longshot": {
+      "events": [
+        {
+          "cue": "longshot-shot",
+          "time": 0.6,
+          "gain": 1
+        },
+        {
+          "cue": "longshot-shot",
+          "time": 1.65,
+          "gain": 1
+        },
+        {
+          "cue": "longshot-shot",
+          "time": 2.7,
+          "gain": 1
+        },
+        {
+          "cue": "longshot-shot",
+          "time": 3.75,
+          "gain": 1
+        },
+        {
+          "cue": "longshot-enhanced",
+          "time": 4.8,
+          "gain": 1
+        },
+        {
+          "cue": "longshot-ready",
+          "time": 4.35,
+          "gain": 1
+        }
+      ],
+      "common_headroom_gain": 1
+    }
+  },
+  "selection_file": "selection.json",
+  "future_sfx_generator": "Stable Audio"
+}
