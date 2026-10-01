@@ -19,6 +19,7 @@ func check(condition: bool, message: String) -> void:
 
 
 func prepare() -> void:
+	player.call("set_robot", DATA.DEFAULT_ROBOT)
 	player.call("reset_combat_state")
 	player.call("set_gameplay_enabled", true)
 	player.set_physics_process(false)
