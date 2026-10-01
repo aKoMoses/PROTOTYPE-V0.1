@@ -438,9 +438,8 @@ func _test_player_integration() -> void:
 	attack.slash_started.connect(record_slash)
 	var flow := scene.get_node("Interface")
 	flow.call("_open_equipment")
-	flow.call("_open_equipment_category", "weapon")
 	await process_frame
-	var choices: Dictionary = flow.get("_selection_buttons")["weapon"]
+	var choices: Dictionary = flow.get("_forge_garage").get("weapon_buttons")
 	_check(choices.has("mekatana"), "the real equipment selector exposes Mekatana")
 	if choices.has("mekatana"):
 		(choices["mekatana"] as Button).pressed.emit()

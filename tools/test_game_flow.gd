@@ -36,19 +36,18 @@ func _initialize() -> void:
 		flow.call("_open_equipment")
 		if not menu_music.playing or menu_music.get_playback_position() < menu_position:
 			_failures.append("musique du menu interrompue pendant la navigation")
-		var tabs: Dictionary = flow.get("_equipment_nav_buttons")
-		(tabs["passive"] as Button).emit_signal("pressed")
-		if str(flow.get("_equipment_category")) != "passive":
-			_failures.append("onglet passif inaccessible")
-		var choices: Dictionary = flow.get("_selection_buttons")
-		(choices["passive"]["omnivamp"] as Button).emit_signal("pressed")
+		var garage: Control = flow.get("_forge_garage")
+		if garage == null or not garage.visible:
+			_failures.append("garage officiel inaccessible")
+		garage.call("_open_modules", "passive")
+		var options: VBoxContainer = garage.get("_module_options")
+		(options.get_child(1) as Button).emit_signal("pressed")
 		var current_loadout: Dictionary = flow.get("loadout")
 		if str(current_loadout.passive) != "omnivamp":
 			_failures.append("la sélection du passif ne met pas à jour l'équipement")
-		var previews: Dictionary = flow.get("_equipment_preview_buttons")
-		(previews["weapon"] as Button).emit_signal("pressed")
-		if str(flow.get("_equipment_category")) != "weapon":
-			_failures.append("le récapitulatif ne ramène pas à la catégorie choisie")
+		(garage.get("_nav")["ARMES"] as Button).emit_signal("pressed")
+		if not (garage.get("weapon_buttons")["shotgun"] as Button).visible or garage.get("_module_panel").visible:
+			_failures.append("la navigation ne ramène pas aux armes")
 		var selected := {"weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"}
 		flow.set("loadout", selected)
 		flow.call("_start_duel")

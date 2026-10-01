@@ -11,6 +11,7 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const ROBOT_FORGE_PREVIEW := preload("res://scripts/robot_forge_preview.gd")
+const FORGE_GARAGE := preload("res://scripts/forge_garage.gd")
 const EQUIPMENT_FORGE_PREVIEW := preload("res://scripts/equipment_forge_preview.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
@@ -89,6 +90,7 @@ var _hud: Control
 var _menu_panel: Control
 var _menu_settings_button: Button
 var _equipment_panel: Control
+var _forge_garage: Control
 var _title_label: Label
 var _status_label: Label
 var _equipment_content: HBoxContainer
@@ -400,8 +402,7 @@ func _show_screen(screen: Screen) -> void:
 			_menu_panel.visible = true
 			_menu_settings_button.visible = true
 		Screen.EQUIPMENT:
-			_equipment_panel.visible = true
-			_refresh_equipment()
+			_open_forge_garage()
 		Screen.SETTINGS:
 			_settings_panel.visible = true
 		Screen.LOBBY:
@@ -637,6 +638,44 @@ func _build_equipment() -> void:
 	right.add_child(actions)
 	_build_equipment_info_bubble()
 	_open_equipment_category("robot")
+
+
+func _open_forge_garage() -> void:
+	if current_screen != Screen.EQUIPMENT:
+		return
+	if _forge_garage == null:
+		_forge_garage = FORGE_GARAGE.new()
+		_screen_root.add_child(_forge_garage)
+		_forge_garage.connect("equipment_selected", _on_garage_equipment_selected)
+		_forge_garage.connect("back_requested", _close_forge_garage)
+		_forge_garage.connect("start_requested", _start_duel)
+		_forge_garage.connect("arena_selected", _on_garage_arena_selected)
+	_forge_garage.call("set_loadout", loadout)
+	var arena_options := main != null and main.has_method("set_arena_variant")
+	var arena: String = str(main.get("arena_variant")) if arena_options else "classic"
+	_forge_garage.call("set_arena_options", arena_options, arena)
+	_equipment_panel.hide()
+	_forge_garage.show()
+
+
+func _on_garage_equipment_selected(category: String, identifier: String) -> void:
+	loadout[category] = identifier
+	loadout = LOADOUT.sanitize(loadout)
+	LOADOUT.save_local(loadout)
+	_refresh_equipment()
+
+
+func _close_forge_garage() -> void:
+	_open_menu()
+
+
+func _on_garage_arena_selected(value: String) -> void:
+	# Keep compatibility with the optional arena-variant feature.
+	if has_method("_select_arena"):
+		call("_select_arena", value)
+	elif main != null and main.has_method("set_arena_variant"):
+		main.call("set_arena_variant", value)
+
 
 func _build_equipment_info_bubble() -> void:
 	_equipment_info_panel = PanelContainer.new()

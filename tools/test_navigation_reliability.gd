@@ -31,22 +31,21 @@ func _run() -> void:
 			flow.call(screen)
 			await process_frame
 			await process_frame
-			var panel: Control = flow.get("_menu_panel" if screen == "_open_menu" else "_equipment_panel" if screen == "_open_equipment" else "_settings_panel")
+			var panel: Control = flow.get("_menu_panel" if screen == "_open_menu" else "_forge_garage" if screen == "_open_equipment" else "_settings_panel")
 			var bounds := panel.get_global_rect()
 			_check(bounds.position.x >= -1 and bounds.position.y >= -1 and bounds.end.x <= root.size.x + 1 and bounds.end.y <= root.size.y + 1, "%s remains inside %s: %s" % [screen, dimensions, bounds])
 			_check(not touch.visible, "navigation hides touch controls")
 		flow.call("_open_equipment")
-		flow.call("_open_equipment_category", "offensive")
+		var garage: Control = flow.get("_forge_garage")
+		garage.call("_open_modules", "offensive")
 		await process_frame
 		await process_frame
-		for button in flow.get("_selection_buttons")["offensive"].values():
-			var content: Control = button.get_child(0)
-			_check(content.get_global_rect().end.y <= button.get_global_rect().end.y + 1, "module label and equipped marker stay inside card: %s" % button.name)
+		for button in garage.get("_module_options").get_children():
+			_check(button.get_global_rect().end.y <= root.size.y + 1, "module choices remain inside the viewport")
 	root.size = Vector2i(1280, 720)
 	flow.call("_open_equipment")
-	flow.call("_open_equipment_category", "weapon")
-	var choices: Dictionary = flow.get("_selection_buttons")
-	(choices["weapon"]["shotgun"] as Button).pressed.emit()
+	var official: Control = flow.get("_forge_garage")
+	(official.get("weapon_buttons")["shotgun"] as Button).pressed.emit()
 	var loadout_script: Script = load("res://scripts/loadout_state.gd")
 	var restored: Dictionary = loadout_script.load_local()
 	_check(restored.get("weapon", "") == "shotgun", "weapon selection survives reopening before a match")
