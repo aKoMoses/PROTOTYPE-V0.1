@@ -36,95 +36,49 @@ func _run() -> void:
 	await process_frame
 	var flow := scene.get_node("Interface")
 	flow.call("_open_equipment")
-	flow.call("_open_equipment_category", "weapon")
 	await process_frame
-	await process_frame
-	var choices: Dictionary = flow.get("_selection_buttons")["weapon"]
-	_check(choices.size() == LOADOUT.WEAPONS.size(), "la forge affiche toutes les armes jouables")
-	for identifier in MODEL_PATHS:
-		_check(LOADOUT.WEAPONS.has(identifier) and choices.has(identifier), "les trois armes avec GLB connu restent disponibles : " + identifier)
-	var previews: Array[Node] = []
-	var worlds: Array[World3D] = []
-	var angles: Array[float] = []
+	var garage: Control = flow.get("_forge_garage")
+	var stage = garage.get("stage")
+	var choices: Dictionary = garage.get("weapon_buttons")
+	_check(garage.visible and choices.size() == LOADOUT.WEAPONS.size(), "toutes les armes dans la forge officielle")
 	for identifier in LOADOUT.WEAPONS:
-		_check(choices.has(identifier), "carte disponible pour l'arme jouable : " + identifier)
-		var button := choices.get(identifier) as Button
-		var view := button.find_child("WeaponPreview", true, false) if button != null else null
+		var button: Button = choices[identifier]
+		button.pressed.emit()
+		_check(str(flow.get("loadout").weapon) == identifier and LOADOUT.load_local().weapon == identifier, "selection et sauvegarde immediate : " + identifier)
+		var model := stage.weapon_socket.get_child(0).get_child(0) as Node3D
 		var expected_path: String = MODEL_PATHS.get(identifier, "res://art/weapons/%s.glb" % identifier)
-		var expects_preview := MODEL_PATHS.has(identifier) or ResourceLoader.exists(expected_path, "PackedScene")
-		if not expects_preview:
-			_check(button != null and view == null and not button.find_children("*", "TextureRect", true, false).is_empty(), "l'arme sans GLB disponible conserve son icône 2D : " + identifier)
-			continue
-		_check(view != null, "aperçu 3D présent : " + identifier)
-		if view == null:
-			continue
-		previews.append(view)
-		var model := view.get("_model") as Node3D
-		var viewport := view.get("_viewport") as SubViewport
-		var turntable := view.get("_turntable") as Node3D
-		_check(model != null and model.scene_file_path == expected_path, "vrai GLB de combat : " + identifier)
-		_check(viewport != null and viewport.own_world_3d and viewport.find_world_3d() not in worlds, "monde 3D indépendant : " + identifier)
-		if viewport != null:
-			worlds.append(viewport.find_world_3d())
-		_check(view.mouse_filter == Control.MOUSE_FILTER_IGNORE and viewport.gui_disable_input, "l'aperçu laisse les clics à la carte : " + identifier)
-		_check(turntable != null and turntable.scale.is_finite(), "transformation finie de l'arme : " + identifier)
-		if turntable != null:
-			angles.append(turntable.rotation.y)
-	await create_timer(0.25).timeout
-	for index in previews.size():
-		_check(not is_equal_approx((previews[index].get("_turntable") as Node3D).rotation.y, angles[index]), "rotation réelle de " + str(previews[index].get("equipment_id")))
+		_check(model.scene_file_path == expected_path, "vrai GLB equipe dans la main : " + identifier)
+		_check(stage.weapon_socket.global_transform.is_finite(), "transformation finie : " + identifier)
+		var info := button.get_node("Info") as Button
+		info.pressed.emit()
+		_check(garage.get("_module_panel").visible and garage.get("_weapon_info_id") == identifier, "fiche de l'arme accessible : " + identifier)
+		var details: VBoxContainer = garage.get("_module_options")
+		_check(details.get_child(0).text == LOADOUT.category_description(identifier) and details.get_child(1).text == LOADOUT.stat_line(identifier), "description et statistiques conservees : " + identifier)
+		_check(str(flow.get("loadout").weapon) == identifier, "ouvrir une fiche ne change pas l'equipement")
+		garage.get("_module_panel").hide()
 	for dimensions in [Vector2i(1280, 720), Vector2i(800, 600), Vector2i(2340, 1080)]:
 		root.size = dimensions
 		await process_frame
 		await process_frame
-		await process_frame
-		for view in previews:
-			_test_full_turn_framing(view, dimensions)
-	for identifier in LOADOUT.WEAPONS:
-		if not choices.has(identifier):
-			continue
-		(choices[identifier] as Button).pressed.emit()
-		_check(str(flow.get("loadout").weapon) == identifier and LOADOUT.load_local().weapon == identifier, "sélection et sauvegarde immédiate : " + identifier)
-		var markers: Dictionary = flow.get("_selection_markers")["weapon"]
-		for other in markers:
-			_check((markers[other] as Label).text.contains("ÉQUIPÉ") == (other == identifier), "marqueur équipé exclusif : " + identifier)
-	var equipped := str(flow.get("loadout").weapon)
-	for identifier in LOADOUT.WEAPONS:
-		if not choices.has(identifier):
-			continue
-		var info := (choices[identifier] as Button).find_child("Info", true, false) as Button
-		_check(info != null, "bouton info disponible : " + identifier)
-		if info == null:
-			continue
-		info.pressed.emit()
-		_check(flow.get("_equipment_info_panel").visible and flow.get("_equipment_info_id") == identifier, "le bouton info affiche la fiche : " + identifier)
-		_check(flow.get("_equipment_info_description").text == LOADOUT.category_description(identifier) and flow.get("_equipment_info_stats").text == LOADOUT.stat_line(identifier), "description et statistiques conservées : " + identifier)
-		_check(str(flow.get("loadout").weapon) == equipped and LOADOUT.load_local().weapon == equipped, "ouvrir une fiche n'équipe pas l'arme : " + identifier)
-		info.pressed.emit()
-		_check(not flow.get("_equipment_info_panel").visible, "le bouton info referme sa fiche : " + identifier)
+		for button: Button in choices.values():
+			var bounds := button.get_global_rect()
+			_check(bounds.position.x >= 0 and bounds.position.y >= 0 and bounds.end.x <= root.size.x + 1 and bounds.end.y <= root.size.y + 1, "carte visible : %s / %s" % [button.name, dimensions])
+	var selected := str(flow.get("loadout").weapon)
 	flow.call("_open_menu")
 	await process_frame
-	angles.clear()
-	for view in previews:
-		angles.append((view.get("_turntable") as Node3D).rotation.y)
+	var stopped_time: float = stage.robot_animator.current_animation_position
 	await create_timer(0.15).timeout
-	for index in previews.size():
-		var view := previews[index]
-		_check((view.get("_viewport") as SubViewport).render_target_update_mode == SubViewport.UPDATE_DISABLED and not view.is_processing(), "rendu et processus coupés hors de la forge")
-		_check(is_equal_approx((view.get("_turntable") as Node3D).rotation.y, angles[index]), "rotation suspendue hors de la forge")
+	_check(stage.viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED and not stage.is_processing(), "rendu et processus coupes hors de la forge")
+	_check(is_equal_approx(stage.robot_animator.current_animation_position, stopped_time), "animation suspendue hors de la forge")
 	flow.call("_open_equipment")
-	await process_frame
-	angles.clear()
-	for view in previews:
-		angles.append((view.get("_turntable") as Node3D).rotation.y)
 	await create_timer(0.15).timeout
-	for index in previews.size():
-		var view := previews[index]
-		_check((view.get("_viewport") as SubViewport).render_target_update_mode != SubViewport.UPDATE_DISABLED and not is_equal_approx((view.get("_turntable") as Node3D).rotation.y, angles[index]), "rendu et rotation reprennent au retour dans la forge")
-	flow.call("_open_equipment_category", "offensive")
-	for view in previews:
-		_check(not is_instance_valid(view), "aperçu libéré au changement de catégorie")
-	_check(scene.get("player").call("get_weapon_id") == "blaster", "la présentation de forge ne modifie pas le contrôleur de combat")
+	_check(garage.visible and garage.get("loadout").weapon == selected, "equipement conserve a la reouverture")
+	_check(stage.viewport.render_target_update_mode != SubViewport.UPDATE_DISABLED and stage.is_processing(), "rendu reprend au retour dans la forge")
+	_check(scene.get("player").call("get_weapon_id") == "blaster", "la forge ne modifie pas le controleur de combat avant JOUER")
+	flow.set_process(false)
+	for audio_node in scene.find_children("*", "AudioStreamPlayer", true, false):
+		(audio_node as AudioStreamPlayer).stop()
+	await create_timer(0.1).timeout
 	root.get_node("GameSfx").call("clear")
 	scene.queue_free()
 	await process_frame
