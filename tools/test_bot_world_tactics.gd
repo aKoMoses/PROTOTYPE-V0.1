@@ -364,7 +364,7 @@ func _test_repair_respawn_and_contest() -> void:
 
 func _test_dash_and_stasis_ownership() -> void:
 	_prepare_manual_duel(Vector3(-8, 0, 0), Vector3(-23, 0, -23))
-	_target.call("set_duel_loadout", {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"})
+	_target.call("set_duel_loadout", {"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"})
 	var equipment: Node = _bot.get("_duel_equipment")
 	equipment.set("next_attack_at", 10000.0)
 	equipment.set("_next_module_at", 10000.0)

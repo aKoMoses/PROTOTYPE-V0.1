@@ -2,6 +2,8 @@ extends Node3D
 
 ## Advances a shot through world space and reports the first surface it actually crosses.
 signal finished(hit: Dictionary, distance: float)
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
+const HOMING_ROCKET := preload("res://scripts/homing_rocket.gd")
 
 var _direction := Vector3.FORWARD
 var _speed := 1.0
@@ -38,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	query.collide_with_bodies = true
 	# Close shots and moving actors can overlap the start of this sweep.
 	query.hit_from_inside = true
-	query.exclude = _excluded
+	query.exclude = HOMING_ROCKET.owned_exclusions(self, MAGNETIC_WALL.owned_exclusions(self, _excluded))
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		if (hit["normal"] as Vector3).is_zero_approx():
@@ -55,5 +57,8 @@ func _physics_process(delta: float) -> void:
 
 func _finish(hit: Dictionary) -> void:
 	set_physics_process(false)
+	var collider: Object = hit.get("collider")
+	if is_instance_valid(collider) and collider.has_method("projectile_impact"):
+		collider.call("projectile_impact", hit["position"])
 	finished.emit(hit, _distance)
 	queue_free()

@@ -13,10 +13,6 @@ func _initialize() -> void:
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
-		await _test_drone_hit(player, target)
-		await _test_drone_live_collision(player, target)
-		await _test_drone_absorption(player, target, scene)
-		await _test_drone_cooldown(player, target)
 		await _test_javelin_mark_and_recast(player, target)
 		await _test_javelin_live_collision(player, target)
 		await _test_javelin_blocked_recast(player, target, scene)
@@ -37,79 +33,6 @@ func _prepare(player: Node, target: Node, target_position: Vector3) -> void:
 	target.global_position = target_position
 	target.rotation = Vector3.ZERO
 	target.call("reset_combat_state")
-
-
-func _test_drone_hit(player: Node, target: Node) -> void:
-	_prepare(player, target, Vector3(0.0, 0.0, -3.0))
-	player.call("_perform_modulo_drone")
-	await _wait_for_module(player)
-	await create_timer(0.10, true, false, false).timeout
-	var health := float(target.call("get_health"))
-	if health > 900.0 or health < 875.0:
-		_failures.append("Drone : %.2f PV, dégâts/BURN incohérents" % health)
-	var effects: Array = target.call("get_active_effect_types")
-	if not effects.has("BURN") or not effects.has("SPOTTED"):
-		_failures.append("Drone : BURN ou SPOTTED absent")
-
-
-func _test_drone_live_collision(player: Node, target: Node) -> void:
-	_prepare(player, target, Vector3(0.0, 0.0, -5.0))
-	player.call("_perform_modulo_drone")
-	var projectile := await _wait_for_projectile("ModuloDroneProjectile")
-	if projectile == null:
-		_failures.append("Drone : projectile non lancé")
-		return
-	target.global_position = Vector3(4.0, 0.0, -5.0)
-	await _wait_for_module(player)
-	if float(target.call("get_health")) < 999.95:
-		_failures.append("Drone : touche une cible qui a esquivé pendant le vol")
-	_prepare(player, target, Vector3(4.0, 0.0, -5.0))
-	player.call("_perform_modulo_drone")
-	projectile = await _wait_for_projectile("ModuloDroneProjectile")
-	if projectile == null:
-		_failures.append("Drone : second projectile non lancé")
-		return
-	target.global_position = Vector3(projectile.global_position.x, 0.0, -5.0)
-	await _wait_for_module(player)
-	if float(target.call("get_health")) >= 999.95:
-		_failures.append("Drone : ignore une cible entrée dans sa trajectoire")
-
-
-func _test_drone_absorption(player: Node, target: Node, scene: Node) -> void:
-	_prepare(player, target, Vector3(0.0, 0.0, -3.0))
-	var blocker := StaticBody3D.new()
-	blocker.name = "TestDroneBlocker"
-	blocker.position = Vector3(0.0, 0.6, -1.2)
-	blocker.collision_layer = 1
-	var collision := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(3.0, 1.2, 0.24)
-	collision.shape = shape
-	blocker.add_child(collision)
-	scene.add_child(blocker)
-	await process_frame
-	player.call("_perform_modulo_drone")
-	await _wait_for_module(player)
-	await create_timer(0.10, true, false, false).timeout
-	if absf(float(target.call("get_health")) - 1000.0) > 0.05:
-		_failures.append("Drone absorption : dégâts derrière obstacle")
-	var effects: Array = target.call("get_active_effect_types")
-	if effects.has("BURN") or effects.has("SPOTTED"):
-		_failures.append("Drone absorption : effet derrière obstacle")
-	blocker.queue_free()
-	await process_frame
-
-
-func _test_drone_cooldown(player: Node, target: Node) -> void:
-	# The previous launch has engaged the 10 s cooldown; no reset is performed.
-	target.global_position = Vector3(0.0, 0.0, -3.0)
-	target.call("reset_combat_state")
-	player.call("_perform_modulo_drone")
-	await process_frame
-	if bool(player.call("is_module_busy")):
-		_failures.append("Drone cooldown : second lancement accepté trop tôt")
-	if float(player.call("get_module_cooldown", "modulo_drone")) <= 9.0:
-		_failures.append("Drone cooldown : durée restante incorrecte")
 
 
 func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:

@@ -536,7 +536,7 @@ func _test_player_integration() -> void:
 func _prepare_player(player: Node, target: Node, controls: Node) -> void:
 	await _desktop_key(false)
 	controls.call("reset_inputs")
-	player.call("apply_loadout", {"weapon": "mekatana", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
+	player.call("apply_loadout", {"weapon": "mekatana", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
 	player.call("reset_combat_state")
 	player.call("set_gameplay_enabled", true)
 	player.set("training_invulnerable", false)

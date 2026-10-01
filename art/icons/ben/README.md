@@ -9,7 +9,6 @@ Originaux PNG transparents récupérés sans modification depuis
 | Équipement | Proposition |
 | --- | --- |
 | Shotgun | A |
-| Modulo Drone | B |
 | Javelin | B |
 | Magnetic Field | A |
 | Static Shield | A |
@@ -22,3 +21,8 @@ Originaux PNG transparents récupérés sans modification depuis
 duel et de l'entraînement. Les régions d'atlas resserrent les marges transparentes
 sans modifier les fichiers source. Le pictogramme de réactivation du Javelin est
 conservé pour distinguer le lancer de la téléportation.
+
+Depuis le 1er octobre 2026, les modules utilisent les SVG illustrés de
+`art/icons/`, harmonisés autour de Pelto Smash. Les boutons tactiles partagent
+ces icônes avec la forge et le HUD. Les PNG de ce dossier sont conservés comme
+originaux ; Shotgun utilise toujours sa proposition A.

@@ -8,6 +8,7 @@ const VISIBILITY_ECHO := preload("res://scripts/visibility_echo.gd")
 
 class ReplicaPassive extends "res://scripts/passive_state.gd":
 	func process(delta: float) -> bool:
+		tick_triggers(delta)
 		# Interpolate the gauge; only a host snapshot can end Baroud or kill us.
 		if baroud_active:
 			baroud_remaining = maxf(0.0, baroud_remaining - delta)
@@ -25,6 +26,7 @@ var _replaying := false
 var _contact_started_at := -1.0
 var _mark_until := -1.0
 var _network_hits: Dictionary = {}
+var _permutation_revision := 0
 var _visibility_fade: Node
 var _visibility_echo: Node3D
 var _presentation_visibility_weight := 1.0
@@ -35,6 +37,8 @@ var _presentation_observer_epoch := -1
 
 func _ready() -> void:
 	super._ready()
+	_counter.authoritative = authoritative
+	_counter.exploded.connect(_on_counter_exploded)
 	collision_layer = 2
 	combat_state = NETWORK_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	combat_state.authoritative = authoritative
@@ -57,6 +61,19 @@ func _ready() -> void:
 		_visibility_echo.name = "VisibilityEcho"
 		add_child(_visibility_echo)
 		_visibility_echo.call("configure", _visual_rig)
+
+
+func get_tracker_locations() -> Array[Node3D]:
+	if not authoritative:
+		var result: Array[Node3D] = []
+		if is_instance_valid(opponent) and passive_state.replica_reveal_remaining > 0.0:
+			result.append(opponent)
+		return result
+	return super.get_tracker_locations()
+
+
+func passive_authoritative() -> bool:
+	return authoritative
 
 
 func _notify(action: String, data: Dictionary = {}) -> void:
@@ -97,18 +114,26 @@ func _update_aim() -> void:
 
 
 func _update_movement(delta: float) -> void:
+	if is_eclipse_travelling():
+		velocity = Vector3.ZERO
+		return
 	if not remote_controlled:
 		super._update_movement(delta)
 	else:
+		if _fulguro_projection_active:
+			_update_fulguro_projection(delta)
+			return
 		var melee_owns_movement := _update_mekatana_attack(delta)
 		if _dash_active and not melee_owns_movement:
 			_update_dash(delta)
 
 
 func _get_actual_move_velocity() -> Vector3:
+	if is_eclipse_travelling():
+		return Vector3.ZERO
 	if remote_controlled and (_stasis_remaining > 0.0 or combat_state.is_stunned() or is_real_dead()):
 		return Vector3.ZERO
-	return remote_velocity if remote_controlled and not _dash_active and not _mekatana_movement_owned else super._get_actual_move_velocity()
+	return remote_velocity if remote_controlled and not _fulguro_projection_active and not _dash_active and not _mekatana_movement_owned else super._get_actual_move_velocity()
 
 
 func _update_attack(ignore_module_lock: bool = false) -> void:
@@ -134,6 +159,8 @@ func _camera_impulse(duration: float, strength: float) -> void:
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
+	if is_eclipse_travelling():
+		return 0.0
 	if not authoritative or (attack_id != "" and _network_hits.has(attack_id)):
 		return 0.0
 	if is_instance_valid(controller) and str(controller.get("_phase")) != "live":
@@ -141,7 +168,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if attack_id != "":
 		_network_hits[attack_id] = true
 	var effective := super.take_damage(amount, source_id, attack_id)
-	if effective > 0.0 and is_instance_valid(opponent):
+	if effective > 0.0 and source_id != "surcharge" and is_instance_valid(opponent):
 		opponent.call("_on_damage_dealt", effective)
 	return effective
 
@@ -172,9 +199,10 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 		super.apply_spotted(duration, source_id)
 
 
-func apply_javelin_mark(duration: float, _source_id: String = "") -> void:
+func apply_javelin_mark(duration: float, source_id: String = "") -> void:
 	if authoritative:
-		_mark_until = Time.get_ticks_msec() / 1000.0 + duration
+		_mark_until = Time.get_ticks_msec() / 1000.0 + maxf(0.0, duration)
+		apply_spotted(maxf(0.0, duration), source_id)
 
 
 func has_javelin_mark() -> bool:
@@ -190,6 +218,7 @@ func clear_javelin_mark() -> void:
 
 
 func reset_combat_state() -> void:
+	_permutation_revision = 0
 	_network_hits.clear()
 	_contact_started_at = -1.0
 	_mark_until = -1.0
@@ -280,18 +309,54 @@ func _play_network_longshot(data: Dictionary) -> void:
 	_spawn_longshot_projectile(bool(data.get("enhanced", false)), int(data.get("shot_number", 1)), true)
 
 
-func _perform_modulo_drone() -> void:
+func _perform_rocket_basket() -> void:
 	var token := _module_token
-	super._perform_modulo_drone()
+	super._perform_rocket_basket()
 	if token != _module_token:
 		_notify("offensive")
 
 
-func _perform_javelin() -> void:
-	var token := _javelin_launch_token
-	super._perform_javelin()
-	if token != _javelin_launch_token:
-		_notify("offensive")
+func _begin_javelin_charge() -> bool:
+	var was_charging := is_javelin_charging()
+	var accepted := super._begin_javelin_charge()
+	if not was_charging and is_javelin_charging():
+		_notify("javelin_charge")
+	return accepted
+
+
+func _perform_pelto_smash(aim_held: bool = false) -> void:
+	var serial := _pelto_attack_serial
+	super._perform_pelto_smash(aim_held)
+	if serial != _pelto_attack_serial:
+		_notify("pelto_begin", {"held": aim_held})
+
+
+func _release_pelto_aim() -> void:
+	var releasing := is_pelto_preparing() and _pelto_aim_held and not _pelto_release_requested
+	super._release_pelto_aim()
+	if releasing:
+		_notify("pelto_release")
+
+
+func _cancel_pelto_smash(reason: String = "") -> void:
+	var was_preparing := is_pelto_preparing()
+	super._cancel_pelto_smash(reason)
+	if was_preparing:
+		_notify("pelto_cancel")
+
+
+func _release_javelin_charge() -> void:
+	var releasing := is_javelin_charging() and _javelin_release_at < 0.0
+	super._release_javelin_charge()
+	if releasing:
+		_notify("javelin_release")
+
+
+func _cancel_javelin_charge() -> void:
+	var was_charging := is_javelin_charging()
+	super._cancel_javelin_charge()
+	if was_charging:
+		_notify("javelin_cancel")
 
 
 func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
@@ -299,6 +364,39 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	super._recast_javelin(preferred_destination)
 	if previous.distance_squared_to(global_position) > 0.001:
 		_notify("javelin_recast", {"origin": previous})
+
+
+func _projector_authoritative() -> bool:
+	return authoritative
+
+
+func _perform_projector() -> bool:
+	var accepted := super._perform_projector()
+	if accepted and not authoritative:
+		_notify("defensive")
+	return accepted
+
+
+func _on_projector_activated() -> void:
+	_notify("projector_pulse", {"origin": global_position})
+
+
+func _on_projector_cast_started() -> void:
+	if authoritative:
+		_notify("projector_cast", {})
+
+
+func start_fulguro_projection(direction: Vector3, distance: float, duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
+	super.start_fulguro_projection(direction, distance, duration, wall_damage, wall_stun, source_id, attack_id)
+	if authoritative and _fulguro_projection_active:
+		_permutation_revision += 1
+
+
+func _finish_fulguro_projection(crushed_wall: bool, impact_position: Vector3 = Vector3.ZERO, impact_normal: Vector3 = Vector3.ZERO) -> void:
+	var was_active := _fulguro_projection_active
+	super._finish_fulguro_projection(crushed_wall, impact_position, impact_normal)
+	if authoritative and was_active:
+		_permutation_revision += 1
 
 
 func _perform_magnetic_field() -> void:
@@ -315,6 +413,18 @@ func _perform_static_shield() -> void:
 		_notify("defensive")
 
 
+func _perform_counter() -> bool:
+	var accepted := super._perform_counter()
+	if accepted:
+		_notify("defensive")
+	return accepted
+
+
+func _on_counter_exploded(center: Vector3) -> void:
+	if authoritative:
+		_notify("counter_explosion", {"center": center})
+
+
 func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
 	var token := _dash_token
 	super._perform_pyro_boots(direction_override)
@@ -327,6 +437,52 @@ func _perform_bio_injector() -> void:
 	super._perform_bio_injector()
 	if _bio_remaining > previous:
 		_notify("mobility")
+
+
+func _credit_eclipse_damage(_amount: float) -> void:
+	# Network victim.take_damage already credits its opponent's omnivamp.
+	pass
+
+
+func _perform_eclipse(destination: Vector3) -> bool:
+	var accepted := super._perform_eclipse(destination)
+	if accepted:
+		_notify("eclipse", {"destination": destination})
+	return accepted
+
+
+func _permutation_authoritative() -> bool:
+	return authoritative
+
+
+func _perform_permutation() -> void:
+	var token := _module_token
+	super._perform_permutation()
+	if _module_token != token:
+		_notify("permutation")
+
+
+func on_permutation_relocated() -> void:
+	super.on_permutation_relocated()
+	if authoritative:
+		_permutation_revision += 1
+
+
+func receive_permutation_relocation(at: Vector3, revision: int) -> bool:
+	if authoritative or revision <= _permutation_revision or not at.is_finite():
+		return false
+	_permutation_revision = revision
+	global_position = at
+	super.on_permutation_relocated()
+	PERMUTATION.refresh_sweeps(get_tree())
+	return true
+
+
+func _on_permutation_arrived(origin: Vector3, destination: Vector3) -> void:
+	super._on_permutation_arrived(origin, destination)
+	if authoritative and is_instance_valid(opponent):
+		_notify("permutation_swap", {"target_position": opponent.global_position,
+			"caster_revision": _permutation_revision, "target_revision": opponent.get("_permutation_revision")})
 
 
 func _start_shotgun_reload() -> void:
@@ -345,6 +501,18 @@ func set_weapon(weapon_id: String) -> void:
 
 func receive_action(action: String, data: Dictionary, visual_only := false) -> void:
 	if not _gameplay_enabled or is_real_dead():
+		return
+	if action == "counter_explosion":
+		if visual_only and not authoritative:
+			COUNTER.spawn_ring(get_tree().current_scene, data.get("center", global_position), float(COMBAT_DATA.MODULE_DEFINITIONS.counter.surcharge_radius))
+		return
+	if action == "projector_cast":
+		if visual_only and not authoritative and _projector_cast_token == 0:
+			PROJECTOR.spawn_cast(self, float(COMBAT_DATA.MODULE_DEFINITIONS.projector.cast_duration))
+		return
+	if action == "projector_pulse":
+		if visual_only and not authoritative:
+			PROJECTOR.spawn_visual(get_tree().current_scene, data.get("origin", global_position))
 		return
 	if action == "contact":
 		_contact_started_at = Time.get_ticks_msec() / 1000.0
@@ -397,6 +565,21 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 			if visual_only:
 				_play_network_longshot(data)
 		"offensive": _perform_offensive_module()
+		"javelin_charge":
+			if _offensive_module_id == "javelin":
+				_begin_javelin_charge()
+		"javelin_release": _release_javelin_charge()
+		"javelin_cancel": _cancel_javelin_charge()
+		"pelto_begin":
+			if _offensive_module_id == "pelto_smash":
+				_perform_pelto_smash(bool(data.get("held", false)))
+		"pelto_release": _release_pelto_aim()
+		"pelto_cancel": _cancel_pelto_smash()
+		"permutation": _perform_permutation()
+		"eclipse":
+			var destination: Variant = data.get("destination")
+			if destination is Vector3 and destination.is_finite():
+				_perform_eclipse(destination)
 		"defensive": _perform_defensive_module()
 		"mobility":
 			var move: Vector3 = data.get("move", Vector3.ZERO)
@@ -415,7 +598,12 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 
 
 func network_snapshot() -> Dictionary:
-	return {"combat": combat_state.snapshot(), "position": global_position, "aim": aim_direction,
+	return {"rockets": ROCKET_BASKET.snapshot(self), "counter": _counter.snapshot(),"combat": combat_state.snapshot(), "position": global_position, "aim": aim_direction,
+		"projector_passive": _projector_passive_remaining,
+		"knockback": {"active": _fulguro_projection_active, "direction": _fulguro_projection_direction, "distance": _fulguro_projection_distance_remaining, "time": _fulguro_projection_time_remaining},
+		"eclipse": _eclipse.snapshot(),
+		"javelin_mark_duration": _javelin_active_mark_duration, "javelin_recast_range": _javelin_active_recast_range,
+		"relocation": _permutation_revision, "permutation_speed": _permutation_speed_remaining,
 		"mekatana": _mekatana_attack.presentation_snapshot(),
 		"velocity": _get_actual_move_velocity(), "weapon": _weapon_id,
 		"cooldowns": _module_cooldowns.duplicate(), "ammo": _shotgun_ammo,
@@ -424,13 +612,44 @@ func network_snapshot() -> Dictionary:
 		"reload": _shotgun_reload_remaining, "stasis": _stasis_remaining, "bio": _bio_remaining,
 		"baroud_active": passive_state.baroud_active, "baroud_used": passive_state.baroud_used,
 		"baroud_health": passive_state.baroud_health, "baroud_remaining": passive_state.baroud_remaining,
-		"real_dead": passive_state.real_dead, "mark": get_javelin_mark_remaining(),
+		"passive_status": passive_state.snapshot(), "real_dead": passive_state.real_dead, "mark": get_javelin_mark_remaining(),
 		"reveal": visibility_state.combat_remaining, "spotted": visibility_state.spotted_remaining}
 
 
 func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 	if authoritative:
 		return
+	ROCKET_BASKET.receive_snapshot(self, value.get("rockets", []))
+	_projector_passive_remaining = maxf(0.0, float(value.get("projector_passive", 0.0)))
+	var eclipse_needs_correction := is_eclipse_travelling() or int(value.get("eclipse", {}).get("serial", 0)) != _eclipse.serial
+	receive_permutation_relocation(value.get("position", global_position), int(value.get("relocation", 0)))
+	if value.has("knockback"):
+		var recoil: Dictionary = value.knockback
+		if bool(recoil.get("active", false)):
+			if not _fulguro_projection_active:
+				super.start_fulguro_projection(recoil.direction, float(recoil.distance), float(recoil.time), 0.0, 0.0, "network_knockback", "")
+			_fulguro_projection_direction = recoil.direction
+			_fulguro_projection_distance_remaining = maxf(0.0, float(recoil.distance))
+			_fulguro_projection_time_remaining = maxf(0.0, float(recoil.time))
+			_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
+			global_position = value.get("position", global_position)
+		elif _fulguro_projection_active:
+			_cancel_fulguro_projection()
+			global_position = value.get("position", global_position)
+	if remote_controlled or controls_confirmed:
+		_eclipse.receive_snapshot(self, value.get("eclipse", {}))
+		if eclipse_needs_correction and not is_eclipse_travelling() and value.has("eclipse"):
+			global_position = value.get("position", global_position)
+	_permutation_speed_remaining = maxf(0.0, float(value.get("permutation_speed", 0.0)))
+	if remote_controlled or controls_confirmed:
+		_counter.restore(value.get("counter", {}))
+	if _counter.phase != "" and not _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		_interrupt_weapon_for_module()
+		_action_gate.reset()
+		_active_module_action_token = _action_gate.try_acquire(ACTION_GATE.Kind.MODULE, "counter", -1, true)
+		_active_module_id = "counter"
+	elif _counter.phase == "":
+		_on_counter_finished()
 	var was_dead := is_real_dead()
 	var previous_health := get_health()
 	combat_state.receive_snapshot(value.combat)
@@ -443,9 +662,12 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 	passive_state.baroud_health = float(value.baroud_health)
 	passive_state.baroud_remaining = float(value.baroud_remaining)
 	passive_state.real_dead = bool(value.real_dead)
+	passive_state.restore_snapshot(value.get("passive_status", {}))
 	if remote_controlled or controls_confirmed:
 		_stasis_remaining = float(value.stasis)
 		_bio_remaining = float(value.bio)
+		_javelin_active_mark_duration = float(value.get("javelin_mark_duration", _javelin_mark_duration))
+		_javelin_active_recast_range = float(value.get("javelin_recast_range", _javelin_max_range))
 	_mark_until = Time.get_ticks_msec() / 1000.0 + float(value.mark)
 	visibility_state.combat_remaining = float(value.reveal)
 	visibility_state.spotted_remaining = float(value.spotted)
@@ -515,7 +737,7 @@ func update_remote_visibility(delta: float = 0.0) -> void:
 		if node != null:
 			node.visible = show if node == _robot_visuals else detail_weight > 0.01
 	_visibility_fade.call("apply_presentation", _presentation_visibility_weight, _presentation_silhouette, detail_weight)
-	var echo_allowed := _gameplay_enabled and not is_real_dead() and is_instance_valid(opponent) and not bool(opponent.call("is_real_dead")) and bool(opponent.call("is_gameplay_enabled"))
+	var echo_allowed := _gameplay_enabled and not is_eclipse_travelling() and not is_real_dead() and is_instance_valid(opponent) and not bool(opponent.call("is_real_dead")) and bool(opponent.call("is_gameplay_enabled"))
 	if delta <= 0.0 or not echo_allowed:
 		_visibility_echo.call("reset")
 	if show and echo_allowed:

@@ -2,6 +2,7 @@ extends SceneTree
 
 const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
 const TARGET_DUMMY := preload("res://scripts/target_dummy.gd")
+const AIM_MODIFIER := preload("res://scripts/player_aim_modifier.gd")
 
 var _failures: Array[String] = []
 
@@ -17,6 +18,13 @@ func _initialize() -> void:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
 		_test_central_values()
+		_test_pose_continuity()
+		await _test_held_aim_and_release(player, target, scene)
+		await _test_tap_and_cancel(player, target)
+		await _test_extended_range(player, target)
+		await _test_touch_ownership(player, target, scene)
+		await _test_turnaround_and_frame_steps(player, target, scene)
+		await _test_network_aim(scene)
 		await _test_shotgun_restores_to_hand(player, target)
 		await _test_multiple_targets_progressively(player, target, scene)
 		await _test_two_passes(player, target)
@@ -42,8 +50,153 @@ func _test_central_values() -> void:
 	var values: Dictionary = PELTO_SMASH.definition()
 	if absf(float(values.outbound_damage) + float(values.return_damage) - 260.0) > 0.01:
 		_failures.append("Données : le total des deux passages n'est pas 260/1000 PV")
-	if absf(float(values.max_range) - 7.0) > 0.01 or absf(float(values.width) - 2.5) > 0.01 or absf(float(values.front_thickness) - 0.7) > 0.01:
+	if absf(float(values.max_range) - 9.0) > 0.01 or absf(float(values.width) - 2.5) > 0.01 or absf(float(values.front_thickness) - 0.7) > 0.01:
 		_failures.append("Données : portée, largeur ou épaisseur du front incorrecte")
+	if float(values.preparation) + float(values.impact_duration) + float(values.recovery) > 0.55:
+		_failures.append("Fluidité : geste trop long")
+
+
+func _test_pose_continuity() -> void:
+	for boundary in [["preparation", "impact"], ["impact", "recovery"]]:
+		if not AIM_MODIFIER.pelto_pose_weights(boundary[0], 1.0).is_equal_approx(AIM_MODIFIER.pelto_pose_weights(boundary[1], 0.0)):
+			_failures.append("Animation : rupture entre %s et %s" % boundary)
+	if not AIM_MODIFIER.pelto_pose_weights("recovery", 1.0).is_zero_approx():
+		_failures.append("Animation : récupération ne revient pas à la pose neutre")
+
+
+func _test_held_aim_and_release(player: Node, target: Node, scene: Node) -> void:
+	await _prepare(player, target, Vector3(8.0, 0.0, 0.0))
+	if not bool(player.call("begin_touch_action", "offensive")):
+		_failures.append("Visée : maintien refusé")
+		return
+	# Select the screen-space vector that points down the arena's clear lane.
+	var screen_right: Vector3 = player.call("_camera_relative_direction", Vector2.RIGHT)
+	var screen_down: Vector3 = player.call("_camera_relative_direction", Vector2.DOWN)
+	player.call("set_pelto_touch_aim", Vector2(screen_right.dot(Vector3.FORWARD), screen_down.dot(Vector3.FORWARD)))
+	var aimed: Vector3 = player.get("_pelto_direction")
+	player.call("set_pelto_touch_aim", Vector2.ZERO)
+	if not aimed.is_equal_approx(player.get("_pelto_direction")):
+		_failures.append("Visée : la zone morte efface la dernière direction")
+	await create_timer(0.38).timeout
+	if not bool(player.call("is_pelto_preparing")):
+		_failures.append("Visée : frappe avant le relâchement")
+	target.global_position = aimed * 8.0
+	player.call("end_touch_action", "offensive")
+	player.set("aim_direction", -aimed)
+	var wave := await _wait_for_wave_phase(scene, "outbound")
+	if wave == null or not aimed.is_equal_approx(wave.get("direction")):
+		_failures.append("Visée : le relâchement n'a pas verrouillé la direction")
+	await _wait_for_health(target, 740.0)
+	if absf(float(target.call("get_health")) - 740.0) > 1.0:
+		_failures.append("Visée : cible à 8 m non touchée aux deux passages (PV=%.1f, direction=%s)" % [float(target.call("get_health")), aimed])
+	await create_timer(0.4).timeout
+
+
+func _test_tap_and_cancel(player: Node, target: Node) -> void:
+	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
+	player.call("begin_touch_action", "offensive")
+	player.call("end_touch_action", "offensive")
+	if not bool(player.call("is_pelto_preparing")):
+		_failures.append("Tap : la préparation minimale est sautée")
+	await _wait_for_health(target, 740.0)
+	await create_timer(0.4).timeout
+	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
+	player.call("begin_touch_action", "offensive")
+	player.call("cancel_touch_action", "offensive")
+	await create_timer(0.4).timeout
+	if str(player.get("_pelto_phase")) != "" or float(target.call("get_health")) < 999.0:
+		_failures.append("Visée : annulation tactile déclenche une vague")
+
+
+func _test_extended_range(player: Node, target: Node) -> void:
+	await _prepare(player, target, Vector3(0.0, 0.0, -8.2))
+	_cast(player)
+	await _wait_for_health(target, 740.0)
+	if absf(float(target.call("get_health")) - 740.0) > 1.0:
+		_failures.append("Portée : cible à 8,2 m hors de la vague")
+	await create_timer(0.4).timeout
+
+
+func _test_touch_ownership(player: Node, target: Node, scene: Node) -> void:
+	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
+	var controls: Node = scene.get_node("Interface/TouchControls")
+	controls.call("reset_inputs")
+	var centers: Dictionary = controls.call("_action_centers")
+	controls.call("_begin_touch", 70, centers.offensive)
+	controls.call("_begin_touch", 71, centers.offensive)
+	controls.call("_end_touch", 71)
+	if bool(player.get("_pelto_release_requested")):
+		_failures.append("Tactile : un doigt refusé a relâché le sort")
+	controls.call("_update_touch", 70, centers.offensive + Vector2(80, 0))
+	if (player.get("_pelto_module_aim") as Vector3).length_squared() < 0.5:
+		_failures.append("Tactile : glissement du bouton non transmis à la visée")
+	controls.call("reset_inputs")
+	if str(player.get("_pelto_phase")) != "":
+		_failures.append("Tactile : perte du contact ne termine pas la préparation")
+	await physics_frame
+	player.call("begin_touch_action", "offensive")
+	player.call("_update_pelto_attack", 3.1)
+	if bool(player.call("is_pelto_preparing")):
+		_failures.append("Visée : maintien maximal ne libère pas le joueur")
+	await create_timer(1.6).timeout
+
+
+func _test_turnaround_and_frame_steps(player: Node, target: Node, scene: Node) -> void:
+	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
+	var waves: Array[Node] = []
+	for index in range(2):
+		var wave := PELTO_SMASH.new()
+		scene.add_child(wave)
+		wave.configure(player, Vector3.ZERO, Vector3.FORWARD, "test", "pelto:turn:%d" % index, 0.0)
+		wave.set_physics_process(false)
+		wave.set_process(false)
+		waves.append(wave)
+	var duration := float(waves[0].get("_max_distance")) / 13.0
+	waves[0].call("_physics_process", duration * 0.5)
+	for step in range(30):
+		waves[1].call("_physics_process", duration / 60.0)
+	if absf(float(waves[0].get("travel_distance")) - float(waves[1].get("travel_distance"))) > 0.001:
+		_failures.append("Fluidité : vitesse dépendante de la fréquence physique")
+	waves[0].call("_physics_process", duration * 0.5)
+	var endpoint := float(waves[0].get("travel_distance"))
+	waves[0].call("_physics_process", 0.08)
+	waves[0].call("_physics_process", 0.01)
+	if endpoint - float(waves[0].get("travel_distance")) > 0.015:
+		_failures.append("Fluidité : retour démarre avec une rupture de vitesse")
+	for wave in waves:
+		wave.queue_free()
+	await process_frame
+
+
+func _test_network_aim(scene: Node) -> void:
+	var actor: Node = load("res://scripts/network_player.gd").new()
+	actor.set("remote_controlled", true)
+	scene.add_child(actor)
+	actor.call("apply_loadout", {"weapon": "blaster", "offensive": "pelto_smash", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"})
+	actor.call("set_gameplay_enabled", true)
+	await physics_frame
+	actor.set("aim_direction", Vector3.FORWARD)
+	actor.call("receive_action", "pelto_begin", {"held": true})
+	actor.call("_update_pelto_attack", 0.4)
+	if not bool(actor.call("is_pelto_preparing")):
+		_failures.append("Réseau : maintien du sort non conservé")
+	actor.set("aim_direction", Vector3.RIGHT)
+	actor.call("receive_action", "pelto_release", {})
+	actor.call("_update_pelto_attack", 0.01)
+	if not (actor.get("_pelto_direction") as Vector3).is_equal_approx(Vector3.RIGHT) or str(actor.get("_pelto_phase")) != "impact":
+		_failures.append("Réseau : direction de relâchement non conservée")
+	actor.call("reset_combat_state")
+	await physics_frame
+	actor.call("receive_action", "pelto_begin", {"held": true})
+	actor.call("receive_action", "pelto_cancel", {})
+	if str(actor.get("_pelto_phase")) != "":
+		_failures.append("Réseau : annulation du sort non transmise")
+	actor.call("set_gameplay_enabled", false)
+	actor.call("reset_module_state")
+	for frame in range(3):
+		await process_frame
+	actor.queue_free()
+	await process_frame
 
 
 func _test_shotgun_restores_to_hand(player: Node, target: Node) -> void:
@@ -252,7 +405,7 @@ func _test_low_fps_sweep(player: Node, target: Node, scene: Node) -> void:
 	scene.add_child(wave)
 	wave.call("configure", player, Vector3.ZERO, Vector3(0.0, 0.0, -1.0), "test", "pelto:low_fps")
 	wave.set_physics_process(false)
-	wave.call("_physics_process", 0.70)
+	wave.call("_physics_process", 0.50)
 	if absf(float(target.call("get_health")) - 840.0) > 1.0:
 		_failures.append("Basse fréquence : le balayage a manqué une cible entre deux positions")
 	wave.queue_free()

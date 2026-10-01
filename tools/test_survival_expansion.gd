@@ -72,10 +72,10 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	check(is_equal_approx(player.get_health(), 1000.0 - bot_a.training_attack_damage - bot_b.training_attack_damage), "attaques simultanées de deux ennemis comptent séparément")
 	player.set_training_options(true, false, false)
-	var build := {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "", "evolutions": {}, "upgrades": {}, "synergies": ["thermal", "relay"]}
+	var build := {"weapon": "blaster", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "", "evolutions": {}, "upgrades": {}, "synergies": ["thermal"]}
 	player.configure_survival_build(build)
 	var synergy: Node = player.survival_synergies
-	check(SYNERGIES.active_for(build).size() == 2, "deux synergies choisies pour ce build")
+	check(SYNERGIES.active_for(build).size() == 1, "synergie thermique choisie pour ce build")
 	check(SYNERGIES.active_for({"weapon": "blaster"}).is_empty(), "aucune synergie avec un seul élément")
 	check(SYNERGIES.preview({"weapon": "blaster"}, {"category": "mobility", "kind": "item", "id": "pyro_boots"}).contains("thermique"), "carte annonce la synergie qui sera activée")
 	synergy.pyro_step(targets[0].global_position)
@@ -93,26 +93,6 @@ func _initialize() -> void:
 	synergy.marked[targets[0].get_instance_id()] = synergy.clock + 2.0
 	synergy.blaster_hit(targets[0], 1.0)
 	check(is_equal_approx(targets[1].get_health(), before), "explosion bornée sans boucle de déclenchement")
-	# Actual drone crosses the player's own field before producing exactly one arc.
-	synergy.clear_effects()
-	player.set_touch_aim_vector(Vector2.UP)
-	var field_action: int = player._try_begin_module_action("magnetic_field")
-	check(field_action != 0, "le champ réserve l'action offensive")
-	player._module_busy = true
-	player._create_magnetic_wall(player._module_token, field_action, Vector3(0, 0, -2), Vector3.FORWARD)
-	await physics_frame
-	check(synergy.crosses_field(Vector3.ZERO, Vector3(0, 0, -4)), "intersection géométrique du champ reconnue")
-	check(not synergy.crosses_field(Vector3(8, 0, 0), Vector3(8, 0, -4)), "tir à côté du champ non chargé")
-	before = targets[1].get_health()
-	var third_before: float = targets[2].get_health()
-	var drone_action: int = player._try_begin_module_action("modulo_drone")
-	check(drone_action != 0, "le drone réserve l'action offensive")
-	player._module_busy = true
-	player._module_token += 1
-	player._emit_modulo_drone(player._module_token, drone_action, Vector3.ZERO, Vector3.FORWARD)
-	await create_timer(0.7).timeout
-	check(targets[1].get_health() < before, "drone traverse son propre champ et produit l'arc")
-	check(is_equal_approx(targets[2].get_health(), third_before), "un seul rebond électrique sans évolution")
 	# Shotgun echo is a separate, weaker damage source and costs no cartridge.
 	build.weapon = "shotgun"
 	build.mobility = "bio_injector"

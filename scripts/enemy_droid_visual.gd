@@ -232,6 +232,11 @@ func set_weapon(identifier: String) -> void:
 	_refresh_attachment()
 
 
+func set_counter_pose(active: bool) -> void:
+	if pose_solver != null:
+		pose_solver.counter_guard = active
+
+
 func set_mekatana_pose(step: int, phase: String, progress: float) -> void:
 	_mekatana_phase = phase
 	if phase != "":

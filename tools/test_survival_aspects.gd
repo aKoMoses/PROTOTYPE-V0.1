@@ -14,7 +14,7 @@ func check(value: bool, message: String) -> void:
 		failures.append(message)
 
 func configure(item: String, category: String, aspect: String, level: int = 3) -> void:
-	var build := {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "", "upgrades": {}, "evolutions": {}, "synergies": [], "aspects": {category: {"path": aspect, "rank": level}}}
+	var build := {"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "", "upgrades": {}, "evolutions": {}, "synergies": [], "aspects": {category: {"path": aspect, "rank": level}}}
 	build[category] = item
 	player.configure_survival_build(build)
 	player.set_gameplay_enabled(true)
@@ -34,7 +34,14 @@ func configure(item: String, category: String, aspect: String, level: int = 3) -
 		projectile.queue_free()
 
 func tick(seconds: float) -> void:
-	await create_timer(seconds, false).timeout
+	# Player physics is disabled by this fixture; advance its charge explicitly.
+	var remaining := seconds
+	while remaining > 0.0:
+		var delta := minf(remaining, 1.0 / 60.0)
+		if player.is_javelin_charging():
+			player._update_javelin_charge(delta)
+		remaining -= delta
+		await physics_frame
 
 func hit(amount: float) -> float:
 	attack_serial += 1
@@ -57,7 +64,7 @@ func _initialize() -> void:
 	targets = scene.get_training_targets()
 	# Every equipment exposes two distinct paths, then only its chosen path.
 	for item in ASPECTS.PATHS:
-		var category: String = "weapon" if item in ["shotgun", "blaster"] else "offensive" if item in ["javelin", "modulo_drone"] else "defensive" if item in ["static_shield", "magnetic_field"] else "mobility" if item in ["pyro_boots", "bio_injector"] else "passive"
+		var category: String = "weapon" if item in ["shotgun", "blaster"] else "offensive" if item == "javelin" else "defensive" if item in ["static_shield", "magnetic_field"] else "mobility" if item in ["pyro_boots", "bio_injector"] else "passive"
 		check(ASPECTS.choices({}, category, item).size() == 2, "%s possède deux voies" % item)
 		for aspect in ASPECTS.PATHS[item]:
 			for level in range(1, 4):
@@ -138,14 +145,6 @@ func _initialize() -> void:
 	configure("shotgun", "weapon", "sweeper")
 	check(player._shotgun_pellet_angles.size() == 12, "Éventail ultime contient douze plombs")
 	check(is_equal_approx(player._shotgun_pellet_damage * 12.0, 6.0 * 20.0 * 0.65), "Éventail répartit les dégâts sans doubler la puissance")
-	# Drones are deployed through the normal action and really shoot.
-	for aspect in ["hunter", "sentry"]:
-		configure("modulo_drone", "offensive", aspect)
-		await physics_frame
-		before = targets[0].get_health()
-		player._perform_modulo_drone()
-		await tick(1.3)
-		check(not effects.agents.is_empty() and targets[0].get_health() < before, "%s déployé et offensif" % aspect)
 	# Harpoon recall damages without moving the player; elites cannot be stunned.
 	configure("javelin", "offensive", "harpoon")
 	await physics_frame
@@ -164,7 +163,7 @@ func _initialize() -> void:
 	player.aim_direction = Vector3.RIGHT
 	await physics_frame
 	player._perform_javelin()
-	await tick(0.3)
+	await tick(0.45)
 	check(effects.has_javelin_anchor(), "Balise posée sur le sol libre")
 	var destination: Vector3 = effects.javelin_anchor
 	targets[0].global_position = destination
@@ -227,7 +226,11 @@ func _initialize() -> void:
 	player._cancel_dash()
 	await physics_frame
 	player._perform_pyro_boots()
-	check(not player.is_dash_active() and effects.dash_charges() == 0, "troisième dash refusé")
+	check(player.is_dash_active(), "Propulseur ajoute un troisième dash aux deux charges de base")
+	player._cancel_dash()
+	await physics_frame
+	player._perform_pyro_boots()
+	check(not player.is_dash_active() and effects.dash_charges() == 0, "quatrième dash refusé")
 	configure("pyro_boots", "mobility", "trail")
 	await physics_frame
 	player._last_move_direction = Vector3.FORWARD
@@ -300,7 +303,7 @@ func _initialize() -> void:
 	check(is_equal_approx(effects.clock, clock_before) and effects.zones.size() == 1, "pause fige les effets persistants")
 	scene._resume_run()
 	effects.clear_transients()
-	check(effects.zones.is_empty() and effects.agents.is_empty() and effects.pickups.is_empty() and effects.javelin_anchor == Vector3.INF, "nettoyage entre les vagues")
+	check(effects.zones.is_empty() and effects.pickups.is_empty() and effects.javelin_anchor == Vector3.INF, "nettoyage entre les vagues")
 	player.apply_loadout({"weapon": "blaster", "defensive": "static_shield"})
 	check(not player.survival_mode and player.survival_evolution_effects == null and player._blaster_damage == 20.0, "retour au Duel rétablit les valeurs et retire les aspects")
 	player._perform_static_shield()

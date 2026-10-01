@@ -8,7 +8,7 @@ const SAVE_PATH := "user://prototype0_hud_layout.json"
 const BACKUP_PATH := "user://prototype0_hud_layout.backup.json"
 const TEMP_PATH := "user://prototype0_hud_layout.tmp.json"
 const TOUCH_IDS := ["move", "aim", "offensive_button", "defensive_button", "mobility_button", "weapon_button"]
-const MODULE_IDS := ["offensive_slot", "defensive_slot", "mobility_slot"]
+const MODULE_IDS := ["offensive_slot", "defensive_slot", "mobility_slot", "passive_slot"]
 
 static func family() -> String:
 	return "mobile" if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available() else "desktop"
@@ -21,7 +21,7 @@ static func names() -> Dictionary:
 		"match_summary": "Score et manche", "pause": "Pause",
 		"player_vitals": "Vie et arme",
 		"spell_bar": "Barre de modules", "offensive_slot": "Module offensif",
-		"defensive_slot": "Module défensif", "mobility_slot": "Module mobilité",
+		"defensive_slot": "Module défensif", "mobility_slot": "Module mobilité", "passive_slot": "Passif",
 		"wave": "Vague", "arrival": "Annonce de vague",
 		"training_status": "État de l'entraînement", "training_meter": "Mesures de tir",
 		"training_meter_chip": "Mesures réduites",
@@ -58,6 +58,7 @@ static func standard() -> Dictionary:
 		"offensive_slot": _item(0.0, 0.0, 0.0, 0.0),
 		"defensive_slot": _item(0.0, 0.0, 0.0, 0.0),
 		"mobility_slot": _item(0.0, 0.0, 0.0, 0.0),
+		"passive_slot": _item(0.0, 0.0, 0.0, 0.0),
 		"wave": _item(0.0, 0.0, 0.156, 0.046),
 		"arrival": _item(0.5, 0.0, 0.0, 0.264),
 		"training_status": _item(0.0, 0.0, 0.55, 0.03),

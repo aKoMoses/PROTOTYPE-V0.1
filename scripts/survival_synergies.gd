@@ -2,7 +2,6 @@ extends Node
 
 const DEFINITIONS := {
 	"thermal": {"name": "Détonation thermique", "items": ["blaster", "pyro_boots"], "description": "Les tirs chargés explosent les cibles brûlées."},
-	"relay": {"name": "Relais électrique", "items": ["modulo_drone", "magnetic_field"], "description": "Le drone traverse le mur et rebondit sur un autre ennemi."},
 	"double": {"name": "Double détente", "items": ["shotgun", "bio_injector"], "description": "Bio Injector déclenche une seconde salve de Shotgun."},
 	"trail": {"name": "Sillage incandescent", "items": ["javelin", "pyro_boots"], "description": "Le rappel ou la téléportation du Javelin laisse une traînée brûlante."},
 }
@@ -17,7 +16,6 @@ var next_trail := 0.0
 var next_explosion := 0.0
 var serial := 0
 var generation := 0
-var flights: Array[Dictionary] = []
 
 static func available_for(build: Dictionary) -> Array[String]:
 	var result: Array[String] = []
@@ -58,7 +56,6 @@ func configure(build: Dictionary) -> void:
 
 func clear_effects() -> void:
 	generation += 1
-	flights.clear()
 	for zone in zones:
 		if is_instance_valid(zone.visual):
 			zone.visual.queue_free()
@@ -72,11 +69,6 @@ func _physics_process(delta: float) -> void:
 	if player == null or not player.is_gameplay_enabled():
 		return
 	clock += delta
-	for index in range(flights.size() - 1, -1, -1):
-		if not is_instance_valid(flights[index].drone):
-			flights.remove_at(index)
-		else:
-			update_flight(flights[index])
 	if float(player.get("_bio_remaining")) <= 0.0:
 		armed = false
 	for key in marked.keys():
@@ -152,59 +144,6 @@ func teleport_trail(origin: Vector3, destination: Vector3) -> void:
 		add_zone(origin.lerp(destination, float(index) / steps), "trail")
 	cue("_shotgun_cycle_audio", 0.65)
 	player._create_lightning_arc(origin + Vector3.UP * 0.2, destination + Vector3.UP * 0.2, Color("#ff873b"), 0.15, 0.35)
-
-func drone_exclusions() -> Array[RID]:
-	var result: Array[RID] = []
-	var wall: Area3D = player.get("_magnetic_wall")
-	if "relay" in active and is_instance_valid(wall):
-		result.append(wall.get_rid())
-	return result
-
-func crosses_field(origin: Vector3, endpoint: Vector3) -> bool:
-	var wall: Area3D = player.get("_magnetic_wall")
-	if not "relay" in active or not is_instance_valid(wall):
-		return false
-	var shape_node := wall.get_node_or_null("CollisionShape3D") as CollisionShape3D
-	if shape_node == null or not shape_node.shape is BoxShape3D:
-		return false
-	var a := shape_node.to_local(origin + Vector3.UP * 0.72)
-	var b := shape_node.to_local(endpoint + Vector3.UP * 0.72)
-	if a.z * b.z > 0.0 or absf(a.z - b.z) < 0.001:
-		return false
-	var crossing := a.lerp(b, a.z / (a.z - b.z))
-	var size: Vector3 = shape_node.shape.size
-	return absf(crossing.x) <= size.x * 0.5 and absf(crossing.y) <= size.y * 0.5
-
-func drone_hit(primary: Node3D, damage: float) -> void:
-	var remaining := 2 if bool(evolved.get("offensive", false)) else 1
-	var radius := 6.0 if bool(evolved.get("defensive", false)) else 4.0
-	serial += 1
-	for enemy in player._survival_targets():
-		if enemy == primary or enemy.global_position.distance_to(primary.global_position) > radius:
-			continue
-		if not player._solid_path_clear(primary.global_position, enemy.global_position):
-			continue
-		player._create_lightning_arc(primary.global_position + Vector3.UP, enemy.global_position + Vector3.UP, Color("#a3f8ff"), 0.1, 0.3)
-		enemy.take_damage(damage * 0.45, "player", "relay:%d:%d" % [serial, enemy.get_instance_id()])
-		remaining -= 1
-		if remaining <= 0:
-			break
-
-func track_drone(drone: MeshInstance3D) -> Dictionary:
-	var flight := {"drone": drone, "previous": drone.global_position, "charged": false}
-	flights.append(flight)
-	return flight
-
-func update_flight(flight: Dictionary) -> void:
-	if not is_instance_valid(flight.drone) or bool(flight.charged):
-		return
-	var drone: MeshInstance3D = flight.drone
-	if crosses_field(flight.previous - Vector3.UP * 0.72, drone.global_position - Vector3.UP * 0.72):
-		flight.charged = true
-		drone.material_override = player._create_fx_material(Color("#e7ffff"), 1.0)
-		player._survival_pulse_fx(drone.global_position, 0.65, Color("#a3f8ff"))
-		cue("_blaster_ready_audio", 1.4)
-	flight.previous = drone.global_position
 
 func cue(source_name: String, pitch: float) -> void:
 	var source: AudioStreamPlayer = player.get(source_name)

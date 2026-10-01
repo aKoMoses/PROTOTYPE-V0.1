@@ -1,0 +1,12 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+Vulkan 1.4.329 - Forward Mobile - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3070 Laptop GPU
+
+[AimPose] fire sample=1.433333s frame=86 RMS=0.391469deg/s rotation_tracks=43
+[ReadyPose] run sample=0.300000s frame=18 arm_rotation_tracks=38
+[PlayerAnimationTree] BasePose + full-body locomotion + low-ready arms + transient upper-body AimPose + skeleton ShotKick/support | locomotion_tracks=9 ready_tracks=38 aim_tracks=43 samples=0.300000/1.433333s
+[PlayerVisualRig] animations=afraid, bow, box_01, fall, fire, idle, run, walk, warm_up | bones=65 | mesh=63 | right=mixamorig_RightHand | left=mixamorig_LeftHand | hips=mixamorig_Hips | forward=+Z | root_motion=Hips(run/walk)
+FOG MOTION: after overview frame=0/360 position=(-11.5, 0.0, -15.0)
+FOG MOTION: after overview frame=90/360 position=(-17.5, 0.0, -10.5)
+FOG MOTION: after overview frame=180/360 position=(-23.5, 0.0, -15.0)
+FOG MOTION: after overview frame=270/360 position=(-17.5, 0.0, -19.5)
+FOG MOTION COMPLETE: res://captures/fog_organic/after_overview frames=180 fog_mean_ms=1.9464 fog_p95_ms=5.8750 error=0

@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Movement is locally responsive; the host runs both combat controllers and
 ## owns projectile collisions, health, effects, passives and round results.
 const NETWORK_PLAYER := preload("res://scripts/network_player.gd")
+const PERMUTATION := preload("res://scripts/permutation.gd")
 const CREAM := Color("#f3ddbb")
 const GREEN := Color("#69d687")
 const RED := Color("#d95b4d")
@@ -160,7 +161,7 @@ func _physics_process(delta: float) -> void:
 	elif _phase == "live":
 		_pose_sequence += 1
 		_session.send_pose({"sequence": _pose_sequence, "position": _player.global_position,
-			"aim": _player.get("aim_direction"), "velocity": _player.velocity})
+			"aim": _player.get("aim_direction"), "velocity": _player.velocity, "relocation": _player.get("_permutation_revision")})
 
 
 func _publish_snapshot(reliable := false) -> void:
@@ -223,7 +224,7 @@ func _set_remote_pose(packet: Dictionary) -> void:
 		_target.set("remote_velocity", speed.limit_length(20.0))
 		if speed.length_squared() > 0.001:
 			_target.set("_last_move_direction", speed.normalized())
-	if not bool(_target.call("is_dash_active")) and not _target.get("_mekatana_attack").is_direction_locked() and float(_target.get("_stasis_remaining")) <= 0.0 and not _target.get("combat_state").is_stunned():
+	if int(packet.get("relocation", 0)) == int(_target.get("_permutation_revision")) and not bool(_target.call("is_fulguro_projected")) and not bool(_target.call("is_eclipse_travelling")) and not bool(_target.call("is_dash_active")) and not _target.get("_mekatana_attack").is_direction_locked() and float(_target.get("_stasis_remaining")) <= 0.0 and not _target.get("combat_state").is_stunned():
 		_target.global_position = packet.position
 
 
@@ -246,6 +247,7 @@ func on_actor_action(actor: Node3D, action: String, data: Dictionary) -> void:
 	elif actor == _player:
 		_request_sequence += 1
 		_session.request_action({"sequence": _request_sequence, "action": action, "data": data,
+			"relocation": _player.get("_permutation_revision"),
 			"position": data.get("origin", actor.global_position) if action == "javelin_recast" else actor.global_position,
 			"aim": actor.get("aim_direction"), "velocity": actor.velocity})
 
@@ -263,6 +265,28 @@ func _on_action_received(event: Dictionary) -> void:
 	if _is_host() or _phase != "live" or not _valid_pose(event) or int(event.get("sequence", 0)) <= _last_event:
 		return
 	_last_event = int(event.sequence)
+	if str(event.action) == "counter_explosion":
+		var counter_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
+		counter_owner.call("receive_action", "counter_explosion", event.data, true)
+		return
+	if str(event.action) in ["projector_pulse", "projector_cast"]:
+		var projector_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
+		projector_owner.call("receive_action", str(event.action), event.data, true)
+		return
+	if str(event.action) == "permutation_swap":
+		var caster: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
+		var victim: Node3D = _target if caster == _player else _player
+		var changed := bool(caster.call("receive_permutation_relocation", event.position, int(event.data.get("caster_revision", 0))))
+		changed = bool(victim.call("receive_permutation_relocation", event.data.get("target_position", victim.global_position), int(event.data.get("target_revision", 0)))) or changed
+		# A snapshot may precede this reliable event. Effects still play once;
+		# revisions prevent an older event from moving either actor backwards.
+		if is_instance_valid(caster.get("_permutation_mark")):
+			caster.get("_permutation_mark").queue_free()
+		caster.set("_permutation_mark", null)
+		if changed or int(event.data.get("caster_revision", 0)) == int(caster.get("_permutation_revision")):
+			PERMUTATION.pulse(_main, caster.global_position)
+			PERMUTATION.pulse(_main, victim.global_position)
+		return
 	if int(event.peer) == _session.local_peer_id():
 		if str(event.action) == "javelin_recast":
 			_player.global_position = event.position

@@ -13,6 +13,11 @@ func apply_damage(amount: float, source_id: String = "", attack_id: String = "")
 		return 0.0
 	if attack_id != "" and _processed_attack_ids.has(attack_id):
 		return 0.0
+	amount = absorb_shield_damage(amount)
+	if amount <= 0.0:
+		if attack_id != "":
+			_processed_attack_ids[attack_id] = true
+		return 0.0
 	var result: Dictionary = passive.intercept_damage(amount, health)
 	if bool(result.triggered_baroud):
 		if attack_id != "":
@@ -49,7 +54,9 @@ func _finalize_baroud() -> void:
 		return
 	health = 0.0
 	_dead = true
+	clear_shield()
 	health_changed.emit(0.0, max_health)
+	passive.clear_triggers()
 	died.emit()
 
 func display_health() -> float:

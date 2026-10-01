@@ -32,9 +32,9 @@ class RecordingPlayer extends "res://scripts/player.gd":
 			"muzzle": _longshot_muzzle.global_position,
 			"model_forward": _visual_rig.get_weapon_forward_direction(&"longshot")})
 
-	func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definition: Dictionary, enhanced: bool, shot_id: String, visual_only: bool = false) -> void:
+	func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definition: Dictionary, enhanced: bool, shot_id: String, visual_only: bool = false, passive_attack: Dictionary = {}) -> void:
 		impacts.append({"hit": hit, "distance": distance, "enhanced": enhanced, "shot_id": shot_id})
-		super._on_longshot_projectile_finished(hit, distance, definition, enhanced, shot_id, visual_only)
+		super._on_longshot_projectile_finished(hit, distance, definition, enhanced, shot_id, visual_only, passive_attack)
 
 
 class DamageProbe extends StaticBody3D:
@@ -210,7 +210,7 @@ func _test_rejections_and_cancellation() -> void:
 		match interruption:
 			"explicit": _player._cancel_longshot_attack()
 			"switch": _player.set_weapon("blaster")
-			"module": _player._try_begin_module_action("modulo_drone")
+			"module": _player._try_begin_module_action("javelin")
 			"stun": _player.apply_stun(1.0, "longshot_test")
 			"disable": _player.set_gameplay_enabled(false)
 		await create_timer(0.15).timeout
@@ -448,7 +448,7 @@ func _box(at: Vector3, dimensions: Vector3) -> StaticBody3D:
 
 
 func _loadout() -> Dictionary:
-	return {"robot": "polyvalent", "weapon": "longshot", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"}
+	return {"robot": "polyvalent", "weapon": "longshot", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"}
 
 
 func _settle() -> void:

@@ -7,6 +7,7 @@ signal healing_applied(amount: float, source_id: String)
 signal effect_changed(effect_type: String, active: bool)
 signal died
 signal reset_completed
+signal shield_changed(current: float, remaining: float)
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const SLOW_EPSILON := 0.001
@@ -14,6 +15,8 @@ const SLOW_EPSILON := 0.001
 var max_health: float
 var health: float
 var simulation_time := 0.0
+var shield_health := 0.0
+var shield_remaining := 0.0
 
 var _effects: Dictionary = {}
 var _slow_effects: Array = []
@@ -28,6 +31,7 @@ func _init(health_max: float = COMBAT_DATA.MAX_HEALTH) -> void:
 
 
 func reset() -> void:
+	clear_shield()
 	simulation_time = 0.0
 	health = max_health
 	_dead = false
@@ -48,7 +52,7 @@ func apply_damage(amount: float, source_id: String = "", attack_id: String = "")
 		if _processed_attack_ids.has(attack_id):
 			return 0.0
 		_processed_attack_ids[attack_id] = true
-	var effective := minf(amount, health)
+	var effective := minf(absorb_shield_damage(amount), health)
 	if effective <= 0.0:
 		return 0.0
 	health -= effective
@@ -56,8 +60,35 @@ func apply_damage(amount: float, source_id: String = "", attack_id: String = "")
 	damage_applied.emit(effective, source_id, attack_id)
 	if health <= 0.0:
 		_dead = true
+		clear_shield()
 		died.emit()
 	return effective
+
+
+func grant_shield(amount: float, duration: float) -> void:
+	if _dead or amount <= 0.0 or duration <= 0.0:
+		return
+	# Refresh protection without accumulating a pool on repeated activations.
+	shield_health = maxf(shield_health, amount)
+	shield_remaining = maxf(shield_remaining, duration)
+	shield_changed.emit(shield_health, shield_remaining)
+
+
+func clear_shield() -> void:
+	shield_health = 0.0
+	shield_remaining = 0.0
+	shield_changed.emit(0.0, 0.0)
+
+
+func absorb_shield_damage(amount: float) -> float:
+	if amount <= 0.0 or shield_health <= 0.0 or shield_remaining <= 0.0:
+		return amount
+	var absorbed := minf(amount, shield_health)
+	shield_health -= absorbed
+	if shield_health <= 0.0:
+		shield_remaining = 0.0
+	shield_changed.emit(shield_health, shield_remaining)
+	return amount - absorbed
 
 
 func heal(amount: float, source_id: String = "") -> float:
@@ -130,8 +161,18 @@ func update(delta: float, burn_blocked: bool = false) -> void:
 	if delta <= 0.0:
 		return
 	var previous_time := simulation_time
-	simulation_time += delta
-	_process_burn(previous_time, burn_blocked)
+	# Split a long frame at expiry so burn after expiry reaches normal health.
+	var protected_delta := minf(delta, shield_remaining) if shield_health > 0.0 else 0.0
+	if protected_delta > 0.0:
+		simulation_time += protected_delta
+		_process_burn(previous_time, burn_blocked)
+		shield_remaining = maxf(0.0, shield_remaining - protected_delta)
+		if shield_remaining <= 0.0:
+			clear_shield()
+		previous_time = simulation_time
+	if delta > protected_delta:
+		simulation_time += delta - protected_delta
+		_process_burn(previous_time, burn_blocked)
 	_process_slow_expiration()
 	_process_single_expiration(COMBAT_DATA.EFFECT_STUN)
 	_process_single_expiration(COMBAT_DATA.EFFECT_SPOTTED)
@@ -189,9 +230,13 @@ func is_spotted() -> bool:
 
 func get_slow_percent() -> float:
 	var strongest := 0.0
+	var rocket_stacks := 0.0
 	for slow in _slow_effects:
-		strongest = maxf(strongest, float(slow.get("percent", 0.0)))
-	return strongest
+		if str(slow.get("source_id", "")).begins_with("rocket_stack:"):
+			rocket_stacks += float(slow.get("percent", 0.0))
+		else:
+			strongest = maxf(strongest, float(slow.get("percent", 0.0)))
+	return clampf(maxf(strongest, rocket_stacks), 0.0, 100.0)
 
 
 func get_active_effect_types() -> Array[String]:

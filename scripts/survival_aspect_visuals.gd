@@ -94,13 +94,6 @@ func _weapon(mount: Node3D, id: String, level: int, color: Color) -> void:
 func _module(mount: Node3D, id: String, level: int, color: Color) -> void:
 	_box(mount, Vector3(0.18, 0.19, 0.13), Vector3.ZERO, Color("#384451"))
 	match id:
-		"hunter", "sentry":
-			for side in [-1.0, 1.0]:
-				var rotor := _ring(mount, 0.1, color)
-				rotor.position.x = side * 0.17
-			if id == "sentry":
-				for side in [-1.0, 1.0]:
-					_box(mount, Vector3(0.025, 0.24, 0.04), Vector3(side * 0.12, -0.10, 0.0), color)
 		"harpoon", "beacon":
 			for index in range(level):
 				_barrel(mount, Vector3(index * 0.06 - 0.08, 0.13, 0.0), 0.022, 0.32, color)

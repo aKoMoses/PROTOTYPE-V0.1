@@ -1,8 +1,9 @@
 extends RefCounted
 
-## Ben's choices from choix.html, verified on 2026-09-28.
-## Keep the downloaded originals intact; atlas regions remove empty margins in UI.
+## Shared by the forge, desktop HUD and mobile activation buttons.
+## Module vectors follow Pelto's illustrated metal style; PNG originals stay intact.
 const SOURCES := {
+	"rocket_basket": preload("res://art/icons/rocket-basket.svg"),
 	"agile": preload("res://art/robot-concepts/robot-agile-face-v3.png"),
 	"polyvalent": preload("res://art/robot-concepts/robot-polyvalent-face-v3.png"),
 	"puissant": preload("res://art/robot-concepts/robot-puissant-face-v3.png"),
@@ -10,16 +11,23 @@ const SOURCES := {
 	"shotgun": preload("res://art/icons/ben/shotgun-a.png"),
 	"longshot": preload("res://art/icons/longshot.svg"),
 	"mekatana": preload("res://art/ui/icons/mekatana.svg"),
-	"modulo_drone": preload("res://art/icons/ben/modulo-drone-b.png"),
-	"javelin": preload("res://art/icons/ben/javelin-b.png"),
+	"javelin": preload("res://art/icons/javelin.svg"),
 	"fulguro_punch": preload("res://art/icons/fulguro-punch.svg"),
 	"pelto_smash": preload("res://art/icons/pelto-smash.svg"),
-	"magnetic_field": preload("res://art/icons/ben/magnetic-field-a.png"),
-	"static_shield": preload("res://art/icons/ben/static-shield-a.png"),
-	"pyro_boots": preload("res://art/icons/ben/pyro-boots-a.png"),
-	"bio_injector": preload("res://art/icons/ben/bio-injector-a.png"),
-	"baroud": preload("res://art/icons/ben/baroud-a.png"),
-	"omnivamp": preload("res://art/icons/ben/omnivamp-a.png"),
+	"magnetic_field": preload("res://art/icons/magnetic-field.svg"),
+	"counter": preload("res://art/icons/counter.svg"),
+	"static_shield": preload("res://art/icons/static-shield.svg"),
+	"projector": preload("res://art/icons/projector.svg"),
+	"pyro_boots": preload("res://art/icons/pyro-boots.svg"),
+	"bio_injector": preload("res://art/icons/bio-injector.svg"),
+	"permutation": preload("res://art/icons/permutation.svg"),
+	"eclipse": preload("res://art/icons/eclipse.svg"),
+	"baroud": preload("res://art/icons/baroud.svg"),
+	"omnivamp": preload("res://art/icons/omnivamp.svg"),
+	"auxiliary_reactor": preload("res://art/icons/auxiliary-reactor.svg"),
+	"tracker": preload("res://art/icons/tracker.svg"),
+	"alternator": preload("res://art/icons/alternator.svg"),
+	"inertia": preload("res://art/icons/inertia.svg"),
 }
 const REGIONS := {
 	"agile": Rect2(388, 34, 478, 1174),
@@ -27,21 +35,30 @@ const REGIONS := {
 	"puissant": Rect2(292, 4, 670, 1216),
 	"blaster": Rect2(100, 270, 1100, 770),
 	"shotgun": Rect2(20, 335, 1220, 610),
-	"modulo_drone": Rect2(15, 237, 1225, 770),
-	"javelin": Rect2(23, 20, 1210, 1220),
-	"magnetic_field": Rect2(85, 172, 1085, 945),
-	"static_shield": Rect2(71, 214, 1115, 835),
-	"pyro_boots": Rect2(96, 147, 1115, 1010),
-	"bio_injector": Rect2(183, 54, 940, 1157),
-	"baroud": Rect2(148, 147, 958, 961),
-	"omnivamp": Rect2(78, 64, 1093, 1113),
 }
 var _textures: Dictionary = {}
+const COOLDOWN_SOURCES := {
+	"rocket_basket": preload("res://art/icons/cooldown/rocket-basket.svg"),
+	"javelin": preload("res://art/icons/cooldown/javelin.svg"),
+	"fulguro_punch": preload("res://art/icons/cooldown/fulguro-punch.svg"),
+	"pelto_smash": preload("res://art/icons/cooldown/pelto-smash.svg"),
+	"magnetic_field": preload("res://art/icons/cooldown/magnetic-field.svg"),
+	"static_shield": preload("res://art/icons/cooldown/static-shield.svg"),
+	"projector": preload("res://art/icons/cooldown/projector.svg"),
+	"counter": preload("res://art/icons/cooldown/counter.svg"),
+	"pyro_boots": preload("res://art/icons/cooldown/pyro-boots.svg"),
+	"bio_injector": preload("res://art/icons/cooldown/bio-injector.svg"),
+	"permutation": preload("res://art/icons/cooldown/permutation.svg"),
+	"eclipse": preload("res://art/icons/cooldown/eclipse.svg"),
+}
+
+func get_cooldown_icon(identifier: String) -> Texture2D:
+	return COOLDOWN_SOURCES.get(identifier, get_icon(identifier))
 
 func get_icon(identifier: String) -> Texture2D:
 	if not SOURCES.has(identifier):
 		return null
-	if identifier in ["fulguro_punch", "pelto_smash", "mekatana", "longshot"]:
+	if not REGIONS.has(identifier):
 		return SOURCES[identifier]
 	if not _textures.has(identifier):
 		var texture := AtlasTexture.new()

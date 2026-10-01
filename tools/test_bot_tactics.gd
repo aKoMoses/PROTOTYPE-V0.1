@@ -54,7 +54,7 @@ func _test_vision_and_firing_obstacles(scene: Node, player: Node3D, target: Node
 	player.call("set_gameplay_enabled", false)
 	target.global_position = Vector3(0, 0, 16)
 	player.global_position = Vector3(0, 0, 23)
-	target.call("set_duel_loadout", {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"})
+	target.call("set_duel_loadout", {"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"})
 	target.call("set_training_bot_enabled", true)
 	var bot := target.get_node("TrainingBot")
 	bot.set_physics_process(false)

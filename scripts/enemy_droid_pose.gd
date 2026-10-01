@@ -29,6 +29,7 @@ var _left_arm := -1
 var _left_forearm := -1
 var _left_hand := -1
 var mekatana_equipped := false
+var counter_guard := false
 var _mekatana_step := 0
 var _mekatana_phase := ""
 var _mekatana_progress := 0.0
@@ -102,6 +103,11 @@ func solve(leg_yaw: float, aim_weight: float, aim_target: Vector3, recoil: float
 		_set_global_basis(_spine, spine_basis.slerp(_reference_spine_basis, weight))
 	# An idle/passive target still reacts to damage. Recoil needs an armed pose.
 	_apply_impulses(clampf(recoil, 0.0, 1.0) * weight, clampf(hit, 0.0, 1.35))
+	if counter_guard and _right_arm >= 0 and _right_forearm >= 0:
+		_skeleton.set_bone_pose_rotation(_right_arm, _skeleton.get_bone_pose_rotation(_right_arm) * Quaternion(Vector3.RIGHT, deg_to_rad(28.0)))
+		_skeleton.set_bone_pose_rotation(_right_forearm, _skeleton.get_bone_pose_rotation(_right_forearm) * Quaternion(Vector3.RIGHT, deg_to_rad(52.0)))
+		_solve_support_arm(1.0)
+		return
 	if weight <= 0.0 or _spine < 0 or _right_arm < 0 or _right_hand < 0:
 		return
 	if mekatana_equipped:

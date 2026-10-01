@@ -130,7 +130,7 @@ func _run() -> void:
 	equipment.call("cancel_action")
 	_check(state.shots_fired == previous + 1, "cancelled bot preparation preserves emitted count")
 	equipment.set("next_attack_at", 0.0)
-	equipment.call("_begin_module_action", "modulo_drone")
+	equipment.call("_begin_module_action", "javelin")
 	equipment.call("_fire", body, probe)
 	_check(state.shots_fired == previous + 1, "module ownership rejects bot weapon emission")
 	equipment.call("cancel_action")

@@ -34,7 +34,7 @@ func _ready() -> void:
 	_session.round_finished.connect(_on_finished)
 	_session.action_requested.connect(func(value: Dictionary) -> void: print("TEST HOST REQUEST ", value.action))
 	game_flow.set("loadout", {"robot": "polyvalent", "weapon": "blaster" if _role == "host" else "shotgun",
-		"offensive": "modulo_drone", "defensive": "magnetic_field" if _role == "host" else "static_shield",
+		"offensive": "javelin", "defensive": "magnetic_field" if _role == "host" else "static_shield",
 		"mobility": "pyro_boots", "passive": "omnivamp"})
 	_session.connect_to_service()
 	await get_tree().create_timer(45.0).timeout
@@ -140,7 +140,7 @@ func _run_host() -> void:
 	await get_tree().create_timer(2.0).timeout
 	local.call("_perform_offensive_module")
 	await get_tree().create_timer(0.8).timeout
-	if not _check(float(remote.call("get_health")) < 900.0 and remote.get("combat_state").is_spotted(), "drone effects missing on host"):
+	if not _check(float(remote.call("get_health")) < 900.0 and bool(remote.call("has_javelin_mark")), "javelin damage and mark missing on host"):
 		return
 	local.set("_last_move_direction", Vector3.RIGHT)
 	local.call("_activate_mobility_module")

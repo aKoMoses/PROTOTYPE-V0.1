@@ -23,8 +23,8 @@ func _initialize() -> void:
 	if section == "meter":
 		var target: Node = (scene.call("get_training_targets") as Array)[1]
 		target.call("take_damage", 200.0, "player", "blaster:capture")
-		target.call("take_damage", 100.0, "player", "modulo_drone:capture")
-		target.call("take_damage", 50.0, "player:modulo_drone", "")
+		target.call("take_damage", 100.0, "player", "javelin:capture")
+		target.call("take_damage", 50.0, "player:javelin", "")
 		for _frame in range(3):
 			await process_frame
 	if show_menu:

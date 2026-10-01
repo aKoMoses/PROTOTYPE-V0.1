@@ -1,5 +1,11 @@
 extends StaticBody3D
 
+const KNOCKBACK := preload("res://scripts/knockback_motion.gd")
+
+const COUNTER := preload("res://scripts/counter.gd")
+
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
+
 signal died
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
@@ -61,12 +67,16 @@ var _defensive_buffer: Dictionary = {}
 
 
 func _ready() -> void:
+	var passive_fx := preload("res://scripts/passive_fx.gd").new()
+	passive_fx.name = "PassiveFX"
+	add_child(passive_fx)
 	# Sample displacement after TrainingBot's default-priority physics step.
 	process_physics_priority = 10
 	add_to_group("prototype0_combat_bots")
 	collision_layer = 2
 	collision_mask = 0
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	add_child(preload("res://scripts/permutation_shield.gd").new())
 	visibility_state = VISIBILITY_STATE.new()
 	combat_state.health_changed.connect(_on_health_changed)
 	combat_state.damage_applied.connect(_on_damage_applied)
@@ -153,7 +163,7 @@ func prepare_training_bot_shot(aim_point: Vector3) -> Transform3D:
 		query.collision_mask = 1 | 2 | 4 | 8
 		query.collide_with_areas = true
 		query.hit_from_inside = true
-		query.exclude = [get_rid()]
+		query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
 			shot.origin = origin
 			shot.basis = Basis.looking_at((aim_point - origin).normalized(), Vector3.UP)
@@ -185,6 +195,13 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 			if incoming.dot(facing) > 0.5:
 				amount *= 0.45
 	if _duel_mode and combat_state.get_script() != DUEL_STATE and _training_bot != null and _training_bot.has_method("intercept_duel_damage"):
+		if attack_id != "" and combat_state._processed_attack_ids.has(attack_id):
+			return 0.0
+		amount = combat_state.absorb_shield_damage(amount)
+		if amount <= 0.0:
+			if attack_id != "":
+				combat_state._processed_attack_ids[attack_id] = true
+			return 0.0
 		var intercepted: Dictionary = _training_bot.call("intercept_duel_damage", amount, combat_state.health)
 		if bool(intercepted.get("triggered_baroud", false)):
 			return 0.0
@@ -220,6 +237,9 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	var guard := COUNTER.component(self)
+	if duration > 0.0 and guard != null:
+		guard.cancel()
 	if network_proxy:
 		get_node("/root/NetworkSession").send_effect("stun", duration)
 	if duration > 0.0:
@@ -238,6 +258,9 @@ func apply_spotted(duration: float, source_id: String = "") -> void:
 
 
 func reset_combat_state() -> void:
+	var guard := COUNTER.component(self)
+	if guard != null:
+		guard.cancel(true)
 	_visibility_epoch += 1
 	_last_observation_visible = false
 	_presentation_observer_epoch = -1
@@ -293,8 +316,62 @@ func is_training_bot_enabled() -> bool:
 	return _training_bot != null and bool(_training_bot.call("is_enabled"))
 
 
+
+
+func get_passive_id() -> String:
+	var state = get_passive_runtime()
+	return str(state.passive_id) if state != null and _duel_mode else ""
+
+
+func get_passive_status() -> Dictionary:
+	var state = get_passive_runtime()
+	return state.snapshot() if state != null and _duel_mode else {}
+
+
+func get_passive_weapon_point() -> Vector3:
+	return get_training_bot_muzzle_transform().origin
+
+
+func get_passive_runtime():
+	if combat_state != null and combat_state.get_script() == DUEL_STATE:
+		return combat_state.passive
+	return _training_bot.get("_duel_equipment").get("_passive_state") if _training_bot != null and _training_bot.get("_duel_equipment") != null else null
+
+
+func emit_passive_weapon() -> Dictionary:
+	var equipment = _training_bot.get("_duel_equipment") if _training_bot != null else null
+	return equipment.call("emit_passive_weapon") if equipment != null and _duel_mode else {}
+
+
+func passive_weapon_damage(target: Node, amount: float, source: String, component: String, attack: Dictionary, impact_point: Vector3 = Vector3.INF) -> float:
+	var equipment = _training_bot.get("_duel_equipment") if _training_bot != null else null
+	if equipment != null and _duel_mode:
+		return equipment.call("passive_weapon_damage", target, amount, source, component, attack, impact_point)
+	var point: Vector3 = target.global_position + Vector3.UP * 0.85 if impact_point == Vector3.INF else impact_point
+	return COUNTER.impact(target, amount, source, component, attack.get("counter_attack", {}), point)
+
+
+func register_offensive_attack(activation: String) -> void:
+	var state = get_passive_runtime()
+	if state != null and _duel_mode:
+		state.register_module(activation)
+
+
+func on_direct_offensive_hit(activation: String, applied: float, target: Node = null) -> void:
+	if target != null and (not preload("res://scripts/passive_state.gd").combat_target(target) or not preload("res://scripts/counter.gd").enemies(self, target)):
+		return
+	var state = get_passive_runtime()
+	if state != null and _duel_mode:
+		state.module_hit(activation, applied)
+
+
 func get_health() -> float:
 	return combat_state.health if combat_state != null else 0.0
+
+
+func on_permutation_relocated() -> void:
+	_last_visual_position = global_position
+	mark_combat_event()
 
 
 func get_max_health() -> float:
@@ -317,9 +394,18 @@ func is_action_locked() -> bool:
 	return is_real_dead() or _resetting or _fulguro_projection_active or is_stunned()
 
 
+func start_knockback(direction: Vector3, distance: float, duration: float, source_id: String) -> void:
+	if bool(get_meta("duel_static_shield", false)):
+		return
+	start_fulguro_projection(direction, distance, duration, 0.0, 0.0, source_id, "projector_push")
+
+
 func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
 	if is_real_dead() or _resetting or max_distance <= 0.0 or max_duration <= 0.0:
 		return
+	var guard := COUNTER.component(self)
+	if guard != null:
+		guard.cancel()
 	if _training_bot != null and _training_bot.has_method("cancel_action"):
 		_training_bot.call("cancel_action")
 	_cancel_pelto_pull()
@@ -327,7 +413,7 @@ func start_fulguro_projection(direction: Vector3, max_distance: float, max_durat
 	_fulguro_projection_direction = FULGURO.flat_direction(direction)
 	_fulguro_projection_distance_remaining = maxf(0.0, max_distance)
 	_fulguro_projection_time_remaining = maxf(0.001, max_duration)
-	_fulguro_projection_speed = _fulguro_projection_distance_remaining / _fulguro_projection_time_remaining
+	_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
 	_fulguro_projection_wall_damage = maxf(0.0, wall_damage)
 	_fulguro_projection_wall_stun = maxf(0.0, wall_stun)
 	_fulguro_projection_source_id = source_id
@@ -342,7 +428,7 @@ func _update_fulguro_projection(delta: float) -> void:
 		_cancel_fulguro_projection()
 		return
 	var available_time := minf(maxf(delta, 0.0), _fulguro_projection_time_remaining)
-	var step_distance := minf(_fulguro_projection_distance_remaining, _fulguro_projection_speed * available_time)
+	var step_distance := KNOCKBACK.step(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining, available_time)
 	if step_distance <= 0.0001:
 		_finish_fulguro_projection(false)
 		return
@@ -354,6 +440,7 @@ func _update_fulguro_projection(delta: float) -> void:
 	global_position.y = 0.0
 	_fulguro_projection_distance_remaining = maxf(0.0, _fulguro_projection_distance_remaining - travel.length())
 	_fulguro_projection_time_remaining = maxf(0.0, _fulguro_projection_time_remaining - available_time)
+	_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
 	if bool(result.get("collided", false)):
 		var normal: Vector3 = result.get("normal", Vector3.ZERO)
 		var crushing := FULGURO.is_crushing_wall(result.get("collider", null), normal, _fulguro_projection_direction)
@@ -389,6 +476,9 @@ func _cancel_fulguro_projection() -> void:
 
 
 func start_pelto_pull(pull_direction: Vector3, distance: float, duration: float, _source_id: String = "", _attack_id: String = "") -> void:
+	var guard := COUNTER.component(self)
+	if distance > 0.0 and duration > 0.0 and guard != null:
+		guard.cancel()
 	if is_real_dead() or _resetting or _fulguro_projection_active or is_stunned() or distance <= 0.0 or duration <= 0.0:
 		return
 	_pelto_pull_active = true
@@ -593,7 +683,7 @@ func _line_of_sight_clear(observer: Node3D) -> bool:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	if observer is CollisionObject3D:
 		query.exclude.append(observer.get_rid())
 	return world.direct_space_state.intersect_ray(query).is_empty()
@@ -657,8 +747,18 @@ func _can_keep_visibility_echo(observer: Node3D) -> bool:
 	return scene == null or not "duel_active" in scene or bool(scene.get("duel_active")) or network_proxy
 
 
-func apply_javelin_mark(duration: float, _source_id: String = "") -> void:
+func apply_javelin_mark(duration: float, source_id: String = "") -> void:
 	_javelin_mark_until = Time.get_ticks_msec() / 1000.0 + maxf(0.0, duration)
+	apply_spotted(maxf(0.0, duration), source_id)
+
+
+func get_javelin_front_direction() -> Vector3:
+	var direction := -global_basis.z
+	# The animated rig turns independently of the static collision body.
+	if is_instance_valid(_visual_rig):
+		direction = -_visual_rig.global_basis.z
+	direction.y = 0.0
+	return direction.normalized() if direction.length_squared() > 0.001 else Vector3.FORWARD
 
 
 func has_javelin_mark() -> bool:
@@ -801,6 +901,9 @@ func is_duel_mode() -> bool:
 
 
 func set_duel_paused(value: bool) -> void:
+	var guard := COUNTER.component(self)
+	if value and guard != null:
+		guard.cancel(true)
 	_duel_paused = value
 	_last_visual_position = global_position
 
@@ -818,6 +921,12 @@ func shift_pause_timers(seconds: float) -> void:
 
 
 func _on_state_died() -> void:
+	var state = get_passive_runtime()
+	if state != null:
+		state.clear_triggers()
+	var guard := COUNTER.component(self)
+	if guard != null:
+		guard.cancel(true)
 	if _resetting:
 		return
 	_resetting = true

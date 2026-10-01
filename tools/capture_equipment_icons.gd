@@ -17,7 +17,7 @@ func _initialize() -> void:
 		(tabs[category] as Button).emit_signal("pressed")
 		await _capture("garage_" + category)
 	var builds := [
-		{"weapon": "shotgun", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "baroud"},
+		{"weapon": "shotgun", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "baroud"},
 		{"weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"},
 	]
 	# Start the scene directly to avoid _start_duel's persistent loadout write.

@@ -1,7 +1,7 @@
 extends RefCounted
 
 const RECORDS_PATH := "user://survival_records.json"
-const LABELS := {"thermal": "Détonation thermique", "relay": "Relais électrique", "double": "Double détente", "trail": "Sillage incandescent", "javelin_splash": "Javelin · explosion", "blaster_pierce": "Blaster · perforation", "drone_chain": "Drone · rebond", "pyro_trail": "Pyro Boots · traînée", "magnetic_shock": "Champ magnétique", "bio_pulse": "Bio Injector · onde", "static_pulse": "Static Shield · onde", "baroud_pulse": "Baroud · onde", "wave_reward": "Réparation de palier", "repair_pickup": "Réparation ramassée", "omnivamp_kill": "Omnivamp · élimination"}
+const LABELS := {"thermal": "Détonation thermique", "double": "Double détente", "trail": "Sillage incandescent", "javelin_splash": "Javelin · explosion", "blaster_pierce": "Blaster · perforation", "pyro_trail": "Pyro Boots · traînée", "magnetic_shock": "Champ magnétique", "bio_pulse": "Bio Injector · onde", "static_pulse": "Static Shield · onde", "baroud_pulse": "Baroud · onde", "wave_reward": "Réparation de palier", "repair_pickup": "Réparation ramassée", "omnivamp_kill": "Omnivamp · élimination"}
 var elapsed := 0.0
 var kills := 0
 var damage: Dictionary = {}
@@ -43,5 +43,5 @@ static func save_records(records: Dictionary, path: String = RECORDS_PATH) -> Er
 	return file.get_error()
 
 static func label_for(id: String) -> String:
-	var aspects := {"rail": "Lance plasma", "arc": "Arc électrique", "heavy_slug": "Briseur · projectile lourd", "battering_ram": "Bélier · onde frontale", "hunter": "Drone chasseur", "sentry": "Drone sentinelle", "javelin_recall": "Javelin · rappel", "shield_counter": "Bouclier · riposte", "magnetic_discharge": "Condensateur · décharge", "metabolism": "Métabolisme", "harvest": "Moisson vitale", "baroud_rescue": "Baroud · sauvetage"}
+	var aspects := {"rail": "Lance plasma", "arc": "Arc électrique", "heavy_slug": "Briseur · projectile lourd", "battering_ram": "Bélier · onde frontale", "javelin_recall": "Javelin · rappel", "shield_counter": "Bouclier · riposte", "magnetic_discharge": "Condensateur · décharge", "metabolism": "Métabolisme", "harvest": "Moisson vitale", "baroud_rescue": "Baroud · sauvetage"}
 	return aspects.get(id, LABELS.get(id, preload("res://scripts/loadout_state.gd").display_name(id)))

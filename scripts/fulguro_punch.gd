@@ -1,10 +1,13 @@
 class_name FulguroPunch
 extends RefCounted
 
+const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
+
 ## Shared rules for every FULGURO PUNCH user. Attackers own timing and visuals;
 ## this resolver owns the exact hit volume, wall occlusion and first-target rule.
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const COUNTER := preload("res://scripts/counter.gd")
 const BODY_SAMPLE_HEIGHT := 0.86
 const WALL_OPPOSITION_THRESHOLD := 0.45
 
@@ -89,7 +92,13 @@ static func resolve_strike(attacker: CollisionObject3D, candidates: Array, locke
 	var target := select_first_target(attacker, candidates, locked_direction, strike_range, strike_width)
 	if target == null:
 		return null
-	var applied := float(target.call("take_damage", direct_damage, source_id, attack_id))
+	if attacker.has_method("register_offensive_attack"):
+		attacker.call("register_offensive_attack", attack_id)
+	var attack := {"id": "%d:%s" % [attacker.get_instance_id(), attack_id], "counter_trigger": bool(definition().get("counter_trigger", false)), "owner": weakref(attacker)}
+	var shield_before := PASSIVE_HITS.shield_health(target)
+	var applied := COUNTER.impact(target, direct_damage, source_id, attack_id, attack, target.global_position + Vector3.UP * BODY_SAMPLE_HEIGHT)
+	if attacker.has_method("on_direct_offensive_hit"):
+		attacker.call("on_direct_offensive_hit", attack_id, PASSIVE_HITS.accepted_damage(target, applied, shield_before), target)
 	if applied <= 0.0:
 		return null
 	if target.has_method("flash_impact"):

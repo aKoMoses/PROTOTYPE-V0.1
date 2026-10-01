@@ -1,0 +1,30 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)
+SCRIPT ERROR: Attempt to call function 'store_buffer' in base 'null instance' on a null instance.
+   at: save_config (res://addons/GD-Sync/Scripts/DataController.gd:100)
+   GDScript backtrace (most recent call first):
+       [0] save_config (res://addons/GD-Sync/Scripts/DataController.gd:100)
+       [1] load_config (res://addons/GD-Sync/Scripts/DataController.gd:96)
+       [2] _ready (res://addons/GD-Sync/Scripts/DataController.gd:50)
+       [3] _ready (res://addons/GD-Sync/MultiplayerClient.gd:276)
+PASS: floor in front of the cover remains clear
+PASS: the centre of the cover shadow remains concealed
+PASS: floor beside the cover remains clear
+PASS: a cover edge has a broad penumbra rather than a hard ray boundary
+PASS: 0.15-unit spatial probes cross the corner smoothly (max step 0.1396)
+PASS: stationary cover and its penumbra do not shimmer across repeated refreshes (drift 0.000000)
+PASS: moving the observer preserves the previous shadow at fixed world points when a dissolve starts
+PASS: the fixture actually changes substantial corner coverage and passes through intermediate opacity
+PASS: the midpoint creates no swept wedge beyond either endpoint's fixed-world opacity (violation 0.000000)
+PASS: 60 Hz movement around the corner bounds every fixed-world opacity step (max 0.0818)
+PASS: moving cover remains a finite, bounded visibility field
+PASS: teleport fixture reveals a region previously behind cover
+PASS: teleport immediately discards stale cover and matches a fresh profile
+PASS: epoch reset fixture contains an unfinished cover transition
+PASS: visibility epoch reset immediately removes previous-round opacity history
+PASS: zero-duration transitions apply the new cover field without division or stale history
+PASS: zero vision radius safely conceals the field including the observer origin
+FOG PROFILE CPU: mean=6.028 ms p95=6.427 ms max=7.702 ms (76 updates; informational only)
+FOG ORGANIC: PASS (17 checks, 0 failures)

@@ -122,22 +122,24 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 		_shotgun_projectile(parent)
 		return
 	var enemy := weapon == "enemy"
-	var charge_curve := charge * charge
+	var power := clampf(charge, 0.0, 1.0)
+	var charge_curve := power * power
+	var size_multiplier := lerpf(1.0, float(COMBAT_DATA.WEAPON_DEFINITIONS.blaster.charged_size_multiplier), power)
 	var color := Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.74)
 	var core := MeshInstance3D.new()
 	core.name = "ProjectileCore"
 	core.mesh = _mesh("tracer")
 	var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
 	core.material_override = _material(core_color, 0.98, true)
-	core.scale = Vector3(0.050 if enemy else lerpf(0.048, 0.095, charge_curve), 0.050 if enemy else lerpf(0.048, 0.095, charge_curve), 0.62 if enemy else lerpf(0.62, 1.00, charge_curve))
+	core.scale = Vector3(0.050 if enemy else 0.060, 0.050 if enemy else 0.060, 0.72) * size_multiplier
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(core)
 	var sheath := MeshInstance3D.new()
 	sheath.name = "ProjectileSheath"
 	sheath.mesh = core.mesh
 	sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
-	sheath.scale = core.scale * Vector3(2.10 + charge_curve * 0.35, 2.10 + charge_curve * 0.35, 1.28)
-	sheath.position.z = 0.10 + charge_curve * 0.08
+	sheath.scale = core.scale * Vector3(2.10, 2.10, 1.28)
+	sheath.position.z = 0.10 * size_multiplier
 	sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(sheath)
 

@@ -8,6 +8,8 @@ signal hit(target: Node3D, applied: float, multiplier: float)
 signal finished
 
 const DATA := preload("res://scripts/combat_data.gd")
+const COUNTER := preload("res://scripts/counter.gd")
+var _counter_attack: Dictionary = {}
 var definition: Dictionary = DATA.WEAPON_DEFINITIONS["mekatana"].duplicate(true)
 var phase := ""
 var step := 0
@@ -28,6 +30,7 @@ var _swing_hits: Dictionary = {}
 var _targets: Dictionary = {}
 var _previous_positions: Dictionary = {}
 var _registry_clock := 0.0
+var _passive_attack: Dictionary = {}
 
 
 func configure(actor: Node3D, source_id: String, move_callback: Callable = Callable()) -> void:
@@ -101,6 +104,11 @@ func update(delta: float) -> void:
 		_elapsed = 0.0
 		if phase == "preparation":
 			phase = "active"
+			_passive_attack = _actor.call("emit_passive_weapon") if damage_enabled and _actor.has_method("emit_passive_weapon") else {}
+			_counter_attack = _passive_attack.get("counter_attack", {})
+			if damage_enabled and _counter_attack.is_empty():
+				_counter_attack = COUNTER.weapon_attack(_actor, "%s:mekatana:%d:%d" % [_source_id, _actor.get_instance_id(), _serial], definition)
+				_passive_attack["counter_attack"] = _counter_attack
 			slash_started.emit(step)
 		elif phase == "active":
 			phase = "recovery"
@@ -193,6 +201,8 @@ func _refresh_targets() -> void:
 
 
 func _collect_targets(node: Node) -> void:
+	if node.is_in_group("prototype0_homing_rockets") and node.get("caster") == _actor:
+		return
 	if node != _actor and node is Node3D and node.has_method("take_damage"):
 		_targets[node.get_instance_id()] = weakref(node)
 		return # Child hurtboxes share their actor's history and one swing hit.
@@ -205,6 +215,12 @@ func _cache_positions() -> void:
 		var target = _targets[id].get_ref()
 		if is_instance_valid(target) and target.is_inside_tree():
 			_previous_positions[id] = target.global_position
+
+
+func rebase_after_teleport() -> void:
+	# Discontinuous displacement is not a cleave crossing. Preserve the phase,
+	# hit history, combo, direction and ownership; only discard stale motion.
+	_cache_positions()
 
 
 func _sweep(from_fraction: float, to_fraction: float) -> void:
@@ -246,12 +262,13 @@ func _sweep(from_fraction: float, to_fraction: float) -> void:
 		elif step == 2 and mask & 2:
 			multiplier = float(definition.third_full_bonus if mask & 1 else definition.third_bonus)
 		var attack_id := "%s:mekatana:%d:%d" % [_source_id, _actor.get_instance_id(), _serial]
-		var result = target.call("take_damage", float(definition.base_damage[step]) * multiplier * _damage_scale, _source_id, attack_id)
+		var damage := float(definition.base_damage[step]) * multiplier * _damage_scale
+		_swing_hits[id] = true
+		var result = _actor.call("passive_weapon_damage", target, damage, _source_id, attack_id, _passive_attack, contact + Vector3.UP * 0.85) if _actor.has_method("passive_weapon_damage") else COUNTER.impact(target, damage, _source_id, attack_id, _counter_attack, contact + Vector3.UP * 0.85)
 		if serial != _serial or phase != "active":
 			return
 		var applied := float(result) if result is float or result is int else 0.0
 		if applied > 0.0:
-			_swing_hits[id] = true
 			_history[id] = mask | (1 << step)
 			hit.emit(target, applied, multiplier)
 

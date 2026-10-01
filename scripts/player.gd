@@ -11,6 +11,7 @@ const ROBOT_CREAM_TEXTURE: Texture2D = preload("res://art/metal_cream.svg")
 const ROBOT_RUST_TEXTURE: Texture2D = preload("res://art/metal_rust.svg")
 const ROBOT_STEEL_TEXTURE: Texture2D = preload("res://art/steel_dark.svg")
 const HEAVY_BLASTER_MODEL_PATH := "res://art/player_heavy_blaster.glb"
+const BLASTER_CHARGE_VISUAL := preload("res://scripts/blaster_charge_visual.gd")
 const SHOTGUN_SCENE := preload("res://scenes/weapons/shotgun.tscn")
 const MEKATANA_SCENE := preload("res://scenes/weapons/mekatana.tscn")
 const MEKATANA_ATTACK := preload("res://scripts/mekatana_attack.gd")
@@ -20,7 +21,27 @@ var _mekatana_pivot: Node3D
 var _mekatana_velocity := Vector3.ZERO
 var _mekatana_movement_owned := false
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const PYRO_BOOTS := preload("res://scripts/pyro_boots.gd")
+const COUNTER := preload("res://scripts/counter.gd")
+var _counter: CounterGuard
+const PROJECTOR := preload("res://scripts/projector.gd")
+const KNOCKBACK := preload("res://scripts/knockback_motion.gd")
+var _projector_below_threshold := false
+var _projector_passive_remaining := 0.0
+var _projector_cast_remaining := 0.0
+var _projector_cast_token := 0
+var _projector_cast_visual: Node3D
 const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
+const ROCKET_BASKET := preload("res://scripts/rocket_basket.gd")
+var _rocket_damage_multiplier := 1.0
+const WEAPON_AIM_GUIDE := preload("res://scripts/weapon_aim_guide.gd")
+const PERMUTATION := preload("res://scripts/permutation.gd")
+const ECLIPSE := preload("res://scripts/eclipse.gd")
+var _eclipse := ECLIPSE.new()
+var _permutation_mark: Node3D
+var _permutation_speed_remaining := 0.0
+const JAVELIN_VISUAL := preload("res://scripts/javelin_visual.gd")
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
 const LONGSHOT_STATE := preload("res://scripts/longshot_state.gd")
 const LONGSHOT_PROJECTILE := preload("res://scripts/longshot_projectile.gd")
 var _longshot_state = LONGSHOT_STATE.new()
@@ -85,7 +106,7 @@ var _blaster_max_damage := 50.0
 var _blaster_cooldown := 0.45
 var _blaster_charge_time := 1.0
 var _blaster_max_range := 14.0
-var _blaster_projectile_speed := 24.0
+var _blaster_projectile_speed := 40.0
 var _blaster_charge_slow_multiplier := 0.80
 var _blaster_projectile_radius := 0.16
 var _blaster_charge_ratio := 0.0
@@ -161,15 +182,17 @@ var _desktop_blaster_tap_buffered := false
 var _desktop_mouse_attack_held := false
 var _desktop_fulguro_charge_held := false
 var _touch_attack_rearm_required := false
-var _drone_preparation := 0.18
-var _drone_max_range := 9.0
-var _drone_speed := 10.0
-var _drone_damage := 100.0
-var _drone_burn_duration := 3.5
-var _drone_spotted_duration := 5.0
-var _drone_cone_half_angle := 20.0
-var _drone_collision_radius := 0.15
-var _javelin_preparation := 0.12
+var _javelin_preparation := 0.35
+var _javelin_charging := false
+var _javelin_elapsed := 0.0
+var _javelin_release_at := -1.0
+var _javelin_release_direction := Vector3.FORWARD
+var _javelin_charge_action_token := 0
+var _javelin_charge_visual: Node3D
+var _javelin_module_aim := Vector3.ZERO
+var _desktop_javelin_charge_held := false
+var _javelin_active_mark_duration := 2.5
+var _javelin_active_recast_range := 8.0
 var _javelin_max_range := 8.0
 var _javelin_speed := 20.0
 var _javelin_damage := 140.0
@@ -218,6 +241,10 @@ var _pelto_damage_multiplier := 1.0
 var _pelto_phase := ""
 var _pelto_elapsed := 0.0
 var _pelto_direction := Vector3.FORWARD
+var _pelto_aim_held := false
+var _pelto_release_requested := false
+var _pelto_module_aim := Vector3.ZERO
+var _desktop_pelto_aim_held := false
 var _pelto_attack_serial := 0
 var _pelto_indicator: Node3D
 var _pelto_lane_mesh: BoxMesh
@@ -226,7 +253,7 @@ var _pelto_waves: Array[Node] = []
 var _pelto_weapon_hidden := false
 var _pelto_weapon_restore_serial := 0
 var _module_busy := false
-var _offensive_module_id := "modulo_drone"
+var _offensive_module_id := "javelin"
 var _defensive_module_id := "magnetic_field"
 var _mobility_module_id := "pyro_boots"
 var survival_mode := false
@@ -291,8 +318,7 @@ var _blaster_recoil_pivot: Node3D
 var _blaster_muzzle: Node3D
 var _blaster_recoil_tweens: Array[Tween] = []
 var _blaster_light: OmniLight3D
-var _blaster_charge_visual: MeshInstance3D
-var _blaster_charge_material: StandardMaterial3D
+var _blaster_charge_visual: Node3D
 var _blaster_charge_audio: AudioStreamPlayer
 var _blaster_charge_hold_audio: AudioStreamPlayer
 var _blaster_ready_audio: AudioStreamPlayer
@@ -358,20 +384,30 @@ var training_unlimited_ammo := false
 
 
 func _ready() -> void:
+	_counter = COUNTER.ensure(self)
+	_counter.finished.connect(_on_counter_finished)
+	add_to_group("permutation_relocation_observers")
 	get_node("/root/GamePreferences").bindings_changed.connect(_refresh_control_bindings)
 	collision_layer = 4
 	collision_mask = 1
 	combat_state = COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
+	add_child(preload("res://scripts/permutation_shield.gd").new())
 	combat_state.health_changed.connect(_on_health_changed)
 	combat_state.damage_applied.connect(_on_damage_applied)
 	combat_state.healing_applied.connect(_on_healing_applied)
 	combat_state.died.connect(_on_state_died)
+	var passive_fx := preload("res://scripts/passive_fx.gd").new()
+	passive_fx.name = "PassiveFX"
+	add_child(passive_fx)
 	passive_state = PASSIVE_STATE.new()
 	passive_state.configure(_passive_id)
 	visibility_state = VISIBILITY_STATE.new()
 	_load_weapon_definitions()
 	_build_collision()
 	_build_robot()
+	var aim_guide := WEAPON_AIM_GUIDE.new()
+	aim_guide.name = "WeaponAimGuide"
+	add_child(aim_guide)
 	_mekatana_attack.configure(self, "player", Callable(self, "_move_mekatana_dash"))
 	_mekatana_attack.slash_started.connect(_on_mekatana_slash_started)
 	_mekatana_attack.hit.connect(_on_mekatana_hit)
@@ -447,6 +483,11 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if passive_state != null:
+		passive_state.clear_triggers()
+	if _counter != null:
+		_counter.cancel(true)
+	_eclipse.cancel(self)
 	_longshot_attack_token += 1
 	var sfx := get_node_or_null("/root/GameSfx")
 	if sfx != null:
@@ -460,6 +501,7 @@ func _exit_tree() -> void:
 
 
 func _load_weapon_definitions() -> void:
+	_rocket_damage_multiplier = 1.0
 	_mekatana_attack.definition = COMBAT_DATA.WEAPON_DEFINITIONS["mekatana"].duplicate(true)
 	_longshot_definition = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"].duplicate(true)
 	var blaster_definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.get("blaster", {})
@@ -484,15 +526,6 @@ func _load_weapon_definitions() -> void:
 	_shotgun_magazine_size = int(shotgun_definition.get("magazine_size", _shotgun_magazine_size))
 	_shotgun_ammo = _shotgun_magazine_size
 	_shotgun_reload_duration = float(shotgun_definition.get("reload_duration", _shotgun_reload_duration))
-	var drone_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("modulo_drone", {})
-	_drone_preparation = float(drone_definition.get("preparation", _drone_preparation))
-	_drone_max_range = float(drone_definition.get("max_range", _drone_max_range))
-	_drone_speed = float(drone_definition.get("speed", _drone_speed))
-	_drone_damage = float(drone_definition.get("damage", _drone_damage))
-	_drone_burn_duration = float(drone_definition.get("burn_duration", _drone_burn_duration))
-	_drone_spotted_duration = float(drone_definition.get("spotted_duration", _drone_spotted_duration))
-	_drone_cone_half_angle = float(drone_definition.get("cone_half_angle", _drone_cone_half_angle))
-	_drone_collision_radius = float(drone_definition.get("collision_radius", _drone_collision_radius))
 	var javelin_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get("javelin", {})
 	_javelin_preparation = float(javelin_definition.get("preparation", _javelin_preparation))
 	_javelin_max_range = float(javelin_definition.get("max_range", _javelin_max_range))
@@ -553,18 +586,22 @@ func _physics_process(delta: float) -> void:
 		_cancel_mekatana_attack()
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
 	if combat_state != null:
-		combat_state.update(delta, stasis_active)
+		combat_state.update(delta, stasis_active or is_eclipse_travelling())
 	if _fulguro_wall_stun_active and (combat_state == null or not combat_state.is_stunned()):
 		_fulguro_wall_stun_active = false
 	if _status_vfx != null:
 		_status_vfx.call("sync", get_active_effect_types())
 	_update_module_cooldowns(delta)
+	_update_projector_cast(delta)
+	if _counter != null:
+		_counter.update(delta)
 	if _survival_evolved("defensive") and _defensive_module_id == "magnetic_field" and _magnetic_wall != null and is_instance_valid(_magnetic_wall):
 		_survival_magnetic_clock += delta
 		if _survival_magnetic_clock >= 0.8:
 			_survival_magnetic_clock = 0.0
 			_survival_area_damage(_magnetic_wall.global_position, 3.0, 35.0, "magnetic_shock", Color("#53d9e5"))
 	_update_aim()
+	_eclipse.update(self, delta)
 	if combat_state != null and combat_state.is_stunned() and _dash_active:
 		_cancel_dash()
 	if combat_state != null and combat_state.is_stunned() and _fulguro_phase != "":
@@ -580,6 +617,7 @@ func _physics_process(delta: float) -> void:
 	_update_debug_effects()
 	var cast_locked_before_action_updates := _action_gate.is_kind(ACTION_GATE.Kind.MODULE)
 	_update_fulguro_attack(delta)
+	_update_javelin_charge(delta)
 	_update_pelto_attack(delta)
 	_update_weapon_pose_state(delta)
 	_update_robot_motion(delta)
@@ -608,6 +646,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_movement(delta: float) -> void:
+	if is_eclipse_travelling():
+		velocity = Vector3.ZERO
+		move_direction = Vector3.ZERO
+		return
 	if _update_mekatana_attack(delta):
 		return
 	if _stasis_remaining > 0.0:
@@ -646,9 +688,12 @@ func _update_movement(delta: float) -> void:
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var bio_multiplier := _bio_speed_multiplier if _bio_remaining > 0.0 else 1.0
+	var permutation_multiplier := float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.speed_multiplier) if _permutation_speed_remaining > 0.0 else 1.0
 	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
+	if _active_module_id == "rocket_basket":
+		charge_multiplier *= float(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cast_move_multiplier)
 	var evolution_speed: float = survival_evolution_effects.movement_multiplier() if survival_mode and survival_evolution_effects != null else 1.0
-	velocity = world_move_direction * move_speed * bio_multiplier * slow_multiplier * charge_multiplier * evolution_speed
+	velocity = world_move_direction * move_speed * bio_multiplier * permutation_multiplier * slow_multiplier * charge_multiplier * evolution_speed * (_counter.movement_multiplier() if _counter != null else 1.0)
 	move_and_slide()
 	global_position.y = 0.0
 
@@ -682,6 +727,8 @@ func _update_robot_motion(delta: float) -> void:
 	if _visual_rig != null:
 		_update_aim_pose_state()
 		var visual_aim := _fulguro_direction if _fulguro_phase != "" else aim_direction
+		if _pelto_phase != "":
+			visual_aim = _pelto_direction
 		if _mekatana_attack.is_direction_locked():
 			visual_aim = _mekatana_attack.direction
 		_visual_rig.update_visual_state(move_direction, visual_aim, visual_speed, move_speed, delta, _gameplay_enabled and not is_real_dead())
@@ -758,6 +805,20 @@ func _update_weapon_ambient_motion(delta: float) -> void:
 
 
 func _update_aim() -> void:
+	if is_pelto_preparing() and _pelto_aim_held:
+		if _pelto_release_requested:
+			_set_aim_direction(_pelto_direction)
+			return
+		if _pelto_module_aim.length_squared() > 0.001:
+			_set_aim_direction(_pelto_module_aim)
+			return
+	if is_javelin_charging():
+		if _javelin_release_at >= 0.0:
+			_set_aim_direction(_javelin_release_direction)
+			return
+		if _javelin_module_aim.length_squared() > 0.001:
+			_set_aim_direction(_javelin_module_aim)
+			return
 	if _touch_aim_active and _touch_aim_vector.length_squared() > 0.04:
 		_set_aim_direction(_camera_relative_direction(_touch_aim_vector))
 		return
@@ -807,6 +868,43 @@ func _normalized_aim_direction() -> Vector3:
 	var direction := aim_direction
 	direction.y = 0.0
 	return direction.normalized() if direction.length_squared() > 0.001 else Vector3(0.0, 0.0, -1.0)
+
+
+## Presentation only: use the same origin, direction and collision settings as shots.
+func get_weapon_aim_preview() -> Dictionary:
+	if not _uses_local_feedback() or not _gameplay_enabled or is_real_dead() or _weapon_id not in ["blaster", "longshot"]:
+		return {}
+	if _stasis_remaining > 0.0 or (combat_state != null and combat_state.is_stunned()) or _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
+		return {}
+	# Only a currently held, accepted fire input owns this guide. Movement,
+	# mouse emulation and the lingering aim/fire pose must not keep it visible.
+	var touch_firing := not _touch_attack_rearm_required and (_touch_fire_active or _touch_attack_held)
+	var desktop_firing := not _desktop_attack_rearm_required and _desktop_attack_input_held()
+	if not touch_firing and not desktop_firing:
+		return {}
+	var direction := _normalized_aim_direction()
+	var muzzle := _blaster_muzzle if _weapon_id == "blaster" else _longshot_muzzle
+	var start := muzzle.global_position if muzzle != null else global_position + Vector3.UP * 0.9 + direction * (0.62 if _weapon_id == "blaster" else 0.7)
+	var excluded: Array[RID] = [get_rid()]
+	if survival_mode and survival_evolution_effects != null:
+		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
+	excluded = MAGNETIC_WALL.owned_exclusions(self, excluded)
+	var radius := 0.0
+	var maximum := _blaster_max_range
+	var mask := 1 | 2 | 8
+	if _weapon_id == "blaster":
+		start = _safe_projectile_origin(start)
+	else:
+		if _has_skeletal_weapon_attachment():
+			direction = _visual_rig.get_aim_forward_direction().normalized()
+		radius = float(_longshot_definition["projectile_radius"])
+		if is_longshot_enhanced_ready():
+			radius *= float(_longshot_definition["enhanced_size_multiplier"])
+		maximum = float(_longshot_definition["max_range"])
+		mask |= 4
+	return {"origin": start, "direction": direction, "range": maximum, "radius": radius,
+		"mask": mask, "exclude": excluded, "support": global_position + Vector3.UP * 0.9,
+		"weapon": _weapon_id}
 
 
 func _weapon_pose_uses_aim() -> bool:
@@ -899,12 +997,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and _eclipse != null and _eclipse.aiming:
+		_eclipse.cancel(self)
 	# The local window cannot cancel the other human's authoritative input.
 	if _uses_local_feedback() and (what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED):
 		reset_desktop_inputs()
 
 
 func reset_desktop_inputs() -> void:
+	if _eclipse.aiming:
+		_eclipse.cancel(self)
 	_desktop_mouse_attack_held = false
 	_desktop_blaster_tap_buffered = false
 	_desktop_attack_rearm_required = _desktop_attack_input_held()
@@ -914,6 +1016,9 @@ func reset_desktop_inputs() -> void:
 	if _desktop_fulguro_charge_held and is_fulguro_charging():
 		_cancel_fulguro_attack()
 	_desktop_fulguro_charge_held = false
+	if _desktop_javelin_charge_held:
+		_cancel_javelin_charge()
+	_desktop_javelin_charge_held = false
 
 
 func _desktop_attack_input_held() -> bool:
@@ -929,7 +1034,7 @@ func _desktop_attack_input_held() -> bool:
 
 
 func _action_incapacitated() -> bool:
-	return not _gameplay_enabled or is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned())
+	return not _gameplay_enabled or is_real_dead() or is_eclipse_travelling() or _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned())
 
 
 func _try_begin_weapon_action(action_id: String) -> int:
@@ -988,7 +1093,20 @@ func _end_module_action(action_token: int, module_id: String) -> bool:
 
 
 func _cancel_pending_module_action(reason: String = "") -> void:
+	if _active_module_id == "projector":
+		_cancel_projector_cast()
+	if _active_module_id == "counter" and _counter != null:
+		_counter.cancel()
+		return
 	if _active_module_action_token == 0:
+		return
+	if _active_module_id == "eclipse":
+		_eclipse.cancel(self)
+		return
+	if _active_module_id == "javelin" and is_javelin_charging():
+		_cancel_javelin_charge()
+		if reason != "" and _attack_label != null:
+			_attack_label.text = reason
 		return
 	var module_id := _active_module_id
 	var action_token := _active_module_action_token
@@ -1176,11 +1294,35 @@ func _update_debug_effects() -> void:
 		elif not offensive_down and offensive_was_down:
 			_release_fulguro_charge()
 			_desktop_fulguro_charge_held = false
+	elif _offensive_module_id == "javelin":
+		if offensive_down and not offensive_was_down:
+			var was_charging := is_javelin_charging()
+			_begin_javelin_charge()
+			_desktop_javelin_charge_held = not was_charging and is_javelin_charging()
+		elif not offensive_down and offensive_was_down and _desktop_javelin_charge_held:
+			_release_javelin_charge()
+			_desktop_javelin_charge_held = false
+	elif _offensive_module_id == "pelto_smash":
+		if offensive_down and not offensive_was_down:
+			var previous_serial := _pelto_attack_serial
+			_perform_pelto_smash(true)
+			_desktop_pelto_aim_held = previous_serial != _pelto_attack_serial
+		elif not offensive_down and offensive_was_down and _desktop_pelto_aim_held:
+			_release_pelto_aim()
+			_desktop_pelto_aim_held = false
 	elif offensive_down and not offensive_was_down:
 		_perform_offensive_module()
 	if _pressed_action_once("defensive"):
 		_activate_defensive_module()
-	if _pressed_action_once("mobility"):
+	if _mobility_module_id == "eclipse":
+		var mobility_down := Input.is_action_pressed("game_mobility")
+		var mobility_was_down := bool(_debug_key_latches.get("game_mobility", false))
+		_debug_key_latches["game_mobility"] = mobility_down
+		if mobility_down and not mobility_was_down:
+			_eclipse.begin(self)
+		elif not mobility_down and mobility_was_down and _eclipse.aiming and not _eclipse.touch_owned:
+			_eclipse.release(self)
+	elif _pressed_action_once("mobility"):
 		_activate_mobility_module()
 	if not survival_mode and _consume_touch_action("weapon"):
 		_cycle_weapon()
@@ -1331,18 +1473,40 @@ func trigger_touch_action(action: String) -> bool:
 func begin_touch_action(action: String) -> bool:
 	if _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or _action_gate.was_claimed_this_frame():
 		return false
+	if action == "mobility" and _mobility_module_id == "eclipse":
+		return _eclipse.begin(self, true)
 	if action == "offensive" and _offensive_module_id == "fulguro_punch":
 		_begin_fulguro_charge()
 		return _action_gate.is_kind(ACTION_GATE.Kind.MODULE) and _active_module_id == "fulguro_punch"
+	if action == "offensive" and _offensive_module_id == "javelin":
+		var accepted := _begin_javelin_charge()
+		if accepted and is_javelin_charging():
+			_javelin_module_aim = aim_direction.normalized()
+		return accepted
+	if action == "offensive" and _offensive_module_id == "pelto_smash":
+		_perform_pelto_smash(true)
+		return is_pelto_preparing()
 	return trigger_touch_action(action)
 
 
 func end_touch_action(action: String) -> void:
+	if action == "mobility" and _eclipse.aiming and _eclipse.touch_owned:
+		_eclipse.release(self)
+	if action == "offensive" and _offensive_module_id == "pelto_smash":
+		_release_pelto_aim()
+	if action == "offensive" and _offensive_module_id == "javelin":
+		_release_javelin_charge()
 	if action == "offensive" and _offensive_module_id == "fulguro_punch":
 		_release_fulguro_charge()
 
 
 func cancel_touch_action(action: String) -> void:
+	if action == "mobility" and _eclipse.aiming and _eclipse.touch_owned:
+		_eclipse.cancel(self)
+	if action == "offensive" and _offensive_module_id == "pelto_smash" and _pelto_aim_held:
+		_cancel_pelto_smash()
+	if action == "offensive" and _offensive_module_id == "javelin":
+		_cancel_javelin_charge()
 	# Losing the finger is an interruption, not a release requesting a strike.
 	# TouchControls calls this only for contacts it owns; keyboard casts remain
 	# governed by the existing action state and interruption rules.
@@ -1351,6 +1515,8 @@ func cancel_touch_action(action: String) -> void:
 
 
 func clear_touch_inputs() -> void:
+	if _eclipse.aiming and _eclipse.touch_owned:
+		_eclipse.cancel(self)
 	if _touch_fire_active and _weapon_id == "longshot":
 		_cancel_longshot_attack()
 	var touch_owned_charge := _touch_fire_charge_started
@@ -1372,7 +1538,13 @@ func clear_touch_inputs() -> void:
 
 
 func set_gameplay_enabled(value: bool) -> void:
+	if not value and passive_state != null:
+		passive_state.clear_triggers()
 	if not value:
+		if _counter != null:
+			_counter.cancel(true)
+		_eclipse.cancel(self)
+		_clear_permutation()
 		_cancel_longshot_attack()
 	_gameplay_enabled = value
 	if is_inside_tree() and _uses_local_feedback():
@@ -1476,6 +1648,8 @@ func get_visibility_epoch() -> int:
 
 
 func get_visibility_weight(observer: Node3D) -> float:
+	if is_eclipse_travelling():
+		return 0.0
 	if observer == null or not is_instance_valid(observer):
 		return 1.0
 	if observer == self:
@@ -1490,7 +1664,7 @@ func get_visibility_weight(observer: Node3D) -> float:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	if observer is CollisionObject3D:
 		query.exclude.append(observer.get_rid())
 	var line_of_sight := world.direct_space_state.intersect_ray(query).is_empty()
@@ -1558,6 +1732,8 @@ func _update_bush_presentation() -> void:
 
 
 func take_damage(amount: float, source_id: String = "", attack_id: String = "") -> float:
+	if is_eclipse_travelling():
+		return 0.0
 	if training_invulnerable:
 		return 0.0
 	if _stasis_remaining > 0.0:
@@ -1568,12 +1744,17 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 		amount = survival_evolution_effects.receive_damage(amount, attack_id)
 		if amount <= 0.0:
 			return 0.0
-	if amount <= 0.0 or (attack_id != "" and _received_attack_ids.has(attack_id)):
+	if amount <= 0.0 or (attack_id != "" and (_received_attack_ids.has(attack_id) or combat_state._processed_attack_ids.has(attack_id))):
 		return 0.0
 	if attack_id != "":
 		_received_attack_ids[attack_id] = true
 	if amount > 0.0 and visibility_state != null:
 		_mark_combat_event()
+	amount = combat_state.absorb_shield_damage(amount)
+	if amount <= 0.0:
+		if attack_id != "":
+			combat_state._processed_attack_ids[attack_id] = true
+		return 0.0
 	var result: Dictionary = passive_state.intercept_damage(amount, combat_state.health)
 	if bool(result["triggered_baroud"]):
 		get_node("/root/GameSfx").play_event("baroud_activation")
@@ -1652,7 +1833,7 @@ func _visual_contact(start: Vector3, end: Vector3, target: Node = null) -> Dicti
 	var query := PhysicsRayQueryParameters3D.create(start, end + delta.normalized() * 0.08, 9)
 	if target is CollisionObject3D:
 		query.collision_mask |= target.collision_layer
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	query.collide_with_areas = true
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
@@ -1689,6 +1870,13 @@ func _finalize_passive_death() -> void:
 
 
 func _on_state_died() -> void:
+	if _counter != null:
+		_counter.cancel(true)
+	if passive_state != null:
+		passive_state.clear_triggers()
+	_eclipse.cancel(self)
+	_cancel_javelin_charge()
+	_clear_permutation()
 	_cancel_mekatana_attack()
 	reset_longshot_state()
 	if not _gameplay_enabled:
@@ -1720,6 +1908,12 @@ func is_real_dead() -> bool:
 
 
 func apply_loadout(next_loadout: Dictionary) -> void:
+	if passive_state != null:
+		passive_state.clear_triggers()
+	if _counter != null:
+		_counter.cancel(true)
+	_eclipse.cancel(self)
+	_clear_permutation()
 	_cancel_mekatana_attack()
 	reset_longshot_state()
 	if survival_evolution_effects != null:
@@ -1739,13 +1933,13 @@ func apply_loadout(next_loadout: Dictionary) -> void:
 		passive_state.baroud_duration = PASSIVE_STATE.BAROUD_DURATION
 		passive_state.omnivamp_rate = PASSIVE_STATE.OMNIVAMP_RATE
 	var weapon_id := str(next_loadout.get("weapon", "blaster"))
-	var offensive_id := str(next_loadout.get("offensive", "modulo_drone"))
+	var offensive_id := str(next_loadout.get("offensive", "javelin"))
 	var defensive_id := str(next_loadout.get("defensive", "magnetic_field"))
 	var mobility_id := str(next_loadout.get("mobility", "pyro_boots"))
 	var passive_id := str(next_loadout.get("passive", "baroud"))
-	_offensive_module_id = offensive_id if offensive_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"] else "modulo_drone"
-	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield"] else "magnetic_field"
-	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector"] else "pyro_boots"
+	_offensive_module_id = offensive_id if offensive_id in ["rocket_basket", "javelin", "fulguro_punch", "pelto_smash"] else "javelin"
+	_defensive_module_id = defensive_id if defensive_id in ["magnetic_field", "static_shield", "projector", "counter"] else "magnetic_field"
+	_mobility_module_id = mobility_id if mobility_id in ["pyro_boots", "bio_injector", "permutation", "eclipse"] else "pyro_boots"
 	set_passive(passive_id)
 	cancel_touch_fire()
 	reset_shotgun_state()
@@ -1810,12 +2004,11 @@ func configure_survival_build(build: Dictionary) -> void:
 		_shotgun_pellet_angles = [-16.0, -12.0, -8.0, -4.0, 4.0, 8.0, 12.0, 16.0]
 	var offensive_ranks: Dictionary = ranks.get("offensive", {})
 	var offensive_power := 0.65 + 0.60 * int(offensive_ranks.get("power", 0))
-	_drone_damage *= offensive_power
+	_rocket_damage_multiplier = offensive_power
 	_javelin_damage *= offensive_power
 	_fulguro_damage *= offensive_power
 	_fulguro_wall_damage *= offensive_power
 	_pelto_damage_multiplier = offensive_power
-	_drone_burn_duration *= offensive_power
 	var defensive_ranks: Dictionary = ranks.get("defensive", {})
 	var defensive_power := 0.70 + 0.55 * int(defensive_ranks.get("power", 0))
 	_magnetic_duration *= defensive_power
@@ -1834,6 +2027,14 @@ func configure_survival_build(build: Dictionary) -> void:
 		passive_state.baroud_max_health = PASSIVE_STATE.BAROUD_MAX_HEALTH * passive_power
 		passive_state.baroud_duration = PASSIVE_STATE.BAROUD_DURATION * passive_power
 		passive_state.omnivamp_rate = PASSIVE_STATE.OMNIVAMP_RATE * passive_power
+		# These new passives begin at their catalog values; existing survival
+		# power rewards improve potency without changing timing or attack counts.
+		var potency := 1.0 + 0.60 * int(passive_ranks.get("power", 0))
+		match _passive_id:
+			"auxiliary_reactor": passive_state.tuning.reduction *= potency
+			"tracker": passive_state.tuning.duration *= potency
+			"alternator": passive_state.tuning.damage_bonus *= potency
+			"inertia": passive_state.tuning.slow_percent *= potency
 	_survival_cooldown_multipliers = {
 		"offensive": 1.25 * pow(0.65, int(offensive_ranks.get("tempo", 0))),
 		"defensive": 1.25 * pow(0.65, int(defensive_ranks.get("tempo", 0))),
@@ -1909,9 +2110,61 @@ func _update_world_ui_anchor() -> void:
 
 
 func set_passive(passive_id: String) -> void:
-	_passive_id = passive_id if passive_id in ["baroud", "omnivamp"] else ""
+	if passive_state != null:
+		passive_state.clear_triggers()
+	_passive_id = passive_id if passive_id in PASSIVE_STATE.IDS else ""
 	if passive_state != null:
 		passive_state.configure(_passive_id)
+
+
+
+
+func passive_authoritative() -> bool:
+	return true
+
+
+func emit_passive_weapon() -> Dictionary:
+	var attack: Dictionary = passive_state.emit_weapon() if passive_state != null and passive_authoritative() else {}
+	attack["counter_attack"] = COUNTER.weapon_attack(self, "weapon:%d:%d" % [get_instance_id(), Time.get_ticks_usec()], COMBAT_DATA.WEAPON_DEFINITIONS.get(_weapon_id, {}))
+	return attack
+
+
+func passive_weapon_damage(target: Node, amount: float, source: String, component: String, attack: Dictionary, impact_point: Vector3 = Vector3.INF) -> float:
+	if not passive_authoritative() or not is_instance_valid(target) or target == self:
+		return 0.0
+	var point: Vector3 = impact_point if impact_point.is_finite() else target.global_position + Vector3.UP * 0.85
+	var shield_before := PASSIVE_STATE.shield_health(target)
+	var applied := COUNTER.impact(target, amount * float(attack.get("multiplier", 1.0)), source, component, attack.get("counter_attack", {}), point)
+	if passive_state != null:
+		var reduction: float = passive_state.weapon_hit(target, PASSIVE_STATE.accepted_damage(target, applied, shield_before), attack, get_module_cooldown(_offensive_module_id))
+		if reduction > 0.0:
+			_module_cooldowns[_offensive_module_id] = maxf(0.0, get_module_cooldown(_offensive_module_id) - reduction)
+	return applied
+
+
+func register_offensive_attack(activation: String) -> void:
+	if passive_state != null and passive_authoritative():
+		passive_state.register_module(activation)
+
+
+func on_direct_offensive_hit(activation: String, applied: float, target: Node = null) -> void:
+	if target != null and (not PASSIVE_STATE.combat_target(target) or not COUNTER.enemies(self, target)):
+		return
+	if passive_state != null and passive_authoritative():
+		passive_state.module_hit(activation, applied)
+
+
+func get_passive_weapon_point() -> Vector3:
+	var muzzle: Node3D = _longshot_muzzle if _weapon_id == "longshot" else _shotgun_muzzle if _weapon_id == "shotgun" else _blaster_muzzle if _weapon_id == "blaster" else null
+	return muzzle.global_position if is_instance_valid(muzzle) else global_position + Vector3.UP * 1.3 + aim_direction * 1.0
+
+
+func get_tracker_locations() -> Array[Node3D]:
+	return passive_state.revealed_targets() if passive_state != null else []
+
+
+func get_passive_status() -> Dictionary:
+	return passive_state.snapshot() if passive_state != null else {}
 
 
 func get_passive_id() -> String:
@@ -1948,11 +2201,16 @@ func get_max_health() -> float:
 	return combat_state.max_health if combat_state != null else COMBAT_DATA.MAX_HEALTH
 
 
+func get_shield_health() -> float:
+	return combat_state.shield_health if combat_state != null else 0.0
+
+
 func get_active_effect_types() -> Array[String]:
 	return combat_state.get_active_effect_types() if combat_state != null else []
 
 
 func _on_health_changed(current: float, maximum: float) -> void:
+	_update_projector_threshold(current, maximum)
 	var ratio := current / maxf(maximum, 1.0)
 	if ratio >= 0.4:
 		_low_health_sound_armed = true
@@ -1994,16 +2252,22 @@ func heal(amount: float, source_id: String = "") -> float:
 
 
 func apply_burn(duration: float = COMBAT_DATA.BURN_DURATION, damage_per_second: float = COMBAT_DATA.BURN_DAMAGE_PER_SECOND, source_id: String = "") -> void:
+	if is_eclipse_travelling():
+		return
 	if combat_state != null:
 		combat_state.apply_burn(duration, damage_per_second, source_id)
 
 
 func apply_slow(duration: float, percent: float, source_id: String = "") -> void:
+	if is_eclipse_travelling():
+		return
 	if combat_state != null:
 		combat_state.apply_slow(duration, percent, source_id)
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if is_eclipse_travelling():
+		return
 	if duration > 0.0:
 		_cancel_mekatana_attack()
 	if duration > 0.0:
@@ -2024,6 +2288,8 @@ func apply_stun(duration: float, source_id: String = "") -> void:
 
 
 func apply_spotted(duration: float, source_id: String = "") -> void:
+	if is_eclipse_travelling():
+		return
 	if combat_state != null:
 		combat_state.apply_spotted(duration, source_id)
 	if visibility_state != null:
@@ -2089,6 +2355,8 @@ func set_weapon(weapon_id: String) -> void:
 	_cancel_longshot_attack()
 	reset_blaster_state()
 	reset_shotgun_state()
+	if passive_state != null:
+		passive_state.clear_triggers()
 	_weapon_id = weapon_id
 	_reset_weapon_pose_to_locomotion(true)
 	_update_weapon_visuals()
@@ -2102,7 +2370,7 @@ func get_offensive_module_id() -> String:
 
 
 func _cycle_offensive_module() -> void:
-	var choices := ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"]
+	var choices := ["rocket_basket", "javelin", "fulguro_punch", "pelto_smash"]
 	_offensive_module_id = choices[(choices.find(_offensive_module_id) + 1) % choices.size()]
 	if _attack_label != null:
 		_attack_label.text = "OFFENSIF : %s" % _offensive_module_id.replace("_", " ").to_upper()
@@ -2114,14 +2382,14 @@ func _perform_offensive_module() -> void:
 	if _offensive_module_id == "javelin" and _can_buffer_defensive_action() and _has_live_javelin_mark():
 		_buffer_javelin_recast()
 		return
-	if _offensive_module_id == "javelin":
+	if _offensive_module_id == "rocket_basket":
+		_perform_rocket_basket()
+	elif _offensive_module_id == "javelin":
 		_perform_javelin()
 	elif _offensive_module_id == "fulguro_punch":
 		_perform_fulguro_punch()
 	elif _offensive_module_id == "pelto_smash":
 		_perform_pelto_smash()
-	else:
-		_perform_modulo_drone()
 
 
 func _activate_defensive_module() -> void:
@@ -2346,7 +2614,8 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	projectile.configure(direction, speed, maximum, 1 | 2 | 4 | 8, excluded, radius)
 	_register_projectile_motion(projectile, start, start + direction * maximum, maximum / speed, radius)
 	var shot_id := "longshot:%d:%d" % [get_instance_id(), _longshot_attack_token]
-	projectile.finished.connect(_on_longshot_projectile_finished.bind(definition, enhanced, shot_id, visual_only))
+	var passive_attack: Dictionary = {} if visual_only else emit_passive_weapon()
+	projectile.finished.connect(_on_longshot_projectile_finished.bind(definition, enhanced, shot_id, visual_only, passive_attack))
 	# Progress belongs to this weapon instance; only a successfully created shot commits it.
 	if not visual_only:
 		_longshot_state.commit_shot()
@@ -2371,7 +2640,7 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	return true
 
 
-func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definition: Dictionary, enhanced: bool, shot_id: String, visual_only: bool = false) -> void:
+func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definition: Dictionary, enhanced: bool, shot_id: String, visual_only: bool = false, passive_attack: Dictionary = {}) -> void:
 	if hit.is_empty():
 		return
 	var target := hit.get("collider") as Node
@@ -2379,7 +2648,7 @@ func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definiti
 		target = target.get_parent()
 	if not visual_only and target != null:
 		var damage: float = LONGSHOT_STATE.damage_at_distance(distance, enhanced, definition)
-		var effective := float(target.call("take_damage", damage, "player", shot_id))
+		var effective := passive_weapon_damage(target, damage, "player", shot_id, passive_attack, hit.position)
 		if effective > 0.0 and target.has_method("flash_impact"):
 			target.call("flash_impact", enhanced)
 	_contact_fx(hit, Color("#79efff") if enhanced else Color("#43d5e8"), 1.25 if enhanced else 0.65)
@@ -2466,6 +2735,16 @@ func reset_shotgun_state() -> void:
 
 
 func reset_module_state() -> void:
+	_cancel_projector_cast()
+	ROCKET_BASKET.clear(self)
+	if _counter != null:
+		_counter.cancel(true)
+	_projector_passive_remaining = 0.0
+	if passive_state != null:
+		passive_state.clear_triggers()
+	_eclipse.cancel(self)
+	_clear_permutation()
+	_cancel_javelin_charge()
 	_module_token += 1
 	_javelin_launch_token += 1
 	_static_pulse_token += 1
@@ -2594,6 +2873,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 			return
 		_shotgun_attack_direction = _visual_rig.get_aim_forward_direction()
 		_last_projectile_direction = _shotgun_attack_direction
+	salvo["passive_attack"] = {} if echo else emit_passive_weapon()
 	_shotgun_shot_audio.play()
 	var cycle_timer := get_tree().create_timer(0.26 / get_attack_speed_multiplier(), true, false, false)
 	cycle_timer.timeout.connect(func() -> void: _play_shotgun_cycle_audio(token))
@@ -2644,6 +2924,10 @@ func _spawn_shotgun_projectile(start: Vector3, endpoint: Vector3, salvo: Diction
 
 
 func _on_shotgun_pellet_finished(hit: Dictionary, distance: float, salvo: Dictionary, index: int) -> void:
+	salvo["impact_point"] = hit.get("position", Vector3.INF)
+	var collider: Node = hit.get("collider")
+	if not hit.is_empty() and (collider == null or not collider.has_method("take_damage")):
+		COUNTER.invalidate(salvo.get("passive_attack", {}).get("counter_attack", {}))
 	if hit.is_empty():
 		return
 	var target := hit.get("collider") as Node
@@ -2662,7 +2946,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		return
 	credited[projectile_id] = true
 	var damage := _shotgun_damage_at_distance(distance) * float(salvo.get("damage_scale", 1.0))
-	var effective_damage := float(target.call("take_damage", damage, "player", projectile_id))
+	var effective_damage := passive_weapon_damage(target, damage, "player", projectile_id, salvo.get("passive_attack", {}), salvo.get("impact_point", target.global_position + Vector3.UP * 0.85))
 	if effective_damage <= 0.0:
 		return
 	if survival_mode and survival_evolution_effects != null:
@@ -2671,7 +2955,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 	var target_id := target.get_instance_id()
 	var tally: Dictionary = hits_by_target.get(target_id, {"valid_hits": 0, "base_damage_sum": 0.0, "critical_applied": false})
 	tally["valid_hits"] = int(tally["valid_hits"]) + 1
-	tally["base_damage_sum"] = float(tally["base_damage_sum"]) + damage
+	tally["base_damage_sum"] = float(tally["base_damage_sum"]) + damage * float(salvo.get("passive_attack", {}).get("multiplier", 1.0))
 	hits_by_target[target_id] = tally
 	_create_target_hit_fx(target.global_position, false)
 	target.call("flash_impact", false)
@@ -2733,8 +3017,8 @@ func _start_shotgun_reload() -> void:
 func _update_shotgun_reload(delta: float) -> void:
 	if not _shotgun_reloading:
 		return
-	_shotgun_reload_audio.stream_paused = _stasis_remaining > 0.0
-	if _stasis_remaining > 0.0:
+	_shotgun_reload_audio.stream_paused = _stasis_remaining > 0.0 or is_eclipse_travelling()
+	if _stasis_remaining > 0.0 or is_eclipse_travelling():
 		return
 	_shotgun_reload_remaining = maxf(0.0, _shotgun_reload_remaining - delta * (get_attack_speed_multiplier() if survival_mode else 1.0))
 	if _shotgun_reload_remaining > 0.0:
@@ -2780,17 +3064,19 @@ func _update_javelin_mark() -> void:
 
 
 func get_javelin_recast_fraction() -> float:
-	if survival_mode and survival_evolution_effects != null:
+	if not _has_live_javelin_mark() and survival_mode and survival_evolution_effects != null:
 		return survival_evolution_effects.javelin_fraction()
 	if _javelin_mark_target == null or not is_instance_valid(_javelin_mark_target):
 		return 0.0
 	if not _javelin_mark_target.has_method("get_javelin_mark_remaining"):
 		return 0.0
 	var remaining := float(_javelin_mark_target.call("get_javelin_mark_remaining"))
-	return clampf(remaining / maxf(0.001, _javelin_mark_duration), 0.0, 1.0)
+	return clampf(remaining / maxf(0.001, _javelin_active_mark_duration), 0.0, 1.0)
 
 
 func _update_module_cooldowns(delta: float) -> void:
+	_projector_passive_remaining = maxf(0.0, _projector_passive_remaining - delta)
+	_permutation_speed_remaining = maxf(0.0, _permutation_speed_remaining - delta)
 	var bio_active := _bio_remaining > 0.0
 	if bio_active:
 		_bio_remaining = maxf(0.0, _bio_remaining - delta)
@@ -2802,6 +3088,8 @@ func _update_module_cooldowns(delta: float) -> void:
 func get_module_cooldown(module_id: String) -> float:
 	if training_instant_cooldowns:
 		return 0.0
+	if module_id == "pyro_boots":
+		return PYRO_BOOTS.recharge_remaining(_module_cooldowns)
 	return maxf(0.0, float(_module_cooldowns.get(module_id, 0.0)))
 
 
@@ -2810,11 +3098,20 @@ func is_module_busy() -> bool:
 
 
 func _module_ready(module_id: String) -> bool:
+	if module_id == "pyro_boots":
+		return get_pyro_charges() > 0
 	return get_module_cooldown(module_id) <= 0.0
 
 
+func get_pyro_charges() -> int:
+	return 2 if training_instant_cooldowns else PYRO_BOOTS.charges(_module_cooldowns)
+
+
 func _start_module_cooldown(module_id: String, duration: float) -> void:
-	var category := "offensive" if module_id in ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"] else "defensive" if module_id in ["magnetic_field", "static_shield"] else "mobility"
+	if module_id == "pyro_boots":
+		PYRO_BOOTS.spend(_module_cooldowns, 0.0 if training_instant_cooldowns else duration * float(_survival_cooldown_multipliers.get("mobility", 1.0)))
+		return
+	var category := "offensive" if module_id in ["rocket_basket", "javelin", "fulguro_punch", "pelto_smash"] else "defensive" if module_id in ["magnetic_field", "static_shield", "projector", "counter"] else "mobility"
 	_module_cooldowns[module_id] = 0.0 if training_instant_cooldowns else maxf(0.0, duration * float(_survival_cooldown_multipliers.get(category, 1.0)))
 
 
@@ -2830,13 +3127,138 @@ func get_stasis_remaining() -> float:
 	return _stasis_remaining
 
 
+func _perform_counter() -> bool:
+	if _counter == null or _action_incapacitated() or _dash_active or _pelto_pull_active or not _module_ready("counter"):
+		return false
+	# An ongoing module owns its cast; COUNTER can only suspend weapon inputs.
+	var token := _try_begin_module_action("counter")
+	if token == 0:
+		return false
+	_clear_defensive_buffer()
+	_module_busy = true
+	_start_module_cooldown("counter", float(_counter.definition.cooldown))
+	_counter.begin()
+	_mark_combat_event()
+	return true
+
+
+func _on_counter_finished() -> void:
+	if _active_module_id == "counter":
+		_end_module_action(_active_module_action_token, "counter")
+
+
+func is_counter_guarding() -> bool:
+	return _counter != null and _counter.phase == "guard"
+
+
+func get_surcharge_remaining() -> float:
+	return _counter.surcharge_remaining if _counter != null else 0.0
+
+
+func get_counter_hud_text() -> String:
+	if _counter == null:
+		return "PRÊT"
+	var state := "GARDE %.1f" % _counter.remaining if is_counter_guarding() else "PRÉPA" if _counter.phase == "preparation" else "RÉCUP" if _counter.phase == "recovery" else "PRÊT" if _module_ready("counter") else ""
+	if get_surcharge_remaining() > 0.0:
+		state += " SURCHARGE %.1f" % get_surcharge_remaining()
+	return state
+
+
 func _perform_defensive_module() -> void:
 	if _defensive_module_id == "":
 		return
-	if _defensive_module_id == "static_shield":
+	if _defensive_module_id == "projector":
+		_perform_projector()
+	elif _defensive_module_id == "counter":
+		_perform_counter()
+	elif _defensive_module_id == "static_shield":
 		_perform_static_shield()
 	else:
 		_perform_magnetic_field()
+
+
+func _update_projector_threshold(current: float, maximum: float) -> void:
+	var below := current > 0.0 and current / maxf(maximum, 1.0) < float(COMBAT_DATA.MODULE_DEFINITIONS.projector.health_threshold)
+	var crossed := below and not _projector_below_threshold
+	_projector_below_threshold = below
+	if not crossed or _defensive_module_id != "projector" or not _gameplay_enabled or not _projector_authoritative() or is_real_dead() or get_projector_passive_cooldown() > 0.0:
+		return
+	# This passive has no cast or action lock: it also protects during attacks.
+	_projector_passive_remaining = 0.0 if training_instant_cooldowns else float(COMBAT_DATA.MODULE_DEFINITIONS.projector.passive_cooldown)
+	_emit_projector_wave()
+
+
+func get_projector_passive_cooldown() -> float:
+	return 0.0 if training_instant_cooldowns else _projector_passive_remaining
+
+
+func _perform_projector() -> bool:
+	if _defensive_module_id != "projector" or not _module_ready("projector"):
+		return false
+	var action_token := _try_begin_module_action("projector")
+	if action_token == 0:
+		return false
+	_start_module_cooldown("projector", float(COMBAT_DATA.MODULE_DEFINITIONS.projector.cooldown))
+	_projector_cast_token = action_token
+	_projector_cast_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS.projector.cast_duration)
+	_projector_cast_visual = PROJECTOR.spawn_cast(self, _projector_cast_remaining)
+	_on_projector_cast_started()
+	return true
+
+
+func _update_projector_cast(delta: float) -> void:
+	if _projector_cast_token == 0:
+		return
+	if not _module_action_can_execute(_projector_cast_token, "projector"):
+		_cancel_projector_cast()
+		return
+	_projector_cast_remaining = maxf(0.0, _projector_cast_remaining - delta)
+	if _projector_cast_remaining > 0.0:
+		return
+	var token := _projector_cast_token
+	_cancel_projector_cast()
+	_emit_projector_wave()
+	_end_module_action(token, "projector")
+
+
+func _cancel_projector_cast() -> void:
+	if _projector_cast_token != 0:
+		_end_module_action(_projector_cast_token, "projector")
+	_projector_cast_remaining = 0.0
+	_projector_cast_token = 0
+	if is_instance_valid(_projector_cast_visual):
+		_projector_cast_visual.queue_free()
+	_projector_cast_visual = null
+
+
+func _on_projector_cast_started() -> void:
+	pass
+
+
+func _emit_projector_wave() -> void:
+	if not _projector_authoritative():
+		return
+	var scene := get_tree().current_scene
+	var targets: Array = []
+	if scene != null and scene.has_method("get_training_targets"):
+		targets = scene.call("get_training_targets")
+	else:
+		var target := _module_target()
+		if is_instance_valid(target):
+			targets.append(target)
+	PROJECTOR.activate(self, targets, "projector:%d" % get_instance_id())
+	_mark_combat_event()
+	_on_projector_activated()
+	if _attack_label != null:
+		_attack_label.text = "PROJECTOR  •  ONDE DE CHOC"
+
+
+func _projector_authoritative() -> bool:
+	return true
+
+
+func _on_projector_activated() -> void:
+	pass
 
 
 func _perform_magnetic_field() -> void:
@@ -2875,33 +3297,15 @@ func _magnetic_placement_valid(origin: Vector3, center: Vector3) -> bool:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
 func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direction: Vector3) -> void:
 	if token != _module_token or not _module_action_can_execute(action_token, "magnetic_field"):
 		return
-	var wall := Area3D.new()
-	wall.name = "MagneticField"
-	wall.collision_layer = 8
-	wall.collision_mask = 0
-	wall.monitoring = false
-	wall.monitorable = true
-	var collision := CollisionShape3D.new()
-	collision.name = "CollisionShape3D"
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(_magnetic_width, _magnetic_height, 0.14)
-	collision.shape = shape
-	collision.position.y = _magnetic_height * 0.5
-	wall.add_child(collision)
-	var visual := MeshInstance3D.new()
-	var visual_mesh := BoxMesh.new()
-	visual_mesh.size = Vector3(_magnetic_width, _magnetic_height, 0.10)
-	visual.mesh = visual_mesh
-	visual.position.y = _magnetic_height * 0.5
-	visual.material_override = _create_fx_material(Color("#53d9e5"), 0.38)
-	wall.add_child(visual)
+	var wall := MAGNETIC_WALL.new()
+	wall.configure(self, _magnetic_width, _magnetic_height, _magnetic_duration)
 	get_tree().current_scene.add_child(wall)
 	wall.global_position = center
 	wall.rotation.y = atan2(direction.x, direction.z)
@@ -2911,7 +3315,7 @@ func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direc
 	_survival_magnetic_clock = 0.0
 	_end_module_action(action_token, "magnetic_field")
 	if _attack_label != null:
-		_attack_label.text = "MAGNETIC FIELD  •  2.5s"
+		_attack_label.text = "WALL  •  %.1fs" % _magnetic_duration
 	var lifetime_timer := get_tree().create_timer(_magnetic_duration, true, false, false)
 	var wall_reference: WeakRef = weakref(wall)
 	lifetime_timer.timeout.connect(func() -> void:
@@ -2990,8 +3394,11 @@ func get_current_move_speed() -> float:
 	if combat_state != null:
 		slow_multiplier = 1.0 - combat_state.get_slow_percent() / 100.0
 	var charge_multiplier := _blaster_charge_slow_multiplier if _blaster_charge_active else 1.0
+	if _active_module_id == "rocket_basket":
+		charge_multiplier *= float(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cast_move_multiplier)
 	var evolution_speed: float = survival_evolution_effects.movement_multiplier() if survival_mode and survival_evolution_effects != null else 1.0
-	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * slow_multiplier * charge_multiplier * evolution_speed
+	var permutation_speed := float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.speed_multiplier) if _permutation_speed_remaining > 0.0 else 1.0
+	return move_speed * (_bio_speed_multiplier if _bio_remaining > 0.0 else 1.0) * permutation_speed * slow_multiplier * charge_multiplier * evolution_speed
 
 
 func get_attack_speed_multiplier() -> float:
@@ -3008,8 +3415,179 @@ func _perform_mobility_module() -> void:
 		return
 	if _mobility_module_id == "bio_injector":
 		_perform_bio_injector()
+	elif _mobility_module_id == "permutation":
+		_perform_permutation()
+	elif _mobility_module_id == "eclipse":
+		_eclipse.begin(self)
 	else:
 		_perform_pyro_boots()
+
+
+func is_eclipse_travelling() -> bool:
+	return _eclipse.travelling
+
+
+func is_eclipse_aiming() -> bool:
+	return _eclipse.aiming
+
+
+func set_eclipse_touch_vector(value: Vector2) -> void:
+	_eclipse.set_touch_vector(self, value)
+
+
+func _perform_eclipse(destination: Vector3) -> bool:
+	if _mobility_module_id != "eclipse":
+		return false
+	return _eclipse.depart(self, destination)
+
+
+func _on_eclipse_arrived(_origin: Vector3, destination: Vector3) -> void:
+	on_permutation_relocated()
+	PERMUTATION.refresh_sweeps(get_tree())
+	get_node("/root/GameSfx").play_event("javelin_teleport")
+	if not _permutation_authoritative():
+		return
+	var scene := get_tree().current_scene
+	var targets: Array = []
+	if survival_mode:
+		targets = _survival_targets()
+	elif scene.has_method("get_training_targets"):
+		targets = scene.call("get_training_targets")
+	else:
+		var target := _module_target()
+		if is_instance_valid(target):
+			targets.append(target)
+	var attack_id := "eclipse:%d:%d" % [get_instance_id(), _eclipse.serial]
+	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.eclipse
+	var radius := float(definition.explosion_radius)
+	var hit := false
+	for target in targets:
+		if not is_instance_valid(target) or target == self or not target is Node3D or not target.has_method("take_damage"):
+			continue
+		if destination.distance_to(target.global_position) > radius or not _solid_path_clear(destination, target.global_position):
+			continue
+		var shield_before := float(target.call("get_shield_health")) if target.has_method("get_shield_health") else 0.0
+		var applied := float(target.call("take_damage", float(definition.damage), "player", attack_id))
+		var shield_after := float(target.call("get_shield_health")) if target.has_method("get_shield_health") else 0.0
+		if applied <= 0.0 and shield_after >= shield_before:
+			continue
+		hit = true
+		if target.has_method("apply_burn"):
+			target.call("apply_burn", float(definition.burn_duration), float(definition.burn_damage_per_second), "player:eclipse")
+		if applied > 0.0:
+			_credit_eclipse_damage(applied)
+		if target.has_method("flash_impact"):
+			target.call("flash_impact", false)
+	if hit:
+		combat_state.grant_shield(float(definition.shield_amount), float(definition.shield_duration))
+
+
+func _credit_eclipse_damage(amount: float) -> void:
+	_on_damage_dealt(amount)
+
+
+func _permutation_target() -> Node3D:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("get_training_targets"):
+		return _module_target() as Node3D
+	var best: Node3D
+	var best_alignment := -1.0
+	var best_distance := INF
+	# The mark acquires through cover. In multi-target training, aim chooses
+	# the enemy; ordinary damaging projectiles retain their own LOS checks.
+	for candidate in scene.call("get_training_targets"):
+		if not candidate is Node3D or not PERMUTATION.can_activate(self, candidate):
+			continue
+		var offset: Vector3 = candidate.global_position - global_position
+		offset.y = 0.0
+		var alignment := aim_direction.normalized().dot(offset.normalized())
+		var distance := offset.length()
+		if alignment >= cos(deg_to_rad(25.0)) and (alignment > best_alignment + 0.001 or (absf(alignment - best_alignment) <= 0.001 and distance < best_distance)):
+			best = candidate
+			best_alignment = alignment
+			best_distance = distance
+	return best
+
+
+func _perform_permutation() -> void:
+	if _action_incapacitated() or _dash_active or _pelto_pull_active or is_instance_valid(_permutation_mark) or not _module_ready("permutation"):
+		return
+	var target := _permutation_target()
+	if not PERMUTATION.can_activate(self, target):
+		if _attack_label != null:
+			_attack_label.text = "PERMUTATION  •  AUCUNE CIBLE À %.0f m" % float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.activation_range)
+		return
+	var action_token := _try_begin_module_action("permutation")
+	if action_token == 0:
+		return
+	_mark_combat_event()
+	_module_busy = true
+	_module_token += 1
+	var token := _module_token
+	var target_epoch := PERMUTATION.epoch(target)
+	_start_module_cooldown("permutation", float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.cooldown))
+	if _attack_label != null:
+		_attack_label.text = "PERMUTATION  •  PRÉPARATION"
+	# Range is checked once on acceptance; escaping it never severs a mark.
+	get_tree().create_timer(float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.preparation), false, true).timeout.connect(func() -> void:
+		if token != _module_token or not _module_action_can_execute(action_token, "permutation"):
+			return
+		if not is_instance_valid(target) or not PERMUTATION.actor_available(target) or PERMUTATION.epoch(target) != target_epoch:
+			_end_module_action(action_token, "permutation")
+			return
+		var mark := PERMUTATION.new()
+		mark.configure(self, target, _permutation_authoritative())
+		mark.arrived.connect(_on_permutation_arrived)
+		mark.failed.connect(_on_permutation_failed)
+		get_tree().current_scene.add_child(mark)
+		_permutation_mark = mark
+		_end_module_action(action_token, "permutation")
+		if _attack_label != null:
+			_attack_label.text = "PERMUTATION  •  MARQUE EN VOL"
+	)
+
+
+func _permutation_authoritative() -> bool:
+	return true
+
+
+func _on_permutation_arrived(_origin: Vector3, _destination: Vector3) -> void:
+	_permutation_mark = null
+	_permutation_speed_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.duration)
+	combat_state.grant_shield(float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_amount), float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_duration))
+	if _attack_label != null:
+		_attack_label.text = "PERMUTATION  •  VITESSE +35 % + BOUCLIER"
+	get_node("/root/GameSfx").play_event("javelin_teleport")
+
+
+func _on_permutation_failed() -> void:
+	_permutation_mark = null
+	if _attack_label != null:
+		_attack_label.text = "PERMUTATION  •  ÉCHANGE IMPOSSIBLE"
+
+
+func _clear_permutation() -> void:
+	if is_instance_valid(_permutation_mark):
+		_permutation_mark.queue_free()
+	_permutation_mark = null
+	_permutation_speed_remaining = 0.0
+	if combat_state != null:
+		combat_state.clear_shield()
+
+
+func get_permutation_speed_remaining() -> float:
+	return _permutation_speed_remaining
+
+
+func on_permutation_relocated() -> void:
+	# Preserve action tokens, charge clocks, phases, aim, dash and resources.
+	_update_world_ui_anchor()
+	_sync_bush_state()
+	_mark_combat_event()
+
+
+func refresh_permutation_sweeps() -> void:
+	_mekatana_attack.rebase_after_teleport()
 
 
 func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
@@ -3066,6 +3644,8 @@ func _perform_bio_injector() -> void:
 func _update_dash(delta: float) -> void:
 	if not _dash_active:
 		return
+	var remaining := maxf(0.0, float(COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.dash_duration) - _dash_elapsed)
+	delta = minf(delta, remaining)
 	_dash_elapsed += delta
 	var dash_distance := float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_distance"]) * _survival_dash_multiplier
 	var dash_duration := float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_duration"])
@@ -3082,10 +3662,14 @@ func _update_dash(delta: float) -> void:
 			_survival_trail_clock = 0.0
 			_survival_area_damage(global_position, 1.5, 24.0, "pyro_trail", Color("#ff8a45"))
 	if collision != null or _dash_elapsed >= dash_duration:
-		_finish_dash()
+		_finish_dash(collision == null)
 
 
-func _finish_dash() -> void:
+func _finish_dash(completed: bool = true) -> void:
+	if passive_state != null and passive_authoritative():
+		passive_state.dash_finished(completed)
+		if completed and _passive_id == "inertia":
+			_create_dash_fx(global_position)
 	_dash_active = false
 	_dash_direction = Vector3.ZERO
 	if _attack_label != null:
@@ -3114,10 +3698,21 @@ func is_action_locked() -> bool:
 	return is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or _action_gate.is_kind(ACTION_GATE.Kind.MODULE) or (combat_state != null and combat_state.is_stunned())
 
 
+func start_knockback(direction: Vector3, distance: float, duration: float, source_id: String) -> void:
+	if _stasis_remaining > 0.0 or bool(get_meta("duel_static_shield", false)):
+		return
+	start_fulguro_projection(direction, distance, duration, 0.0, 0.0, source_id, "projector_push")
+
+
 func start_fulguro_projection(direction: Vector3, max_distance: float, max_duration: float, wall_damage: float, wall_stun: float, source_id: String, attack_id: String) -> void:
+	if is_eclipse_travelling():
+		return
 	_cancel_longshot_attack()
 	if is_real_dead() or max_distance <= 0.0 or max_duration <= 0.0:
 		return
+	_cancel_mekatana_attack()
+	if _counter != null:
+		_counter.cancel()
 	_cancel_pelto_pull()
 	_cancel_fulguro_attack("FULGURO PUNCH  •  PROJETÉ")
 	_cancel_pelto_smash("PELTO SMASH  •  PROJETÉ")
@@ -3134,7 +3729,7 @@ func start_fulguro_projection(direction: Vector3, max_distance: float, max_durat
 	_fulguro_projection_direction = FULGURO.flat_direction(direction)
 	_fulguro_projection_distance_remaining = maxf(0.0, max_distance)
 	_fulguro_projection_time_remaining = maxf(0.001, max_duration)
-	_fulguro_projection_speed = _fulguro_projection_distance_remaining / _fulguro_projection_time_remaining
+	_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
 	_fulguro_projection_wall_damage = maxf(0.0, wall_damage)
 	_fulguro_projection_wall_stun = maxf(0.0, wall_stun)
 	_fulguro_projection_source_id = source_id
@@ -3147,7 +3742,7 @@ func _update_fulguro_projection(delta: float) -> void:
 	if not _fulguro_projection_active:
 		return
 	var available_time := minf(maxf(delta, 0.0), _fulguro_projection_time_remaining)
-	var step_distance := minf(_fulguro_projection_distance_remaining, _fulguro_projection_speed * available_time)
+	var step_distance := KNOCKBACK.step(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining, available_time)
 	if step_distance <= 0.0001:
 		_finish_fulguro_projection(false)
 		return
@@ -3158,6 +3753,7 @@ func _update_fulguro_projection(delta: float) -> void:
 		travelled = collision.get_travel().length()
 	_fulguro_projection_distance_remaining = maxf(0.0, _fulguro_projection_distance_remaining - travelled)
 	_fulguro_projection_time_remaining = maxf(0.0, _fulguro_projection_time_remaining - available_time)
+	_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
 	if collision != null:
 		var crushing := FULGURO.is_crushing_wall(collision.get_collider(), collision.get_normal(), _fulguro_projection_direction)
 		_finish_fulguro_projection(crushing, collision.get_position(), collision.get_normal())
@@ -3194,6 +3790,10 @@ func _cancel_fulguro_projection() -> void:
 
 
 func start_pelto_pull(pull_direction: Vector3, distance: float, duration: float, _source_id: String = "", _attack_id: String = "") -> void:
+	if is_eclipse_travelling():
+		return
+	if distance > 0.0 and duration > 0.0 and _counter != null:
+		_counter.cancel()
 	if is_real_dead() or _stasis_remaining > 0.0 or _fulguro_projection_active or _dash_active or (combat_state != null and combat_state.is_stunned()) or distance <= 0.0 or duration <= 0.0:
 		return
 	_pelto_pull_active = true
@@ -3297,6 +3897,8 @@ func get_buffered_defensive_action() -> String:
 
 func _create_dash_fx(origin: Vector3) -> void:
 	var direction := -_dash_direction if _dash_direction.length_squared() > 0.001 else -aim_direction
+	if _dash_active:
+		PYRO_BOOTS.new().ignite(self, _dash_direction, self)
 	_spawn_particle_burst(origin + Vector3.UP * 0.15, Color("#d99562"), 10, 0.24, 3.8, 0.10, direction + Vector3.UP * 0.28, 28.0)
 
 func _create_bio_fx() -> void:
@@ -3368,6 +3970,32 @@ func _survival_pulse_fx(center: Vector3, radius: float, color: Color) -> void:
 	tween.tween_callback(ring.queue_free)
 
 
+func _perform_rocket_basket() -> void:
+	if not _module_ready("rocket_basket"):
+		return
+	var action_token := _try_begin_module_action("rocket_basket")
+	if action_token == 0:
+		return
+	_mark_combat_event()
+	_module_token += 1
+	var token := _module_token
+	_module_busy = true
+	_start_module_cooldown("rocket_basket", float(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cooldown))
+	if _attack_label != null:
+		_attack_label.text = "PANIER ROQUETTES  •  PRÉPARATION"
+	get_tree().create_timer(float(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.preparation), false, true).timeout.connect(func() -> void:
+		if token != _module_token or not _module_action_can_execute(action_token, "rocket_basket"):
+			_end_module_action(action_token, "rocket_basket")
+			return
+		var attack_id := "rocket_basket:%d:%d:%d" % [get_instance_id(), _visibility_epoch, token]
+		register_offensive_attack(attack_id)
+		ROCKET_BASKET.launch(self, aim_direction, "player", attack_id, _module_cooldowns, _rocket_damage_multiplier, func(_target: Node3D, applied: float) -> void:
+			on_direct_offensive_hit(attack_id, applied, _target)
+		, float(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cooldown) * float(_survival_cooldown_multipliers.get("offensive", 1.0)))
+		_end_module_action(action_token, "rocket_basket")
+	)
+
+
 func _module_target() -> Node:
 	var active_scene := get_tree().current_scene
 	if active_scene != null and active_scene.has_method("get_training_targets"):
@@ -3410,7 +4038,7 @@ func _module_obstacle_endpoint(start: Vector3, end: Vector3, excluded: Array[RID
 	query.collision_mask = 9
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()] + excluded
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()] + excluded)
 	var result := world.direct_space_state.intersect_ray(query)
 	return result["position"] if not result.is_empty() else end
 
@@ -3423,7 +4051,7 @@ func _module_path_clear(from_position: Vector3, to_position: Vector3, excluded: 
 	query.collision_mask = 9
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()] + excluded
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()] + excluded)
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
@@ -3435,34 +4063,25 @@ func _solid_path_clear(from_position: Vector3, to_position: Vector3, excluded: A
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()] + excluded
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()] + excluded)
 	return world.direct_space_state.intersect_ray(query).is_empty()
-
-
-func _select_drone_target(origin: Vector3, direction: Vector3) -> Node:
-	var target := _module_target()
-	if target == null or not is_instance_valid(target) or float(target.call("get_health")) <= 0.0:
-		return null
-	var offset: Vector3 = target.global_position - origin
-	offset.y = 0.0
-	var distance: float = offset.length()
-	if distance <= 0.001 or distance > _drone_max_range:
-		return null
-	var angle := rad_to_deg(acos(clampf(direction.dot(offset.normalized()), -1.0, 1.0)))
-	if angle > _drone_cone_half_angle or not _solid_path_clear(origin, target.global_position, [target.get_rid()]):
-		return null
-	return target
 
 
 func _fulguro_targets() -> Array:
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if scene == null:
 		return []
+	var targets: Array = []
 	if scene.has_method("get_training_targets"):
-		return scene.call("get_training_targets")
-	var target := scene.get_node_or_null("TargetDummy")
-	return [target] if target != null else []
-
+		targets.append_array(scene.call("get_training_targets"))
+	else:
+		var target := _module_target()
+		if is_instance_valid(target):
+			targets.append(target)
+	for rocket in get_tree().get_nodes_in_group("prototype0_homing_rockets"):
+		if rocket.caster != self:
+			targets.append(rocket)
+	return targets
 
 func _perform_fulguro_punch() -> void:
 	_begin_fulguro_charge()
@@ -3802,7 +4421,7 @@ func _cancel_fulguro_attack(reason: String = "") -> void:
 		_attack_label.text = reason
 
 
-func _perform_pelto_smash() -> void:
+func _perform_pelto_smash(aim_held: bool = false) -> void:
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("pelto_smash") or is_real_dead() or (combat_state != null and combat_state.is_stunned()):
 		return
 	var action_token := _try_begin_module_action("pelto_smash")
@@ -3815,6 +4434,9 @@ func _perform_pelto_smash() -> void:
 	_pelto_phase = "preparation"
 	_pelto_elapsed = 0.0
 	_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
+	_pelto_aim_held = aim_held
+	_pelto_release_requested = false
+	_pelto_module_aim = Vector3.ZERO
 	_pelto_weapon_restore_serial += 1
 	_start_module_cooldown("pelto_smash", float(COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"].cooldown))
 	_create_pelto_telegraph()
@@ -3833,6 +4455,22 @@ func get_pelto_preparation_fraction() -> float:
 	return clampf(_pelto_elapsed / maxf(0.001, _pelto_preparation), 0.0, 1.0) if _pelto_phase == "preparation" else 0.0
 
 
+func set_pelto_touch_aim(vector: Vector2) -> void:
+	if not is_pelto_preparing() or not _pelto_aim_held or _pelto_release_requested or vector.length_squared() < 0.04:
+		return
+	_pelto_module_aim = _camera_relative_direction(vector)
+	_set_aim_direction(_pelto_module_aim)
+	_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
+	_update_pelto_telegraph()
+
+
+func _release_pelto_aim() -> void:
+	if not is_pelto_preparing() or not _pelto_aim_held or _pelto_release_requested:
+		return
+	_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
+	_pelto_release_requested = true
+
+
 func _update_pelto_attack(delta: float) -> void:
 	if _pelto_phase == "":
 		return
@@ -3844,21 +4482,25 @@ func _update_pelto_attack(delta: float) -> void:
 		return
 	_pelto_elapsed += maxf(0.0, delta)
 	if _pelto_phase == "preparation":
+		if _pelto_aim_held and not _pelto_release_requested:
+			_pelto_direction = PELTO_SMASH.flat_direction(aim_direction)
 		_update_pelto_telegraph()
 		_update_pelto_pose()
-		if _pelto_elapsed >= _pelto_preparation:
+		var hold_limit := float(COMBAT_DATA.MODULE_DEFINITIONS.pelto_smash.max_aim_hold)
+		if _pelto_elapsed >= _pelto_preparation and (not _pelto_aim_held or _pelto_release_requested or _pelto_elapsed >= hold_limit):
+			var carry := maxf(0.0, _pelto_elapsed - _pelto_preparation) if not _pelto_aim_held else 0.0
 			_commit_pelto_impact()
-		return
-	var duration := _pelto_impact_duration if _pelto_phase == "impact" else _pelto_recovery
-	if _pelto_elapsed >= duration:
-		_pelto_elapsed = 0.0
-		if _pelto_phase == "impact":
-			_pelto_phase = "recovery"
-			if _attack_label != null:
-				_attack_label.text = "PELTO SMASH  •  REPRISE"
+			_pelto_elapsed = carry
 		else:
-			_finish_pelto_smash()
 			return
+	if _pelto_phase == "impact" and _pelto_elapsed >= _pelto_impact_duration:
+		_pelto_elapsed -= _pelto_impact_duration
+		_pelto_phase = "recovery"
+		if _attack_label != null:
+			_attack_label.text = "PELTO SMASH  •  REPRISE"
+	if _pelto_phase == "recovery" and _pelto_elapsed >= _pelto_recovery:
+		_finish_pelto_smash()
+		return
 	_update_pelto_pose()
 
 
@@ -3868,10 +4510,12 @@ func _commit_pelto_impact() -> void:
 		return
 	_pelto_phase = "impact"
 	_pelto_elapsed = 0.0
+	_pelto_aim_held = false
+	_pelto_module_aim = Vector3.ZERO
 	_clear_pelto_telegraph()
 	if _pelto_impact_audio != null:
 		_pelto_impact_audio.play()
-	_camera_impulse(0.12, 0.085)
+	_camera_impulse(0.08, 0.05)
 	_spawn_particle_burst(global_position + Vector3.UP * 0.08, Color("#c47b43"), 14, 0.30, 3.5, 0.13, _pelto_direction + Vector3.UP * 0.22, 45.0)
 	var scene := get_tree().current_scene if get_tree() != null else null
 	if scene != null:
@@ -3946,7 +4590,7 @@ func _update_pelto_telegraph() -> void:
 	_pelto_indicator.global_position = global_position + Vector3.UP * 0.045
 	_pelto_indicator.global_basis = Basis.looking_at(_pelto_direction, Vector3.UP)
 	var progress := clampf(_pelto_elapsed / maxf(0.001, _pelto_preparation), 0.0, 1.0)
-	_pelto_indicator.scale.y = 1.0 + sin(_pelto_elapsed * 22.0) * 0.18 * progress
+	_pelto_indicator.scale.y = lerpf(0.65, 1.0, smoothstep(0.0, 1.0, progress))
 
 
 func _clear_pelto_telegraph() -> void:
@@ -3964,6 +4608,10 @@ func _update_pelto_pose() -> void:
 
 
 func _finish_pelto_smash() -> void:
+	_desktop_pelto_aim_held = false
+	_pelto_aim_held = false
+	_pelto_release_requested = false
+	_pelto_module_aim = Vector3.ZERO
 	var action_token := _active_module_action_token if _active_module_id == "pelto_smash" else 0
 	_clear_pelto_telegraph()
 	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
@@ -3978,6 +4626,10 @@ func _finish_pelto_smash() -> void:
 
 
 func _cancel_pelto_smash(reason: String = "") -> void:
+	_desktop_pelto_aim_held = false
+	_pelto_aim_held = false
+	_pelto_release_requested = false
+	_pelto_module_aim = Vector3.ZERO
 	var action_token := _active_module_action_token if _active_module_id == "pelto_smash" else 0
 	_clear_pelto_telegraph()
 	if _visual_rig != null and _visual_rig.has_method("clear_pelto_pose"):
@@ -4034,128 +4686,7 @@ func _pelto_ground_material(color: Color, alpha: float) -> StandardMaterial3D:
 	return material
 
 
-func _perform_modulo_drone() -> void:
-	if _stasis_remaining > 0.0 or _fulguro_projection_active or not _module_ready("modulo_drone") or (combat_state != null and combat_state.is_stunned()):
-		return
-	var action_token := _try_begin_module_action("modulo_drone")
-	if action_token == 0:
-		return
-	_mark_combat_event()
-	_module_busy = true
-	_module_token += 1
-	var token := _module_token
-	_start_module_cooldown("modulo_drone", float(COMBAT_DATA.MODULE_DEFINITIONS["modulo_drone"]["cooldown"]))
-	var direction := aim_direction.normalized()
-	_attack_label.text = "MODULO DRONE  •  CD 10s"
-	var timer := get_tree().create_timer(_drone_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_modulo_drone(token, action_token, global_position, direction))
-
-
-func _emit_modulo_drone(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
-	if token != _module_token or not _module_action_can_execute(action_token, "modulo_drone"):
-		return
-	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.launch_sentry(origin, direction):
-		_end_module_action(action_token, "modulo_drone")
-		return
-	var target := _select_drone_target(origin, direction)
-	var visual_start := _module_visual_start(direction)
-	visual_start.y = maxf(visual_start.y, global_position.y + 0.85)
-	visual_start = _safe_projectile_origin(visual_start)
-	var flight_direction := direction
-	if target != null and is_instance_valid(target):
-		flight_direction = (target.global_position + Vector3.UP * 0.9 - visual_start).normalized()
-	var excluded: Array[RID] = [get_rid()]
-	if survival_synergies != null:
-		excluded.append_array(survival_synergies.drone_exclusions())
-	if survival_mode and survival_evolution_effects != null:
-		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
-	var projectile := LIVE_PROJECTILE.new()
-	projectile.name = "ModuloDroneProjectile"
-	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
-	get_tree().current_scene.add_child(projectile)
-	_register_fx_budget(projectile, "projectile")
-	projectile.global_position = visual_start
-	projectile.look_at(visual_start + flight_direction, Vector3.UP)
-	projectile.configure(flight_direction, _drone_speed, _drone_max_range, 1 | 2 | 8, excluded)
-	_register_projectile_motion(projectile, visual_start, visual_start + flight_direction * _drone_max_range, _drone_max_range / _drone_speed, _drone_collision_radius)
-	var drone := MeshInstance3D.new()
-	drone.name = "DroneBody"
-	var drone_mesh := SphereMesh.new()
-	drone_mesh.radius = _drone_collision_radius
-	drone_mesh.height = _drone_collision_radius * 2.0
-	drone.mesh = drone_mesh
-	drone.material_override = _create_fx_material(Color("#45ddff"), 0.96)
-	projectile.add_child(drone)
-	var flight: Dictionary = survival_synergies.track_drone(drone) if survival_synergies != null else {"charged": false}
-	_decorate_drone_projectile(drone)
-	_create_muzzle_burst(visual_start, flight_direction, Color("#45ddff"), 0.82)
-	projectile.finished.connect(_on_modulo_drone_finished.bind(token, flight))
-
-	_end_module_action(action_token, "modulo_drone")
-
-
-func _on_modulo_drone_finished(hit: Dictionary, _distance: float, token: int, flight: Dictionary) -> void:
-	if token != _module_token:
-		return
-	if survival_synergies != null:
-		survival_synergies.update_flight(flight)
-	if not hit.is_empty():
-		var target := hit.get("collider") as Node
-		if target != null and target.has_method("take_damage") and target.has_method("get_health"):
-			var applied := float(target.call("take_damage", _drone_damage, "player", "modulo_drone:%d" % token))
-			if applied > 0.0:
-				if bool(flight.charged) and survival_synergies != null:
-					survival_synergies.drone_hit(target, _drone_damage)
-				if survival_mode and survival_evolution_effects != null:
-					survival_evolution_effects.drone_hit(target)
-				if _survival_evolved("offensive"):
-					_survival_secondary_hit(target, _drone_damage * 0.5, 5.0, "drone_chain", false)
-				target.call("apply_burn", _drone_burn_duration, COMBAT_DATA.BURN_DAMAGE_PER_SECOND, "player:modulo_drone")
-				target.call("apply_spotted", _drone_spotted_duration, "modulo_drone")
-				_create_target_hit_fx(target.global_position, false)
-				target.call("flash_impact", false)
-			_create_hit_flash(hit["position"], Color("#8ff7ff"), 0.50)
-		else:
-			_contact_fx(hit, Color("#45ddff"))
-	_module_busy = false
-
-
-func _decorate_drone_projectile(drone: Node3D) -> void:
-	var core := MeshInstance3D.new()
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = _drone_collision_radius * 0.55
-	core_mesh.height = _drone_collision_radius * 1.1
-	core.mesh = core_mesh
-	core.material_override = _create_fx_material(Color("#d8ffff"), 1.0)
-	drone.add_child(core)
-	var orbit := MeshInstance3D.new()
-	var orbit_mesh := TorusMesh.new()
-	orbit_mesh.inner_radius = 0.17
-	orbit_mesh.outer_radius = 0.22
-	orbit_mesh.rings = 8
-	orbit_mesh.ring_segments = 14
-	orbit.mesh = orbit_mesh
-	orbit.rotation_degrees.x = 90.0
-	orbit.material_override = _create_fx_material(Color("#7cf4ff"), 0.90)
-	drone.add_child(orbit)
-	var trail := MeshInstance3D.new()
-	var trail_mesh := CylinderMesh.new()
-	trail_mesh.top_radius = 0.018
-	trail_mesh.bottom_radius = 0.09
-	trail_mesh.height = 0.65
-	trail.mesh = trail_mesh
-	trail.rotation_degrees.x = -90.0
-	trail.position.z = 0.34
-	trail.material_override = _create_fx_material(Color("#2fa6d8"), 0.34)
-	drone.add_child(trail)
-	var pulse := drone.create_tween().set_loops()
-	pulse.tween_property(orbit, "rotation_degrees", Vector3(90.0, 0.0, 180.0), 0.16).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(orbit, "rotation_degrees", Vector3(90.0, 0.0, 360.0), 0.16).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(drone, "scale", Vector3.ONE * 1.18, 0.10)
-	pulse.tween_property(drone, "scale", Vector3.ONE, 0.10)
-
-
-func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
+func _select_javelin_target(origin: Vector3, direction: Vector3, shot_range: float = -1.0) -> Node:
 	var target := _module_target()
 	if target == null or not is_instance_valid(target) or float(target.call("get_health")) <= 0.0:
 		return null
@@ -4164,7 +4695,7 @@ func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
 	var along := direction.dot(offset)
 	var closest := origin + direction * along
 	var lateral := Vector3(target.global_position.x - closest.x, 0.0, target.global_position.z - closest.z).length()
-	if along <= 0.0 or along > _javelin_max_range or lateral > 0.70:
+	if along <= 0.0 or along > (shot_range if shot_range > 0.0 else _javelin_max_range) or lateral > 0.70:
 		return null
 	if not _solid_path_clear(origin, target.global_position, [target.get_rid()]):
 		return null
@@ -4172,40 +4703,130 @@ func _select_javelin_target(origin: Vector3, direction: Vector3) -> Node:
 
 
 func _perform_javelin() -> void:
+	if _begin_javelin_charge():
+		_release_javelin_charge()
+
+
+func _begin_javelin_charge() -> bool:
+	if _can_buffer_defensive_action() and _has_live_javelin_mark():
+		_buffer_javelin_recast()
+		return true
 	if _stasis_remaining > 0.0 or _fulguro_projection_active or (combat_state != null and combat_state.is_stunned()):
-		return
-	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.has_javelin_anchor():
+		return false
+	if not _has_live_javelin_mark() and survival_mode and survival_evolution_effects != null and survival_evolution_effects.has_javelin_anchor():
 		_recast_javelin()
-		return
-	if not survival_mode and _javelin_mark_target != null and is_instance_valid(_javelin_mark_target) and bool(_javelin_mark_target.call("has_javelin_mark")):
+		return true
+	if _has_live_javelin_mark():
 		_mark_combat_event()
 		_recast_javelin()
-		return
+		return true
 	_javelin_mark_target = null
 	if not _module_ready("javelin"):
-		return
+		return false
 	var action_token := _try_begin_module_action("javelin")
 	if action_token == 0:
-		return
+		return false
 	_mark_combat_event()
 	_module_busy = true
 	_module_token += 1
 	_javelin_launch_token += 1
-	var token := _javelin_launch_token
+	_javelin_charging = true
+	_javelin_elapsed = 0.0
+	_javelin_release_at = -1.0
+	_javelin_charge_action_token = action_token
+	_javelin_module_aim = Vector3.ZERO
 	_start_module_cooldown("javelin", float(COMBAT_DATA.MODULE_DEFINITIONS["javelin"]["cooldown"]))
-	var direction := aim_direction.normalized()
-	_attack_label.text = "JAVELIN  •  CD 12s"
-	var timer := get_tree().create_timer(_javelin_preparation, true, false, false)
-	timer.timeout.connect(func() -> void: _emit_javelin(token, action_token, global_position, direction))
+	_javelin_charge_visual = JAVELIN_VISUAL.new()
+	_javelin_charge_visual.name = "JavelinCharge"
+	add_child(_javelin_charge_visual)
+	_javelin_charge_visual.call("configure", true)
+	_update_javelin_charge(0.0)
+	return true
 
 
-func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Vector3) -> void:
+func is_javelin_charging() -> bool:
+	return _javelin_charging
+
+
+func get_javelin_charge_fraction() -> float:
+	return clampf(_javelin_elapsed / float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max), 0.0, 1.0) if _javelin_charging else 0.0
+
+
+func _javelin_power(seconds: float) -> float:
+	return clampf((seconds - _javelin_preparation) / (float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max) - _javelin_preparation), 0.0, 1.0)
+
+
+func set_javelin_touch_aim(vector: Vector2) -> void:
+	if not _javelin_charging or _javelin_release_at >= 0.0 or vector.length_squared() < 0.04:
+		return
+	_javelin_module_aim = _camera_relative_direction(vector)
+	_set_aim_direction(_javelin_module_aim)
+
+
+func _release_javelin_charge() -> void:
+	if not _javelin_charging or _javelin_release_at >= 0.0:
+		return
+	_javelin_release_at = maxf(_javelin_preparation, _javelin_elapsed)
+	_javelin_release_direction = aim_direction.normalized()
+
+
+func _update_javelin_charge(delta: float) -> void:
+	if not _javelin_charging:
+		return
+	if not _module_action_can_execute(_javelin_charge_action_token, "javelin"):
+		_cancel_javelin_charge()
+		return
+	_javelin_elapsed = minf(_javelin_elapsed + delta, float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max))
+	if _javelin_elapsed >= float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max) - 0.000001:
+		_javelin_elapsed = float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max)
+	var power := _javelin_power(_javelin_elapsed)
+	if is_instance_valid(_javelin_charge_visual):
+		var direction := _javelin_release_direction if _javelin_release_at >= 0.0 else aim_direction.normalized()
+		_javelin_charge_visual.global_position = global_position + Vector3.UP * 1.25 + direction * 1.05
+		_javelin_charge_visual.look_at(_javelin_charge_visual.global_position + direction, Vector3.UP)
+		_javelin_charge_visual.call("set_power", power, lerpf(_javelin_max_range, float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charged_range), power))
+	if _attack_label != null:
+		_attack_label.text = "JAVELIN  •  %.2f / 1.74 s  •  %s" % [_javelin_elapsed, "PUISSANCE MAX" if get_javelin_charge_fraction() >= 1.0 else "CHARGE"]
+	if _javelin_release_at >= 0.0 and _javelin_elapsed >= _javelin_release_at:
+		var action_token := _javelin_charge_action_token
+		var launch_power := _javelin_power(_javelin_release_at)
+		_javelin_charging = false
+		_clear_javelin_charge_visual()
+		_emit_javelin(_javelin_launch_token, action_token, global_position, _javelin_release_direction, launch_power)
+
+
+func _clear_javelin_charge_visual() -> void:
+	if is_instance_valid(_javelin_charge_visual):
+		_javelin_charge_visual.queue_free()
+	_javelin_charge_visual = null
+	_javelin_module_aim = Vector3.ZERO
+
+
+func _cancel_javelin_charge() -> void:
+	if not _javelin_charging:
+		return
+	_javelin_charging = false
+	_javelin_launch_token += 1
+	_clear_javelin_charge_visual()
+	_end_module_action(_javelin_charge_action_token, "javelin")
+	_javelin_charge_action_token = 0
+	_desktop_javelin_charge_held = false
+
+
+func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Vector3, power: float = 0.0) -> void:
 	if token != _javelin_launch_token or not _module_action_can_execute(action_token, "javelin"):
 		return
 	if survival_mode and survival_evolution_effects != null and survival_evolution_effects.launch_beacon(origin, direction):
 		_end_module_action(action_token, "javelin")
 		return
-	var target := _select_javelin_target(origin, direction)
+	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.javelin
+	var shot_range := lerpf(_javelin_max_range, float(definition.charged_range), power)
+	var shot_speed := lerpf(_javelin_speed, float(definition.charged_speed), power)
+	var shot_damage := _javelin_damage * lerpf(1.0, float(definition.charged_damage) / float(definition.damage), power)
+	var mark_duration := lerpf(_javelin_mark_duration, float(definition.charged_mark_duration), power)
+	_javelin_active_mark_duration = mark_duration
+	_javelin_active_recast_range = shot_range
+	var target := _select_javelin_target(origin, direction, shot_range)
 	var visual_start := _module_visual_start(direction)
 	visual_start.y = maxf(visual_start.y, global_position.y + 0.85)
 	visual_start = _safe_projectile_origin(visual_start)
@@ -4222,81 +4843,62 @@ func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Ve
 	var excluded: Array[RID] = [get_rid()]
 	if survival_mode and survival_evolution_effects != null:
 		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
-	projectile.configure(flight_direction, _javelin_speed, _javelin_max_range, 1 | 2 | 8, excluded)
-	_register_projectile_motion(projectile, visual_start, visual_start + flight_direction * _javelin_max_range, _javelin_max_range / _javelin_speed, 0.12)
-	var spear := MeshInstance3D.new()
+	projectile.configure(flight_direction, shot_speed, shot_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, visual_start, visual_start + flight_direction * shot_range, shot_range / shot_speed, 0.12)
+	var spear := JAVELIN_VISUAL.new()
 	spear.name = "JavelinBody"
-	var spear_mesh := CylinderMesh.new()
-	spear_mesh.top_radius = 0.025
-	spear_mesh.bottom_radius = 0.11
-	spear_mesh.height = 0.58
-	spear.mesh = spear_mesh
-	spear.material_override = _create_fx_material(Color("#ffe48b"), 0.96)
 	projectile.add_child(spear)
-	_decorate_javelin_projectile(spear)
-	_create_muzzle_burst(visual_start, flight_direction, Color("#ffe48b"), 0.90)
-	projectile.finished.connect(_on_javelin_finished.bind(token))
+	spear.call("configure", false)
+	spear.call("set_power", power, shot_range)
+	_create_muzzle_burst(visual_start, flight_direction, Color("#7df4ff"), 0.90 + power * 0.65)
+	_spawn_particle_burst(visual_start, Color("#bcffff"), 12 + roundi(power * 12.0), 0.28, 4.0 + power * 4.0, 0.08, flight_direction, 26.0)
+	register_offensive_attack("javelin:%d" % token)
+	projectile.finished.connect(_on_javelin_finished.bind(token, shot_damage, mark_duration, shot_range, power))
+	_attack_label.text = "JAVELIN  •  %d%%  •  CD 12s" % roundi(power * 100.0)
 
 	_end_module_action(action_token, "javelin")
 
 
-func _on_javelin_finished(hit: Dictionary, _distance: float, token: int) -> void:
+func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage: float = 140.0, mark_duration: float = 2.5, shot_range: float = 8.0, power: float = 0.0) -> void:
 	if token != _javelin_launch_token:
+		return
+	if hit.get("collider") is Node and hit.collider.is_in_group("prototype0_homing_rockets"):
+		hit.collider.take_damage(damage, "player", "javelin:%d" % token)
 		return
 	if not hit.is_empty():
 		var target := hit.get("collider") as Node
 		if target != null and target.has_method("take_damage") and target.has_method("apply_javelin_mark"):
-			var applied := float(target.call("take_damage", _javelin_damage, "player", "javelin:%d" % token))
+			var shield_before := PASSIVE_STATE.shield_health(target)
+			var applied := float(target.call("take_damage", damage, "player", "javelin:%d" % token))
+			on_direct_offensive_hit("javelin:%d" % token, PASSIVE_STATE.accepted_damage(target, applied, shield_before), target)
 			if applied > 0.0:
 				if survival_mode and survival_evolution_effects != null:
 					survival_evolution_effects.javelin_hit(target, target.global_position)
 				if _survival_evolved("offensive"):
-					_survival_area_damage(target.global_position, 3.0, _javelin_damage * 0.45, "javelin_splash", Color("#ffe48b"), target)
-				target.call("apply_javelin_mark", _javelin_mark_duration, "javelin")
+					_survival_area_damage(target.global_position, 3.0, damage * 0.45, "javelin_splash", Color("#7df4ff"), target)
+				target.call("apply_javelin_mark", mark_duration, "javelin")
+				_javelin_active_mark_duration = mark_duration
+				_javelin_active_recast_range = shot_range
 				_javelin_mark_target = target
 				_create_target_hit_fx(target.global_position, true)
 				target.call("flash_impact", true)
-				_create_hit_flash(hit["position"], Color("#fff0a1"), 0.65)
+				_create_hit_flash(hit["position"], Color("#bdffff"), 0.75 + power * 0.5)
+				_spawn_particle_burst(hit["position"], Color("#70eaff"), 16 + roundi(power * 16.0), 0.32, 5.0 + power * 3.0, 0.09, Vector3.UP, 100.0)
+				for side in [-1.0, 1.0]:
+					_create_lightning_arc(hit["position"], hit["position"] + Vector3(side * (0.5 + power), 0.5, 0.3), Color("#8ff7ff"), 0.04, 0.22)
 		else:
-			_contact_fx(hit, Color("#ffcf6a"))
-	_module_busy = false
-
-
-func _decorate_javelin_projectile(spear: Node3D) -> void:
-	var core := MeshInstance3D.new()
-	var core_mesh := CylinderMesh.new()
-	core_mesh.top_radius = 0.012
-	core_mesh.bottom_radius = 0.035
-	core_mesh.height = 0.48
-	core.mesh = core_mesh
-	core.rotation_degrees.x = -90.0
-	core.position.z = -0.03
-	core.material_override = _create_fx_material(Color("#fff4c2"), 1.0)
-	spear.add_child(core)
-	var trail := MeshInstance3D.new()
-	var trail_mesh := CylinderMesh.new()
-	trail_mesh.top_radius = 0.012
-	trail_mesh.bottom_radius = 0.07
-	trail_mesh.height = 0.86
-	trail.mesh = trail_mesh
-	trail.rotation_degrees.x = -90.0
-	trail.position.z = 0.48
-	trail.material_override = _create_fx_material(Color("#ff9e45"), 0.30)
-	spear.add_child(trail)
-	var pulse := spear.create_tween().set_loops()
-	pulse.tween_property(spear, "scale", Vector3(1.14, 1.0, 1.14), 0.10)
-	pulse.tween_property(spear, "scale", Vector3.ONE, 0.14)
+			_contact_fx(hit, Color("#70eaff"))
 
 
 func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
-	if survival_mode and survival_evolution_effects != null:
+	if not _has_live_javelin_mark() and survival_mode and survival_evolution_effects != null:
 		survival_evolution_effects.recall_javelin()
 		return
 	var target := _javelin_mark_target
 	if target == null or not is_instance_valid(target) or not bool(target.call("has_javelin_mark")):
 		_javelin_mark_target = null
 		return
-	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_max_range or not _solid_path_clear(global_position, target.global_position, [target.get_rid()]):
+	if float(target.call("get_health")) <= 0.0 or global_position.distance_to(target.global_position) > _javelin_active_recast_range or not _solid_path_clear(global_position, target.global_position, [target.get_rid()]):
 		_attack_label.text = "JAVELIN  •  REACTIVATION REFUSÉE"
 		return
 	var destination := preferred_destination if preferred_destination.is_finite() else _find_javelin_destination(target)
@@ -4312,8 +4914,12 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	var teleport_origin := global_position
 	_cancel_pelto_pull()
 	global_position = destination
+	velocity = Vector3.ZERO
+	_set_aim_direction((target.global_position - destination).normalized())
 	if survival_synergies != null:
 		survival_synergies.teleport_trail(teleport_origin, destination)
+	if survival_mode and survival_evolution_effects != null:
+		survival_evolution_effects.call("_clear_javelin")
 	target.call("clear_javelin_mark")
 	_javelin_mark_target = null
 	_create_teleport_fx(destination)
@@ -4323,16 +4929,20 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 
 
 func _find_javelin_destination(target: Node) -> Vector3:
-	var behind: Vector3 = target.global_transform.basis.z
-	behind.y = 0.0
-	behind = behind.normalized() if behind.length_squared() > 0.001 else Vector3(0.0, 0.0, 1.0)
-	var base: Vector3 = target.global_position + behind * _javelin_teleport_distance
-	var candidates: Array[Vector3] = [base, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(30.0)) * _javelin_teleport_distance, target.global_position + behind.rotated(Vector3.UP, deg_to_rad(-30.0)) * _javelin_teleport_distance]
+	var front: Vector3 = target.call("get_javelin_front_direction") if target.has_method("get_javelin_front_direction") else -target.global_transform.basis.z
+	front.y = 0.0
+	front = front.normalized() if front.length_squared() > 0.001 else Vector3.FORWARD
+	var base: Vector3 = target.global_position + front * _javelin_teleport_distance
+	var candidates: Array[Vector3] = [base, target.global_position + front.rotated(Vector3.UP, deg_to_rad(30.0)) * _javelin_teleport_distance, target.global_position + front.rotated(Vector3.UP, deg_to_rad(-30.0)) * _javelin_teleport_distance]
 	for candidate in candidates:
 		candidate.y = 0.0
 		if _javelin_destination_valid(target, candidate):
 			return candidate
 	return Vector3.INF
+
+
+func get_javelin_front_direction() -> Vector3:
+	return _normalized_aim_direction()
 
 
 func _javelin_destination_valid(target: Node, candidate: Vector3) -> bool:
@@ -4422,7 +5032,7 @@ func _cancel_blaster_charge(reason: String = "", release_action: bool = true) ->
 	_blaster_charge_ratio = 0.0
 	_blaster_ready_cued = false
 	if _blaster_charge_visual != null:
-		_blaster_charge_visual.visible = false
+		_blaster_charge_visual.call("set_charge", false, 0.0, 0.0)
 	if _blaster_light != null:
 		_blaster_light.light_energy = 0.0
 	if release_action:
@@ -4495,7 +5105,7 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	var origin := _blaster_muzzle.global_position if _blaster_muzzle != null else global_position + Vector3.UP * 0.90 + shot_direction * 0.62
 	origin = _safe_projectile_origin(origin)
 	_create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, _blaster_muzzle)
-	_spawn_blaster_projectile(origin, damage, charge_ratio, token, shot_direction)
+	_spawn_blaster_projectile(origin, damage, charge_ratio, token, shot_direction, emit_passive_weapon())
 	_action_gate.release(action_token)
 	if _blaster_action_token == action_token:
 		_blaster_action_token = 0
@@ -4557,11 +5167,11 @@ func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
 	# A contact overlap can put the reference point inside the target. Without
 	# inside hits this segment ignores it and emits beyond the far side.
 	query.hit_from_inside = true
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	return origin if not get_world_3d().direct_space_state.intersect_ray(query).is_empty() else muzzle
 
 
-func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
+func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3, passive_attack: Dictionary = {}) -> void:
 	var projectile := LIVE_PROJECTILE.new()
 	projectile.name = "BlasterProjectile"
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -4572,9 +5182,13 @@ func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: floa
 	var excluded: Array[RID] = [get_rid()]
 	if survival_mode and survival_evolution_effects != null:
 		excluded.append_array(survival_evolution_effects.own_wall_exclusions())
-	projectile.configure(shot_direction, _blaster_projectile_speed, _blaster_max_range, 1 | 2 | 8, excluded)
-	_register_projectile_motion(projectile, start, start + shot_direction * _blaster_max_range, _blaster_max_range / _blaster_projectile_speed, _blaster_projectile_radius)
-	projectile.finished.connect(_on_blaster_projectile_finished.bind(damage, charge_ratio, token, shot_direction))
+	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS.blaster
+	var power := clampf(charge_ratio, 0.0, 1.0)
+	var shot_speed := _blaster_projectile_speed * lerpf(1.0, float(definition.charged_speed_multiplier), power)
+	var shot_radius := _blaster_projectile_radius * lerpf(1.0, float(definition.charged_size_multiplier), power)
+	projectile.configure(shot_direction, shot_speed, _blaster_max_range, 1 | 2 | 8, excluded)
+	_register_projectile_motion(projectile, start, start + shot_direction * _blaster_max_range, _blaster_max_range / shot_speed, shot_radius)
+	projectile.finished.connect(_on_blaster_projectile_finished.bind(damage, charge_ratio, token, shot_direction, passive_attack))
 	var vfx := _vfx_manager()
 	if vfx != null:
 		var shot_color := Color("#52dff4").lerp(Color("#718cff"), charge_ratio * charge_ratio * 0.78)
@@ -4583,12 +5197,12 @@ func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: floa
 		vfx.call("tracer", start, tracer_end, 0.036 + charge_ratio * 0.034, shot_color, 0.058 + charge_ratio * 0.014)
 
 
-func _on_blaster_projectile_finished(hit: Dictionary, _distance: float, damage: float, charge_ratio: float, token: int, shot_direction: Vector3) -> void:
+func _on_blaster_projectile_finished(hit: Dictionary, _distance: float, damage: float, charge_ratio: float, token: int, shot_direction: Vector3, passive_attack: Dictionary = {}) -> void:
 	if hit.is_empty():
 		return
 	var target := hit.get("collider") as Node
 	if target != null and target.has_method("take_damage") and target.has_method("get_health"):
-		var applied := float(target.call("take_damage", damage, "player", "blaster:%d" % token))
+		var applied := passive_weapon_damage(target, damage, "player", "blaster:%d" % token, passive_attack, hit.position)
 		if applied > 0.0:
 			if survival_synergies != null:
 				survival_synergies.blaster_hit(target, charge_ratio)
@@ -4616,7 +5230,7 @@ func _blaster_obstacle_endpoint(start: Vector3, end: Vector3) -> Vector3:
 	query.collision_mask = 9
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [get_rid()])
 	var result := world.direct_space_state.intersect_ray(query)
 	return result["position"] if not result.is_empty() else end
 
@@ -4625,22 +5239,19 @@ func _blaster_path_clear(target: Node, from_position: Vector3, to_position: Vect
 	return _module_path_clear(from_position, to_position, [target.get_rid()]) if target != null and is_instance_valid(target) else true
 
 
-func _update_blaster_charge_visual(_delta: float) -> void:
+func _update_blaster_charge_visual(delta: float) -> void:
 	if _blaster_charge_visual == null:
 		return
-	if not _blaster_charge_active:
-		_blaster_charge_visual.visible = false
-		return
-	_blaster_charge_visual.visible = true
 	var ratio := clampf(_blaster_charge_ratio, 0.0, 1.0)
+	_blaster_charge_visual.call("set_charge", _blaster_charge_active, ratio, delta)
+	if not _blaster_charge_active:
+		if _blaster_light != null:
+			_blaster_light.light_energy = 0.0
+		return
 	var charge_curve := ratio * ratio
-	var pulse := sin(float(Time.get_ticks_msec()) * 0.018) * (0.018 + charge_curve * 0.055)
-	_blaster_charge_visual.scale = Vector3.ONE * (0.28 + ratio * 0.25 + charge_curve * 0.28 + pulse)
-	if _blaster_charge_material != null:
-		_blaster_charge_material.emission_energy_multiplier = 1.15 + ratio * 1.25 + charge_curve * 1.25
-		_blaster_charge_material.albedo_color = Color(0.30 + ratio * 0.13, 0.76 + ratio * 0.05, 0.92 + ratio * 0.06, 0.20 + ratio * 0.16 + charge_curve * 0.16)
 	if _blaster_light != null:
-		_blaster_light.light_energy = 0.0
+		_blaster_light.light_color = Color("#48dfff").lerp(Color("#b5dfff"), charge_curve)
+		_blaster_light.light_energy = charge_curve * 0.85
 	if _attack_label != null:
 		_attack_label.text = "BLASTER  •  CHARGE %d%%" % roundi(ratio * 100.0)
 
@@ -5557,21 +6168,16 @@ func _build_robot() -> void:
 	# Keeping it explicit lets the socket seat the grip on the animated wrist.
 	blaster_right_hand_grip.position = Vector3(0.0, -0.08, 0.08)
 	_blaster_recoil_pivot.add_child(blaster_right_hand_grip)
-	_blaster_charge_visual = MeshInstance3D.new()
+	_blaster_charge_visual = BLASTER_CHARGE_VISUAL.new()
 	_blaster_charge_visual.name = "BlasterChargeGlow"
-	var blaster_charge_mesh := SphereMesh.new()
-	blaster_charge_mesh.radius = 0.22
-	blaster_charge_mesh.height = 0.44
-	_blaster_charge_visual.mesh = blaster_charge_mesh
-	_blaster_charge_material = _create_fx_material(Color("#49dfff"), 0.30)
-	_blaster_charge_visual.material_override = _blaster_charge_material
-	_blaster_charge_visual.position = Vector3(0.0, 0.09, -1.42)
+	_blaster_charge_visual.position = Vector3(0.0, 0.0, 0.24)
 	_blaster_charge_visual.visible = false
-	_blaster_recoil_pivot.add_child(_blaster_charge_visual)
+	_blaster_muzzle.add_child(_blaster_charge_visual)
 	_blaster_light = OmniLight3D.new()
 	_blaster_light.name = "BlasterMuzzleLight"
 	_blaster_light.light_color = Color("#55eaff")
 	_blaster_light.light_energy = 0.0
+	_blaster_light.shadow_enabled = false
 	_blaster_light.omni_range = 3.5
 	_blaster_light.position = Vector3(0.0, 0.09, -1.62)
 	_blaster_recoil_pivot.add_child(_blaster_light)
@@ -5591,7 +6197,6 @@ func _build_robot() -> void:
 				heavy_blaster_mount.add_child(heavy_blaster_model)
 				_blaster_muzzle.position = Vector3(0.0, 0.08, -0.88)
 				blaster_left_hand_grip.position = Vector3(-0.10, -0.04, -0.20)
-				_blaster_charge_visual.position = Vector3(0.0, 0.08, -0.64)
 				_blaster_light.position = Vector3(0.0, 0.08, -0.86)
 	_blaster_pivot_home_transform = _attach_weapon_pivot_to_hand(
 		_blaster_pivot,

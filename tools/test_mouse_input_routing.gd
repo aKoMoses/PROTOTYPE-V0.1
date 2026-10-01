@@ -166,7 +166,7 @@ func _prepare(player: Node, touch: Control) -> void:
 	_mouse(player, false, 0, false)
 	_key(false)
 	touch.call("reset_inputs")
-	player.call("apply_loadout", {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
+	player.call("apply_loadout", {"weapon": "blaster", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
 	player.call("reset_combat_state")
 	player.call("set_gameplay_enabled", true)
 

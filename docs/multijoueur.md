@@ -34,7 +34,7 @@ mettre la clé privée dans un commit ou un message public.
 3. Le créateur clique sur **LANCER LE MATCH** lorsque le salon indique 2/2.
 
 Les deux joueurs utilisent le contrôleur du robot joueur et leur équipement de
-la forge. Les tirs du Blaster et du Shotgun, la charge, le rechargement, le Drone,
+la forge. Les tirs du Blaster et du Shotgun, la charge, le rechargement, le Javelin,
 le Javelin et sa téléportation, les protections, le dash et les effets sont
 reproduits chez l'autre joueur. Le HUD habituel conserve les PV, les munitions,
 les modules et leurs délais. **QUITTER** ramène au salon ; le match en ligne ne
@@ -66,7 +66,7 @@ dans deux processus. Ajouter `--network-local-test` aux arguments utilisateur
 permet de refaire le même scénario sur le réseau local.
 
 Deux instances Godot sur ce PC ont réussi le scénario via GD-Sync : attaque de
-chaque joueur, stase, mur magnétique, Drone, dash, PV confirmés, résultat, remise
+chaque joueur, stase, mur magnétique, Javelin, dash, PV confirmés, résultat, remise
 à zéro de la manche suivante, égalité et retour au salon. La capture rendue
 `captures/network_multiplayer.png` montre les deux robots et le HUD en ligne.
 Les contrôles du duel solo, de l'entraînement et des passifs passent également.

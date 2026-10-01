@@ -192,7 +192,7 @@ func _initialize() -> void:
 			if training_bot != null:
 				training_bot.set("_next_attack_at", 0.12)
 			print("CAPTURE BOT: telegraph started")
-	if arguments.size() >= 4 and (arguments[3] == "drone" or arguments[3] == "javelin"):
+	if arguments.size() >= 4 and arguments[3] == "javelin":
 		var module_player := scene.get_node_or_null("Player")
 		var module_target := scene.get_node_or_null("TargetDummy")
 		if module_player != null and module_target != null:
@@ -201,11 +201,8 @@ func _initialize() -> void:
 			module_player.set("aim_direction", Vector3(2.7, 0.0, -2.6).normalized())
 			module_player.call("reset_combat_state")
 			module_target.call("reset_combat_state")
-			if arguments[3] == "drone":
-				module_player.call("_perform_modulo_drone")
-			else:
-				module_player.set("_offensive_module_id", "javelin")
-				module_player.call("_perform_javelin")
+			module_player.set("_offensive_module_id", "javelin")
+			module_player.call("_perform_javelin")
 			print("CAPTURE MODULE: ", arguments[3])
 	if arguments.size() >= 4 and (arguments[3] == "magnetic" or arguments[3] == "stasis"):
 		var defensive_player := scene.get_node_or_null("Player")
@@ -240,7 +237,7 @@ func _initialize() -> void:
 			"shotgun": settle_frames = 22
 			"bot": settle_frames = 18
 			"bot_impact": settle_frames = 44
-			"drone", "javelin": settle_frames = 32
+			"javelin": settle_frames = 32
 			"magnetic": settle_frames = 18
 			"stasis", "baroud": settle_frames = 12
 	for _frame in range(settle_frames):

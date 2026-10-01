@@ -5,6 +5,7 @@ extends Node
 signal event_played(event_id: String)
 
 const STREAMS := {
+	"counter_intercept": preload("res://art/audio/game-sfx/magnetic-absorb-B.wav"),
 	"pyro_dash": preload("res://art/audio/game-sfx/pyro-dash-A.wav"),
 	"javelin_teleport": preload("res://art/audio/game-sfx/javelin-teleport-A.wav"),
 	"magnetic_absorb": preload("res://art/audio/game-sfx/magnetic-absorb-B.wav"),
@@ -65,6 +66,9 @@ func _ready() -> void:
 		player.stream = STREAMS[event_id]
 		player.max_polyphony = 4
 		player.volume_db = -8.0
+		if event_id == "counter_intercept":
+			player.pitch_scale = 1.28
+			player.volume_db = -7.0
 		if event_id == "repair_pickup":
 			player.pitch_scale = 1.22
 			player.volume_db = -6.0

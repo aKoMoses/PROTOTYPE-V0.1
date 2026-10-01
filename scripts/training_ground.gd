@@ -17,6 +17,7 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
 const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
+const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const CREAM := Color("#f3ddbb")
 const MUTED := Color("#bda995")
@@ -631,6 +632,17 @@ func _update_spell_bar() -> void:
 			name_label.add_theme_color_override("font_color", CREAM)
 			icon.texture = JAVELIN_RECAST_ICON
 			icon.modulate = Color.WHITE
+		elif identifier == "permutation" and float(player.call("get_permutation_speed_remaining")) > 0.0:
+			status.text = "+35%% · %.1f s" % float(player.call("get_permutation_speed_remaining"))
+			status.add_theme_color_override("font_color", Color("#bba6ff"))
+			name_label.add_theme_color_override("font_color", CREAM)
+			icon.modulate = Color("#d5c9ff")
+		elif identifier == "pyro_boots":
+			var charges := int(player.call("get_pyro_charges"))
+			status.text = "%d/2 · %.1fs" % [charges, cooldown] if cooldown > 0.0 else "2/2"
+			status.add_theme_color_override("font_color", AMBER if charges > 0 else CYAN)
+			name_label.add_theme_color_override("font_color", CREAM)
+			icon.modulate = Color.WHITE if charges > 0 else Color("#b7aaa0")
 		elif cooldown > 0.0:
 			status.text = "%.1f s" % cooldown
 			status.add_theme_color_override("font_color", CYAN)
@@ -807,6 +819,7 @@ func _setup_hud_editor() -> void:
 		_hud_controller.register("%s_slot" % category, _spell_bar.get_node("%sSlot" % category.capitalize()))
 	_hud_controller.register("training_meter", _meter.get_node("MeterPanel"), true)
 	_hud_controller.register("training_meter_chip", _meter.get_node("MeterChip"), true)
+	PASSIVE_HUD.attach(_spell_bar, player, _hud_controller)
 	_hud_editor = Control.new()
 	_hud_editor.name = "HudEditor"
 	_hud_editor.set_script(HUD_EDITOR)

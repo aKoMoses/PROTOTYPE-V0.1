@@ -1,6 +1,8 @@
 class_name PeltoSmashWave
 extends Node3D
 
+const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
+
 ## Shared PELTO SMASH wave used by players and bots. The wave owns its locked
 ## origin/direction, performs swept hit tests, and never follows its caster.
 
@@ -39,6 +41,9 @@ var _scrape_audio: AudioStreamPlayer3D
 var _visual_clock := 0.0
 var _dust_accumulator := 0.0
 var _finishing := false
+var _phase_elapsed := 0.0
+var _previous_distance := 0.0
+var _motion_blend := 1.0
 
 
 static func definition() -> Dictionary:
@@ -58,6 +63,8 @@ func configure(p_caster: Node3D, origin: Vector3, locked_direction: Vector3, p_s
 	direction = flat_direction(locked_direction)
 	source_id = p_source_id
 	attack_id = p_attack_id
+	if is_instance_valid(caster) and caster.has_method("register_offensive_attack"):
+		caster.call("register_offensive_attack", attack_id)
 	damage_multiplier = maxf(0.0, p_damage_multiplier)
 	_definition = definition()
 	_max_distance = _compute_allowed_distance(float(_definition.max_range))
@@ -73,7 +80,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _finishing or delta <= 0.0:
 		return
-	_visual_clock += delta
+	_previous_distance = travel_distance
 	var remaining := minf(delta, 1.0)
 	var transitions := 0
 	while remaining > 0.000001 and transitions < 6 and not _finishing:
@@ -81,16 +88,17 @@ func _physics_process(delta: float) -> void:
 		match phase:
 			"outbound":
 				var speed := maxf(0.001, float(_definition.outbound_speed))
-				var available_distance := maxf(0.0, _max_distance - travel_distance)
-				var step_distance := minf(available_distance, speed * remaining)
-				var consumed := step_distance / speed
+				var duration := maxf(0.001, _max_distance / speed)
+				var consumed := minf(remaining, maxf(0.0, duration - _phase_elapsed))
 				var previous := travel_distance
-				travel_distance += step_distance
+				_phase_elapsed += consumed
+				travel_distance = _max_distance * sin(clampf(_phase_elapsed / duration, 0.0, 1.0) * PI * 0.5)
 				_detect_hits(previous, travel_distance, false)
-				_emit_moving_dust(step_distance, false)
+				_emit_moving_dust(travel_distance - previous, false)
 				remaining -= consumed
-				if travel_distance >= _max_distance - 0.0001:
+				if _phase_elapsed >= duration:
 					phase = "pause"
+					_phase_elapsed = 0.0
 					_spawn_pause_cue()
 			"pause":
 				var consumed := minf(remaining, _pause_remaining)
@@ -98,20 +106,29 @@ func _physics_process(delta: float) -> void:
 				remaining -= consumed
 				if _pause_remaining <= 0.0001:
 					phase = "return"
+					_phase_elapsed = 0.0
 					_begin_return()
 			"return":
 				var speed := maxf(0.001, float(_definition.return_speed))
-				var step_distance := minf(travel_distance, speed * remaining)
-				var consumed := step_distance / speed
+				var duration := maxf(0.001, _max_distance / speed)
+				var consumed := minf(remaining, maxf(0.0, duration - _phase_elapsed))
 				var previous := travel_distance
-				travel_distance -= step_distance
+				_phase_elapsed += consumed
+				travel_distance = _max_distance * cos(clampf(_phase_elapsed / duration, 0.0, 1.0) * PI * 0.5)
 				_detect_hits(previous, travel_distance, true)
-				_emit_moving_dust(step_distance, true)
+				_emit_moving_dust(previous - travel_distance, true)
 				remaining -= consumed
-				if travel_distance <= 0.0001:
+				if _phase_elapsed >= duration:
 					_finish_wave()
 			_:
 				_finish_wave()
+
+
+func _process(delta: float) -> void:
+	if _finishing:
+		return
+	_visual_clock += delta
+	_motion_blend = move_toward(_motion_blend, -1.0 if phase == "return" else 0.0 if phase == "pause" else 1.0, delta * 12.0)
 	_update_visuals()
 
 
@@ -134,11 +151,13 @@ func _compute_allowed_distance(requested_distance: float) -> float:
 	if cast.is_empty():
 		return requested_distance
 	var safe_fraction := clampf(float(cast[0]), 0.0, 1.0)
+	if safe_fraction >= 1.0:
+		return requested_distance
 	return maxf(0.0, requested_distance * safe_fraction - WALL_MARGIN)
 
 
 func _detect_hits(previous_distance: float, next_distance: float, returning: bool) -> void:
-	if caster == null or caster.get_world_3d() == null:
+	if not is_instance_valid(caster) or caster.get_world_3d() == null:
 		return
 	var front_thickness := float(_definition.front_thickness)
 	var swept_length := absf(next_distance - previous_distance) + front_thickness
@@ -167,6 +186,8 @@ func _detect_hits(previous_distance: float, next_distance: float, returning: boo
 
 
 func _is_valid_target(target: Node) -> bool:
+	if is_instance_valid(target) and target.is_in_group("prototype0_homing_rockets") and target.get("caster") == caster:
+		return false
 	if target == null or target == caster or not is_instance_valid(target) or not target is Node3D:
 		return false
 	if not target.has_method("take_damage"):
@@ -177,7 +198,7 @@ func _is_valid_target(target: Node) -> bool:
 
 
 func _path_clear(target: Node) -> bool:
-	if caster == null or caster.get_world_3d() == null or not target is Node3D:
+	if not is_instance_valid(caster) or caster.get_world_3d() == null or not target is Node3D:
 		return false
 	var target_position := (target as Node3D).global_position
 	var side := Vector3(-direction.z, 0.0, direction.x)
@@ -201,7 +222,10 @@ func _path_clear(target: Node) -> bool:
 func _apply_hit(target: Node, returning: bool) -> void:
 	var suffix := "return" if returning else "outbound"
 	var damage := float(_definition.return_damage if returning else _definition.outbound_damage) * damage_multiplier
+	var shield_before := PASSIVE_HITS.shield_health(target)
 	var applied := float(target.call("take_damage", damage, source_id, "%s:%s" % [attack_id, suffix]))
+	if is_instance_valid(caster) and caster.has_method("on_direct_offensive_hit"):
+		caster.call("on_direct_offensive_hit", attack_id, PASSIVE_HITS.accepted_damage(target, applied, shield_before), target)
 	if applied <= 0.0:
 		return
 	if caster != null and is_instance_valid(caster) and caster.has_method("_on_damage_dealt"):
@@ -221,13 +245,17 @@ func _build_visuals() -> void:
 	_front_root = Node3D.new()
 	_front_root.name = "EarthFront"
 	add_child(_front_root)
-	var plate_count := 6
+	var plate_count := 9
 	var segment_width := float(_definition.width) / float(plate_count)
 	for index in range(plate_count):
 		var plate := MeshInstance3D.new()
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3(maxf(0.12, segment_width - 0.045), 0.18, float(_definition.front_thickness) * 0.82)
+		var mesh := SphereMesh.new()
+		mesh.radius = segment_width * 0.56
+		mesh.height = 0.24 + float(index % 3) * 0.035
+		mesh.radial_segments = 6
+		mesh.rings = 3
 		plate.mesh = mesh
+		plate.scale.z = float(_definition.front_thickness) * 0.82 / (mesh.radius * 2.0)
 		plate.position.x = -float(_definition.width) * 0.5 + segment_width * (float(index) + 0.5)
 		plate.position.z = (0.08 if index % 2 == 0 else -0.08)
 		plate.material_override = _earth_material(Color("#9b5835") if index % 2 == 0 else Color("#b66d3e"), 1.0)
@@ -276,9 +304,10 @@ func _build_visuals() -> void:
 func _update_visuals() -> void:
 	if _front_root == null:
 		return
-	_front_root.global_position = start_position + direction * travel_distance + Vector3.UP * 0.07
+	var render_distance := lerpf(_previous_distance, travel_distance, Engine.get_physics_interpolation_fraction())
+	_front_root.global_position = start_position + direction * render_distance + Vector3.UP * 0.07
 	_front_root.global_basis = Basis.looking_at(direction, Vector3.UP)
-	var motion_sign := -1.0 if phase == "return" else 1.0
+	var motion_sign := _motion_blend
 	for index in range(_plates.size()):
 		var plate := _plates[index]
 		plate.position.y = 0.08 + sin(_visual_clock * 15.0 + float(index) * 0.9) * 0.045
@@ -287,19 +316,15 @@ func _update_visuals() -> void:
 	for index in range(_fragments.size()):
 		var fragment := _fragments[index]
 		var base: Vector3 = fragment.get_meta("pelto_base", fragment.position)
-		fragment.position = base + Vector3(0.0, absf(sin(_visual_clock * 12.0 + float(index))) * 0.18, motion_sign * -0.16)
-		fragment.rotation = Vector3(_visual_clock * (2.0 + index * 0.12) * motion_sign, float(index), _visual_clock * 1.7)
-	var trace_length := maxf(0.05, _max_distance if phase in ["pause", "return"] else travel_distance)
+		fragment.position = base + Vector3(0.0, (0.5 + 0.5 * sin(_visual_clock * 9.0 + float(index))) * 0.18, motion_sign * -0.16)
+		fragment.rotation = Vector3(_visual_clock * (2.0 + index * 0.12), float(index), _visual_clock * 1.7)
+	var trace_length := maxf(0.05, _max_distance if phase in ["pause", "return"] else render_distance)
 	_trace_mesh.size = Vector3(float(_definition.width) * 0.92, 0.025, trace_length)
 	_trace.global_position = start_position + direction * (trace_length * 0.5) + Vector3.UP * 0.018
 	_trace.global_basis = Basis.looking_at(direction, Vector3.UP)
 	_endpoint_ring.global_position = start_position + direction * _max_distance + Vector3.UP * 0.055
-	if phase == "pause":
-		var pulse := 1.0 + sin(_visual_clock * 28.0) * 0.12
-		_front_root.scale = Vector3.ONE * pulse
-		_endpoint_ring.scale = Vector3.ONE * pulse
-	else:
-		_front_root.scale = Vector3.ONE
+	_front_root.scale.y = 1.0 + (1.0 - absf(_motion_blend)) * 0.12
+	_endpoint_ring.scale = Vector3.ONE * (1.0 + (1.0 - absf(_motion_blend)) * 0.16)
 
 
 func _emit_moving_dust(step_distance: float, returning: bool) -> void:
@@ -336,8 +361,6 @@ func _emit_moving_dust(step_distance: float, returning: bool) -> void:
 
 func _spawn_pause_cue() -> void:
 	_endpoint_ring.visible = true
-	for fragment in _fragments:
-		fragment.position.y += 0.14
 
 
 func _begin_return() -> void:
@@ -362,6 +385,9 @@ func _finish_wave() -> void:
 	_finishing = true
 	phase = "finished"
 	set_physics_process(false)
+	set_process(false)
+	_previous_distance = travel_distance
+	_update_visuals()
 	if _scrape_audio != null:
 		_scrape_audio.stop()
 	finished.emit()

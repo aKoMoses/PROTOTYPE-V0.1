@@ -12,6 +12,15 @@ func heal(amount: float, source_id: String = "") -> float:
 	return super.heal(amount, source_id) if authoritative else 0.0
 
 
+func grant_shield(amount: float, duration: float) -> void:
+	if authoritative:
+		super.grant_shield(amount, duration)
+
+
+func absorb_shield_damage(amount: float) -> float:
+	return super.absorb_shield_damage(amount) if authoritative else amount
+
+
 func snapshot() -> Dictionary:
 	var effects := _effects.duplicate(true)
 	for effect in effects.values():
@@ -20,7 +29,7 @@ func snapshot() -> Dictionary:
 	var slows := _slow_effects.duplicate(true)
 	for slow in slows:
 		slow.end_time = maxf(0.0, float(slow.end_time) - simulation_time)
-	return {"health": health, "maximum": max_health, "dead": _dead, "effects": effects, "slows": slows}
+	return {"health": health, "maximum": max_health, "dead": _dead, "effects": effects, "slows": slows, "shield_health": shield_health, "shield_remaining": shield_remaining}
 
 
 func receive_snapshot(value: Dictionary) -> void:
@@ -30,6 +39,11 @@ func receive_snapshot(value: Dictionary) -> void:
 	max_health = float(value.maximum)
 	health = float(value.health)
 	_dead = bool(value.dead)
+	shield_health = maxf(0.0, float(value.get("shield_health", 0.0))) if not _dead else 0.0
+	shield_remaining = maxf(0.0, float(value.get("shield_remaining", 0.0))) if shield_health > 0.0 else 0.0
+	if shield_remaining <= 0.0:
+		shield_health = 0.0
+	shield_changed.emit(shield_health, shield_remaining)
 	_effects = value.effects.duplicate(true)
 	for effect in _effects.values():
 		effect.end_time = simulation_time + float(effect.end_time)

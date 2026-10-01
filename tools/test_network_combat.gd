@@ -30,7 +30,7 @@ func _actor(scene: Node, actor_name: String, authority := true, remote := true) 
 	return result
 
 
-func _reset(a: Node3D, b: Node3D, defensive := "static_shield", offensive := "modulo_drone") -> void:
+func _reset(a: Node3D, b: Node3D, defensive := "static_shield", offensive := "javelin") -> void:
 	for actor in [a, b]:
 		actor.call("apply_loadout", {"robot": "polyvalent", "weapon": "blaster", "offensive": offensive,
 			"defensive": defensive, "mobility": "pyro_boots", "passive": "omnivamp"})
@@ -93,8 +93,8 @@ func _run() -> void:
 	await physics_frame
 	a.call("_perform_offensive_module")
 	await create_timer(0.85).timeout
-	_check(float(b.call("get_health")) < 900.0, "drone damage and burn run on the host")
-	_check(b.get("combat_state").has_effect(DATA.EFFECT_SPOTTED), "drone applies its reveal")
+	_check(float(b.call("get_health")) < 900.0, "offensive module damage runs on the host")
+	b.call("apply_spotted", 5.0, "network_effect_test")
 	client.call("receive_snapshot", b.call("network_snapshot"))
 	_check(client.get("combat_state").has_effect(DATA.EFFECT_SPOTTED), "confirmed effects are replicated")
 	_reset(a, b, "static_shield", "javelin")
@@ -113,7 +113,10 @@ func _run() -> void:
 	_check(a.position.x > -1.0, "host dash uses the ordinary collision-aware movement")
 	var cooldown := float(a.call("get_module_cooldown", "pyro_boots"))
 	a.call("receive_action", "mobility", {})
-	_check(not bool(a.call("is_dash_active")) and float(a.call("get_module_cooldown", "pyro_boots")) <= cooldown, "duplicate dash cannot bypass cooldown")
+	_check(bool(a.call("is_dash_active")) and int(a.call("get_pyro_charges")) == 0, "host accepts a second dash from its reserve charge")
+	await create_timer(0.3).timeout
+	a.call("receive_action", "mobility", {})
+	_check(not bool(a.call("is_dash_active")) and float(a.call("get_module_cooldown", "pyro_boots")) <= cooldown, "third dash cannot bypass the two authoritative charges")
 	_reset(a, b)
 	b.position.x = -1.5
 	b.call("set_weapon", "shotgun")

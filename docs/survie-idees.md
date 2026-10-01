@@ -39,8 +39,7 @@ Priorité proposée : tester d'abord la présence ennemie et la fréquence des s
 ### 5. Des synergies entre équipements
 
 Faire interagir deux éléments du build : le Blaster déclenche une petite explosion
-sur une cible brûlée par les Pyro Boots ; un Drone traverse le Champ magnétique et
-ressort chargé d'électricité. Afficher la synergie sur les choix d'amélioration.
+sur une cible brûlée par les Pyro Boots. Afficher la synergie sur les choix d'amélioration.
 Objectif : créer des combinaisons à découvrir et des styles de partie distincts.
 
 ### 6. Une arène qui raconte le combat

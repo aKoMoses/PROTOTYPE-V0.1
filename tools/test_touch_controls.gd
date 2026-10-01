@@ -63,7 +63,9 @@ func _initialize() -> void:
 	var aim_center: Vector2 = controls.call("_aim_center")
 	controls.call("_begin_touch", 11, move_center + Vector2(22, -18))
 	controls.call("_begin_touch", 12, aim_center + Vector2(0, -40))
-	controls.call("_begin_touch", 13, centers.offensive)
+	# Use a queued defensive command: starting the default Javelin charge now
+	# deliberately interrupts weapon fire, independently of finger ownership.
+	controls.call("_begin_touch", 13, centers.defensive)
 	controls.call("_end_touch", 13)
 	if int(controls.get("_joystick_touch")) != 11 or int(controls.get("_aim_touch")) != 12:
 		push_error("FAIL: relâchement module a réinitialisé un joystick")

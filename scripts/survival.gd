@@ -14,6 +14,7 @@ const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
 const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
 const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
+const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
 const SPELL_BAR_FRAME: Texture2D = preload("res://art/ui/spell-bar-frame.svg")
 const REWARD_CARD_ART: Texture2D = preload("res://art/ui/industrial-reward-card.png")
 const FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf")
@@ -791,16 +792,17 @@ func _update_spell_bar(build: Dictionary) -> void:
 		if effects != null:
 			if recast:
 				status.text = "A · REJOINDRE" if effects.path("offensive") == "beacon" else "A · RAPPEL"
-			elif identifier == "pyro_boots" and effects.path("mobility") == "thruster":
+			elif identifier == "pyro_boots":
 				var charges: int = effects.dash_charges()
-				status.text = "%d / 2 DASH" % charges if charges > 0 else "%.1f s" % cooldown
+				var maximum := 3 if effects.path("mobility") == "thruster" else 2
+				status.text = "%d/%d · %.1fs" % [charges, maximum, cooldown] if cooldown > 0.0 else "%d/%d DASH" % [charges, maximum]
 			elif identifier == "static_shield" and effects.shield_remaining > 0.0:
 				status.text = "%d PV" % roundi(effects.shield_health)
 			elif identifier == "magnetic_field" and effects.path("defensive") == "capacitor" and is_instance_valid(effects.wall):
 				status.text = "E · %d ÉNERGIE" % roundi(effects.wall_energy)
 		status.add_theme_color_override("font_color", Color("#efb765") if cooldown > 0.0 or recast else Color("#92e1d7"))
 		icon.modulate = Color("#b7aaa0") if cooldown > 0.0 and not recast else Color.WHITE
-		if effects != null and identifier == "pyro_boots" and effects.path("mobility") == "thruster" and effects.dash_charges() > 0:
+		if identifier == "pyro_boots" and (effects.dash_charges() if effects != null else int(player.call("get_pyro_charges"))) > 0:
 			icon.modulate = Color.WHITE
 			status.add_theme_color_override("font_color", Color("#92e1d7"))
 
@@ -946,6 +948,7 @@ func _setup_hud_editor() -> void:
 	_hud_controller.register("spell_bar", _spell_bar, true)
 	for category in ["offensive", "defensive", "mobility"]:
 		_hud_controller.register("%s_slot" % category, _spell_bar.get_node("%sSlot" % category.capitalize()))
+	PASSIVE_HUD.attach(_spell_bar, player, _hud_controller)
 	_hud_editor = Control.new()
 	_hud_editor.name = "HudEditor"
 	_hud_editor.set_script(HUD_EDITOR)
@@ -1363,12 +1366,11 @@ func _reward_description(choice: Dictionary) -> String:
 	if str(choice.kind) != "item":
 		return str(choice.description)
 	return {
-		"modulo_drone": "Tir guidé. Brûle et révèle la cible.",
 		"javelin": "Lance un javelot. Réappui pour le rappeler.",
 		"pelto_smash": "Vague de terre aller-retour. Ralentit puis tracte.",
-		"magnetic_field": "Mur qui absorbe les tirs pendant 2,5 s.",
+		"magnetic_field": "Wall : arrête les ennemis et leurs tirs. Tes tirs traversent.",
 		"static_shield": "Absorbe les dégâts tout en restant mobile.",
-		"pyro_boots": "Ruée de 3 m. Recharge : 6 s.",
+		"pyro_boots": "2 charges de ruée enflammée de 5 m. Recharge : 6 s par charge.",
 		"bio_injector": "Vitesse et tirs accélérés pendant 3 s.",
 		"baroud": "Survis brièvement à un coup fatal.",
 		"omnivamp": "Soigne 15 % des dégâts infligés.",
@@ -1385,9 +1387,8 @@ func _reward_card_description(choice: Dictionary) -> String:
 			return "Tirs précis à distance. Charge rapide pour frapper plus fort en restant mobile." if identifier == "blaster" else "Salves de plombs puissantes de près. Recharge entre les séries de tirs."
 		"item":
 			return {
-				"modulo_drone": "Envoie un drone sur l'ennemi visé et le brûle.",
 				"javelin": "Lance un javelot. Réappuie sur A pour le rappeler et blesser sur son trajet.",
-				"magnetic_field": "Pose un mur qui bloque les tirs ennemis.",
+				"magnetic_field": "Pose un mur qui bloque les ennemis et leurs tirs tout en laissant passer les tiens.",
 				"static_shield": "Absorbe une quantité limitée de dégâts. Tu peux bouger et tirer.",
 				"pyro_boots": "Te propulse de quelques mètres dans ta direction.",
 				"bio_injector": "Accélère tes déplacements et tes tirs un instant.",
@@ -1402,7 +1403,6 @@ func _reward_card_description(choice: Dictionary) -> String:
 				"longshot": "Tes tirs infligent davantage de dégâts, y compris le cinquième.",
 				"blaster": "Tes tirs infligent davantage de dégâts.",
 				"shotgun": "Tes tirs infligent davantage de dégâts.",
-				"modulo_drone": "Ton drone frappe plus fort et brûle plus longtemps.",
 				"javelin": "Ton javelot inflige davantage de dégâts.",
 				"magnetic_field": "Ton mur reste actif plus longtemps.",
 				"static_shield": "Ton bouclier absorbe davantage de dégâts.",

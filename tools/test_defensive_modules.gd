@@ -8,13 +8,19 @@ func _initialize() -> void:
 	root.add_child(scene)
 	current_scene = scene
 	await process_frame
+	var flow := scene.get_node("Interface")
+	flow.call("_start_duel")
+	flow.call("_begin_live_round")
 	var player: Node = scene.get_node_or_null("Player")
 	var target: Node = scene.get_node_or_null("TargetDummy")
 	if player == null or target == null:
 		_failures.append("Player ou TargetDummy introuvable")
 	else:
+		target.call("set_training_bot_enabled", false)
+		player.set_physics_process(false)
 		await _test_magnetic_field(player, target, scene)
 		await _test_invalid_magnetic_placement(player, scene)
+		player.set_physics_process(true)
 		await _test_static_shield(player)
 	if _failures.is_empty():
 		print("P0-107 DEFENSIVE MODULES TEST: PASS")
@@ -30,6 +36,7 @@ func _prepare(player: Node, target: Node) -> void:
 	player.global_position = Vector3.ZERO
 	player.set("aim_direction", Vector3(0.0, 0.0, -1.0))
 	player.call("reset_combat_state")
+	player.call("set_touch_aim_vector", Vector2(0, -1))
 	target.global_position = Vector3(0.0, 0.0, -3.0)
 	target.call("reset_combat_state")
 
@@ -48,17 +55,16 @@ func _test_magnetic_field(player: Node, target: Node, scene: Node) -> void:
 	player.call("set_weapon", "shotgun")
 	player.call("_perform_shotgun_attack")
 	await create_timer(0.70, true, false, false).timeout
-	if float(target.call("get_health")) < 999.0:
-		_failures.append("Magnetic Field : un projectile traverse le mur")
-	if target.call("get_active_effect_types").has("burn"):
-		_failures.append("Magnetic Field : BURN appliqué à travers le mur")
-	var visible_target: Node = player.call("_select_drone_target", player.global_position, Vector3(0.0, 0.0, -1.0))
-	if visible_target == null:
+	if float(target.call("get_health")) >= 999.0:
+		_failures.append("Magnetic Field : les tirs du propriétaire ne traversent pas")
+	var sight_exclusions: Array[RID] = [target.get_rid()]
+	var target_visible: bool = player.call("_solid_path_clear", player.global_position, target.global_position, sight_exclusions)
+	if not target_visible:
 		_failures.append("Magnetic Field : la vision est bloquée par le mur")
 	await create_timer(2.45, true, false, false).timeout
 	if player.get("_magnetic_wall") != null and is_instance_valid(player.get("_magnetic_wall")):
 		_failures.append("Magnetic Field : mur non retiré après sa durée")
-	# Le mur ne doit pas être une collision de mouvement.
+	# Le propriétaire reste libre de ses déplacements.
 	player.set("_defensive_module_id", "magnetic_field")
 	player.call("reset_combat_state")
 	player.global_position = Vector3.ZERO

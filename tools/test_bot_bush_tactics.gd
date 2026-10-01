@@ -120,7 +120,7 @@ func _reset() -> void:
 	_bot_body.duel = true
 	_player.committed = false
 	_player.commit_reads = 0
-	_bot.call("set_duel_loadout", {"weapon": "blaster", "offensive": "modulo_drone", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"})
+	_bot.call("set_duel_loadout", {"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"})
 	_bot.get("_navigation").invalidate(true)
 
 

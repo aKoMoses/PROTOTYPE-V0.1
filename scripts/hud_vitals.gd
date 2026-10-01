@@ -87,6 +87,10 @@ func _refresh() -> void:
 	var health := float(player.call("get_health"))
 	var maximum := maxf(1.0, float(player.call("get_max_health")))
 	_health.text = "PV %d / %d" % [int(ceil(health)), int(ceil(maximum))]
+	var shield := float(player.call("get_shield_health")) if player.has_method("get_shield_health") else 0.0
+	_health.add_theme_font_size_override("font_size", 15 if shield > 0.0 else 17)
+	if shield > 0.0:
+		_health.text += "  •  SH %d" % ceili(shield)
 	_fill.size.x = 256.0 * clampf(health / maximum, 0.0, 1.0)
 	var weapon_id := str(player.call("get_weapon_id"))
 	if weapon_id == "longshot":

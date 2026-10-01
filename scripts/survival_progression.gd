@@ -6,10 +6,10 @@ const LOADOUT := preload("res://scripts/loadout_state.gd")
 const SYNERGIES := preload("res://scripts/survival_synergies.gd")
 const ASPECTS := preload("res://scripts/survival_aspects.gd")
 const CATEGORY_OPTIONS := {
-	"offensive": ["modulo_drone", "javelin", "fulguro_punch", "pelto_smash"],
+	"offensive": ["rocket_basket", "javelin", "fulguro_punch", "pelto_smash"],
 	"defensive": ["magnetic_field", "static_shield"],
 	"mobility": ["pyro_boots", "bio_injector"],
-	"passive": ["baroud", "omnivamp"],
+	"passive": LOADOUT.PASSIVES,
 }
 
 var weapon := ""
@@ -83,6 +83,8 @@ func _take_random(pool: Array[Dictionary], choices: Array[Dictionary]) -> void:
 func _power_description(category: String) -> String:
 	var current := int(upgrades[category]["power"])
 	var base := 0.70 if category in ["defensive", "mobility"] else 0.65
+	if category == "passive" and str(equipment.passive) in ["auxiliary_reactor", "tracker", "alternator", "inertia"]:
+		base = 1.0
 	var step := 0.55 if category in ["defensive", "mobility"] else 0.60
 	return "Effet : %d %% → %d %% de la valeur normale." % [roundi((base + step * current) * 100.0), roundi((base + step * (current + 1)) * 100.0)]
 

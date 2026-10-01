@@ -10,6 +10,7 @@ const RECOVERY_TIME := 0.12
 const MEKATANA_VISUAL := preload("res://scripts/mekatana_visual.gd")
 
 var aiming := false
+var counter_guard := false
 var carrying := false
 var spine_index := -1
 var spine_basis := Basis.IDENTITY
@@ -105,8 +106,18 @@ func is_fulguro_pose_active() -> bool:
 
 func _process_modification_with_delta(delta: float) -> void:
 	var rig_skeleton := get_skeleton()
-	if rig_skeleton == null or (not aiming and not carrying and punch_phase == "" and pelto_phase == "" and mekatana_phase == "") or spine_index < 0 or right_hand_index < 0:
+	if rig_skeleton == null or (not counter_guard and not aiming and not carrying and punch_phase == "" and pelto_phase == "" and mekatana_phase == "") or spine_index < 0 or right_hand_index < 0:
 		cancel_shot()
+		return
+	if counter_guard:
+		cancel_shot()
+		_set_global_basis(rig_skeleton, spine_index, spine_basis)
+		_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -18.0)
+		_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, 28.0)
+		_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 52.0)
+		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
+		if support_enabled:
+			_solve_support_arm(rig_skeleton)
 		return
 	if punch_phase != "":
 		cancel_shot()
@@ -182,21 +193,30 @@ func _apply_fulguro_pose(rig_skeleton: Skeleton3D) -> void:
 
 
 func _apply_pelto_pose(rig_skeleton: Skeleton3D) -> void:
-	var prepare := smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "preparation" else 0.0
-	var strike := smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "impact" else 0.0
-	var recover := 1.0 - smoothstep(0.0, 1.0, pelto_progress) if pelto_phase == "recovery" else 0.0
-	var crouch := prepare * 0.72 + strike + recover * 0.62
+	var weights := pelto_pose_weights(pelto_phase, pelto_progress)
+	var prepare := weights.x
+	var strike := weights.y
+	var crouch := prepare * 0.72 + strike
 	_set_global_basis(rig_skeleton, spine_index, spine_basis)
 	if hips_index >= 0:
 		rig_skeleton.set_bone_pose_position(hips_index, rig_skeleton.get_bone_pose_position(hips_index) + Vector3(0.0, -0.035 * crouch, 0.018 * strike))
 	_rotate_global_axis(rig_skeleton, left_up_leg_index, Vector3.RIGHT, 8.0 * crouch)
 	_rotate_global_axis(rig_skeleton, right_up_leg_index, Vector3.RIGHT, 8.0 * crouch)
-	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.RIGHT, -16.0 * prepare + 38.0 * strike + 24.0 * recover)
-	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.RIGHT, -48.0 * prepare + 72.0 * strike + 48.0 * recover)
+	_rotate_global_axis(rig_skeleton, spine2_index, Vector3.RIGHT, -16.0 * prepare + 38.0 * strike)
+	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.RIGHT, -48.0 * prepare + 72.0 * strike)
 	_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -24.0 * prepare + 16.0 * strike)
-	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, -62.0 * prepare + 104.0 * strike + 68.0 * recover)
-	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 38.0 * prepare - 70.0 * strike - 42.0 * recover)
-	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, -18.0 * prepare + 34.0 * strike + 20.0 * recover)
+	_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, -62.0 * prepare + 104.0 * strike)
+	_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 38.0 * prepare - 70.0 * strike)
+	_rotate_global_axis(rig_skeleton, right_hand_index, Vector3.RIGHT, -18.0 * prepare + 34.0 * strike)
+
+
+static func pelto_pose_weights(phase: String, progress: float) -> Vector2:
+	var blend := smoothstep(0.0, 1.0, clampf(progress, 0.0, 1.0))
+	match phase:
+		"preparation": return Vector2(blend, 0.0)
+		"impact": return Vector2(1.0 - blend, blend)
+		"recovery": return Vector2(0.0, 1.0 - blend)
+	return Vector2.ZERO
 
 
 func _apply_mekatana_pose(rig_skeleton: Skeleton3D) -> void:

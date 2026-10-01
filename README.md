@@ -223,19 +223,11 @@ téléphone Android.
 - **Tests automatisés :** `tools/test_shotgun.gd` PASS : 6/6 critique + BURN, 5/6 sans
   BURN, absorption par obstacle, chargeur 3 salves et recharge 1,80 s. Les tests
   précédents P0-101/102 et P0-103 restent PASS.
-- **P0-105 — implémenté, à tester manuellement :** Modulo Drone (préparation 0,18 s,
-  portée 9 m, guidage initial dans un cône de 20°, 100 dégâts + BURN 3,5 s + SPOTTED
-  5 s, cooldown 10 s) et Javelin (préparation 0,12 s, portée 8 m, 140 dégâts, marque
-  2,5 s, cooldown 12 s). Les deux projectiles sont arrêtés par les obstacles. Le
-  second appui Javelin tente une téléportation à 1,4 m derrière la cible avec deux
-  variantes à ±30° ; une destination invalide conserve la marque. Le slot offensif A
-  lance le module équipé (Drone par défaut dans ce prototype). Les marqueurs et
-  cooldowns sont visibles sur le mannequin et les identifiants empêchent les doubles impacts.
-- **Tests automatisés :** `tools/test_offensive_modules.gd` PASS : Drone (dégâts,
-  BURN/SPOTTED, absorption, cooldown), Javelin (140 dégâts, marque, recast sans
-  dégâts ni second cooldown, destination bloquée). Capture Mobile réelle inspectée
-  pour `prototype0_drone.png` et `prototype0_javelin.png`.
-- **FULGURO PUNCH :** troisième choix offensif du menu et du terrain d’entraînement.
+- **P0-105 — module offensif :** Javelin est équipé par défaut. Son projectile est
+  arrêté par les obstacles ; la marque permet un second appui pour tenter une
+  téléportation derrière la cible. Les cooldowns restent visibles sur le mannequin.
+  Les tests offensifs couvrent les dégâts, la marque, le recast et les collisions.
+- **FULGURO PUNCH :** choix offensif du menu et du terrain d’entraînement.
   La visée est verrouillée au début de la charge. Un tap arme le coup pendant au
   moins 0,35 s ; maintenir A ou le bouton tactile offensif le charge jusqu’à 3 s.
   Portée et dégâts progressent linéairement de 2 à 4 m et de 200 à 400 dégâts
@@ -344,7 +336,7 @@ téléphone Android.
   collision, ni révélation à travers un obstacle ; ils disparaissent dès que la préparation
   se termine ou si la cible n'est plus visible.
 - **P0-118 — passe projectiles, impacts et états :** les familles Blaster, Shotgun,
-  Modulo Drone, Javelin et projectile du bot disposent maintenant d'un départ visuel au
+  Javelin et projectile du bot disposent maintenant d'un départ visuel au
   point d'arme, d'un cœur/traînée lisible, d'une pulsation légère et d'un impact distinct
   sur cible ou obstacle. Les impacts hors cible déclenchent une gerbe directionnelle et
   de poussière ; les impacts de cible déclenchent flash, étincelles, réaction de corps et
@@ -361,7 +353,7 @@ téléphone Android.
 - **Validation Godot réelle :** captures exécutées avec Godot 4.7.2, renderer Mobile,
   Vulkan Forward Mobile sur la GeForce RTX 3070 Laptop. Les captures P0-118 sont
   `prototype0_fx_pass_shotgun_live.png`, `prototype0_fx_pass_shotgun.png`,
-  `prototype0_fx_pass_axe.png`, `prototype0_fx_pass_drone.png`,
+  `prototype0_fx_pass_axe.png`,
   `prototype0_fx_pass_effects.png` et `prototype0_fx_pass_bot.png`. Elles servent à
   contrôler la composition, les projectiles, les trois coups de l'axe, les modules et la
   lisibilité des états ; le test de framerate Android reste à faire sur appareil réel.
@@ -456,10 +448,8 @@ Les captures réellement rendues par Godot sont conservées dans `captures/` :
   Godot de la bouche du shotgun, des plombs coniques, des impacts et de la réaction cible.
 - `prototype0_fx_pass_axe.png` : capture historique de l'ancienne arme, non chargée en V0.1.
   d'onde/éclairs.
-- `prototype0_fx_pass_drone.png` : capture Godot du projectile Drone et de sa traînée cyan.
 - `prototype0_fx_pass_effects.png` : capture Godot de BURN, SLOW, STUN et SPOTTED renforcés.
-- `prototype0_drone.png` et `prototype0_javelin.png` : captures Mobile des deux modules
-  offensifs et de leurs impacts sur le mannequin.
+- `prototype0_javelin.png` : capture Mobile du Javelin et de son impact sur le mannequin.
 - `prototype0_magnetic.png`, `prototype0_stasis.png` et `prototype0_baroud.png` :
   captures Mobile des défenses et de la jauge de dernière chance, générées par Godot.
 
@@ -604,7 +594,6 @@ renforcent les valeurs sans avancer cette progression.
 | --- | --- | --- |
 | Shotgun | Briseur → Bélier, projectile lourd puis onde frontale | Balayeur → Éventail, cône élargi de douze plombs |
 | Blaster | Perforateur → Lance plasma, jusqu'à six cibles alignées | Conducteur → Arc électrique, marque puis trois rebonds |
-| Modulo Drone | Chasseur → Drone poursuivant, poursuite pendant six secondes | Sentinelle → Tourelle déployée, tirs sur deux cibles |
 | Javelin | Harpon → Ancrage, contrôle puis rappel traversant | Balise de fuite → Relais, téléportation vers le sol libre et répulsion |
 | Static Shield | Carapace → Armure segmentée, absorption puis répulsion à la rupture | Riposte → Contre-décharge, protection courte et riposte visée |
 | Magnetic Field | Rempart → Passage magnétique, mur élargi ralentissant les ennemis | Condensateur → Batterie magnétique, tirs ennemis stockés puis déchargés |
@@ -628,14 +617,11 @@ rejouer, revenir au menu, conserver un favori de référence ou exporter une car
 locale (aucun partage automatique). Le favori est rappelé au choix de l'arme et ne
 donne aucun équipement gratuit. Données : `user://survival_records.json`.
 
-Quatre synergies peuvent être proposées parmi les trois cartes quand les deux
+Trois synergies peuvent être proposées parmi les trois cartes quand les deux
 équipements sont portés. Il faut choisir la carte pour activer la synergie :
 - Blaster + Pyro Boots : une traînée brûle les cibles ; un tir chargé à au moins
   70 % déclenche 55 dégâts autour d'une cible marquée. Rayon 2,7 m, puis 4 m avec
   l'aspect ultime du Blaster ; durée de brûlure 2 s, puis 3,5 s avec les Boots ultimes.
-- Modulo Drone + Magnetic Field : traverser son propre mur charge le drone ; l'impact
-  produit un arc à 45 % des dégâts vers une cible à 4 m. L'offensif ultime permet
-  deux cibles, la défense ultime porte le rayon à 6 m. Les couverts restent bloquants.
 - Shotgun + Bio Injector : pendant l'injecteur, la prochaine salve déclenche une
   seconde salve après 0,16 s, à 45 % des dégâts (65 % avec la mobilité ultime),
   sans cartouche supplémentaire. Une seule activation par injection.

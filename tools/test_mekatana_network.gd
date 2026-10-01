@@ -47,7 +47,7 @@ func _check(value: bool, message: String) -> void:
 
 func _reset() -> void:
 	for actor in [_host, _target, _replica]:
-		actor.call("apply_loadout", {"weapon": "mekatana", "offensive": "modulo_drone", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
+		actor.call("apply_loadout", {"weapon": "mekatana", "offensive": "javelin", "defensive": "magnetic_field", "mobility": "pyro_boots", "passive": "omnivamp"})
 		actor.call("reset_combat_state")
 		actor.call("set_gameplay_enabled", true)
 		actor.set("aim_direction", Vector3.RIGHT)

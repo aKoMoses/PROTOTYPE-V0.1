@@ -3,6 +3,7 @@ extends Node
 
 const DUEL_EQUIPMENT := preload("res://scripts/duel_bot_equipment.gd")
 const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const AI_PROFILE := preload("res://scripts/bot_ai_profile.gd")
 const BOT_NAVIGATION := preload("res://scripts/bot_navigation.gd")
@@ -699,6 +700,7 @@ func _update_duel_perception(bot_body: Node3D, player: Node3D, raw_visible: bool
 			_observation_samples.append({
 				"time": _elapsed, "position": player.global_position,
 				"reloading": player.has_method("is_shotgun_reloading") and bool(player.call("is_shotgun_reloading")),
+				"counter_guard": player.has_method("is_counter_guarding") and bool(player.call("is_counter_guarding")),
 				"charging": player.has_method("is_blaster_charging") and bool(player.call("is_blaster_charging")),
 				"weapon": str(player.call("get_weapon_id")) if player.has_method("get_weapon_id") else "unknown",
 				"aim_direction": player.get("aim_direction") if player.get("aim_direction") is Vector3 else Vector3.ZERO,
@@ -759,6 +761,7 @@ func _update_duel_perception(bot_body: Node3D, player: Node3D, raw_visible: bool
 		"line_of_fire": reacted_visible and _weapon_line_of_fire_clear(bot_body, player, _last_observed_position),
 		"target_reloading": reacted_visible and target_reloading,
 		"target_charging": reacted_visible and target_charging,
+		"target_counter_guard": reacted_visible and bool(reacted_sample.get("counter_guard", _perception.get("target_counter_guard", false))),
 		"target_weapon": target_weapon if reacted_visible else "unknown",
 		"target_aim_direction": target_aim,
 		"target_aiming_at_bot": aimed_at_bot,
@@ -779,7 +782,7 @@ func _weapon_line_of_fire_clear(bot_body: Node3D, player: Node3D, target_positio
 	query.collision_mask = 1 | 8
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [bot_body.get_rid(), player.get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid(), player.get_rid()])
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 
@@ -1692,7 +1695,7 @@ func _duel_path_clear(bot_body: Node3D, origin: Vector3, destination: Vector3) -
 	query.collision_mask = 1 | 8
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [bot_body.get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid()])
 	var scene := get_tree().current_scene if get_tree() != null else null
 	var player := scene.get_node_or_null("Player") as CollisionObject3D if scene != null else null
 	if player != null:
@@ -1806,7 +1809,7 @@ func _bot_shape_query(bot_body: Node3D) -> PhysicsShapeQueryParameters3D:
 	query.collision_mask = 1 | 8
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = [bot_body.get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid()])
 	query.margin = BOT_COLLISION_MARGIN
 	return query
 
@@ -1923,7 +1926,7 @@ func _sense_projectile_threat(bot_body: Node3D) -> void:
 		# Player flight metadata is public motion, never aim input or hidden actor state.
 		if int(projectile.get_meta("ai_projectile_source", 0)) == bot_body.get_instance_id() or str(projectile.name).begins_with("DuelBot"):
 			continue
-		if not projectile.has_meta("ai_projectile_velocity") and not str(projectile.name) in ["BlasterProjectile", "ShotgunPellet", "ModuloDroneProjectile", "JavelinProjectile"]:
+		if not projectile.has_meta("ai_projectile_velocity") and not str(projectile.name) in ["BlasterProjectile", "ShotgunPellet", "JavelinProjectile"]:
 			continue
 		var position := projectile.global_position
 		if Vector2(position.x - bot_body.global_position.x, position.z - bot_body.global_position.z).length() > 17.0 or not _duel_path_clear(bot_body, bot_body.global_position, position):
@@ -2257,7 +2260,7 @@ func _line_of_sight_clear(bot_body: Node3D, player: Node3D) -> bool:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [bot_body.get_rid(), player.get_rid()]
+	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid(), player.get_rid()])
 	return world.direct_space_state.intersect_ray(query).is_empty()
 
 

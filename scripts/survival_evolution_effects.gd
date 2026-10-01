@@ -21,7 +21,6 @@ var shield_visual: Node3D
 var javelin_anchor := Vector3.INF
 var javelin_until := 0.0
 var javelin_visual: Node3D
-var agents: Array[Dictionary] = []
 var zones: Array[Dictionary] = []
 var pickups: Array[Dictionary] = []
 var arc_marks: Dictionary = {}
@@ -84,7 +83,7 @@ func clear_transients() -> void:
 	shield_remaining = 0.0
 	shield_health = 0.0
 	shield_energy = 0.0
-	for collection in [agents, zones, pickups]:
+	for collection in [zones, pickups]:
 		for entry in collection:
 			if is_instance_valid(entry.visual):
 				entry.visual.queue_free()
@@ -119,11 +118,10 @@ func _physics_process(delta: float) -> void:
 		_update_baroud(delta)
 	if path("mobility") == "metabolism" and float(player._bio_remaining) > 0.0 and clock - _last_hit > 0.9 and player.velocity.length() > 0.3:
 		player.heal(delta * (10.0 + rank("mobility") * 9.0), "metabolism")
-	if player.get_module_cooldown("pyro_boots") <= 0.0:
+	if player.get_pyro_charges() == 2:
 		_dash_extra_ready = true
 	if javelin_anchor != Vector3.INF and clock >= javelin_until:
 		_clear_javelin()
-	_update_agents(delta)
 	_update_zones()
 	_update_pickups(delta)
 	_update_wall()
@@ -267,8 +265,6 @@ func _bolt(origin: Vector3, destination: Vector3, damage: float, source: String,
 			_damage(enemy, damage, source)
 			if heavy and rank("weapon") >= 2:
 				_control(enemy, 0.25)
-			if source in ["hunter", "sentry"] and player.survival_synergies != null and player.survival_synergies.crosses_field(origin, destination):
-				player.survival_synergies.drone_hit(enemy, damage)
 	)
 	visual.name = source
 
@@ -281,67 +277,6 @@ func _sphere(parent: Node3D, radius: float, color: Color) -> MeshInstance3D:
 	visual.material_override = player._create_fx_material(color, 0.85)
 	parent.add_child(visual)
 	return visual
-
-func launch_sentry(origin: Vector3, direction: Vector3) -> bool:
-	if path("offensive") != "sentry":
-		return false
-	var position: Vector3 = player._module_obstacle_endpoint(origin, origin + direction * 4.0, own_wall_exclusions())
-	position.y = 0.0
-	_spawn_agent(position, null, true)
-	return true
-
-func drone_hit(target: Node3D) -> void:
-	if path("offensive") == "hunter":
-		_spawn_agent(target.global_position, target, false)
-
-func _spawn_agent(position: Vector3, target: Node3D, stationary: bool) -> void:
-	if agents.size() >= 3:
-		var oldest: Dictionary = agents.pop_front()
-		oldest.visual.queue_free()
-	var visual := Node3D.new()
-	visual.name = "SentryDrone" if stationary else "HunterDrone"
-	add_child(visual)
-	visual.global_position = position + Vector3.UP * (0.65 if stationary else 1.6)
-	_sphere(visual, 0.24, Color("#83e8ad") if stationary else Color("#5bdcff"))
-	for side in [-1.0, 1.0]:
-		var wing := _sphere(visual, 0.10 + rank("offensive") * 0.025, Color("#e0ffff"))
-		wing.position = Vector3(side * 0.35, 0.0, 0.0)
-	if stationary:
-		for index in range(3):
-			var leg := _sphere(visual, 0.10, Color("#3c6b62"))
-			leg.position = Vector3(cos(index * TAU / 3.0) * 0.26, -0.35, sin(index * TAU / 3.0) * 0.26)
-	agents.append({"visual": visual, "target": target, "stationary": stationary, "until": clock + 2.4 + rank("offensive") * 1.2, "next": clock + 0.2})
-
-func _update_agents(delta: float) -> void:
-	for index in range(agents.size() - 1, -1, -1):
-		var agent := agents[index]
-		if clock >= float(agent.until) or not is_instance_valid(agent.visual):
-			if is_instance_valid(agent.visual):
-				agent.visual.queue_free()
-			agents.remove_at(index)
-			continue
-		var target := agent.target as Node3D
-		if not is_instance_valid(target) or target.get_health() <= 0.0:
-			target = _nearest(agent.visual.global_position, 7.0 + rank("offensive"))
-			agent.target = target
-		if target == null:
-			continue
-		if not bool(agent.stationary):
-			var destination := target.global_position + Vector3(0.7, 1.5, 0.7)
-			if _clear_line(agent.visual.global_position, destination, [target.get_rid()]):
-				agent.visual.global_position = agent.visual.global_position.move_toward(destination, delta * 5.0)
-		if clock < float(agent.next):
-			continue
-		agent.next = clock + 0.8
-		var position: Vector3 = agent.visual.global_position
-		if not _clear_line(position, target.global_position, [target.get_rid()]):
-			continue
-		var source := "sentry" if bool(agent.stationary) else "hunter"
-		_bolt(position, target.global_position + Vector3.UP * 0.9, float(player._drone_damage) * 0.20, source, Color("#85ecff"))
-		if bool(agent.stationary) and rank("offensive") == 3:
-			var second := _nearest(position, 10.0, [target])
-			if second != null:
-				_bolt(position, second.global_position + Vector3.UP * 0.9, float(player._drone_damage) * 0.16, source, Color("#85ecff"))
 
 func javelin_hit(target: Node3D, position: Vector3) -> void:
 	_place_javelin(position)
@@ -543,7 +478,7 @@ func own_wall_exclusions() -> Array[RID]:
 	return result
 
 func prepare_dash() -> bool:
-	if player.get_module_cooldown("pyro_boots") <= 0.0:
+	if player.get_pyro_charges() > 0:
 		return true
 	if path("mobility") == "thruster" and _dash_extra_ready:
 		_dash_extra_ready = false
@@ -552,9 +487,7 @@ func prepare_dash() -> bool:
 	return false
 
 func dash_charges() -> int:
-	if path("mobility") != "thruster":
-		return 1 if player.get_module_cooldown("pyro_boots") <= 0.0 else 0
-	return 2 if player.get_module_cooldown("pyro_boots") <= 0.0 else (1 if _dash_extra_ready else 0)
+	return player.get_pyro_charges() + (1 if path("mobility") == "thruster" and _dash_extra_ready else 0)
 
 func dash_started() -> void:
 	if path("mobility") == "thruster" and rank("mobility") == 3:

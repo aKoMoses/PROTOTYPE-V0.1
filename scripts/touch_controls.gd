@@ -1,6 +1,7 @@
 extends Control
 
 const HUD_LAYOUT := preload("res://scripts/hud_layout.gd")
+const MODULE_VISUAL := preload("res://scripts/touch_module_visual.gd")
 const INPUT_TIE_ORDER := ["offensive_button", "defensive_button", "mobility_button", "weapon_button", "move", "aim"]
 
 ## Contrôles tactiles paysage. Chaque doigt reste propriétaire du contrôle qu'il
@@ -20,12 +21,14 @@ var _aim_touch := -1
 var _action_touches: Dictionary = {}
 var _joystick_vector := Vector2.ZERO
 var _aim_vector := Vector2.ZERO
+var _module_aim_vector := Vector2.ZERO
 var _fire_feedback_remaining := 0.0
 var _inputs_suspended := false
 var _hud_layout: Dictionary = {}
 var _reserved_rects: Array[Rect2] = []
 var _editor_test := false
 var _editor_editing := false
+var _module_visual := MODULE_VISUAL.new()
 
 
 func _ready() -> void:
@@ -47,6 +50,7 @@ func _touch_preview_requested() -> bool:
 func set_player(value: Node) -> void:
 	if player != value:
 		reset_inputs()
+		_module_visual.reset()
 	player = value
 
 
@@ -70,7 +74,9 @@ func _process(delta: float) -> void:
 		reset_inputs()
 	_inputs_suspended = suspended
 	if not visible:
+		_module_visual.reset()
 		return
+	_module_visual.update(player, delta, not suspended)
 	_fire_feedback_remaining = maxf(0.0, _fire_feedback_remaining - delta)
 	queue_redraw()
 
@@ -195,6 +201,7 @@ func reset_inputs() -> void:
 	_action_touches.clear()
 	_joystick_vector = Vector2.ZERO
 	_aim_vector = Vector2.ZERO
+	_module_aim_vector = Vector2.ZERO
 	_fire_feedback_remaining = 0.0
 	if player != null and is_instance_valid(player):
 		if player.has_method("clear_touch_inputs"):
@@ -253,12 +260,21 @@ func _draw() -> void:
 		draw_circle(aim + _aim_vector * aim_radius * 0.62, 25.0 * scale * float(_widget_item("aim").s), _with_opacity(Color(0.96, 0.66, 0.30, 0.76), "aim"))
 		_draw_charge_feedback(aim, aim_radius, scale)
 	if _widget_visible("offensive_button"):
-		_draw_action(actions["offensive"], _action_radius("offensive"), _with_opacity(Color(0.35, 0.78, 0.96, 0.76), "offensive_button"), "A", "offensive_button")
+		_draw_module_action("offensive", actions["offensive"], Color("#66d6ee"))
 		_draw_fulguro_charge_feedback(actions["offensive"], _action_radius("offensive"), scale)
+		_draw_javelin_charge_feedback(actions["offensive"], _action_radius("offensive"), scale)
+		_draw_javelin_recast_feedback(actions["offensive"], _action_radius("offensive"), scale)
 	if _widget_visible("defensive_button"):
-		_draw_action(actions["defensive"], _action_radius("defensive"), _with_opacity(Color(0.38, 0.90, 0.62, 0.76), "defensive_button"), "E", "defensive_button")
+		_draw_module_action("defensive", actions["defensive"], Color("#87e3bb"))
 	if _widget_visible("mobility_button"):
-		_draw_action(actions["mobility"], _action_radius("mobility"), _with_opacity(Color(0.92, 0.68, 0.30, 0.76), "mobility_button"), "R", "mobility_button")
+		_draw_module_action("mobility", actions["mobility"], Color("#edbb70"))
+		if player != null and player.has_method("is_eclipse_aiming") and bool(player.call("is_eclipse_aiming")):
+			var center: Vector2 = actions["mobility"]
+			var radius := _action_radius("mobility") * 2.2
+			draw_circle(center, radius, Color(0.12, 0.08, 0.22, 0.55))
+			draw_arc(center, radius, 0.0, TAU, 48, Color("#a996ff"), 3.0, true)
+			var vector: Vector2 = player.get("_eclipse").get("_touch_vector")
+			draw_circle(center + vector * radius, 14.0 * scale, Color("#dccfff"))
 	if _widget_visible("weapon_button") and (player == null or not bool(player.get("survival_mode"))):
 		_draw_action(actions["weapon"], _action_radius("weapon"), _with_opacity(Color(0.70, 0.44, 0.80, 0.74), "weapon_button"), "G", "weapon_button")
 	var font := ThemeDB.fallback_font
@@ -286,6 +302,34 @@ func _draw_fulguro_charge_feedback(center: Vector2, radius: float, scale: float)
 		return
 	draw_arc(center, radius + 7.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * progress, 48, _with_opacity(color, "offensive_button"), 5.0 * scale, true)
 	draw_circle(center, radius * (0.18 + progress * 0.14), _with_opacity(Color(color.r, color.g, color.b, 0.22 + progress * 0.22), "offensive_button"))
+	if player.has_method("is_pelto_preparing") and bool(player.call("is_pelto_preparing")):
+		draw_arc(center, radius * 1.55, 0.0, TAU, 48, _with_opacity(Color(color.r, color.g, color.b, 0.55), "offensive_button"), 2.0 * scale, true)
+		draw_circle(center + _module_aim_vector * radius * 0.95, radius * 0.30, _with_opacity(color, "offensive_button"))
+		draw_string(ThemeDB.fallback_font, center + Vector2(-58, -radius * 1.7), "VISER / RELÂCHER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(13 * scale), _with_opacity(color, "offensive_button"))
+
+
+func _draw_javelin_charge_feedback(center: Vector2, radius: float, scale: float) -> void:
+	if player == null or not player.has_method("is_javelin_charging") or not bool(player.call("is_javelin_charging")):
+		return
+	var progress := float(player.call("get_javelin_charge_fraction"))
+	var color := Color("#44c8ff").lerp(Color("#ddffff"), progress)
+	draw_circle(center, radius * 1.55, _with_opacity(Color(0.04, 0.14, 0.22, 0.65), "offensive_button"))
+	draw_arc(center, radius * 1.55, 0.0, TAU, 48, _with_opacity(Color(0.3, 0.8, 1.0, 0.45), "offensive_button"), 2.0 * scale, true)
+	draw_arc(center, radius + 7.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * progress, 48, _with_opacity(color, "offensive_button"), 5.0 * scale, true)
+	draw_circle(center + _module_aim_vector * radius * 0.95, radius * 0.34, _with_opacity(color, "offensive_button"))
+	var text := "MAX • RELÂCHER" if progress >= 1.0 else "CHARGE %d%%" % roundi(progress * 100.0)
+	draw_string(ThemeDB.fallback_font, center + Vector2(-44, -radius * 1.7), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(13 * scale), _with_opacity(color, "offensive_button"))
+
+
+func _draw_javelin_recast_feedback(center: Vector2, radius: float, scale: float) -> void:
+	if player == null or not player.has_method("get_offensive_module_id") or str(player.call("get_offensive_module_id")) != "javelin":
+		return
+	var remaining := float(player.call("get_javelin_recast_fraction"))
+	if remaining <= 0.0:
+		return
+	var color := _with_opacity(Color("#ffe19a"), "offensive_button")
+	draw_arc(center, radius + 7.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * remaining, 48, color, 5.0 * scale, true)
+	draw_string(ThemeDB.fallback_font, center + Vector2(-43, -radius - 17 * scale), "TÉLÉPORTER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(13 * scale), color)
 
 
 func _draw_charge_feedback(center: Vector2, radius: float, scale: float) -> void:
@@ -305,6 +349,10 @@ func _draw_charge_feedback(center: Vector2, radius: float, scale: float) -> void
 	if _fire_feedback_remaining > 0.0:
 		var flash := _fire_feedback_remaining / 0.16
 		draw_arc(center, radius + (18.0 - flash * 8.0) * scale, 0.0, TAU, 48, _with_opacity(Color(1.0, 0.83, 0.44, flash), "aim"), 5.0 * scale, true)
+
+
+func _draw_module_action(action: String, center: Vector2, accent: Color) -> void:
+	_module_visual.draw_button(self, action, center, _action_radius(action), accent, _widget_opacity(action + "_button"), _layout_scale())
 
 
 func _draw_action(center: Vector2, radius: float, color: Color, label: String, identifier: String) -> void:
@@ -373,6 +421,8 @@ func _begin_touch(index: int, position: Vector2) -> bool:
 		# Keep the rejected finger owned by this button so it cannot migrate to a
 		# joystick, but never forward its release to an already-running cast.
 		_action_touches[index] = action if _press_action(action) else ""
+		if _action_touches[index] == "offensive":
+			_module_aim_vector = Vector2.ZERO
 		return true
 	return false
 
@@ -384,6 +434,16 @@ func _update_touch(index: int, position: Vector2) -> bool:
 	if index == _aim_touch:
 		_update_aim(position)
 		return true
+	if str(_action_touches.get(index, "")) == "offensive" and player.has_method("is_pelto_preparing") and bool(player.call("is_pelto_preparing")):
+		_module_aim_vector = ((position - _widget_center("offensive_button")) / (_action_radius("offensive") * 1.55)).limit_length(1.0)
+		player.call("set_pelto_touch_aim", _module_aim_vector)
+		return true
+	if str(_action_touches.get(index, "")) == "offensive" and player.has_method("is_javelin_charging") and bool(player.call("is_javelin_charging")):
+		_module_aim_vector = ((position - _widget_center("offensive_button")) / (_action_radius("offensive") * 1.55)).limit_length(1.0)
+		player.call("set_javelin_touch_aim", _module_aim_vector)
+		return true
+	if str(_action_touches.get(index, "")) == "mobility" and player.has_method("set_eclipse_touch_vector"):
+		player.call("set_eclipse_touch_vector", (position - _widget_center("mobility_button")) / (_action_radius("mobility") * 2.2))
 	return _action_touches.has(index)
 
 
@@ -417,6 +477,8 @@ func _end_touch(index: int) -> bool:
 		_action_touches.erase(index)
 		if not action.is_empty():
 			_release_action(action)
+			if action == "offensive":
+				_module_aim_vector = Vector2.ZERO
 	return handled
 
 

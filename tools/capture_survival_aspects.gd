@@ -42,8 +42,8 @@ func capture() -> void:
 	scene._choose_weapon("shotgun")
 	scene._begin_wave_combat()
 	var progression: SurvivalProgression = scene.progression
-	progression.equipment = {"offensive": "modulo_drone", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"}
-	progression.aspects = {"weapon": {"path": "breaker", "rank": 3}, "offensive": {"path": "hunter", "rank": 3}, "defensive": {"path": "carapace", "rank": 3}, "mobility": {"path": "thruster", "rank": 3}, "passive": {"path": "reserve", "rank": 3}}
+	progression.equipment = {"offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "omnivamp"}
+	progression.aspects = {"weapon": {"path": "breaker", "rank": 3}, "offensive": {"path": "harpoon", "rank": 3}, "defensive": {"path": "carapace", "rank": 3}, "mobility": {"path": "thruster", "rank": 3}, "passive": {"path": "reserve", "rank": 3}}
 	var player: Node3D = scene.player
 	player.configure_survival_build(progression.build())
 	player.set_touch_aim_vector(Vector2.UP)
@@ -55,7 +55,7 @@ func capture() -> void:
 		targets[index].combat_state.max_health = 10000.0
 		targets[index].reset_combat_state()
 	player._perform_static_shield()
-	player._perform_modulo_drone()
+	player._perform_javelin()
 	await create_timer(0.9, false).timeout
 	await save_frame("survival-ultimate-combat.png")
 	# Close views use the same equipped model and additions as normal combat.
@@ -71,7 +71,7 @@ func capture() -> void:
 	player.set_physics_process(false)
 	for category in ["weapon", "offensive", "defensive", "mobility", "passive"]:
 		for item in ASPECTS.PATHS:
-			var item_category: String = "weapon" if item in ["shotgun", "blaster"] else "offensive" if item in ["javelin", "modulo_drone"] else "defensive" if item in ["static_shield", "magnetic_field"] else "mobility" if item in ["pyro_boots", "bio_injector"] else "passive"
+			var item_category: String = "weapon" if item in ["shotgun", "blaster"] else "offensive" if item == "javelin" else "defensive" if item in ["static_shield", "magnetic_field"] else "mobility" if item in ["pyro_boots", "bio_injector"] else "passive"
 			if category != item_category:
 				continue
 			for path in ASPECTS.PATHS[item]:

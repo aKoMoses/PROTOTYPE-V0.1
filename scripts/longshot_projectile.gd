@@ -8,6 +8,8 @@ signal finished(hit: Dictionary, distance: float)
 
 const CONTACT_TOLERANCE := 0.0005
 const COLLISION_MARGIN := 0.00001
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
+const HOMING_ROCKET := preload("res://scripts/homing_rocket.gd")
 
 var _direction := Vector3.FORWARD
 var _speed := 1.0
@@ -19,6 +21,7 @@ var _configured := false
 var _finished := false
 var _cast: ShapeCast3D
 var _overlap_query: PhysicsShapeQueryParameters3D
+var _excluded: Array[RID] = []
 
 
 func _ready() -> void:
@@ -59,7 +62,8 @@ func configure(direction: Vector3, speed: float, max_range: float, collision_mas
 	(_cast.shape as SphereShape3D).radius = _radius
 	_cast.collision_mask = collision_mask
 	_overlap_query.collision_mask = collision_mask
-	_overlap_query.exclude = excluded.duplicate()
+	_excluded = excluded.duplicate()
+	_overlap_query.exclude = _excluded
 	_cast.clear_exceptions()
 	for excluded_rid in excluded:
 		_cast.add_exception_rid(excluded_rid)
@@ -106,6 +110,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _sweep(start: Vector3, motion: Vector3) -> Dictionary:
+	# Refresh every sweep: a wall can deploy while this shot is already flying.
+	_overlap_query.exclude = HOMING_ROCKET.owned_exclusions(self, MAGNETIC_WALL.owned_exclusions(self, _excluded))
+	_cast.clear_exceptions()
+	for excluded_rid in _overlap_query.exclude:
+		_cast.add_exception_rid(excluded_rid)
 	# cast_motion ignores existing overlaps. The zero-length shape query must
 	# precede every sweep, including the very first tick and the muzzle guard.
 	var overlap := _overlap_at(start)
@@ -198,5 +207,8 @@ func _finish(hit: Dictionary) -> void:
 		return
 	_finished = true
 	set_physics_process(false)
+	var collider: Object = hit.get("collider")
+	if is_instance_valid(collider) and collider.has_method("projectile_impact"):
+		collider.call("projectile_impact", hit["position"])
 	finished.emit(hit, _distance)
 	queue_free()

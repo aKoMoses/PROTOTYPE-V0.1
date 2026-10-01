@@ -19,6 +19,7 @@ const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
 const TRIAL_PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
+const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
@@ -1328,6 +1329,20 @@ func _update_hud() -> void:
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#d9a060"))
 			_hud_labels[key].add_theme_color_override("font_color", Color("#f4d4a2"))
 			_hud_labels["%s_icon" % key].modulate = Color("#e3b06e")
+		elif identifier == "permutation" and float(player.call("get_permutation_speed_remaining")) > 0.0:
+			_hud_labels["%s_status" % key].text = "+35%% · %.1f s" % float(player.call("get_permutation_speed_remaining"))
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#bba6ff"))
+			_hud_labels[key].add_theme_color_override("font_color", CREAM)
+			_hud_labels["%s_icon" % key].modulate = Color("#d5c9ff")
+		elif identifier == "counter":
+			_hud_labels["%s_status" % key].text = "%s • CD %.1f s" % [player.call("get_counter_hud_text"), cooldown]
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#89daff"))
+		elif identifier == "pyro_boots":
+			var charges := int(player.call("get_pyro_charges"))
+			_hud_labels["%s_status" % key].text = "%d/2 · %.1fs" % [charges, cooldown] if cooldown > 0.0 else "2/2"
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER if charges > 0 else CYAN)
+			_hud_labels[key].add_theme_color_override("font_color", CREAM)
+			_hud_labels["%s_icon" % key].modulate = Color.WHITE if charges > 0 else Color("#b7aaa0")
 		elif cooldown > 0.0:
 			_hud_labels["%s_status" % key].text = "%.1f s" % cooldown
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
@@ -1403,6 +1418,7 @@ func _setup_hud_editor() -> void:
 	_hud_controller.register("spell_bar", _hud.get_node("SpellBar"))
 	for category in ["offensive", "defensive", "mobility"]:
 		_hud_controller.register("%s_slot" % category, _hud.get_node("SpellBar/%sSlot" % category.capitalize()))
+	PASSIVE_HUD.attach(_hud.get_node("SpellBar"), player, _hud_controller)
 	_hud_editor = Control.new()
 	_hud_editor.name = "HudEditor"
 	_hud_editor.set_script(HUD_EDITOR)
