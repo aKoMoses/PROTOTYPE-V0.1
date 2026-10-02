@@ -320,6 +320,7 @@ func _finish_save() -> void:
 	_refresh()
 	_show_detail(_category, str(loadout[_category]))
 	var launch := _save_and_play and saved
+	stage.react_to_installation(saved)
 	_save_and_play = false
 	if launch:
 		start_requested.emit()

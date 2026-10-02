@@ -40,8 +40,8 @@ func update(actor: Node, delta: float, active: bool) -> void:
 		var recast := identifier == "javelin" and actor.has_method("get_javelin_recast_fraction") and float(actor.call("get_javelin_recast_fraction")) > 0.0
 		if identifier == "static_shield" and actor.has_method("get_stasis_remaining"):
 			var stasis := float(actor.call("get_stasis_remaining"))
-			var full := float(actor.get("_static_duration"))
-			recast = stasis > 0.0 and full - stasis >= float(COMBAT_DATA.MODULE_DEFINITIONS.static_shield.minimum_duration) - 0.00001
+			var survival_shield: Node = actor.get("survival_evolution_effects") if bool(actor.get("survival_mode")) else null
+			recast = stasis > 0.0 or (survival_shield != null and survival_shield.shield_remaining > 0.0)
 		var preparing := false
 		for method in ["is_fulguro_charging", "is_pelto_preparing", "is_javelin_charging", "is_eclipse_aiming"]:
 			if actor.has_method(method) and bool(actor.call(method)):

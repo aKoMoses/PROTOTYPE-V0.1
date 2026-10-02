@@ -1,8 +1,8 @@
 extends SceneTree
 ## Offline authoring: decorative equipment follows the existing cover footprints.
 ## Geometry is baked in spatial batches; no physics or navigation is generated.
-const OUTPUT := "res://art/environment/workshops/"
-const NAMES := ["steel", "paint", "rust", "ochre", "rubber", "dark", "brass", "cyan", "red", "amber", "stencil", "oil", "cyan_glow", "red_glow"]
+const OUTPUT := "res://art/environment/reference_workshops/"
+const NAMES := ["steel", "paint", "rust", "ochre", "rubber", "dark", "brass", "cyan", "red", "amber", "stencil", "oil", "cyan_glow", "red_glow", "stone", "red_paint"]
 var _materials: Array[Material] = []
 var _batches: Dictionary = {}
 var _pose := Transform3D.IDENTITY
@@ -13,6 +13,9 @@ var _cloth_count := 0
 var _cover_count := 0
 var _cable_runs := 0
 var _triangles := 0
+
+func _output_dir() -> String:
+	return OUTPUT
 
 func _initialize() -> void:
 	call_deferred("_build")
@@ -50,10 +53,19 @@ func _build() -> void:
 				_roof_storage(maxf(size.x,size.z), size.y, minf(size.x,size.z), absi(name_text.hash()))
 			if name_text in ["SouthCenterCover", "NorthCenterCover", "WestPocketShort", "EastPocketShort"]:
 				_canopy(maxf(size.x,size.z), size.y, minf(size.x,size.z), name_text)
+			elif name_text in ["SouthWestAngle", "NorthWestAngle", "SouthEastAngle", "NorthEastAngle"]:
+				_canopy(maxf(size.x,size.z), size.y, minf(size.x,size.z), name_text)
 	_pose = Transform3D.IDENTITY
 	_overhead_network()
 	_perimeter_workshops()
-	_save_batches()
+	_foreground_stalls()
+	_foliage_debris()
+	if not _save_batches():
+		root.get_node("GameSfx").call("clear")
+		arena.queue_free()
+		_dressing.free()
+		quit(1)
+		return
 	_save_lights()
 	_dressing.set_meta("dressed_covers", _cover_count)
 	_dressing.set_meta("suspended_cable_runs", _cable_runs)
@@ -61,7 +73,11 @@ func _build() -> void:
 	_dressing.set_meta("baked_triangles", _triangles)
 	var packed := PackedScene.new()
 	assert(packed.pack(_dressing) == OK)
-	assert(ResourceSaver.save(packed, "res://scenes/environment/workshop_dressing.tscn") == OK)
+	var save_error := ResourceSaver.save(packed, "res://scenes/environment/reference_workshop_dressing.tscn")
+	if save_error!=OK:
+		push_error("Workshop scene save failed: %s" % error_string(save_error))
+		quit(1)
+		return
 	print("WORKSHOPS BAKED: %d covers, %d anchored overhead cable runs, %d cloth panels, %d triangles, %d spatial batches" % [_cover_count,_cable_runs,_cloth_count,_triangles,_batches.size()])
 	root.get_node("GameSfx").call("clear")
 	arena.queue_free()
@@ -77,7 +93,7 @@ func _make_materials() -> void:
 		material.albedo_color = Color(colors[index])
 		material.roughness = .85
 		if index in [0,1,2,3,6]:
-			material.albedo_texture = load("res://art/environment/courtyard_steel_albedo.png" if index in [0,6] else "res://art/environment/courtyard_paint_albedo.png")
+			material.albedo_texture = load("res://art/environment/courtyard_steel_albedo.png" if index == 0 else "res://art/environment/courtyard_paint_albedo.png")
 			material.uv1_triplanar = true
 			material.uv1_world_triplanar = true
 			material.uv1_scale = Vector3.ONE * .9
@@ -85,6 +101,8 @@ func _make_materials() -> void:
 			material.normal_enabled = true
 			material.normal_texture = load("res://art/environment/courtyard_steel_normal.png")
 			material.normal_scale = .32
+			if index == 0:
+				material.albedo_color = Color("#c1cbd2")
 		if index in [7,8,9]:
 			material.emission_enabled = true
 			material.emission = Color(colors[index])
@@ -103,6 +121,17 @@ func _make_materials() -> void:
 		glow.set_shader_parameter("neon_color",Color("#30ceda") if index==12 else Color("#ff5a32"))
 		assert(ResourceSaver.save(glow,OUTPUT+NAMES[index]+".tres",ResourceSaver.FLAG_CHANGE_PATH) == OK)
 		_materials.append(glow)
+	for index in [14,15]:
+		var material := StandardMaterial3D.new()
+		material.resource_name = "Workshop_" + NAMES[index]
+		material.albedo_color = Color("#ded3bd") if index==14 else Color("#b65a3c")
+		material.albedo_texture = load("res://art/environment/courtyard_concrete_detail.png" if index==14 else "res://art/environment/courtyard_paint_albedo.png")
+		material.uv1_triplanar = true
+		material.uv1_world_triplanar = true
+		material.uv1_scale = Vector3.ONE*.8
+		material.roughness = .94 if index==14 else .70
+		assert(ResourceSaver.save(material,OUTPUT+NAMES[index]+".tres",ResourceSaver.FLAG_CHANGE_PATH)==OK)
+		_materials.append(material)
 
 func _cell_for(point: Vector3) -> int:
 	return clampi(floori((point.x+32)/16),0,3) + 4*clampi(floori((point.z+32)/16),0,3)
@@ -126,6 +155,9 @@ func _quad(material: int, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> voi
 	_triangle(material,a,c,d,Vector2.ZERO,Vector2.ONE,Vector2.DOWN)
 
 func _box(material: int, center: Vector3, size: Vector3, bevel := .025, basis := Basis.IDENTITY) -> void:
+	if bevel>.01 and minf(size.x,minf(size.y,size.z))>.06:
+		_chamfered_box(material,center,size,bevel,basis)
+		return
 	var h := size*.5
 	var e := minf(bevel,minf(h.x,h.z)*.7)
 	var footprint := [Vector2(-h.x,-h.z),Vector2(h.x,-h.z),Vector2(h.x,h.z),Vector2(-h.x,h.z)] if bevel <= .01 or minf(size.x,minf(size.y,size.z)) < .06 else [Vector2(-h.x+e,-h.z),Vector2(h.x-e,-h.z),Vector2(h.x,-h.z+e),Vector2(h.x,h.z-e),Vector2(h.x-e,h.z),Vector2(-h.x+e,h.z),Vector2(-h.x,h.z-e),Vector2(-h.x,-h.z+e)]
@@ -139,6 +171,58 @@ func _box(material: int, center: Vector3, size: Vector3, bevel := .025, basis :=
 		_quad(material,bottom[index],top[index],top[next],bottom[next])
 		_triangle(material,center+basis*Vector3(0,h.y,0),top[next],top[index])
 		_triangle(material,center+basis*Vector3(0,-h.y,0),bottom[index],bottom[next])
+
+func _chamfered_box(material: int, center: Vector3, size: Vector3, bevel: float, basis: Basis) -> void:
+	var h := size*.5
+	var cut := minf(bevel,minf(h.x,minf(h.y,h.z))*.40)
+	for axis in range(3):
+		var u := (axis+1)%3
+		var v := (axis+2)%3
+		for sign_value in [-1.0,1.0]:
+			var normal := Vector3.ZERO
+			normal[axis] = sign_value
+			var points: Array[Vector3] = []
+			for signs in [Vector2(-1,-1),Vector2(1,-1),Vector2(1,1),Vector2(-1,1)]:
+				var point := Vector3.ZERO
+				point[axis] = sign_value*h[axis]
+				point[u] = signs.x*(h[u]-cut)
+				point[v] = signs.y*(h[v]-cut)
+				points.append(center+basis*point)
+			_bevel_face(material,points,basis*normal)
+		for su in [-1.0,1.0]:
+			for sv in [-1.0,1.0]:
+				var points: Array[Vector3] = []
+				for sa in [-1.0,1.0]:
+					for state in [0,1]:
+						var point := Vector3.ZERO
+						point[axis] = sa*(h[axis]-cut)
+						point[u] = su*(h[u]-cut*state)
+						point[v] = sv*(h[v]-cut*(1-state))
+						points.append(center+basis*point)
+				var normal := Vector3.ZERO
+				normal[u] = su
+				normal[v] = sv
+				_bevel_face(material,[points[0],points[1],points[3],points[2]],basis*normal.normalized())
+	for sx in [-1.0,1.0]:
+		for sy in [-1.0,1.0]:
+			for sz in [-1.0,1.0]:
+				var signs := Vector3(sx,sy,sz)
+				var points: Array[Vector3] = []
+				for axis in range(3):
+					var point := signs*(h-Vector3.ONE*cut)
+					point[axis] = signs[axis]*h[axis]
+					points.append(center+basis*point)
+				_bevel_face(material,points,basis*signs.normalized())
+
+func _bevel_face(material: int, points: Array[Vector3], normal: Vector3) -> void:
+	for index in range(1,points.size()-1):
+		var a := points[0]
+		var b := points[index]
+		var c := points[index+1]
+		if (b-a).cross(c-a).dot(normal)<0:
+			_triangle(material,a,c,b)
+		else:
+			_triangle(material,a,b,c)
 
 func _tube(material: int, points: Array[Vector3], radius: float, sides := 6) -> void:
 	for index in range(points.size()-1):
@@ -228,7 +312,7 @@ func _neon_word(material: int, word: String, center: Vector3, width: float) -> v
 	}
 	var advance := width/word.length()
 	var glyph_width := advance*.68
-	var glyph_height := minf(.42,advance*1.18)
+	var glyph_height := minf(.58 if word.length()<3 else .48,advance*1.28)
 	for index in word.length():
 		var character := word.substr(index,1)
 		if not glyphs.has(character):
@@ -293,6 +377,7 @@ func _cover(length: float, height: float, depth: float, seed_value: int, perimet
 				var offset := fposmod(float(seed_value%1000)*.13+chip*1.71,1.0)
 				_box(2,Vector3((- .40 + offset*.78)*length,height*(.12+fposmod(chip*.37,1.0)*.75),face+.011),Vector3(.12+offset*.14,.024,.008),.001)
 			_ground_stain(Vector3(length*.24,.016,depth*.5+.33),Vector2(2.3,1.4))
+			_workbench_equipment(length,height,depth,seed_value)
 		_pose = saved_pose
 	# Roof details: low enclosed vents, protective ribs, power leads and scrap.
 	for item in range(3 if not perimeter else 1):
@@ -315,6 +400,7 @@ func _cover(length: float, height: float, depth: float, seed_value: int, perimet
 			_box(0 if item%2==0 else 6,Vector3(-length*.36+item*.24,height+.06,depth*.12),Vector3(.34,.07,.16),.02,Basis(Vector3.UP,float(item)*.27))
 		if depth>1.70:
 			_end_machines(length,height,depth,seed_value)
+		_roof_wear(length,height,depth,seed_value)
 
 func _end_machines(length: float, height: float, depth: float, variant: int) -> void:
 	var saved_pose := _pose
@@ -355,6 +441,156 @@ func _spare_parts(point: Vector3, variant: int) -> void:
 			_tube(0,[point+Vector3(dx,-.35,.10),point+Vector3(dx*1.8,-.47,.10),point+Vector3(dx,-.52,.12)],.030)
 		_box(6,point+Vector3(0,.28,.04),Vector3(.37,.075,.13),.018)
 
+func _workbench_equipment(length: float, height: float, depth: float, seed_value: int) -> void:
+	var random := RandomNumberGenerator.new()
+	random.seed = seed_value
+	var face := depth*.5
+	# A narrow service shelf is bolted against the solid wall, with visibly
+	# layered drawers, tools and vessels rather than coplanar panel decoration.
+	var x := length*.30
+	_box(0,Vector3(x,.66,face+.19),Vector3(1.30,.11,.40),.025)
+	for dx in [-.44,.44]:
+		_beam(0,Vector3(x+dx,.16,face+.04),Vector3(x+dx,.61,face+.30),.035)
+	_box(2,Vector3(x,.34,face+.18),Vector3(1.08,.52,.34),.045)
+	for drawer in range(2):
+		_box(0,Vector3(x,.22+drawer*.23,face+.36),Vector3(.96,.17,.035),.008)
+		_box(6,Vector3(x,.22+drawer*.23,face+.39),Vector3(.25,.028,.045),.003)
+	for part in range(4):
+		var p := Vector3(x-.42+part*.27,.80,face+.20)
+		_cylinder(6 if part%2==0 else 0,p,.075,.12,Basis(Vector3.RIGHT,PI*.5),10)
+		_beam(0,p+Vector3(-.04,0,.08),p+Vector3(.07,.035,.08),.016)
+	for side in [-1.0,1.0]:
+		var p := Vector3(side*(length*.5-.29),.54,face+.11)
+		_drum(p, .25, 1.06,3 if side<0 else 15)
+		_tube(4,[p+Vector3(0,.46,0),p+Vector3(side*.14,.57,.05),p+Vector3(side*.22,.35,.04),p+Vector3(side*.22,-.30,.04)],.031)
+	# Layered hardware has visible depth beyond the thin enamel panels. Feet
+	# remain close to the solid cover; nothing creates another gameplay body.
+	var rack_x := -length*.29
+	_box(5,Vector3(rack_x,height*.44,face+.13),Vector3(1.13,height*.67,.21),.045)
+	for y in [.25,.63,1.03]:
+		if y<height*.78:
+			_box(0,Vector3(rack_x,y,face+.23),Vector3(1.10,.055,.27),.012)
+	for part in range(5):
+		var point := Vector3(rack_x-.41+part*.19,.77,face+.25)
+		_cylinder(6 if part%2 else 0,point,.070,.23,Basis.IDENTITY,10)
+		_ring(5,point+Vector3(0,.04,.085),.045,.015)
+	for tool in range(4):
+		var point := Vector3(rack_x-.39+tool*.25,height*.73,face+.28)
+		_ring(0,point,.065,.019,Basis.IDENTITY,10)
+		_beam(0,point-Vector3.UP*.06,point-Vector3.UP*.31,.022)
+		_box(2,point-Vector3.UP*.24,Vector3(.055,.12,.04),.008)
+	var vessel := Vector3(-length*.42,height*.41,face+.15)
+	_cylinder(0,vessel,.22,height*.64,Basis.IDENTITY,16)
+	for y in [-.23,.23]:
+		_cylinder(6,vessel+Vector3.UP*y,.237,.052,Basis.IDENTITY,16)
+	_cylinder(6,vessel+Vector3.UP*(height*.34),.065,.13)
+	_tube(4,[vessel+Vector3(0,height*.38,0),vessel+Vector3(-.19,height*.43,.09),vessel+Vector3(-.27,-height*.27,.08),vessel+Vector3(.10,-height*.32,.15)],.034,8)
+	# Foundation shoes, tied-down conduit and broken masonry at the feet.
+	for side in [-1.0,1.0]:
+		_box(0,Vector3(side*length*.44,.055,face-.06),Vector3(.42,.11,.44),.04)
+		for item in range(5):
+			var p := Vector3(side*length*.43+random.randf_range(-.29,.29),.055,face+random.randf_range(-.08,.17))
+			_rock(p,Vector3(random.randf_range(.06,.15),random.randf_range(.035,.10),random.randf_range(.05,.12)),random)
+	var cable: Array[Vector3] = []
+	for step in range(25):
+		var t := float(step)/24
+		cable.append(Vector3(lerpf(-length*.48,length*.44,t),.075,face+.09+sin(t*TAU)*.06))
+	_tube(4,cable,.034,8)
+	_tube(0,[Vector3(-length*.43,height*.18,face+.07),Vector3(-length*.43,height*.96,face+.07),Vector3(-length*.39,height+ .025,face-.11)],.028,8)
+	# Short rust drips below seams and chips on panel corners.
+	for item in range(14):
+		var point := Vector3(random.randf_range(-length*.46,length*.46),random.randf_range(.18,height*.90),face+.038)
+		var size := Vector3(random.randf_range(.015,.07),random.randf_range(.04,.16),.004)
+		_box(2,point,size,.001)
+		_box(0,point+Vector3(size.x*.7,size.y*.3,.003),Vector3(size.x*.34,size.y*.40,.005),.001)
+
+func _roof_wear(length: float, height: float, depth: float, seed_value: int) -> void:
+	var random := RandomNumberGenerator.new()
+	random.seed = seed_value+77
+	for side in [-1.0,1.0]:
+		var z: float = side*depth*.43
+		_tube(2,[Vector3(-length*.47,height+.035,z),Vector3(length*.47,height+.035,z)],.028,6)
+		for item in range(9):
+			var x := (-.44+item*.11)*length
+			_cylinder(6,Vector3(x,height+.045,z),.055,.025,Basis.IDENTITY,6)
+	for item in range(30):
+		var point := Vector3(random.randf_range(-length*.47,length*.47),height+.012,random.randf_range(-depth*.44,depth*.44))
+		_box(2 if item%3 else 0,point,Vector3(random.randf_range(.06,.23),.005,random.randf_range(.01,.035)),.001,Basis(Vector3.UP,random.randf_range(-.6,.6)))
+	# Loose cable coils and a patched junction box break the identical lids.
+	var p := Vector3(length*.18,height+.075,-depth*.13)
+	for loop in range(3):
+		_ring(4,p+Vector3(0,loop*.028,0),.26+loop*.034,.024,Basis(Vector3.RIGHT,PI*.5),24)
+	var box := Vector3(-length*.40,height+.18,-depth*.16)
+	_crate(box,Vector3(.45,.34,.43),0)
+	for side in [-1.0,1.0]:
+		var socket := Vector3(side*length*.44,height+.11,depth*.25)
+		_cylinder(5,socket,.105,.16,Basis.IDENTITY,12)
+		_cylinder(6,socket+Vector3.UP*.09,.064,.035,Basis.IDENTITY,10)
+
+func _drum(center: Vector3, radius: float, height: float, paint: int) -> void:
+	_cylinder(paint,center,radius,height,Basis.IDENTITY,16)
+	for y in [-.44,-.30,.30,.44]:
+		_cylinder(0,center+Vector3.UP*height*y,radius*1.045,.038,Basis.IDENTITY,16)
+	_cylinder(5,center+Vector3.UP*(height*.505),radius*.81,.018,Basis.IDENTITY,16)
+	_cylinder(6,center+Vector3(radius*.39,height*.535,0),radius*.17,.025,Basis.IDENTITY,8)
+	_box(1,center+Vector3(0,0,radius+.005),Vector3(radius*.87,height*.22,.015),.008)
+	for row in range(3):
+		_box(5,center+Vector3(0,-height*.05+row*.032,radius+.016),Vector3(radius*.65,.013,.004),.001)
+
+func _crate(center: Vector3, size: Vector3, paint: int) -> void:
+	_box(paint,center,size,.05)
+	for side in [-1.0,1.0]:
+		_box(0,center+Vector3(side*size.x*.43,0,0),Vector3(.045,size.y+.035,size.z+.035),.012)
+		_box(6,center+Vector3(side*size.x*.28,size.y*.25,size.z*.5+.016),Vector3(.06,.16,.045),.01)
+	_box(5,center+Vector3(0,0,size.z*.5+.01),Vector3(size.x*.30,.09,.028),.014)
+	_box(0,center+Vector3(0,size.y*.5+.016,0),Vector3(size.x*.86,.035,size.z*.90),.03)
+
+func _tire(center: Vector3, radius: float, basis := Basis.IDENTITY) -> void:
+	# Open rubber ring with actual side walls, a hollow centre and tread blocks.
+	_ring(4,center,radius*.72,radius*.27,basis*Basis(Vector3.RIGHT,PI*.5),24)
+	for angle_index in range(20):
+		var angle := float(angle_index)*TAU/20
+		var radial := Vector3(cos(angle),0,sin(angle))
+		_box(4,center+basis*radial*radius*.91,Vector3(radius*.16,radius*.30,radius*.095),.01,basis*Basis(Vector3.UP,-angle))
+	_ring(5,center+basis*Vector3.UP*radius*.12,radius*.49,radius*.028,basis*Basis(Vector3.RIGHT,PI*.5),24)
+
+func _rock(center: Vector3, scale_value: Vector3, random: RandomNumberGenerator) -> void:
+	var points: Array[Vector3] = []
+	for i in range(6):
+		var angle := float(i)*TAU/6
+		points.append(center+Vector3(cos(angle)*scale_value.x*random.randf_range(.7,1.2),0,sin(angle)*scale_value.z*random.randf_range(.7,1.2)))
+	var tip := center+Vector3(scale_value.x*.16,scale_value.y,scale_value.z*.13)
+	for i in range(6):
+		var next := (i+1)%6
+		_triangle(14,points[i],tip,points[next])
+
+func _foliage_debris() -> void:
+	# Low rubble dresses the edge of the concealment footprint. These stones
+	# add no collision/navigation or connection to a hidden opponent's state.
+	var random := RandomNumberGenerator.new()
+	random.seed = 202610021
+	for bush in get_nodes_in_group("bush_placeholder"):
+		var center: Vector3 = bush.get_meta("bush_visual_position",bush.global_position)
+		var radius: float = bush.get_meta("bush_radius",1.28)
+		_pose = Transform3D(Basis.IDENTITY,center)
+		_cell = _cell_for(center)
+		for i in range(36):
+			var angle := float(i)*TAU/36+random.randf_range(-.09,.09)
+			var extent := radius*random.randf_range(.91,1.14)
+			var point := Vector3(cos(angle)*extent,.032,sin(angle)*extent)
+			_rock(point,Vector3(random.randf_range(.08,.24),random.randf_range(.04,.18),random.randf_range(.07,.20)),random)
+		var point := Vector3(-radius*.92,.17,radius*.20)
+		_tire(point,.28)
+		if radius>1.5:
+			_tire(point+Vector3(.035,.19,-.025),.27,Basis(Vector3.FORWARD,.16))
+		# Scattered flush chips read as debris without masking a robot's feet.
+		for i in range(22):
+			var angle := random.randf()*TAU
+			var extent := random.randf_range(radius*1.16,radius*1.55)
+			var p := Vector3(cos(angle)*extent,.014,sin(angle)*extent)
+			_rock(p,Vector3(random.randf_range(.025,.07),random.randf_range(.012,.035),random.randf_range(.025,.06)),random)
+	_pose = Transform3D.IDENTITY
+
 func _ground_stain(point: Vector3, size: Vector2) -> void:
 	var a := point+Vector3(-size.x*.5,0,-size.y*.5)
 	var b := point+Vector3(-size.x*.5,0,size.y*.5)
@@ -374,7 +610,7 @@ func _lantern(point: Vector3) -> void:
 	_lights.append({"position":world,"color":Color("#ffc279"),"range":3.4,"energy":1.05})
 
 func _sign(word: String, number: String, length: float, height: float, depth: float, color: int) -> void:
-	var center := Vector3(-length*.04,height+.41,depth*.24)
+	var center := Vector3(-length*.04,height+.49,depth*.44)
 	var width := minf(length*.72,3.8)
 	# Posts are physically attached to the lid, and do not enter the walkable lane.
 	for side in [-1.0,1.0]:
@@ -382,8 +618,19 @@ func _sign(word: String, number: String, length: float, height: float, depth: fl
 		_box(6,Vector3(center.x+side*width*.39,height+.025,center.z-.06),Vector3(.26,.05,.30))
 	_box(2,center,Vector3(width,.66,.16),.07)
 	_box(5,center+Vector3(0,0,.094),Vector3(width-.13,.52,.035),.035)
-	_neon_word(color,word,center+Vector3(-width*.11,0,.12),width*.70)
-	_neon_word(8 if color==7 else 7,number,center+Vector3(width*.37,0,.12),width*.20)
+	if word=="PIECES":
+		_neon_word(color,word,center+Vector3(width*.10,0,.12),width*.71)
+		# A real bent-glass wrench sits in its own cyan square on the left.
+		var p := center+Vector3(-width*.38,0,.14)
+		_box(0,p-Vector3(0,0,.04),Vector3(.52,.55,.03),.035)
+		var points: Array[Vector3] = [p+Vector3(-.13,.22,0),p+Vector3(-.16,.10,0),p+Vector3(-.07,.02,0),p+Vector3(.11,-.18,0),p+Vector3(.17,-.20,0),p+Vector3(.20,-.14,0),p+Vector3(.01,.06,0),p+Vector3(.03,.18,0),p+Vector3(-.04,.23,0)]
+		_tube(7,points,.020,8)
+		_tube(12,points,.053,8)
+	else:
+		_box(2,center+Vector3(width*.35,0,.114),Vector3(width*.25,.57,.038),.025)
+		_box(5,center+Vector3(width*.35,0,.138),Vector3(width*.23,.51,.02),.02)
+		_neon_word(color,word,center+Vector3(-width*.11,0,.12),width*.67)
+		_neon_word(8 if color==7 else 7,number,center+Vector3(width*.35,0,.16),width*.23)
 	for dy in [-.28,.28]:
 		_box(6,center+Vector3(0,dy,.12),Vector3(width-.12,.025,.028),.003)
 	for side in [-1.0,1.0]:
@@ -409,8 +656,9 @@ func _roof_storage(length: float, height: float, depth: float, variant: int) -> 
 		_box(0,Vector3(length*.25,height+.08,-depth*.22)+b*Vector3(.20,0,0),Vector3(.36,.045,.12),.025,b)
 
 func _canopy(length: float, height: float, depth: float, name_text: String) -> void:
-	var width := minf(length*.44,3.4)
-	var center_x := -.05*length
+	var angled := "Angle" in name_text
+	var width := minf(length*(.34 if angled else .55),2.1 if angled else 3.4)
+	var center_x := (-.28 if angled else -.05)*length
 	var front := depth*.47
 	var back := -depth*.43
 	for side in [-1.0,1.0]:
@@ -418,11 +666,15 @@ func _canopy(length: float, height: float, depth: float, name_text: String) -> v
 		_beam(0,Vector3(x,height+.02,back),Vector3(x,height+.60,back),.035)
 		_beam(0,Vector3(x,height+.02,front),Vector3(x,height+.32,front),.035)
 		_beam(6,Vector3(x,height+.60,back),Vector3(x,height+.32,front),.021)
-	_cloth(width,depth*.90,_pose*Transform3D(Basis.IDENTITY,Vector3(center_x,height+.61,back)),true,"Canopy"+name_text)
+	# The long central barrier carries a sagging red banner; the roof remains
+	# visible beneath its cables. Angled stalls and pockets carry actual awnings.
+	if not "CenterCover" in name_text:
+		_cloth(width,depth*.90,_pose*Transform3D(Basis.IDENTITY,Vector3(center_x,height+.61,back)),true,"Canopy"+name_text)
 	# Sewn front banner sits against the blocking wall, with a gear identity.
-	_cloth(minf(length*.28,2.4),.70,_pose*Transform3D(Basis.IDENTITY,Vector3(length*.02,height*.82,depth*.5+.06)),false,"Banner"+name_text)
-	for side in [-1.0,1.0]:
-		_bolt(Vector3(length*.02+side*minf(length*.14,1.2),height*.82,depth*.5+.07))
+	if not angled:
+		_cloth(minf(length*.32,2.8),height*.62,_pose*Transform3D(Basis.IDENTITY,Vector3(length*.02,height*.84,depth*.5+.15)),false,"Banner"+name_text)
+		for side in [-1.0,1.0]:
+			_bolt(Vector3(length*.02+side*minf(length*.14,1.2),height*.82,depth*.5+.07))
 
 func _cloth(width: float, extent: float, transform: Transform3D, canopy: bool, node_name: String) -> void:
 	var surface := SurfaceTool.new()
@@ -430,29 +682,36 @@ func _cloth(width: float, extent: float, transform: Transform3D, canopy: bool, n
 	var material := ShaderMaterial.new()
 	material.shader = load("res://scripts/environment/yard_cloth.gdshader")
 	material.set_shader_parameter("canvas_texture",load("res://art/environment/workshop_canvas.svg"))
-	material.set_shader_parameter("canvas_tint",Color("#ebc393") if canopy else Color("#cd8d61"))
+	var canopy_tint := Color("#a68461")
+	if "East" in node_name or "OuterCanopy10" in node_name:
+		canopy_tint = Color("#964735")
+	material.set_shader_parameter("canvas_tint",canopy_tint if canopy else Color("#943d2c"))
 	material.set_shader_parameter("four_corner_pin",canopy)
+	material.set_shader_parameter("gear_banner",not canopy)
+	material.set_shader_parameter("fabric_aspect",width/extent)
 	material.set_shader_parameter("phase",float(_cloth_count)*1.43)
 	surface.set_material(material)
-	var resolution := 12
+	var resolution := 24
 	for y in resolution:
 		for x in resolution:
 			var coords := [Vector2(x,y),Vector2(x+1,y),Vector2(x+1,y+1),Vector2(x,y+1)]
 			var vertices: Array[Vector3] = []
 			for coord in coords:
 				var uv: Vector2 = coord/resolution
-				var sag := sin(uv.x*PI)*sin(uv.y*PI)
-				vertices.append(Vector3((uv.x-.5)*width,-uv.y*.28-sag*.12,uv.y*extent) if canopy else Vector3((uv.x-.5)*width,-uv.y*extent,.035*sin(uv.x*TAU)*uv.y))
+				vertices.append(_fabric_vertex(coord/resolution,width,extent,canopy))
 			for index in [0,1,2,0,2,3]:
 				surface.set_uv(coords[index]/resolution)
-				surface.set_normal(Vector3(0,extent,.28).normalized() if canopy else Vector3.BACK)
+				var uv: Vector2 = coords[index]/resolution
+				var tangent := _fabric_vertex(uv+Vector2(.001,0),width,extent,canopy)-_fabric_vertex(uv-Vector2(.001,0),width,extent,canopy)
+				var down := _fabric_vertex(uv+Vector2(0,.001),width,extent,canopy)-_fabric_vertex(uv-Vector2(0,.001),width,extent,canopy)
+				surface.set_normal(down.cross(tangent).normalized())
 				surface.add_vertex(vertices[index])
 	var mesh := surface.commit()
-	var path := OUTPUT+node_name+".res"
-	assert(ResourceSaver.save(mesh,path) == OK)
+	var path := _output_dir()+node_name+".res"
+	assert(ResourceSaver.save(mesh,path,ResourceSaver.FLAG_CHANGE_PATH) == OK)
 	var node := MeshInstance3D.new()
 	node.name = node_name
-	node.mesh = load(path)
+	node.mesh = ResourceLoader.load(path,"",ResourceLoader.CACHE_MODE_IGNORE)
 	node.material_override = material
 	node.transform = transform
 	node.extra_cull_margin = .22
@@ -460,6 +719,13 @@ func _cloth(width: float, extent: float, transform: Transform3D, canopy: bool, n
 	_dressing.add_child(node)
 	node.owner = _dressing
 	_cloth_count += 1
+
+func _fabric_vertex(uv: Vector2, width: float, extent: float, canopy: bool) -> Vector3:
+	var sag := sin(uv.x*PI)
+	var ripple := sin(uv.x*TAU*3.0+uv.y*2.4)*.075+sin(uv.x*TAU*5.0-uv.y*3.1)*.035
+	if canopy:
+		return Vector3((uv.x-.5)*width,-uv.y*.28-sag*sin(uv.y*PI)*.34+ripple*sin(uv.y*PI),uv.y*extent)
+	return Vector3((uv.x-.5)*width,-uv.y*extent-sag*.17, .045+sag*uv.y*.13+ripple*uv.y)
 
 func _pole(point: Vector3, top: float) -> void:
 	_box(6,point+Vector3(0,.08,0),Vector3(.34,.16,.34))
@@ -469,7 +735,7 @@ func _pole(point: Vector3, top: float) -> void:
 	_box(2,point+Vector3(0,.29,0),Vector3(.30,.50,.20),.03)
 
 func _sag_cable(a: Vector3, b: Vector3, sag: float, radius: float, bulbs := false) -> void:
-	_cell = _cell_for((a+b)*.5)
+	_cell = _cell_for(_pose*((a+b)*.5))
 	var points: Array[Vector3] = []
 	for index in range(33):
 		var t := float(index)/32
@@ -531,7 +797,27 @@ func _perimeter_workshops() -> void:
 				_cylinder(0,Vector3(dx,.18+stack*.22,2.0),.24,.19)
 	_pose = Transform3D.IDENTITY
 
-func _save_batches() -> void:
+func _foreground_stalls() -> void:
+	# Four cloth roofs dress the outer service bays seen at the screen corners.
+	# Their uprights and storage all sit on/beyond the existing perimeter.
+	for z in [-28.5,28.5]:
+		for x in [-10.7,10.7]:
+			_pose = Transform3D(Basis(Vector3.UP,PI if z<0 else 0),Vector3(x,0,z))
+			_cell = _cell_for(_pose.origin)
+			for dx in [-2.3,2.3]:
+				_pole(Vector3(dx,0,0),3.47)
+				_pole(Vector3(dx,0,3.0),3.0)
+				_beam(4,Vector3(dx,3.75,-3.0),Vector3(dx,3.47,0),.045)
+				_beam(0,Vector3(dx,2.5,0),Vector3(dx,3.75,-3.0),.035)
+			_cloth(4.6,3.0,_pose*Transform3D(Basis.IDENTITY,Vector3(0,3.75,-3.0)),true,"OuterCanopy"+str(int(x))+"_"+str(int(z)))
+			_sag_cable(Vector3(-2.3,3.7,-2.97),Vector3(2.3,3.7,-2.97),.25,.046,false)
+			for dx in [-1.6,1.6]:
+				_crate(Vector3(dx,.55,1.0),Vector3(.94,1.1,.88),0 if dx<0 else 2)
+				_drum(Vector3(dx*1.1,.52,2.2),.34,1.02,3)
+				_lantern(Vector3(dx,2.2,.90))
+	_pose = Transform3D.IDENTITY
+
+func _save_batches() -> bool:
 	for key in _batches:
 		var data: Dictionary = _batches[key]
 		var arrays := []
@@ -546,15 +832,19 @@ func _save_batches() -> void:
 		indexed.create_from(mesh,0)
 		indexed.index()
 		mesh = indexed.commit()
-		var path := OUTPUT+"batch_"+str(key)+".res"
-		assert(ResourceSaver.save(mesh,path) == OK)
+		var path := _output_dir()+"batch_"+str(key)+".res"
+		var save_error := ResourceSaver.save(mesh,path,ResourceSaver.FLAG_CHANGE_PATH)
+		if save_error!=OK:
+			push_error("Workshop mesh save failed: %s %s" % [path,error_string(save_error)])
+			return false
 		var node := MeshInstance3D.new()
 		node.name = "Workshop_"+str(key)
-		node.mesh = load(path)
+		node.mesh = ResourceLoader.load(path,"",ResourceLoader.CACHE_MODE_IGNORE)
 		if data.mat in [7,8,9,10,11,12,13]:
 			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_dressing.add_child(node)
 		node.owner = _dressing
+	return true
 
 func _save_lights() -> void:
 	var material := ShaderMaterial.new()

@@ -251,7 +251,7 @@ func _physics_process(delta: float) -> void:
 	if _uses_local_feedback():
 		get_node("/root/GameSfx").update_locomotion(
 			global_position.distance_to(sound_start_position), delta,
-			_current_bush != null, sound_walking)
+			_current_bush != null, sound_walking, _robot_id)
 	_update_javelin_mark()
 	if combat_state != null and combat_state.is_stunned() and (_blaster_charge_active or _touch_fire_active):
 		cancel_touch_fire("BLASTER  •  INTERROMPU")
@@ -521,6 +521,11 @@ func _consume_touch_action(action: String) -> bool:
 
 func _mark_combat_event() -> void:
 	_combat_component._mark_combat_event()
+
+
+func show_round_result(won: bool) -> void:
+	if not _gameplay_enabled and not is_real_dead() and get_health() > 0.0 and _visual_rig != null:
+		_visual_rig.show_round_result(won)
 
 
 func get_combat_reveal_remaining() -> float:

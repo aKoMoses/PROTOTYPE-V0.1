@@ -107,10 +107,18 @@ for cx,cz,w,h in [(-22,5,1.1,5),(22,-5,1.1,5),(-4,-15,5,.85),(4,16,5,.85)]:
     for i in range(7):
         x=cx-w*.5+i*w/7
         pts=[uv(x,cz-h*.5),uv(x+w*.07,cz-h*.5),uv(x+w*.2,cz+h*.5),uv(x+w*.13,cz+h*.5)]
-        d.polygon(pts,fill=(190,148,69,85))
+        d.polygon(pts,fill=(211,158,54,175))
     for _ in range(90):
         u,v=uv(cx+RNG.uniform(-w*.5,w*.5),cz+RNG.uniform(-h*.5,h*.5)); r=RNG.uniform(2,8)
         d.ellipse((u-r,v-r*.7,u+r,v+r*.7),fill=(0,0,0,0))
+blend(a)
+# A battered painted service-lane edge beside the southern recovery pad.
+a=layer(); d=ImageDraw.Draw(a)
+d.line([uv(-1.2,14.7),uv(-1.2,24.7)],fill=(211,158,54,155),width=9)
+for _ in range(220):
+    u,v=uv(-1.2+RNG.uniform(-.07,.07),RNG.uniform(14.7,24.7))
+    r=RNG.uniform(1,5)
+    d.ellipse((u-r,v-r*.6,u+r,v+r*.6),fill=(0,0,0,0))
 blend(a)
 a=layer(); d=ImageDraw.Draw(a)
 for route in [[(-12,-29),(-14,-24),(-24,-16),(-24,15),(-17,24)],
@@ -193,10 +201,26 @@ blend(a)
 # Motor oil splashes and dusty abrasion, with broken edges and separate drops.
 a=layer(); d=ImageDraw.Draw(a)
 for cx,cz in [(-9,17),(12,19),(-16,-3),(9,-17),(-4,7),(18,7),(-20,24),(21,-24)]:
-    for _ in range(100):
-        x=cx+float(RNG.normal(0,.90)); z=cz+float(RNG.normal(0,.65))
-        radius=float(RNG.uniform(.025,.22)); u,v=uv(x,z); r=radius*N/60
-        d.ellipse((u-r,v-r*.62,u+r,v+r*.62),fill=(49,49,44,int(RNG.integers(35,120))))
+    # Fragment a broad spill with two noise scales; individual circular stamps
+    # looked like coins. The resulting chipped edges belong to this location.
+    size=384
+    yy,xx=np.mgrid[-1:1:complex(size),-1:1:complex(size)]
+    noise=field(size,25)*.82+field(size,118)*.36
+    shape=1-np.sqrt(xx*xx+yy*yy*1.75)
+    mask=np.clip((shape+noise-.20)*2.6,0,1)
+    broken=np.clip((field(size,88)+.28)*4.4,0,1)
+    rgba=np.zeros((size,size,4),dtype=np.uint8)
+    rgba[:,:,:3]=[57,56,49]
+    rgba[:,:,3]=(mask*broken*115).astype(np.uint8)
+    u,v=uv(cx,cz)
+    a.alpha_composite(Image.fromarray(rgba),(int(u-size/2),int(v-size/2)))
+    for _ in range(90):
+        x=cx+float(RNG.normal(0,1.0)); z=cz+float(RNG.normal(0,.75))
+        radius=float(RNG.uniform(.015,.095))
+        points=[uv(x+math.cos(t)*radius*RNG.uniform(.45,1.4),
+                   z+math.sin(t)*radius*RNG.uniform(.45,1.4))
+                for t in np.linspace(0,math.tau,7,endpoint=False)]
+        d.polygon(points,fill=(56,54,47,int(RNG.integers(35,105))))
 blend(a,.25)
 
 a=layer(); d=ImageDraw.Draw(a)
@@ -219,7 +243,7 @@ blend(a,.25)
 a=layer(); d=ImageDraw.Draw(a)
 for cx,cz in [(15.5,14),(-18,-17)]:
     u,v=uv(cx,cz); r=1.05*N/60
-    d.ellipse((u-r,v-r,u+r,v+r),outline=(72,69,60,100),width=12)
+    d.ellipse((u-r,v-r,u+r,v+r),outline=(72,69,60,150),width=12)
     for t in np.linspace(0,math.tau,12,endpoint=False):
         direction=np.array([math.cos(t),math.sin(t)])
         sideways=np.array([-math.sin(t),math.cos(t)])
@@ -227,7 +251,7 @@ for cx,cz in [(15.5,14),(-18,-17)]:
         d.polygon([uv(*(center+direction*.24+sideways*.15)),
                    uv(*(center+direction*.24-sideways*.15)),
                    uv(*(center-direction*.12-sideways*.15)),
-                   uv(*(center-direction*.12+sideways*.15))],fill=(75,71,60,95))
+                   uv(*(center-direction*.12+sideways*.15))],fill=(75,71,60,150))
     for _ in range(120):
         px,py=uv(cx+RNG.uniform(-1.2,1.2),cz+RNG.uniform(-1.2,1.2))
         rr=RNG.uniform(1,5)

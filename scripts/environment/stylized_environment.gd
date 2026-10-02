@@ -6,6 +6,10 @@ const FLOOR := preload("res://shaders/stylized_courtyard.gdshader")
 const CONCRETE := preload("res://art/environment/courtyard_concrete_detail.png")
 const PAINT := preload("res://art/environment/courtyard_paint_albedo.png")
 const STEEL := preload("res://art/environment/courtyard_steel_albedo.png")
+const MAP_ROOT := "res://art/environment/map_reference/"
+const ARMOR := preload("res://art/environment/families/paint_cream.tres")
+const BLUE_STEEL := preload("res://art/environment/families/steel_frame.tres")
+const TREAD := preload("res://shaders/workshop_tread_plate.gdshader")
 const SCENES := ["res://scripts/main.gd", "res://scripts/training_ground.gd", "res://scripts/survival.gd"]
 var enabled := true
 var _materials: Dictionary = {}
@@ -13,6 +17,7 @@ var _bevels: Dictionary = {}
 var _scenes: Array[WeakRef] = []
 var _secondary_suns: Array[WeakRef] = []
 var _quality_clock := 0.0
+var _service_hatch: ShaderMaterial
 
 func _ready() -> void:
 	enabled = not OS.get_cmdline_user_args().has("stylized-baseline")
@@ -46,6 +51,8 @@ func _on_node_added(node: Node) -> void:
 		return
 	if node is Node3D and node.get_script() != null and node.get_script().resource_path in SCENES:
 		_prepare_added_scene.call_deferred(weakref(node))
+	elif node is Node3D and node.get_script()!=null and node.get_script().resource_path=="res://scripts/test_arena.gd":
+		_prepare_test_details.call_deferred(weakref(node))
 	elif node is MeshInstance3D:
 		# Handles factory extensions and the test arena created after _ready.
 		var ancestor := node.get_parent()
@@ -77,9 +84,31 @@ func _prepare_scene(scene: Node3D) -> void:
 		_scenes.append(weakref(scene))
 	if not scene.has_meta("stylized_environment_ready"):
 		_configure_secondary_lighting(scene)
+		var map_id := "training" if scene.get_script().resource_path==SCENES[1] else "survival" if scene.get_script().resource_path==SCENES[2] else ""
+		if map_id!="":
+			_attach_details(scene,map_id)
 	for mesh in scene.find_children("*", "MeshInstance3D", true, false):
 		_finish_mesh(mesh, scene)
 	scene.set_meta("stylized_environment_ready", true)
+
+func _attach_details(parent: Node3D, map_id: String) -> void:
+	if parent.has_node("ReferenceMapDressing"):
+		return
+	var path := "res://scenes/environment/reference_%s.tscn" % map_id
+	if ResourceLoader.exists(path):
+		parent.add_child(load(path).instantiate())
+
+func _prepare_test_details(reference: WeakRef) -> void:
+	await get_tree().process_frame
+	var arena := reference.get_ref() as Node3D
+	if arena==null or not arena.is_inside_tree():
+		return
+	_attach_details(arena,"test")
+	# Its Ground was copied from the classic map, including metadata and finish.
+	# Assign the test layout explicitly instead of retaining the scaled atlas.
+	var ground := arena.get_node_or_null("Ground") as MeshInstance3D
+	if ground!=null:
+		_assign_map_floor(ground,"test",Vector2(-18,-15),Vector2(36,30))
 
 func _configure_secondary_lighting(scene: Node3D) -> void:
 	# The duel's authored directors own its dusk lighting. Bring the standalone
@@ -88,12 +117,12 @@ func _configure_secondary_lighting(scene: Node3D) -> void:
 		return
 	for node in scene.get_children():
 		if node is WorldEnvironment:
-			node.environment.ambient_light_color = Color("#a2b8cb")
-			node.environment.ambient_light_energy = 0.38
+			node.environment.ambient_light_color = Color("#849dbb")
+			node.environment.ambient_light_energy = 0.34
 			node.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		elif node is DirectionalLight3D:
-			node.light_color = Color("#ffe0b3")
-			node.light_energy = 0.78
+			node.light_color = Color("#ffcb87")
+			node.light_energy = 0.86
 			node.rotation_degrees = Vector3(-43, -36, 0)
 			node.shadow_enabled = true
 			node.shadow_blur = 1.5
@@ -118,6 +147,10 @@ func _finish_added(mesh_reference: WeakRef, scene_reference: WeakRef) -> void:
 func _environment_mesh(mesh: MeshInstance3D, scene: Node) -> bool:
 	var branch: Node = mesh
 	while branch.get_parent() != scene:
+		# Repair pads own animated, instance-local materials, even when nested
+		# below TestArena. Leave them to their dedicated presentation adapter.
+		if branch.is_in_group("repair_kits"):
+			return false
 		branch = branch.get_parent()
 		if branch == null:
 			return false
@@ -132,9 +165,9 @@ func _environment_mesh(mesh: MeshInstance3D, scene: Node) -> bool:
 		return false
 	var label := String(branch.name)
 	if scene.get_script().resource_path == "res://scripts/training_ground.gd":
-		return label.begins_with("Fixed") or label.begins_with("Moving") or label.begins_with("Shooter") or label.ends_with("Wall") or label.ends_with("Crates")
+		return true # All remaining unscripted roots are authored scenery/markings.
 	if scene.get_script().resource_path == "res://scripts/survival.gd":
-		return label.begins_with("Wreck") or label.begins_with("BorderWreck") or label.begins_with("Scrap") or label.ends_with("Wall") or label.begins_with("Factory")
+		return true # Includes anonymous factory machine, tank and passage roots.
 	return false
 
 func _finish_mesh(mesh: MeshInstance3D, scene: Node) -> void:
@@ -145,9 +178,47 @@ func _finish_mesh(mesh: MeshInstance3D, scene: Node) -> void:
 	if label == "Ground" or parent_label in ["TrainingFloor", "Floor", "FactoryFloor", "PassageFloor"]:
 		_finish_floor(mesh)
 		return
+	if scene.get_script().resource_path in [SCENES[1],SCENES[2]] and mesh.mesh is BoxMesh:
+		var size := (mesh.mesh as BoxMesh).size
+		if scene.get_script().resource_path==SCENES[2] and size.is_equal_approx(Vector3(3.2,.04,2.1)):
+			# Existing service hatches need a legible steel face, not painted ink.
+			if _service_hatch==null:
+				_service_hatch = ShaderMaterial.new()
+				_service_hatch.shader = TREAD
+			mesh.material_override = _service_hatch
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mesh.set_meta("stylized_finish",true)
+			return
+		if size.y<.10 and size.x>3.0 and size.z>3.0:
+			var source := mesh.material_override as StandardMaterial3D
+			if scene.get_script().resource_path==SCENES[1]:
+				_assign_map_floor(mesh,"training",Vector2(-44,-38),Vector2(88,76),source.albedo_color.lightened(.78) if source!=null else Color.WHITE)
+			else:
+				# The existing cross-shaped service road keeps its footprint and
+				# centre line, but now wears the same concrete rather than flat ink.
+				_assign_map_floor(mesh,"survival",Vector2(-24,-24),Vector2(48,48),Color("#c8c1a9"))
+			return
+	if scene.get_script().resource_path==SCENES[2] and mesh.mesh is CylinderMesh and (mesh.mesh as CylinderMesh).height<.02:
+		var plane := PlaneMesh.new()
+		plane.size = Vector2.ONE*(mesh.mesh as CylinderMesh).top_radius*2
+		mesh.mesh = plane
+		mesh.material_override = load("res://art/environment/reference_workshops/oil.tres")
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mesh.set_meta("stylized_finish",true)
+		return
 	var source := mesh.material_override as StandardMaterial3D
 	var changed := false
 	if source != null:
+		if mesh.mesh is BoxMesh and scene.get_script().resource_path!=SCENES[0]:
+			var size := (mesh.mesh as BoxMesh).size
+			if "Wall" in parent_label or "Crates" in parent_label or parent_label.begins_with("ShooterCover"):
+				source = ARMOR
+			elif scene.get_script().resource_path==SCENES[1] and size.y>.6 and minf(size.x,size.z)<.6:
+				source = BLUE_STEEL
+			elif scene.get_script().resource_path==SCENES[2] and size.is_equal_approx(Vector3(4,2,2.6)):
+				source = ARMOR
+			elif scene.get_script().resource_path==SCENES[2] and size.is_equal_approx(Vector3(4.3,.22,2.9)):
+				source = BLUE_STEEL
 		var finish := _paint(source)
 		if finish != null:
 			mesh.material_override = finish
@@ -168,6 +239,17 @@ func _finish_mesh(mesh: MeshInstance3D, scene: Node) -> void:
 		mesh.set_meta("stylized_finish", true)
 
 func _finish_floor(mesh: MeshInstance3D) -> void:
+	var parent_name := String(mesh.get_parent().name)
+	var layouts := {
+		"TrainingFloor":["training",Vector2(-44,-38),Vector2(88,76)],
+		"Floor":["survival",Vector2(-24,-24),Vector2(48,48)],
+		"FactoryFloor":["factory",Vector2(30,-24),Vector2(48,48)],
+		"PassageFloor":["passage",Vector2(23,-6),Vector2(8,12)]
+	}
+	if layouts.has(parent_name):
+		var layout: Array = layouts[parent_name]
+		_assign_map_floor(mesh,layout[0],layout[1],layout[2])
+		return
 	var source := mesh.material_override
 	var finish := ShaderMaterial.new()
 	finish.shader = FLOOR
@@ -183,6 +265,22 @@ func _finish_floor(mesh: MeshInstance3D) -> void:
 		return
 	mesh.material_override = finish
 	mesh.set_meta("stylized_finish", true)
+
+func _assign_map_floor(mesh: MeshInstance3D, map_id: String, origin: Vector2, span: Vector2, tint := Color.WHITE) -> void:
+	var path := MAP_ROOT+map_id+"_floor.png"
+	if not ResourceLoader.exists(path):
+		return # Offline baker is also used before these resources are generated.
+	var material := ShaderMaterial.new()
+	material.shader = FLOOR
+	material.set_shader_parameter("layout_albedo",load(path))
+	material.set_shader_parameter("surface_normal",load(MAP_ROOT+map_id+"_normal.png"))
+	material.set_shader_parameter("concrete_detail",CONCRETE)
+	material.set_shader_parameter("world_layout",true)
+	material.set_shader_parameter("layout_origin",origin)
+	material.set_shader_parameter("layout_span",span)
+	material.set_shader_parameter("zone_tint",tint)
+	mesh.material_override = material
+	mesh.set_meta("stylized_finish",true)
 
 func _paint(source: StandardMaterial3D) -> ShaderMaterial:
 	# Glow, translucency, foliage and gameplay markers keep their own pipeline.
@@ -217,12 +315,17 @@ func _paint(source: StandardMaterial3D) -> ShaderMaterial:
 		var pigment := Color("#c4b79c")
 		if "steel" in texture_path:
 			pigment = Color("#8dabb6")
+			# The supplied steel texture is already dark gunmetal. Retain its
+			# chips while bringing the large lids into the reference's blue-grey.
+			finish.set_shader_parameter("texture_gain", 1.70)
 		elif "rust" in texture_path:
 			pigment = Color("#ae7656")
 		elif "paint" in texture_path or "cream" in texture_path:
 			pigment = Color("#d9c7a4")
 		elif "banner" in texture_path:
 			pigment = Color("#a75a47")
+		elif texture_path.ends_with("courtyard_concrete_detail.png"):
+			finish.set_shader_parameter("texture_gain", 1.50)
 		finish.set_shader_parameter("pigment_color", pigment)
 		finish.set_shader_parameter("pigment_strength", 0.12)
 	else:

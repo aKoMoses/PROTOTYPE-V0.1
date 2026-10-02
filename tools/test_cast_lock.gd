@@ -91,8 +91,17 @@ func _set_desktop_attack(pressed: bool) -> void:
 func _test_touch_charge_is_canceled_without_discharge(player: Node, target: Node) -> void:
 	await _prepare(player, target)
 	player.call("begin_touch_fire")
-	await create_timer(0.28, true, false, false).timeout
+	# Touch charging uses wall time. A SceneTreeTimer created during a slow
+	# startup frame can consume that frame's delta before a full hold elapses.
+	var charge_deadline := Time.get_ticks_msec() + 2000
+	while not bool(player.call("is_blaster_charging")) and Time.get_ticks_msec() < charge_deadline:
+		await physics_frame
+		await process_frame
 	_check(bool(player.call("is_blaster_charging")), "tactile : charge blaster non amorcée")
+	# A module may preempt a charge from an earlier physics frame, while the
+	# gate deliberately rejects two newly accepted actions in the same frame.
+	await physics_frame
+	await process_frame
 	var shot_serial := int(player.get("_blaster_attack_token"))
 	player.call("begin_touch_action", "offensive")
 	_check(str(player.call("get_action_owner")) == "fulguro_punch", "charge -> cast : FULGURO n'a pas réservé l'action")

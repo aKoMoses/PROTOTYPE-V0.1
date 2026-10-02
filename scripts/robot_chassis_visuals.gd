@@ -1,7 +1,9 @@
 extends RefCounted
 
-## Instance-local paint variants. The source GLB, textures and shared materials
-## remain untouched, and Polyvalent restores the exact original overrides.
+## Model selection and instance-local paint for the original chassis.
+const DEFAULT_MODEL_PATH := "res://art/player_mecha_animated.glb"
+const POWERFUL_MODEL_PATH := "res://art/player_mecha_puissant.glb"
+const SOURCE_HEIGHTS := {DEFAULT_MODEL_PATH: 0.86084, POWERFUL_MODEL_PATH: 0.830566}
 const PAINT_SHADER := preload("res://art/shaders/robot_chassis.gdshader")
 const SCALE_FACTORS := {"agile": 0.95, "polyvalent": 1.0, "puissant": 1.05}
 const PROFILES := {
@@ -9,11 +11,6 @@ const PROFILES := {
 		"panel_color": Color("#c2d2d5"), "accent_color": Color("#369aa9"),
 		"fabric_color": Color("#285968"), "pack_color": Color("#4c7079"),
 		"panel_roughness": 0.52, "panel_metallic": 0.22,
-	},
-	"puissant": {
-		"panel_color": Color("#626b73"), "accent_color": Color("#d1a14c"),
-		"fabric_color": Color("#792e34"), "pack_color": Color("#8e754e"),
-		"panel_roughness": 0.66, "panel_metallic": 0.20,
 	},
 }
 # Authored tripo_part IDs, inspected against the GLB's bounds and textures.
@@ -24,8 +21,15 @@ const BACKPACK_PART := 7
 var _surfaces: Array[Dictionary] = []
 
 
+static func model_path(identifier: String) -> String:
+	return POWERFUL_MODEL_PATH if identifier == "puissant" else DEFAULT_MODEL_PATH
+
+
 func apply(imported_model: Node3D, identifier: String) -> void:
 	if imported_model == null:
+		return
+	# Part numbers belong to the original robot. Keep the orange model's paint.
+	if imported_model.scene_file_path == POWERFUL_MODEL_PATH:
 		return
 	if _surfaces.is_empty():
 		_collect_surfaces(imported_model)

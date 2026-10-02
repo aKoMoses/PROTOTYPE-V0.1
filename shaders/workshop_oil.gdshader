@@ -10,7 +10,8 @@ void vertex() { world_position = (MODEL_MATRIX * vec4(VERTEX,1.0)).xz; }
 void fragment() {
 	float edge = length((UV-vec2(0.5))*vec2(2.0,2.0));
 	float grain = noise(world_position*5.4);
-	float stain = smoothstep(0.98,0.32,edge + noise(world_position*2.7)*0.30);
+	float stain = 1.0 - smoothstep(0.32,0.98,edge + noise(world_position*2.7)*0.30);
+	if (stain < 0.015) { discard; }
 	ALBEDO = vec3(0.15,0.14,0.13);
 	ALPHA = stain * mix(0.12,0.35,grain);
 }

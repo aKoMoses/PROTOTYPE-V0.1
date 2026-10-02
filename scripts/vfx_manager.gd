@@ -1,5 +1,13 @@
 extends Node3D
 ## Presentation only: no collision, damage, gameplay timers or combat random state.
+signal surface_contact(at: Vector3, surface: String, power: float)
+signal presentation_cleared
+signal organic_contact(at: Vector3, normal: Vector3, surface: String, power: float)
+signal organic_shot(socket: Node3D, weapon: String, charge: float)
+signal organic_motion(at: Vector3, direction: Vector3, power: float)
+const SURFACES := preload("res://scripts/surface_response.gd")
+const PRESENTATION := preload("res://scripts/combat_presentation_pass.gd")
+const ORGANIC_DETAILS := preload("res://scripts/environment/organic_world_details.gd")
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const ASSETS := preload("res://scripts/vfx_assets.gd")
@@ -29,6 +37,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.randomize()
+	_install_presentation.call_deferred()
 	# Follow skeleton modifiers and weapon recoil when updating attached flashes.
 	process_priority = 100
 	# Build once before combat, rather than paying for textures on the first hit.
@@ -43,6 +52,10 @@ func _ready() -> void:
 		var material := _material(Color("#ffd7a3") if critical else Color("#9bc8d1"))
 		material.albedo_color.a = 0.18 if critical else 0.12
 		_hit_materials.append(material)
+
+func _install_presentation() -> void:
+	PRESENTATION.install(get_parent(), self)
+	ORGANIC_DETAILS.install(get_parent(), self)
 
 
 func _process(delta: float) -> void:
@@ -109,6 +122,7 @@ func _process(delta: float) -> void:
 func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 	if not is_instance_valid(socket) or not socket.is_inside_tree():
 		return
+	organic_shot.emit(socket, weapon, charge)
 	if weapon == "shotgun":
 		_shotgun_muzzle(socket)
 		return
@@ -227,6 +241,10 @@ func _attach_trail(projectile: Node3D, kind: String, color: Color, width: Vector
 
 func shotgun_impact(position: Vector3, normal: Vector3, surface: String, power: float = 1.0) -> void:
 	impact(position, normal, surface, power, Color("#ffaf59"))
+	# Concrete chips and dust already carry the contact. Long incandescent
+	# streaks belong to hard metal, armour and intercepted energy.
+	if surface not in ["metal", "robot", "shield"]:
+		return
 	var n := normal.normalized() if not normal.is_zero_approx() else Vector3.UP
 	var basis := _surface_basis(n)
 	# A few authored streaks give contacts a readable silhouette even on mobile.
@@ -297,6 +315,8 @@ func impact(position: Vector3, normal: Vector3, surface: String = "metal", power
 	var n := normal.normalized() if normal.length_squared() > 0.0001 else Vector3.UP
 	var strength := clampf(power, 0.4, 2.0) * impact_scale
 	var contact := position + n * 0.018
+	surface_contact.emit(contact, surface, power)
+	organic_contact.emit(contact, n, surface, power)
 	var is_metal := surface == "metal"
 	var is_robot := surface == "robot"
 	var is_shield := surface == "shield"
@@ -331,7 +351,8 @@ func impact(position: Vector3, normal: Vector3, surface: String = "metal", power
 		decal(position, n, 0.18 * strength, Color("#101316"))
 		_smoke(contact, n, 0.52 * strength, 0.60, Color("#343a3e"), 0.055)
 	else:
-		burst(contact, n, Color("#95897a"), int(4 * strength), 1.9, 0.32, 0.11, 72.0, "debris")
+		var sand := surface == "sand"
+		burst(contact, n, Color("#b5a793") if not sand else Color("#bba578"), int(4 * strength), 1.9, 0.32, 0.08 if sand else 0.11, 72.0, "dust" if sand else "debris")
 		if quality == Quality.NORMAL:
 			burst(contact, n, Color(0.48, 0.43, 0.36, 0.28), 3, 0.7, 0.48, 0.22, 70.0, "dust", 0.035)
 		decal(position, n, 0.24 * strength, Color("#242729"))
@@ -407,22 +428,17 @@ func hit_flash(actor: Node3D, critical: bool = false) -> void:
 
 
 func surface_for(collider: Node) -> String:
-	if not is_instance_valid(collider):
-		return "environment"
-	if collider.has_meta("vfx_surface"):
-		return str(collider.get_meta("vfx_surface"))
-	if collider.has_method("take_damage"):
-		if collider.has_method("get_stasis_remaining") and float(collider.call("get_stasis_remaining")) > 0.0:
-			return "shield"
-		if bool(collider.get_meta("duel_static_shield", false)):
-			return "shield"
-		return "robot"
-	if collider is Area3D:
-		return "shield"
-	return "environment"
+	return SURFACES.classify(collider)
+
+func locomotion_dust(at: Vector3, direction: Vector3, power: float = 1.0) -> void:
+	organic_motion.emit(at, direction, power)
+	if quality == Quality.LOW and power < 0.5:
+		return
+	burst(at + Vector3.UP * 0.04, (direction + Vector3.UP * 0.6).normalized(), Color(0.55, 0.49, 0.37, 0.23), 5, 0.9 + power, 0.32, 0.12 * power, 65.0, "dust")
 
 
 func clear() -> void:
+	presentation_cleared.emit()
 	for index in range(_active.size() - 1, -1, -1):
 		_release(index)
 	for key in _hits.keys():

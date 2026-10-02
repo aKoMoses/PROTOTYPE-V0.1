@@ -1,10 +1,10 @@
 extends SubViewportContainer
 
 const WORKSHOP := preload("res://art/forge-garage/workshop.glb")
-const ROBOT := preload("res://art/player_mecha_animated.glb")
 const PAINT := preload("res://scripts/robot_chassis_visuals.gd")
 const SERVICE_ARM := preload("res://scripts/forge_service_arm.gd")
 const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
+const CONTEXT_BANK := preload("res://scripts/mecha_animation_bank.gd")
 const WEAPON_MODELS := {
 	"blaster": preload("res://art/player_heavy_blaster.glb"),
 	"shotgun": preload("res://art/player_shotgun.glb"),
@@ -13,7 +13,7 @@ const WEAPON_MODELS := {
 }
 const WEAPON_LENGTHS := {"blaster": 0.96, "shotgun": 1.08, "mekatana": 1.45, "longshot": 1.50}
 const ROBOT_YAW := -PI / 20.0
-const ROBOT_GESTURES := ["bow", "warm_up"]
+const ROBOT_GESTURES := CONTEXT_BANK.GARAGE_REST_CLIPS
 const GESTURE_DELAY := Vector2(8.0, 14.0)
 const GESTURE_SPEED := 0.9
 
@@ -46,6 +46,10 @@ var _last_gesture: StringName = &""
 var _gesture_elapsed := 0.0
 var _next_gesture := 0.0
 var _gesture_random := RandomNumberGenerator.new()
+var _pending_reaction: StringName = &""
+var _welcome_index := 0
+var _approval_index := 0
+var _failure_index := 0
 
 
 func _ready() -> void:
@@ -105,6 +109,13 @@ func _advance_robot_animation(delta: float) -> void:
 			_return_to_idle()
 		return
 	robot_animator.advance(delta * 0.45)
+	if _pending_reaction != &"":
+		_gesture_clip = _pending_reaction
+		_pending_reaction = &""
+		_gesture_elapsed = 0.0
+		robot_animator.play(_gesture_clip, 0.3)
+		robot_animator.advance(0.0)
+		return
 	_next_gesture -= delta
 	if _next_gesture <= 0.0 and not _gesture_clips.is_empty():
 		var choices := _gesture_clips.duplicate()
@@ -121,6 +132,19 @@ func _schedule_gesture() -> void:
 	_next_gesture = _gesture_random.randf_range(GESTURE_DELAY.x, GESTURE_DELAY.y)
 
 
+func react_to_installation(saved: bool) -> void:
+	# Defer until the focus/installation arm has released the robot.
+	var choices := CONTEXT_BANK.APPROVE_CLIPS if saved else [&"frustrated_01", &"frustrated_02"]
+	var index := _approval_index if saved else _failure_index
+	_pending_reaction = StringName("context/" + String(choices[index % choices.size()]))
+	if saved:
+		_approval_index += 1
+	else:
+		_failure_index += 1
+	_return_to_idle()
+	_next_service = 15.0
+
+
 func _return_to_idle(blend: float = 0.3) -> void:
 	if _gesture_clip == &"":
 		return
@@ -135,6 +159,13 @@ func _sync_visibility() -> void:
 	if viewport == null:
 		return
 	var active := is_visible_in_tree()
+	if active:
+		_pending_reaction = StringName("context/" + String(CONTEXT_BANK.GREET_CLIPS[_welcome_index % CONTEXT_BANK.GREET_CLIPS.size()]))
+		_welcome_index += 1
+		_next_service = 8.0
+	elif not active:
+		_pending_reaction = &""
+		_return_to_idle(0.0)
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
 	set_process(active)
 	if world != null:
@@ -183,10 +214,27 @@ func set_chassis(identifier: String) -> void:
 	if arm != null and arm.active:
 		arm.cancel_service()
 		_next_service = 0.8
+	if robot_model.scene_file_path != PAINT.model_path(chassis_id):
+		var mobility := module_visuals.mobility_id
+		robot_model.free()
+		robot_model = null
+		skeleton = null
+		robot_animator = null
+		weapon_attachment = null
+		weapon_socket = null
+		module_visuals = null
+		idle_clip = &""
+		_gesture_clip = &""
+		_gesture_clips.clear()
+		_pending_reaction = &""
+		_paint = PAINT.new()
+		_opaque_paint_materials.clear()
+		_build_robot()
+		module_visuals.set_mobility_module(mobility)
 	robot.scale = Vector3.ONE * _normalizing_scale * float(PAINT.SCALE_FACTORS[chassis_id])
 	_paint.apply(robot_model, chassis_id)
 	_make_paint_opaque()
-	if weapon_socket != null:
+	if weapon_attachment != null:
 		set_weapon(weapon_id)
 
 
@@ -236,12 +284,13 @@ func inspect_robot() -> bool:
 
 
 func _build_robot() -> void:
-	robot = Node3D.new()
-	robot.name = "HeroRobot"
-	robot.position = Vector3(0, 0.346, 0)
-	robot.rotation.y = ROBOT_YAW
-	world.add_child(robot)
-	robot_model = ROBOT.instantiate() as Node3D
+	if robot == null:
+		robot = Node3D.new()
+		robot.name = "HeroRobot"
+		robot.position = Vector3(0, 0.346, 0)
+		robot.rotation.y = ROBOT_YAW
+		world.add_child(robot)
+	robot_model = (load(PAINT.model_path(chassis_id)) as PackedScene).instantiate() as Node3D
 	robot.add_child(robot_model)
 	var bounds := _bounds(robot_model)
 	robot_model.position -= Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
@@ -259,15 +308,17 @@ func _build_robot() -> void:
 			var library := robot_animator.get_animation_library(library_name).duplicate(true) as AnimationLibrary
 			robot_animator.remove_animation_library(library_name)
 			robot_animator.add_animation_library(library_name, library)
+		CONTEXT_BANK.install(robot_animator, skeleton, CONTEXT_BANK.GARAGE_CLIPS)
 		for candidate in robot_animator.get_animation_list():
 			var clip_name := String(candidate).get_slice("/", String(candidate).get_slice_count("/") - 1).to_lower()
 			if clip_name == "idle":
 				idle_clip = candidate
-			elif clip_name in ROBOT_GESTURES:
+			elif String(candidate).begins_with("context/") and clip_name in ROBOT_GESTURES:
 				var gesture := robot_animator.get_animation(candidate)
 				gesture.loop_mode = Animation.LOOP_NONE
 				_keep_gesture_in_place(gesture)
 				_gesture_clips.append(candidate)
+		_protect_weapon_arm()
 		robot_animator.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 		if idle_clip != &"":
 			robot_animator.get_animation(idle_clip).loop_mode = Animation.LOOP_LINEAR
@@ -284,6 +335,64 @@ func _build_robot() -> void:
 				weapon_attachment.bone_name = skeleton.get_bone_name(index)
 				skeleton.add_child(weapon_attachment)
 				break
+
+
+func _protect_weapon_arm() -> void:
+	if idle_clip == &"":
+		return
+	var idle := robot_animator.get_animation(idle_clip)
+	var baseline: Dictionary = {}
+	for track in idle.get_track_count():
+		baseline["%s|%d" % [idle.track_get_path(track), idle.track_get_type(track)]] = track
+	for clip_name in CONTEXT_BANK.GARAGE_CLIPS:
+		var clip := robot_animator.get_animation("context/" + String(clip_name))
+		if clip_name in CONTEXT_BANK.GREET_CLIPS or clip_name in [&"agree", &"scratch"]:
+			_mirror_free_hand_gesture(clip, idle, baseline)
+		for track in clip.get_track_count():
+			var path := clip.track_get_path(track)
+			var bone := String(path.get_subname(0)).to_lower()
+			if not (bone.contains("rightshoulder") or bone.contains("rightarm") or bone.contains("rightforearm") or bone.contains("righthand")):
+				continue
+			var source_track := int(baseline.get("%s|%d" % [path, clip.track_get_type(track)], -1))
+			if source_track < 0 or idle.track_get_type(source_track) != clip.track_get_type(track):
+				continue
+			var value: Variant = idle.track_get_key_value(source_track, 0)
+			for key in clip.track_get_key_count(track):
+				clip.track_set_key_value(track, key, value)
+
+
+func _mirror_free_hand_gesture(clip: Animation, idle: Animation, baseline: Dictionary) -> void:
+	# Reflect the authored right-arm gesture into the left joint's rest frame.
+	# The right arm will then be held in its ordinary carried-weapon pose.
+	var reflection := Basis(Vector3(-1, 0, 0), Vector3.UP, Vector3.BACK)
+	for track in range(clip.get_track_count()):
+		if clip.track_get_type(track) != Animation.TYPE_ROTATION_3D:
+			continue
+		var path := clip.track_get_path(track)
+		var right_name := String(path.get_subname(0))
+		if not (right_name.contains("RightShoulder") or right_name.contains("RightArm") or right_name.contains("RightForeArm") or right_name.contains("RightHand")):
+			continue
+		var left_name := right_name.replace("Right", "Left")
+		var right := skeleton.find_bone(right_name)
+		var left := skeleton.find_bone(left_name)
+		if right < 0 or left < 0:
+			continue
+		var left_path := NodePath(String(path).replace(right_name, left_name))
+		var target := clip.find_track(left_path, Animation.TYPE_ROTATION_3D)
+		if target < 0:
+			target = clip.add_track(Animation.TYPE_ROTATION_3D)
+			clip.track_set_path(target, left_path)
+		var base_track := int(baseline.get("%s|%d" % [left_path, Animation.TYPE_ROTATION_3D], -1))
+		var left_origin: Quaternion = idle.rotation_track_interpolate(base_track, 0.0) if base_track >= 0 else skeleton.get_bone_rest(left).basis.get_rotation_quaternion()
+		var right_origin := clip.rotation_track_interpolate(track, 0.0)
+		var mapping := skeleton.get_bone_global_rest(left).basis.orthonormalized().inverse() * reflection * skeleton.get_bone_global_rest(right).basis.orthonormalized()
+		for key in range(clip.track_get_key_count(target) - 1, -1, -1):
+			clip.track_remove_key(target, key)
+		for key in clip.track_get_key_count(track):
+			var authored: Quaternion = clip.track_get_key_value(track, key)
+			var delta := Basis(right_origin.inverse() * authored)
+			var mirrored := (mapping * delta * mapping.inverse()).get_rotation_quaternion()
+			clip.track_insert_key(target, clip.track_get_key_time(track, key), left_origin * mirrored)
 
 
 func _keep_gesture_in_place(clip: Animation) -> void:
@@ -322,6 +431,9 @@ func _bounds(node: Node3D) -> AABB:
 
 
 func _improve_hero_materials() -> void:
+	if chassis_id == "puissant":
+		preload("res://scripts/robot_surface_polish.gd").apply(robot_model)
+		return
 	for mesh_node in robot_model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := mesh_node as MeshInstance3D
 		var part := String(mesh.name).trim_prefix("tripo_part_").to_int()

@@ -25,9 +25,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	_title = Label.new()
 	_title.add_theme_font_override("font", DISPLAY_FONT)
-	_title.add_theme_font_size_override("font_size", 21)
+	_title.add_theme_font_size_override("font_size", 18)
 	_detail = Label.new()
-	_detail.add_theme_font_size_override("font_size", 12)
+	_detail.add_theme_font_size_override("font_size", 11)
 	for label in [_title, _detail]:
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		label.clip_text = true
@@ -69,13 +69,13 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _layout() -> void:
-	var width := minf(366.0, maxf(180.0, size.x - 32.0))
+	var width := minf(310.0, maxf(180.0, size.x - 32.0))
 	var enter := 1.0 - pow(1.0 - clampf(age / 0.10, 0.0, 1.0), 3.0)
-	card_rect = Rect2(Vector2((size.x - width) * 0.5, clampf(notice_top, 8.0, maxf(8.0, size.y - 68.0)) - (1.0 - enter) * 7.0), Vector2(width, 57.0))
-	_title.position = card_rect.position + Vector2(57, 5)
-	_title.size = Vector2(width - 68.0, 28.0)
-	_detail.position = card_rect.position + Vector2(57, 33)
-	_detail.size = Vector2(width - 68.0, 19.0)
+	card_rect = Rect2(Vector2((size.x - width) * 0.5, clampf(notice_top, 8.0, maxf(8.0, size.y - 55.0)) - (1.0 - enter) * 7.0), Vector2(width, 45.0))
+	_title.position = card_rect.position + Vector2(46, 1)
+	_title.size = Vector2(width - 54.0, 25.0)
+	_detail.position = card_rect.position + Vector2(46, 25)
+	_detail.size = Vector2(width - 54.0, 17.0)
 	modulate.a = 1.0 - smoothstep(float(STYLES[kind].life) - 0.20, float(STYLES[kind].life), age)
 
 func _draw() -> void:
@@ -87,8 +87,8 @@ func _draw() -> void:
 	draw_colored_polygon(points, Color(0.045, 0.055, 0.065, 0.90))
 	points.append(points[0])
 	draw_polyline(points, Color(color, 0.65), 1.3, true)
-	draw_line(rect.position + Vector2(56, 10), rect.position + Vector2(56, 47), Color(color, 0.30), 1.0)
-	_glyph(rect.position + Vector2(29, 28), 15.0, color)
+	draw_line(rect.position + Vector2(43, 8), rect.position + Vector2(43, 37), Color(color, 0.30), 1.0)
+	_glyph(rect.position + Vector2(23, 22), 12.0, color)
 	# Impact positions are captured once. Never follow a hidden or moving victim.
 	if age > float(STYLES[kind].stamp) or impact_target == null or observer == null:
 		return

@@ -21,5 +21,5 @@ func _draw() -> void:
 	if on_cooldown:
 		draw_circle(center, radius - 1.5, Color(0.025, 0.04, 0.045, 0.48))
 	draw_arc(center, radius, -PI * 0.5, PI * 1.5, 64, Color("#34484b"), 4.0, true)
-	var color := Color("#efb765") if recast_ready else Color("#42d9e5")
+	var color := Color("#efb765") if recast_ready else Color("#42d9e5") if on_cooldown else Color("#54999e")
 	draw_arc(center, radius, -PI * 0.5, -PI * 0.5 + TAU * remaining_fraction, 64, color, 4.0, true)

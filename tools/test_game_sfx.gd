@@ -69,8 +69,12 @@ func _initialize() -> void:
 	var vfx := scene.get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("clear")
+	root.get_node("GameSfx").call("clear")
+	current_scene = null
 	scene.queue_free()
-	await process_frame
+	# Let deferred audio/presentation cleanup complete before shutting down.
+	for frame in 3:
+		await process_frame
 	if _failures.is_empty():
 		print("GAME SFX TEST: PASS")
 		quit(0)

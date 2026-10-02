@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mecha — étude des 97 animations</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101820;color:#edf1f5;font-size:16px}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:40px 24px 80px}h1{font-size:clamp(30px,5vw,56px);letter-spacing:-.04em;line-height:1.05;margin:12px 0 20px}h2{font-size:25px;margin:36px 0 16px}h3{font-size:18px;margin:0 0 10px}p{line-height:1.65;color:#b9c7d5;max-width:940px}a{color:#83e7ce}code{color:#93e3d2}.eyebrow{color:#8ee2cf;text-transform:uppercase;letter-spacing:.16em;font-size:12px}.stats{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0}.stat{padding:20px 24px;border:1px solid #33414e;border-radius:12px;flex:1;min-width:160px}.stat strong{display:block;font-size:32px}.stat span{font-size:13px;color:#9dabb9}.note{padding:18px 22px;border-left:3px solid #8ee2cf;background:#19242e;border-radius:0 8px 8px 0}.plan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.plan article,.clip{background:#19242e;border:1px solid #34424f;border-radius:12px;padding:20px}.plan article p{margin:8px 0}.tag{font-size:12px;color:#9be7d2}.technical{background:#19242e;border-radius:12px;padding:24px}.technical li{line-height:1.6;margin:10px 0;color:#bdcbd8}.controls{display:flex;gap:12px;flex-wrap:wrap;position:sticky;top:0;background:#101820ee;backdrop-filter:blur(10px);padding:16px 0;z-index:1}input,select,button{font:inherit;background:#21303d;border:1px solid #425361;color:#edf1f5;border-radius:8px;padding:12px}input{flex:1;min-width:210px}button{cursor:pointer}button[aria-pressed=true]{background:#216856}.count{font-size:14px;color:#9fb1bf;margin:12px 0}.catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.clip{padding:16px;overflow:hidden}.clip h3{display:flex;justify-content:space-between;gap:10px;font-family:ui-monospace,monospace;font-size:16px}.clip h3 span{color:#9eb2c4;font-size:13px;white-space:nowrap}.strip{width:100%;aspect-ratio:4/1;background-size:100% 600%;background-repeat:no-repeat;border-radius:6px;background-color:#202a36;margin:16px 0}.clip p{font-size:14px;line-height:1.55;margin:10px 0}.meta{font-size:12px;color:#99abbc}.empty{padding:30px;color:#c3ced7}.link-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px}footer{margin-top:40px;border-top:1px solid #34424f;padding-top:18px;color:#95a9bb;font-size:13px}@media(max-width:750px){main{padding:25px 16px}.plan,.catalog{grid-template-columns:1fr}.controls{position:static}h1{font-size:38px}}
+</style>
+<main>
+<div class="eyebrow">Prototype 0 · examen du modèle fourni · 2 octobre 2026</div>
+<h1>Donner une vie<br>au mecha.</h1>
+<p>97 clips examinés par leurs données et par quatre poses rendues dans Godot 4.7.2 pour chacun. Le gain le plus immédiat vient des petits gestes contextualisés, des impacts et des réactions entre les manches. Les choix ci-dessous sont une proposition d’intégration ; leur rendu avec armes et modules reste à valider dans le jeu.</p>
+<div class="stats"><div class="stat"><strong>97</strong><span>clips dans le fichier</span></div><div class="stat"><strong>88</strong><span>nouveaux clips</span></div><div class="stat"><strong>11 min 53 s</strong><span>durée cumulée</span></div><div class="stat"><strong>65</strong><span>os, squelette identique</span></div></div>
+<p class="note"><strong>Compatibilité vérifiée.</strong> Les neuf anciens clips sont identiques, clé par clé. Squelette, hiérarchie, poids d’influence et textures embarquées concordent. Deux pièces présentent seulement des écarts de position de sommets inférieurs à 0,00000032 unité. <code>slash</code> et <code>chop</code> sont un doublon exact.</p>
+<h2>Les usages que je privilégierais</h2>
+<div class="plan">
+<article><div class="tag">01 · Présence au repos</div><h3>Un robot attentif, puis détendu.</h3><p><code>standing_relax</code>, <code>look_around</code>, <code>wait</code> et <code>scratch</code>. Après 4–7 secondes sans mouvement ni action et hors pression de combat, choisir un petit geste. Garder <code>scratch</code> rare et plutôt au Garage : il se gratte et bouge les bras.</p><p>Retour au mouvement ou à la visée dès une entrée joueur. Tir, charge, dégâts, stun et interaction suspendent les gestes. Pas de même geste deux fois de suite ; variation d’attente et longue pause entre deux déclenchements.</p></article>
+<article><div class="tag">02 · Combat</div><h3>Faire sentir les coups.</h3><p><code>hit_to_body_01</code>, <code>hit_to_body_02</code>, <code>hit_to_side</code>, <code>hit_to_stomach</code>, <code>hit_to_head</code>. Les clips durent 1,25 à 1,83 s et partent d’une garde de boxe. Extraire le mouvement du tronc et le convertir en réaction relative à la pose armée.</p><p>Proposition : 0,15–0,30 s sur le torse pour un coup ordinaire, réaction plus forte pendant un vrai stun. Les jambes continuent leur cycle. Délai de 0,25–0,40 s entre réactions pour éviter les secousses en rafale. Le geste vers la tête reste une variante visuelle tant qu’il n’existe pas de localisation des dégâts.</p></article>
+<article><div class="tag">03 · Garage</div><h3>Réagir à ce que fait le joueur.</h3><p><code>agree</code> après une installation réussie : petit signe d’approbation. <code>greet_02</code> à l’arrivée : salut debout. <code>look_around</code> pour suivre le bras de maintenance. <code>fold_arms</code> pendant une longue attente, si l’arme est rangée.</p><p>La Forge alterne actuellement <code>bow</code> et <code>warm_up</code> toutes les 8–14 s. Conserver son interruption pendant la rotation du robot, le service et l’inspection d’équipement. Un signe d’accord se joue après la fin effective de l’installation, pas pendant.</p></article>
+<article><div class="tag">04 · Manches</div><h3>Une personnalité après l’effort.</h3><p><code>cheer</code> à la victoire ; <code>frustrated_01</code> ou <code>defeat_02</code> après une défaite. <code>defeat_03</code> termine allongé : à traiter comme un effondrement, pas comme une déception debout. <code>bow</code> peut saluer l’adversaire.</p><p>Choisir un passage de 1,5–3 s et permettre de passer au résultat suivant. Réserver danses, <code>heart_pose</code> et applaudissements aux emotes volontaires ou à une victoire finale. Éviter le rire automatique au détriment de l’adversaire.</p></article>
+<article><div class="tag">05 · Actions à adapter</div><h3>Des sources de mouvement pour les modules.</h3><p><code>box_02</code> / <code>box_03</code> : candidats pour enrichir Fulguro. <code>pitch_baseball</code> : source de lancer pour le Javelin. <code>basketball_shot</code> : geste possible pour Rocket Basket. <code>cast_a_spell</code> : posture d’activation à transformer en commande mécanique.</p><p><code>slash</code> est un ample mouvement vertical : une référence possible pour une frappe du Mekatana, pas un combo complet. Extraire préparation, impact et récupération, puis les caler sur les temps existants. Préserver les frappes, projectiles et collisions pilotés par le gameplay.</p></article>
+<article><div class="tag">06 · Sélection secondaire</div><h3>Des gestes qui demandent un contexte.</h3><p><code>sit</code> exige une assise ; <code>lift_heavy</code>, <code>shovel</code> et <code>dig</code> demandent un accessoire. <code>jump_down</code> et <code>run_upstairs</code> impliquent un vrai déplacement vertical. <code>surf</code>, <code>swim</code>, sports et chants ont peu d’usage immédiat dans l’arène actuelle.</p><p><code>shoot</code> est une longue séquence de tir qui descend à genoux et se déplace, distincte du <code>fire</code> actuel. Conserver la base de tir déjà calibrée ; réserver ces variantes à un usage qui justifie leur posture.</p></article>
+</div>
+<h2>Comment les brancher proprement</h2>
+<div class="technical">
+<ol>
+<li><strong>Importer une sélection d’animations sur le squelette actuel.</strong> Conserver le GLB source comme banque complète. Charger les clips de combat nécessaires et une bibliothèque de gestes pour le Garage. Le fichier source passe de 3,18 à 17,79 Mo ; le coût mémoire après import doit être mesuré séparément, notamment sur Android.</li>
+<li><strong>Ajouter une couche de gestes interruptibles.</strong> Dans <code>scripts/player_visual_rig.gd</code>, conserver les jambes, les poses Ready/Aim et les modificateurs de mains. Ajouter une couche OneShot filtrée, puis choisir les gestes dans <code>scripts/player/components/presentation.gd</code>. Priorité proposée : mort → stun/action engagée → tir/visée → mouvement → présence au repos.</li>
+<li><strong>Corriger les déplacements et les boucles clip par clip.</strong> Les données de <code>greet_01</code> avancent de 1,865 unité brute et <code>greet_04</code> de 0,979 ; <code>turn</code> change presque de 180°. Le traitement actuel enlève le déplacement horizontal seulement pour <code>walk</code> et <code>run</code>. Les autres clips exigent une décision explicite sur le bassin et l’orientation. Ne pas effacer les oscillations utiles aux petits gestes.</li>
+<li><strong>Ne pas ajouter automatiquement les 97 clips à la machine d’états.</strong> Le code actuel relie chaque état à tous les autres. Le remplacement direct ferait passer les six états corporels à 94, donc de 30 à 8 742 transitions explicites. Préférer une liste d’actions choisies, des OneShot et des transitions vers l’état de repos.</li>
+<li><strong>Garantir les annulations et l’alignement des armes.</strong> <code>play_action()</code> coupe actuellement locomotion et visée pour une action corporelle complète. Ce chemin convient à une célébration, mais une simple réaction aux dégâts doit garder les jambes et la prise de l’arme. Les nouveaux états ne bénéficient pas encore tous du réglage de vitesse. Découper les longues séquences plutôt que les accélérer excessivement.</li>
+<li><strong>Tenir compte du modificateur de visée.</strong> <code>scripts/player_aim_modifier.gd</code> rétablit l’orientation du premier os Spine après le mélange des clips. Une réaction ajoutée uniquement à cet os dans l’AnimationTree serait donc effacée. Appliquer le petit recul après cette stabilisation et avant la correction du bras de soutien, ou cibler des os qui restent libres. Limiter son amplitude pendant le tir et vérifier le canon ; réserver les gestes corporels amples aux pauses.</li>
+<li><strong>Synchroniser seulement le choix en multijoueur.</strong> Les personnages distants héritent du système joueur. Un geste contextuel doit transmettre son identifiant, son début et sa fin/interruption ; éviter un tirage aléatoire différent sur chaque machine. La simulation reste propriétaire des impacts, du recul et des déplacements.</li>
+</ol>
+<p><strong>Premier lot conseillé :</strong> présence au repos + signes d’accord au Garage + réactions légères aux coups + victoire/défaite. Cela donne beaucoup de vie avant les adaptations plus délicates des attaques.</p>
+<p><strong>Personnalité proposée :</strong> pondérer les choix par châssis et situation : gestes plus vifs pour l’agile, plus espacés pour le puissant, attention portée au bras de maintenance au Garage. Conserver une base commune et des réactions cohérentes avec l’événement réel.</p>
+<p><strong>Validation à faire lors de l’intégration :</strong> mouvement et tir en plein geste, rafale de dégâts, stun/mort, mains sur les quatre armes, trois tailles de châssis, annulation à la Forge, rendu des personnages distants et consommation sur Android. Les 97 clips ont ici été chargés et rendus isolément dans Godot ; leur intégration au gameplay reste à réaliser.</p>
+</div>
+<h2>Catalogue des clips</h2>
+<p>Quatre poses par clip : 5 %, 35 %, 65 % et 95 %. Le déplacement horizontal du bassin est retiré uniquement dans ces aperçus. Les métriques gardent les données brutes du fichier ; ces poses ne suffisent pas à certifier une transition ni une boucle parfaite.</p>
+<div class="controls"><input id="search" type="search" placeholder="Chercher : look, hit, cheer…" aria-label="Chercher un clip"><select id="group" aria-label="Filtrer par usage"><option value="">Tous les usages</option></select><button id="new" aria-pressed="false">Nouveaux uniquement</button></div>
+<div class="count" id="count" aria-live="polite"></div><div id="catalog" class="catalog"></div>
+<div class="link-row"><a href="report.json">Mesures brutes JSON</a><a href="godot-report.json">Clips chargés dans Godot</a><a href="review_mecha_animations.gd">Outil Godot de lecture continue</a></div>
+<footer>Analyse locale vérifiée · 97 clips, 388 poses, 17 planches · aperçu sans armes ajoutées · modifications limitées aux outils d’examen.</footer>
+</main>
+<script>
+const report=__REPORT_JSON__;
+const notes={
+standing_relax:'Base de repos discrète, à alterner avec idle ; compatible avec une interruption dès une action.',
+look_around:'Regards latéraux et petit réajustement du corps ; bon candidat après une période calme ou au Garage.',
+wait:'Attente mains près des hanches ; bras à adapter si une arme est tenue.',
+scratch:'Se gratte et change sa posture ; geste rare au Garage, arme rangée.',
+fold_arms:'Croise les bras ; réservé à une pause avec les mains libres.',
+agree:'Petit signe d’approbation ; très bon candidat après une installation réussie au Garage.',
+greet_02:'Salut de la main debout, sans déplacement net notable ; préférence pour l’accueil au Garage.',
+greet_01:'Salutation en avançant : déplacement brut du bassin de 1,865 unité. Éviter une lecture corporelle brute sur place.',
+greet_04:'Salut en marchant : déplacement brut du bassin de 0,979 unité. Préférer greet_02 sur une plateforme fixe.',
+greet_03:'Geste de salutation plus ample et long ; découpage à étudier.',
+cheer:'Lève les bras pour célébrer. Extraire une courte portion après le résultat de manche.',
+frustrated_01:'Petit mouvement de déception debout ; bonne alternative sobre après une défaite.',
+frustrated_02:'Déception plus théâtrale avec bras levés ; animation longue, réserver au résultat.',
+defeat_02:'Déception debout ; adaptée à un écran de résultat.',
+defeat_03:'Effondrement au sol et maintien allongé ; autre usage que defeat_02.',
+depressed:'Marche abattue avec déplacement du bassin ; à mettre en scène plutôt qu’à jouer sur une plateforme.',
+slash:'Ample frappe verticale, 6,58 s ; découper le geste utile pour un essai Mekatana. Identique à chop.',
+chop:'Doublon exact de slash, y compris les données de toutes les pistes.',
+box_02:'Séquence de boxe avec changement de garde ; candidate pour une variante Fulguro, après découpage.',
+box_03:'Frappe de boxe et retour en garde ; candidate pour Fulguro ou un exercice du Garage.',
+pitch_baseball:'Lancer avec armé et transfert de poids ; source intéressante pour un geste Javelin.',
+basketball_shot:'Lancer à deux mains ; rapprochement possible avec Rocket Basket, à adapter aux accessoires.',
+cast_a_spell:'Grand geste des bras ; exploitable comme activation mécanique courte avec effets de module.',
+shoot:'Longue séquence en mouvement avec descente à genoux ; distincte de fire, ne pas substituer directement.',
+fire:'Clip de tir actuel, identique au précédent GLB. La visée et les prises d’arme restent calibrées dessus.',
+turn:'Demi-tour complet avec translation et réorientation du bassin ; pas une simple correction de regard.',
+run_upstairs:'Course montante avec déplacement vertical ; seulement avec un vrai support et un mouvement physique correspondant.',
+jump_down:'Saut et réception avec baisse verticale de 0,373 unité nette ; découper la réception si un module le justifie.',
+sit:'Descend vers une position assise ; exige une assise à la bonne hauteur.',
+lift_heavy:'Portage simulé très long ; nécessite un objet et des contacts de mains.',
+surf:'Posture latérale avec bras d’équilibre ; usage à justifier pour une mobilité spécifique.',
+bow:'Salut respectueux ; déjà disponible, plus cohérent avant/après une rencontre qu’en geste fréquent au Garage.',
+warm_up:'Échauffement long de 18,29 s ; déjà disponible. Prélever un exercice plutôt que le relancer intégralement.',
+};
+const group=document.querySelector('#group'),search=document.querySelector('#search'),toggle=document.querySelector('#new'),catalog=document.querySelector('#catalog');
+for(const name of [...new Set(report.animations.map(a=>a.group))]){const option=document.createElement('option');option.value=name;option.textContent=name;group.append(option);}
+const parameters=new URLSearchParams(location.search);
+search.value=parameters.get('search')||'';
+group.value=parameters.get('group')||'';
+let onlyNew=parameters.get('new')==='1';
+toggle.setAttribute('aria-pressed',String(onlyNew));
+function render(){
+const filtered=report.animations.filter(a=>(!group.value||a.group===group.value)&&(!onlyNew||!a.existing)&&a.name.toLowerCase().includes(search.value.toLowerCase().trim()));
+document.querySelector('#count').textContent=filtered.length+' / 97 clips';catalog.replaceChildren();
+for(const a of filtered){const card=document.createElement('article');card.className='clip';const title=document.createElement('h3');title.textContent=a.name;const duration=document.createElement('span');duration.textContent=a.duration.toFixed(2)+' s';title.append(duration);card.append(title);const tag=document.createElement('div');tag.className='tag';tag.textContent=a.group+(a.existing?' · déjà présent':' · nouveau');card.append(tag);const strip=document.createElement('div');strip.className='strip';strip.style.backgroundImage='url("'+a.sheet+'")';strip.style.backgroundPosition='center '+(a.row*20)+'%';strip.setAttribute('role','img');strip.setAttribute('aria-label','Quatre poses de '+a.name);card.append(strip);const note=document.createElement('p');note.textContent=notes[a.name]||(a.name.startsWith('hit_')?'Réaction corporelle en garde de boxe. Extraire un bref mouvement du torse et le convertir en réaction relative à la pose armée.':a.group==='Expressif / contexte spécifique'?'Emote ou séquence exigeant un contexte dédié ; secondaire pour le jeu actuel.':'Source de mouvement à adapter au contexte, aux temps de jeu et aux prises d’arme.');card.append(note);const meta=document.createElement('div');meta.className='meta';const delta=a.rootMotion[0]?.delta||[0,0,0];meta.textContent='Bassin Δ brut : '+delta.map(v=>v.toFixed(3)).join(' / ')+' · écart de rotation entre extrémités ≤ '+a.maxEndpointRotationDegrees.toFixed(1)+'°';card.append(meta);catalog.append(card);}
+if(!filtered.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='Aucun clip pour ces filtres.';catalog.append(empty);}
+}
+search.addEventListener('input',render);group.addEventListener('change',render);toggle.addEventListener('click',()=>{onlyNew=!onlyNew;toggle.setAttribute('aria-pressed',String(onlyNew));render();});render();
+</script>
+</html>

@@ -77,9 +77,22 @@ var _last_played_ms: Dictionary = {}
 var _paused := false
 var _signature_streams: Dictionary = {}
 var _signature_voices: Array[AudioStreamPlayer] = []
+const MECHA_AUDIO := preload("res://scripts/mecha_audio.gd")
+var _surface_voices: Array[AudioStreamPlayer3D] = []
+var _surface_clock := -100000
+var _presentation_random := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	_presentation_random.randomize()
+	for index in 6:
+		var surface_voice := AudioStreamPlayer3D.new()
+		surface_voice.name = "SurfaceContact%d" % index
+		surface_voice.max_polyphony = 1
+		surface_voice.unit_size = 5.0
+		surface_voice.max_distance = 22.0
+		add_child(surface_voice)
+		_surface_voices.append(surface_voice)
 	for kind in ["shotgun", "counter", "fulguro_punch", "longshot"]:
 		_signature_streams[kind] = _make_signature_stream(kind)
 	for index in range(4):
@@ -146,7 +159,7 @@ func reset_locomotion() -> void:
 	_rustle.volume_db = -60.0
 
 
-func update_locomotion(distance: float, delta: float, in_bush: bool, walking: bool) -> void:
+func update_locomotion(distance: float, delta: float, in_bush: bool, walking: bool, chassis: String = "polyvalent") -> void:
 	_step_clock += delta
 	var moving := walking and distance > 0.003 and distance < 1.0
 	var fighting := Time.get_ticks_msec() < _quiet_until_ms
@@ -155,18 +168,20 @@ func update_locomotion(distance: float, delta: float, in_bush: bool, walking: bo
 		_step_distance = 0.0
 		return
 	_step_distance += distance
-	if _step_distance < 2.8 or _step_clock < 0.55 or _step_player.playing:
+	var stride: float = {"agile": 1.20, "polyvalent": 1.40, "puissant": 1.60}.get(chassis, 1.40)
+	if _step_distance < stride or _step_clock < 0.55 or _step_player.playing:
 		return
 	_step_distance = 0.0
 	_step_clock = 0.0
 	# Choose among the other three grains, with tiny pitch/volume variation.
-	var index := randi_range(0, 3 if _last_step < 0 else 2)
+	var index := _presentation_random.randi_range(0, 3 if _last_step < 0 else 2)
 	if _last_step >= 0 and index >= _last_step:
 		index += 1
 	_last_step = index
 	_step_player.stream = FOOTSTEPS[index]
-	_step_player.pitch_scale = randf_range(0.96, 1.04)
-	_step_player.volume_db = (-32.0 if fighting else -25.0) + randf_range(-1.5, 0.0) - (3.0 if in_bush else 0.0)
+	var pitch: float = {"agile": 1.14, "polyvalent": 1.0, "puissant": 0.84}.get(chassis, 1.0)
+	_step_player.pitch_scale = pitch * _presentation_random.randf_range(0.97, 1.03)
+	_step_player.volume_db = (-31.0 if fighting else -25.0) + (-2.0 if chassis == "agile" else 1.5 if chassis == "puissant" else 0.0) + _presentation_random.randf_range(-1.0, 0.0) - (3.0 if in_bush else 0.0)
 	_step_player.play()
 	event_played.emit("robot_footstep")
 
@@ -189,7 +204,7 @@ func play_enemy(event_id: String, position: Vector3, listener_position: Vector3)
 		_last_played_ms[event_id] = now
 		voice.stream = ENEMY_STREAMS[event_id]
 		voice.volume_db = (-9.0 if warning else -15.0) - 18.0 * clampf(distance / 24.0, 0.0, 1.0)
-		voice.pitch_scale = 1.0 if warning else randf_range(0.97, 1.03)
+		voice.pitch_scale = 1.0 if warning else _presentation_random.randf_range(0.97, 1.03)
 		voice.play()
 		mark_combat()
 		event_played.emit(event_id)
@@ -215,6 +230,8 @@ func play_event(event_id: String) -> void:
 
 func set_paused(value: bool) -> void:
 	_paused = value
+	for voice in _surface_voices:
+		voice.stream_paused = value
 	for voice in _signature_voices:
 		voice.stream_paused = value
 	for voice in _module_voices:
@@ -228,6 +245,10 @@ func set_paused(value: bool) -> void:
 
 
 func clear() -> void:
+	for voice in _surface_voices:
+		voice.stop()
+		voice.stream_paused = false
+	_surface_clock = -100000
 	# The autoload outlives every arena. Retire the old round's voices before
 	# its scene is hidden or replaced, and allow the next round's first event.
 	for voice in _signature_voices:
@@ -250,6 +271,25 @@ func clear() -> void:
 	_bush_transition_ms = -100000
 	_paused = false
 	_last_played_ms.clear()
+
+func play_surface_contact(surface: String, at: Vector3, power: float = 1.0) -> void:
+	if _paused or Time.get_ticks_msec() - _surface_clock < 90:
+		return
+	for voice in _surface_voices:
+		if voice.playing:
+			continue
+		_surface_clock = Time.get_ticks_msec()
+		# Suppress the caller's historical generic layer for this same contact.
+		_last_played_ms["impact_decor"] = _surface_clock
+		voice.stream = STREAMS.impact_decor if surface == "metal" else MECHA_AUDIO.stream("concrete")
+		voice.pitch_scale = 1.04 if surface == "metal" else 0.90 if surface == "sand" else 1.0
+		voice.volume_db = -15.0 + clampf(power - 1.0, -0.5, 1.0) * 3.0
+		voice.global_position = at
+		voice.play()
+		# Preserve the public diagnostic event while the audible surface differs.
+		event_played.emit("impact_decor")
+		event_played.emit("impact_" + surface)
+		return
 
 
 func play_module_event(event_id: String, position: Vector3) -> AudioStreamPlayer3D:

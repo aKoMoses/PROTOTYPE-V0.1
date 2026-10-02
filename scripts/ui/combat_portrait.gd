@@ -17,11 +17,9 @@ func _process(delta: float) -> void:
 		_animation_player.advance(delta)
 
 func set_chassis(value: String) -> void:
-	chassis_id = value
+	super.set_chassis(value)
 	if _model == null:
 		return
-	_turntable.scale = Vector3.ONE * float(CHASSIS_VISUALS.SCALE_FACTORS.get(chassis_id, 1.0))
-	_paint.apply(_model, chassis_id)
 	for mesh in _model.find_children("*", "MeshInstance3D", true, false):
 		for surface in range(mesh.get_surface_override_material_count()):
 			var material := mesh.get_surface_override_material(surface) as ShaderMaterial

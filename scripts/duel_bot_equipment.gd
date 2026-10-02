@@ -948,6 +948,18 @@ func _cancel_weapon_charge(controller: Node, elapsed: float, reason: String) -> 
 
 
 func _activate_static_shield(body: Node3D) -> void:
+	if static_remaining > 0.0:
+		static_remaining = 0.0
+		body.remove_meta("duel_static_shield")
+		return
+	if not _module_ready("static_shield"):
+		return
+	cancel_action("static shield prioritaire")
+	if body.has_method("_cancel_fulguro_projection"):
+		body.call("_cancel_fulguro_projection")
+	if body.has_method("_cancel_pelto_pull"):
+		body.call("_cancel_pelto_pull")
+	PERMUTATION.cancel_for_actor(body)
 	if body.get("combat_state") != null:
 		body.combat_state.cleanse_burn_and_slow()
 	static_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["duration"])

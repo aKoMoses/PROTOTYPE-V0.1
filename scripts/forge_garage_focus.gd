@@ -24,6 +24,8 @@ var _ui: Control
 var _base: Transform3D
 var _base_fov := 31.0
 var _design_fov := 31.0
+var _authored_fov := 31.0
+var _framed_chassis := ""
 var _view_direction := Vector3(0.006, 0.139, 0.990).normalized()
 var _from: Transform3D
 var _transition := 1.0
@@ -43,6 +45,7 @@ func configure(garage_stage: Node, picker: Control, interface: Control) -> void:
 	_base = stage.camera.global_transform
 	_base_fov = stage.camera.fov
 	_design_fov = _base_fov
+	_authored_fov = _base_fov
 	_from = _base
 	_chassis_scale = stage.robot.scale.x
 	for index in stage.skeleton.get_bone_count():
@@ -81,6 +84,8 @@ func _reframe() -> void:
 
 func fit_layout() -> void:
 	# Keep the model's size relative to the letterboxed interface at narrow ratios.
+	_framed_chassis = stage.chassis_id
+	_design_fov = _authored_fov + (6.0 if _framed_chassis == "puissant" else 0.0)
 	var design_height := 720.0 * _ui.scale.y
 	_base_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(_design_fov * 0.5)) * stage.size.y / maxf(design_height, 1.0)))
 	if not stage._equipment_focused or zone != "robot":
@@ -136,6 +141,12 @@ func _process(delta: float) -> void:
 
 
 func advance(delta: float) -> void:
+	if _framed_chassis != stage.chassis_id:
+		_bones.clear()
+		for index in stage.skeleton.get_bone_count():
+			var bone: String = stage.skeleton.get_bone_name(index)
+			_bones[bone.to_lower().trim_prefix("mixamorig_").trim_prefix("mixamorig:")] = index
+		fit_layout()
 	_transition = minf(_transition + delta / TRANSITION_TIME, 1.0)
 	var weight := _transition * _transition * (3.0 - 2.0 * _transition)
 	var desired := _base if zone == "robot" else _focused_transform()

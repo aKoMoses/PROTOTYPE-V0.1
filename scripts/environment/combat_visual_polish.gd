@@ -8,6 +8,8 @@ func _ready() -> void:
 	call_deferred("_configure")
 
 func _configure() -> void:
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
 	var scene := get_parent()
 	var sun := scene.get_node_or_null("ArenaKeyLight") as DirectionalLight3D
 	if sun != null:
@@ -20,7 +22,7 @@ func _configure() -> void:
 		for node in scene.get_children():
 			if node is WorldEnvironment:
 				node.environment.ambient_light_color = Color("#849dbb")
-				node.environment.ambient_light_energy = 0.26
+				node.environment.ambient_light_energy = 0.34
 	for mesh in scene.find_children("*", "MeshInstance3D", true, false):
 		_finish_mesh(mesh)
 	get_tree().node_added.connect(_on_node_added)

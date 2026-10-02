@@ -8,6 +8,10 @@ func _initialize() -> void:
 	root.add_child(scene)
 	current_scene = scene
 	await process_frame
+	# Complete the deferred scenery setup before sampling short audio clips;
+	# a loading frame may outlast the clip on the independent audio thread.
+	for frame in 6:
+		await process_frame
 	var player: Node = scene.get_node_or_null("Player")
 	var target: Node = scene.get_node_or_null("TargetDummy")
 	if player == null or target == null:
@@ -61,10 +65,14 @@ func _test_audio(player: Node, target: Node) -> void:
 	if shot_audio.stream.resource_path != "res://art/audio/shotgun-shot-a.wav" or cycle_audio.stream.resource_path != "res://art/audio/shotgun-cycle-a.wav" or reload_audio.stream.resource_path != "res://art/audio/shotgun-reload-a.wav":
 		_failures.append("audio : fichiers shotgun incorrects")
 	player.call("_perform_shotgun_attack")
-	await _wait_seconds(0.16)
+	# Emission waits for the final skeleton pose. Observe the real projectile
+	# instead of assuming that a fixed timer has already reached that frame.
+	await _wait_for_pellet()
 	if not shot_audio.playing:
 		_failures.append("audio : tir non joué à l'émission")
-	await _wait_seconds(0.28)
+	var cycle_deadline := Time.get_ticks_msec() + 1500
+	while not cycle_audio.playing and Time.get_ticks_msec() < cycle_deadline:
+		await process_frame
 	if not cycle_audio.playing:
 		_failures.append("audio : réarmement non joué après le tir")
 	player.call("set_weapon", "blaster")

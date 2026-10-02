@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_albedo.png" id="1_y8kiu"]
+
+[resource]
+resource_name = "Workshop_red_paint"
+albedo_color = Color(0.7137255, 0.3529412, 0.23529412, 1)
+albedo_texture = ExtResource("1_y8kiu")
+roughness = 0.7
+uv1_scale = Vector3(0.8, 0.8, 0.8)
+uv1_triplanar = true
+uv1_world_triplanar = true

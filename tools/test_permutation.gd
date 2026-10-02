@@ -325,6 +325,10 @@ func _test_enemy_casts(a: Node3D, b: Node3D) -> void:
 		var before: Variant = b.get(entry[3])
 		var generation: int = b.get("_action_gate").get_generation()
 		_check(str(before) not in ["", "false", "0", "0.0", "<null>"], "%s starts before displacement" % entry[2])
+		if entry[2] == "_perform_static_shield":
+			_check(not MARK.exchange(a, b) and a.position == Vector3.ZERO and b.position == Vector3(8.0, 0.0, 0.0), "static shield cancels the exchange")
+			b.call("reset_combat_state")
+			continue
 		_check(MARK.exchange(a, b), "exchange during %s succeeds" % entry[2])
 		_check(b.get(entry[3]) == before and b.get("_action_gate").get_generation() == generation, "%s preserves its state and token" % entry[2])
 		if entry[1] == "mekatana":

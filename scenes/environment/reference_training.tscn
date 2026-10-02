@@ -1,0 +1,1915 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/map_reference_presentation.gd" id="1_1vlro"]
+[ext_resource type="Shader" path="res://scripts/environment/yard_cloth.gdshader" id="2_tshru"]
+[ext_resource type="Texture2D" path="res://art/environment/workshop_canvas.svg" id="3_a3ykc"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/CanopyFixedCrates.res" id="4_yrqqx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BannerFixedCrates.res" id="5_1mbyo"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/CanopyMovingCrates.res" id="6_e7ctd"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BannerMovingCrates.res" id="7_inwb0"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/CanopyShooterCrates.res" id="8_1y0h2"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BannerShooterCrates.res" id="9_bm4ls"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/CanopyShooterCoverLeft.res" id="10_iqm5g"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BannerShooterCoverLeft.res" id="11_4c25w"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/CanopyShooterCoverRight.res" id="12_peaii"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BannerShooterCoverRight.res" id="13_k81xy"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BayCanopy31.res" id="14_1pbcc"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BayCanopy33.res" id="15_hnyrr"]
+[ext_resource type="Shader" path="res://scripts/bush_foliage.gdshader" id="16_lng78"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_00.res" id="17_7lg1r"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_01.res" id="18_2ch1m"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_02.res" id="19_67rja"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_03.res" id="20_e32py"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BayCanopy32.res" id="21_jjd8o"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/BayCanopy34.res" id="22_hxxhn"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_04.res" id="23_m2r31"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_05.res" id="24_3ntap"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_06.res" id="25_ry3y7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/grass_07.res" id="26_76l6x"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_02.res" id="27_73u28"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_05.res" id="28_8gls0"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_00.res" id="29_5v8rx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_06.res" id="30_1w03f"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_03.res" id="31_jip2l"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_07.res" id="32_am40n"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_09.res" id="33_2xuk7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_04.res" id="34_y0rkw"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_11.res" id="35_wuh5s"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_01.res" id="36_gn3aa"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_15.res" id="37_8u04u"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_14.res" id="38_mld0x"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_10.res" id="39_ks1mx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_12.res" id="40_6226n"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_08.res" id="41_t1ybl"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_08_13.res" id="42_1ghh8"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_02.res" id="43_g7ps6"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_05.res" id="44_5bjvv"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_00.res" id="45_xtx2x"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_06.res" id="46_nlt77"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_03.res" id="47_hgk55"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_07.res" id="48_3gg7t"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_09.res" id="49_4go2o"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_04.res" id="50_av16j"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_11.res" id="51_hicxk"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_01.res" id="52_sryv0"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_15.res" id="53_3ksqt"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_14.res" id="54_hyr1j"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_10.res" id="55_j1ir8"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_12.res" id="56_juclo"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_08.res" id="57_8rsg7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_02_13.res" id="58_5awj7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_02.res" id="59_sla65"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_05.res" id="60_jbtcw"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_00.res" id="61_fj4sj"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_06.res" id="62_xtad8"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_03.res" id="63_brved"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_07.res" id="64_m1ow5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_09.res" id="65_6gt3g"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_04.res" id="66_ock6q"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_11.res" id="67_fjcxa"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_01.res" id="68_xrfgn"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_15.res" id="69_nt8qe"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_14.res" id="70_mjyg1"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_10.res" id="71_ytip5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_08.res" id="72_pvx7w"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_13.res" id="73_brpq4"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_11_12.res" id="74_gmtb1"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_01.res" id="75_mqkcj"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_05.res" id="76_3xs7h"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_00.res" id="77_tl5h8"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_06.res" id="78_a71lg"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_03.res" id="79_hcmpr"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_07.res" id="80_lu4le"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_09.res" id="81_jlhek"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_04.res" id="82_vso04"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_02.res" id="83_bh75u"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_11.res" id="84_v8c3v"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_15.res" id="85_q1ekp"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_14.res" id="86_spg6r"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_07_10.res" id="87_kbwkl"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_04_01.res" id="88_ou8bl"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_04_06.res" id="89_ny2ne"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_04_04.res" id="90_jq7na"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_05_01.res" id="91_5oiqv"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_05_06.res" id="92_ngxd5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_05_04.res" id="93_y82k8"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_09_01.res" id="94_qby1d"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_09_06.res" id="95_wy4g1"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_09_04.res" id="96_t4fy7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_06_01.res" id="97_7cjkr"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_06_06.res" id="98_rtnsf"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_06_04.res" id="99_muldj"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_10_01.res" id="100_b3lil"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_10_06.res" id="101_bmawx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_10_04.res" id="102_q0q3i"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_00.res" id="103_vicv4"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_01.res" id="104_6u1vb"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_05.res" id="105_wao5j"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_06.res" id="106_jlr8y"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_03.res" id="107_n77o7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_07.res" id="108_8ujnf"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_09.res" id="109_e21jx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_04.res" id="110_tgj4w"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_02.res" id="111_3xsc7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_12.res" id="112_y0c0s"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_08.res" id="113_kbnjx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_13.res" id="114_gcg7j"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_00.res" id="115_s1vqd"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_01.res" id="116_kcmwb"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_02.res" id="117_k2w7p"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_05.res" id="118_imtij"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_06.res" id="119_fk8ke"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_03.res" id="120_x7q0x"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_07.res" id="121_08aok"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_09.res" id="122_an8nh"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_04.res" id="123_erdj4"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_12.res" id="124_jpjyl"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_08.res" id="125_7b373"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_13_13.res" id="126_c0jss"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_00_14.res" id="127_txgej"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_12_14.res" id="128_6xd5u"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_00.res" id="129_8sdg7"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_01.res" id="130_clvq4"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_05.res" id="131_32xan"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_06.res" id="132_f0o64"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_03.res" id="133_c74p1"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_07.res" id="134_3jtwn"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_09.res" id="135_nevns"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_04.res" id="136_6ah83"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_02.res" id="137_dn5q2"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_08.res" id="138_7rbiv"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_13.res" id="139_y8gjx"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_12.res" id="140_a0yyh"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_00.res" id="141_gsoum"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_01.res" id="142_iyus5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_05.res" id="143_jaqof"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_06.res" id="144_3bj0v"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_03.res" id="145_r8m61"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_07.res" id="146_w7qw5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_09.res" id="147_6bro3"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_04.res" id="148_hao86"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_02.res" id="149_fycc5"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_08.res" id="150_7h3hr"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_13.res" id="151_cxy3e"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_14_12.res" id="152_8kjd2"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_03_14.res" id="153_8c5bf"]
+[ext_resource type="ArrayMesh" path="res://art/environment/map_reference/training/batch_15_14.res" id="154_lkvsf"]
+[ext_resource type="Shader" path="res://shaders/workshop_light_pool.gdshader" id="155_4v5c8"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_or851"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 0.0
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 0.6111111111111112
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_8jb0f"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.5803922, 0.23921569, 0.17254902, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 1.43
+shader_parameter/four_corner_pin = false
+shader_parameter/gear_banner = true
+shader_parameter/fabric_aspect = 0.8028673835125448
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hmp1h"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 2.86
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 0.6111111111111112
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_gg7cq"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.5803922, 0.23921569, 0.17254902, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 4.29
+shader_parameter/four_corner_pin = false
+shader_parameter/gear_banner = true
+shader_parameter/fabric_aspect = 0.8028673835125448
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_gwo30"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 5.72
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 0.6111111111111112
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bwe3g"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.5803922, 0.23921569, 0.17254902, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 7.1499999999999995
+shader_parameter/four_corner_pin = false
+shader_parameter/gear_banner = true
+shader_parameter/fabric_aspect = 0.8028673835125448
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_52jri"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 8.58
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 0.6111111111111112
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dy6uq"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.5803922, 0.23921569, 0.17254902, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 10.01
+shader_parameter/four_corner_pin = false
+shader_parameter/gear_banner = true
+shader_parameter/fabric_aspect = 0.8028673835125448
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ch0as"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 11.44
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 0.6111111111111112
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_8c4kw"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.5803922, 0.23921569, 0.17254902, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 12.87
+shader_parameter/four_corner_pin = false
+shader_parameter/gear_banner = true
+shader_parameter/fabric_aspect = 0.8028673835125448
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_d6fmv"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 14.299999999999999
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 1.92
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rmmt0"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 15.729999999999999
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 1.92
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7cx2b"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 3.738364
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2ct4n"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 5.0684114
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_psa3j"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 0.010393576
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_iehci"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 4.7963166
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_k0wqg"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 17.16
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 1.92
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_u8owv"]
+render_priority = 0
+shader = ExtResource("2_tshru")
+shader_parameter/canvas_texture = ExtResource("3_a3ykc")
+shader_parameter/canvas_tint = Color(0.6509804, 0.5176471, 0.38039216, 1)
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+shader_parameter/motion_scale = null
+shader_parameter/phase = 18.59
+shader_parameter/four_corner_pin = true
+shader_parameter/gear_banner = false
+shader_parameter/fabric_aspect = 1.92
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_5klxg"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 3.3096626
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7ynss"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 0.52502716
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bhuy2"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 0.62982535
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_d6j6a"]
+render_priority = 0
+shader = ExtResource("16_lng78")
+shader_parameter/local_actor_position = null
+shader_parameter/local_actor_influence = null
+shader_parameter/wind_phase = 0.9557719
+shader_parameter/wind_direction = null
+shader_parameter/wind_strength = null
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rd0h1"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_rclgk"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_jkns3"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_h6dnm"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_n7df1"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+shader_parameter/strength = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_0xi0i"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_0af0r"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_h6xlv"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1h5xs"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_b1t5u"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_msiwo"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+shader_parameter/strength = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_igokm"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_g7t26"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_m8has"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ssmn6"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_vewo0"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_gk1ng"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.38431373, 0.25490198, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_7ipg2"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_6l6gr"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_07dix"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bfdap"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_plpnr"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kdlar"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ml1ek"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_telax"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ksjiu"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_e2qyv"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+shader_parameter/strength = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_m2q4b"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_elsdh"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_javxv"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ggou8"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_0anf6"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_i10gf"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_4k34t"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hyy3u"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_jlkbo"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_gskeu"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_vtbmq"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2mug8"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+shader_parameter/strength = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_jwhkj"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xevdf"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ko452"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mkloj"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_778vl"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dxtpq"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_7ya8r"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_0ms6s"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_5x0so"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1cmbr"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_5f1re"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lg382"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.38431373, 0.25490198, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_tctqd"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_f3wcs"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_3sji2"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_t7jmd"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_o5wdh"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_aht5i"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_fsxea"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_npi3q"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_qq0kg"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_uxeq6"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_jn23q"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_khxpw"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.38431373, 0.25490198, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_hxfy3"]
+size = Vector2(5.13, 5.13)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tnnc2"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_67w85"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_5rpfp"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_c3ya4"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_s2kax"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_0etsp"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_68nq4"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_rrr4o"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rq4jd"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_j8vyx"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_or8v0"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_xh0pf"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1odh6"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_qv324"]
+size = Vector2(4.59, 4.59)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hp78n"]
+render_priority = 0
+shader = ExtResource("155_4v5c8")
+shader_parameter/light_color = Color(1, 0.7607843, 0.4745098, 1)
+shader_parameter/strength = 0.48
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_348au"]
+size = Vector2(4.59, 4.59)
+
+[node name="ReferenceMapDressing" type="Node3D" unique_id=820957650]
+script = ExtResource("1_1vlro")
+metadata/visual_only = true
+metadata/reference_map = "training"
+metadata/baked_triangles = 137958
+metadata/cloth_panels = 14
+metadata/suspended_cable_runs = 5
+metadata/decorative_grass_clumps = 8
+
+[node name="CanopyFixedCrates" type="MeshInstance3D" parent="." unique_id=2092636386]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.105, 1.96, 6.097)
+material_override = SubResource("ShaderMaterial_or851")
+extra_cull_margin = 0.22
+mesh = ExtResource("4_yrqqx")
+metadata/workshop_cloth = true
+
+[node name="BannerFixedCrates" type="MeshInstance3D" parent="." unique_id=1801801923]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.958, 1.134, 8.2)
+material_override = SubResource("ShaderMaterial_8jb0f")
+extra_cull_margin = 0.22
+mesh = ExtResource("5_1mbyo")
+metadata/workshop_cloth = true
+
+[node name="CanopyMovingCrates" type="MeshInstance3D" parent="." unique_id=1101822668]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.895, 1.96, -30.903)
+material_override = SubResource("ShaderMaterial_hmp1h")
+extra_cull_margin = 0.22
+mesh = ExtResource("6_e7ctd")
+metadata/workshop_cloth = true
+
+[node name="BannerMovingCrates" type="MeshInstance3D" parent="." unique_id=1179672703]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.042, 1.134, -28.8)
+material_override = SubResource("ShaderMaterial_gg7cq")
+extra_cull_margin = 0.22
+mesh = ExtResource("7_inwb0")
+metadata/workshop_cloth = true
+
+[node name="CanopyShooterCrates" type="MeshInstance3D" parent="." unique_id=220143524]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.895, 1.96, 6.097)
+material_override = SubResource("ShaderMaterial_gwo30")
+extra_cull_margin = 0.22
+mesh = ExtResource("8_1y0h2")
+metadata/workshop_cloth = true
+
+[node name="BannerShooterCrates" type="MeshInstance3D" parent="." unique_id=1932884229]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.042, 1.134, 8.2)
+material_override = SubResource("ShaderMaterial_bwe3g")
+extra_cull_margin = 0.22
+mesh = ExtResource("9_bm4ls")
+metadata/workshop_cloth = true
+
+[node name="CanopyShooterCoverLeft" type="MeshInstance3D" parent="." unique_id=544424362]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.895, 1.96, -2.9029999)
+material_override = SubResource("ShaderMaterial_52jri")
+extra_cull_margin = 0.22
+mesh = ExtResource("10_iqm5g")
+metadata/workshop_cloth = true
+
+[node name="BannerShooterCoverLeft" type="MeshInstance3D" parent="." unique_id=1124496993]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.042, 1.134, -0.79999995)
+material_override = SubResource("ShaderMaterial_dy6uq")
+extra_cull_margin = 0.22
+mesh = ExtResource("11_4c25w")
+metadata/workshop_cloth = true
+
+[node name="CanopyShooterCoverRight" type="MeshInstance3D" parent="." unique_id=1766327098]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.895, 1.96, -2.9029999)
+material_override = SubResource("ShaderMaterial_ch0as")
+extra_cull_margin = 0.22
+mesh = ExtResource("12_peaii")
+metadata/workshop_cloth = true
+
+[node name="BannerShooterCoverRight" type="MeshInstance3D" parent="." unique_id=1998656938]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.042, 1.134, -0.79999995)
+material_override = SubResource("ShaderMaterial_8c4kw")
+extra_cull_margin = 0.22
+mesh = ExtResource("13_k81xy")
+metadata/workshop_cloth = true
+
+[node name="BayCanopy31" type="MeshInstance3D" parent="." unique_id=1229004710]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 3.55, -39.2)
+material_override = SubResource("ShaderMaterial_d6fmv")
+extra_cull_margin = 0.22
+mesh = ExtResource("14_1pbcc")
+metadata/workshop_cloth = true
+
+[node name="BayCanopy33" type="MeshInstance3D" parent="." unique_id=470215017]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -12, 3.55, 39.2)
+material_override = SubResource("ShaderMaterial_rmmt0")
+extra_cull_margin = 0.22
+mesh = ExtResource("15_hnyrr")
+metadata/workshop_cloth = true
+
+[node name="DecorativeGrass00" type="MeshInstance3D" parent="." unique_id=1906713123]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 0.02, -34)
+material_override = SubResource("ShaderMaterial_7cx2b")
+mesh = ExtResource("17_7lg1r")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass01" type="MeshInstance3D" parent="." unique_id=1164929812]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 0.02, 13)
+material_override = SubResource("ShaderMaterial_2ct4n")
+mesh = ExtResource("18_2ch1m")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass02" type="MeshInstance3D" parent="." unique_id=158174126]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 0.02, 34)
+material_override = SubResource("ShaderMaterial_psa3j")
+mesh = ExtResource("19_67rja")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass03" type="MeshInstance3D" parent="." unique_id=1632092285]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.5, 0.02, 8.9)
+material_override = SubResource("ShaderMaterial_iehci")
+mesh = ExtResource("20_e32py")
+metadata/reference_grass = true
+
+[node name="BayCanopy32" type="MeshInstance3D" parent="." unique_id=1085357588]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 3.55, -39.2)
+material_override = SubResource("ShaderMaterial_k0wqg")
+extra_cull_margin = 0.22
+mesh = ExtResource("21_jjd8o")
+metadata/workshop_cloth = true
+
+[node name="BayCanopy34" type="MeshInstance3D" parent="." unique_id=606837315]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 12, 3.55, 39.2)
+material_override = SubResource("ShaderMaterial_u8owv")
+extra_cull_margin = 0.22
+mesh = ExtResource("22_hxxhn")
+metadata/workshop_cloth = true
+
+[node name="DecorativeGrass04" type="MeshInstance3D" parent="." unique_id=937269139]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.02, -34)
+material_override = SubResource("ShaderMaterial_5klxg")
+mesh = ExtResource("23_m2r31")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass05" type="MeshInstance3D" parent="." unique_id=208862377]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.02, 13)
+material_override = SubResource("ShaderMaterial_7ynss")
+mesh = ExtResource("24_3ntap")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass06" type="MeshInstance3D" parent="." unique_id=1879151352]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.02, 34)
+material_override = SubResource("ShaderMaterial_bhuy2")
+mesh = ExtResource("25_ry3y7")
+metadata/reference_grass = true
+
+[node name="DecorativeGrass07" type="MeshInstance3D" parent="." unique_id=1276474522]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.5, 0.02, 8.9)
+material_override = SubResource("ShaderMaterial_d6j6a")
+mesh = ExtResource("26_76l6x")
+metadata/reference_grass = true
+
+[node name="Workshop_08_02" type="MeshInstance3D" parent="." unique_id=1054275312]
+mesh = ExtResource("27_73u28")
+
+[node name="Workshop_08_05" type="MeshInstance3D" parent="." unique_id=1886610469]
+mesh = ExtResource("28_8gls0")
+
+[node name="Workshop_08_00" type="MeshInstance3D" parent="." unique_id=1671901389]
+mesh = ExtResource("29_5v8rx")
+
+[node name="Workshop_08_06" type="MeshInstance3D" parent="." unique_id=364145674]
+mesh = ExtResource("30_1w03f")
+
+[node name="Workshop_08_03" type="MeshInstance3D" parent="." unique_id=2141149820]
+mesh = ExtResource("31_jip2l")
+
+[node name="Workshop_08_07" type="MeshInstance3D" parent="." unique_id=547387007]
+cast_shadow = 0
+mesh = ExtResource("32_am40n")
+
+[node name="Workshop_08_09" type="MeshInstance3D" parent="." unique_id=1224391777]
+cast_shadow = 0
+mesh = ExtResource("33_2xuk7")
+
+[node name="Workshop_08_04" type="MeshInstance3D" parent="." unique_id=897458387]
+mesh = ExtResource("34_y0rkw")
+
+[node name="Workshop_08_11" type="MeshInstance3D" parent="." unique_id=1675444511]
+cast_shadow = 0
+mesh = ExtResource("35_wuh5s")
+
+[node name="Workshop_08_01" type="MeshInstance3D" parent="." unique_id=2084495215]
+mesh = ExtResource("36_gn3aa")
+
+[node name="Workshop_08_15" type="MeshInstance3D" parent="." unique_id=1095059104]
+mesh = ExtResource("37_8u04u")
+
+[node name="Workshop_08_14" type="MeshInstance3D" parent="." unique_id=1242845138]
+mesh = ExtResource("38_mld0x")
+
+[node name="Workshop_08_10" type="MeshInstance3D" parent="." unique_id=762177166]
+cast_shadow = 0
+mesh = ExtResource("39_ks1mx")
+
+[node name="Workshop_08_12" type="MeshInstance3D" parent="." unique_id=1762079301]
+cast_shadow = 0
+mesh = ExtResource("40_6226n")
+
+[node name="Workshop_08_08" type="MeshInstance3D" parent="." unique_id=1819345672]
+cast_shadow = 0
+mesh = ExtResource("41_t1ybl")
+
+[node name="Workshop_08_13" type="MeshInstance3D" parent="." unique_id=679498920]
+cast_shadow = 0
+mesh = ExtResource("42_1ghh8")
+
+[node name="Workshop_02_02" type="MeshInstance3D" parent="." unique_id=483560967]
+mesh = ExtResource("43_g7ps6")
+
+[node name="Workshop_02_05" type="MeshInstance3D" parent="." unique_id=1508168833]
+mesh = ExtResource("44_5bjvv")
+
+[node name="Workshop_02_00" type="MeshInstance3D" parent="." unique_id=1272501553]
+mesh = ExtResource("45_xtx2x")
+
+[node name="Workshop_02_06" type="MeshInstance3D" parent="." unique_id=784459388]
+mesh = ExtResource("46_nlt77")
+
+[node name="Workshop_02_03" type="MeshInstance3D" parent="." unique_id=337662278]
+mesh = ExtResource("47_hgk55")
+
+[node name="Workshop_02_07" type="MeshInstance3D" parent="." unique_id=1276957218]
+cast_shadow = 0
+mesh = ExtResource("48_3gg7t")
+
+[node name="Workshop_02_09" type="MeshInstance3D" parent="." unique_id=276875401]
+cast_shadow = 0
+mesh = ExtResource("49_4go2o")
+
+[node name="Workshop_02_04" type="MeshInstance3D" parent="." unique_id=367701399]
+mesh = ExtResource("50_av16j")
+
+[node name="Workshop_02_11" type="MeshInstance3D" parent="." unique_id=1402865783]
+cast_shadow = 0
+mesh = ExtResource("51_hicxk")
+
+[node name="Workshop_02_01" type="MeshInstance3D" parent="." unique_id=1727798940]
+mesh = ExtResource("52_sryv0")
+
+[node name="Workshop_02_15" type="MeshInstance3D" parent="." unique_id=2014983544]
+mesh = ExtResource("53_3ksqt")
+
+[node name="Workshop_02_14" type="MeshInstance3D" parent="." unique_id=1031245992]
+mesh = ExtResource("54_hyr1j")
+
+[node name="Workshop_02_10" type="MeshInstance3D" parent="." unique_id=648012333]
+cast_shadow = 0
+mesh = ExtResource("55_j1ir8")
+
+[node name="Workshop_02_12" type="MeshInstance3D" parent="." unique_id=1169085988]
+cast_shadow = 0
+mesh = ExtResource("56_juclo")
+
+[node name="Workshop_02_08" type="MeshInstance3D" parent="." unique_id=566663173]
+cast_shadow = 0
+mesh = ExtResource("57_8rsg7")
+
+[node name="Workshop_02_13" type="MeshInstance3D" parent="." unique_id=1659938079]
+cast_shadow = 0
+mesh = ExtResource("58_5awj7")
+
+[node name="Workshop_11_02" type="MeshInstance3D" parent="." unique_id=167012092]
+mesh = ExtResource("59_sla65")
+
+[node name="Workshop_11_05" type="MeshInstance3D" parent="." unique_id=989347316]
+mesh = ExtResource("60_jbtcw")
+
+[node name="Workshop_11_00" type="MeshInstance3D" parent="." unique_id=725846913]
+mesh = ExtResource("61_fj4sj")
+
+[node name="Workshop_11_06" type="MeshInstance3D" parent="." unique_id=1524788704]
+mesh = ExtResource("62_xtad8")
+
+[node name="Workshop_11_03" type="MeshInstance3D" parent="." unique_id=2138626520]
+mesh = ExtResource("63_brved")
+
+[node name="Workshop_11_07" type="MeshInstance3D" parent="." unique_id=889463216]
+cast_shadow = 0
+mesh = ExtResource("64_m1ow5")
+
+[node name="Workshop_11_09" type="MeshInstance3D" parent="." unique_id=1197346958]
+cast_shadow = 0
+mesh = ExtResource("65_6gt3g")
+
+[node name="Workshop_11_04" type="MeshInstance3D" parent="." unique_id=1772146996]
+mesh = ExtResource("66_ock6q")
+
+[node name="Workshop_11_11" type="MeshInstance3D" parent="." unique_id=1169250632]
+cast_shadow = 0
+mesh = ExtResource("67_fjcxa")
+
+[node name="Workshop_11_01" type="MeshInstance3D" parent="." unique_id=279241439]
+mesh = ExtResource("68_xrfgn")
+
+[node name="Workshop_11_15" type="MeshInstance3D" parent="." unique_id=543696719]
+mesh = ExtResource("69_nt8qe")
+
+[node name="Workshop_11_14" type="MeshInstance3D" parent="." unique_id=1542297723]
+mesh = ExtResource("70_mjyg1")
+
+[node name="Workshop_11_10" type="MeshInstance3D" parent="." unique_id=39047398]
+cast_shadow = 0
+mesh = ExtResource("71_ytip5")
+
+[node name="Workshop_11_08" type="MeshInstance3D" parent="." unique_id=1629567571]
+cast_shadow = 0
+mesh = ExtResource("72_pvx7w")
+
+[node name="Workshop_11_13" type="MeshInstance3D" parent="." unique_id=1874692840]
+cast_shadow = 0
+mesh = ExtResource("73_brpq4")
+
+[node name="Workshop_11_12" type="MeshInstance3D" parent="." unique_id=475987322]
+cast_shadow = 0
+mesh = ExtResource("74_gmtb1")
+
+[node name="Workshop_07_01" type="MeshInstance3D" parent="." unique_id=2146038432]
+mesh = ExtResource("75_mqkcj")
+
+[node name="Workshop_07_05" type="MeshInstance3D" parent="." unique_id=675053738]
+mesh = ExtResource("76_3xs7h")
+
+[node name="Workshop_07_00" type="MeshInstance3D" parent="." unique_id=1833901229]
+mesh = ExtResource("77_tl5h8")
+
+[node name="Workshop_07_06" type="MeshInstance3D" parent="." unique_id=2008246475]
+mesh = ExtResource("78_a71lg")
+
+[node name="Workshop_07_03" type="MeshInstance3D" parent="." unique_id=1560178351]
+mesh = ExtResource("79_hcmpr")
+
+[node name="Workshop_07_07" type="MeshInstance3D" parent="." unique_id=1177203704]
+cast_shadow = 0
+mesh = ExtResource("80_lu4le")
+
+[node name="Workshop_07_09" type="MeshInstance3D" parent="." unique_id=430959587]
+cast_shadow = 0
+mesh = ExtResource("81_jlhek")
+
+[node name="Workshop_07_04" type="MeshInstance3D" parent="." unique_id=1078889396]
+mesh = ExtResource("82_vso04")
+
+[node name="Workshop_07_02" type="MeshInstance3D" parent="." unique_id=1781223624]
+mesh = ExtResource("83_bh75u")
+
+[node name="Workshop_07_11" type="MeshInstance3D" parent="." unique_id=994696160]
+cast_shadow = 0
+mesh = ExtResource("84_v8c3v")
+
+[node name="Workshop_07_15" type="MeshInstance3D" parent="." unique_id=1574566895]
+mesh = ExtResource("85_q1ekp")
+
+[node name="Workshop_07_14" type="MeshInstance3D" parent="." unique_id=564105226]
+mesh = ExtResource("86_spg6r")
+
+[node name="Workshop_07_10" type="MeshInstance3D" parent="." unique_id=1473441968]
+cast_shadow = 0
+mesh = ExtResource("87_kbwkl")
+
+[node name="Workshop_04_01" type="MeshInstance3D" parent="." unique_id=124634315]
+mesh = ExtResource("88_ou8bl")
+
+[node name="Workshop_04_06" type="MeshInstance3D" parent="." unique_id=277821687]
+mesh = ExtResource("89_ny2ne")
+
+[node name="Workshop_04_04" type="MeshInstance3D" parent="." unique_id=1665832453]
+mesh = ExtResource("90_jq7na")
+
+[node name="Workshop_05_01" type="MeshInstance3D" parent="." unique_id=344401734]
+mesh = ExtResource("91_5oiqv")
+
+[node name="Workshop_05_06" type="MeshInstance3D" parent="." unique_id=702861821]
+mesh = ExtResource("92_ngxd5")
+
+[node name="Workshop_05_04" type="MeshInstance3D" parent="." unique_id=246905674]
+mesh = ExtResource("93_y82k8")
+
+[node name="Workshop_09_01" type="MeshInstance3D" parent="." unique_id=1462468420]
+mesh = ExtResource("94_qby1d")
+
+[node name="Workshop_09_06" type="MeshInstance3D" parent="." unique_id=44700677]
+mesh = ExtResource("95_wy4g1")
+
+[node name="Workshop_09_04" type="MeshInstance3D" parent="." unique_id=634864171]
+mesh = ExtResource("96_t4fy7")
+
+[node name="Workshop_06_01" type="MeshInstance3D" parent="." unique_id=130093388]
+mesh = ExtResource("97_7cjkr")
+
+[node name="Workshop_06_06" type="MeshInstance3D" parent="." unique_id=2005085525]
+mesh = ExtResource("98_rtnsf")
+
+[node name="Workshop_06_04" type="MeshInstance3D" parent="." unique_id=343983571]
+mesh = ExtResource("99_muldj")
+
+[node name="Workshop_10_01" type="MeshInstance3D" parent="." unique_id=607648360]
+mesh = ExtResource("100_b3lil")
+
+[node name="Workshop_10_06" type="MeshInstance3D" parent="." unique_id=1208913798]
+mesh = ExtResource("101_bmawx")
+
+[node name="Workshop_10_04" type="MeshInstance3D" parent="." unique_id=641649143]
+mesh = ExtResource("102_q0q3i")
+
+[node name="Workshop_00_00" type="MeshInstance3D" parent="." unique_id=1498856199]
+mesh = ExtResource("103_vicv4")
+
+[node name="Workshop_00_01" type="MeshInstance3D" parent="." unique_id=1528178975]
+mesh = ExtResource("104_6u1vb")
+
+[node name="Workshop_00_05" type="MeshInstance3D" parent="." unique_id=685010474]
+mesh = ExtResource("105_wao5j")
+
+[node name="Workshop_00_06" type="MeshInstance3D" parent="." unique_id=108604867]
+mesh = ExtResource("106_jlr8y")
+
+[node name="Workshop_00_03" type="MeshInstance3D" parent="." unique_id=1779965259]
+mesh = ExtResource("107_n77o7")
+
+[node name="Workshop_00_07" type="MeshInstance3D" parent="." unique_id=340099181]
+cast_shadow = 0
+mesh = ExtResource("108_8ujnf")
+
+[node name="Workshop_00_09" type="MeshInstance3D" parent="." unique_id=1739491536]
+cast_shadow = 0
+mesh = ExtResource("109_e21jx")
+
+[node name="Workshop_00_04" type="MeshInstance3D" parent="." unique_id=516228835]
+mesh = ExtResource("110_tgj4w")
+
+[node name="Workshop_00_02" type="MeshInstance3D" parent="." unique_id=403985460]
+mesh = ExtResource("111_3xsc7")
+
+[node name="Workshop_00_12" type="MeshInstance3D" parent="." unique_id=1391971529]
+cast_shadow = 0
+mesh = ExtResource("112_y0c0s")
+
+[node name="Workshop_00_08" type="MeshInstance3D" parent="." unique_id=463847365]
+cast_shadow = 0
+mesh = ExtResource("113_kbnjx")
+
+[node name="Workshop_00_13" type="MeshInstance3D" parent="." unique_id=723808833]
+cast_shadow = 0
+mesh = ExtResource("114_gcg7j")
+
+[node name="Workshop_13_00" type="MeshInstance3D" parent="." unique_id=25818252]
+mesh = ExtResource("115_s1vqd")
+
+[node name="Workshop_13_01" type="MeshInstance3D" parent="." unique_id=848006561]
+mesh = ExtResource("116_kcmwb")
+
+[node name="Workshop_13_02" type="MeshInstance3D" parent="." unique_id=1216100461]
+mesh = ExtResource("117_k2w7p")
+
+[node name="Workshop_13_05" type="MeshInstance3D" parent="." unique_id=377162243]
+mesh = ExtResource("118_imtij")
+
+[node name="Workshop_13_06" type="MeshInstance3D" parent="." unique_id=1138523960]
+mesh = ExtResource("119_fk8ke")
+
+[node name="Workshop_13_03" type="MeshInstance3D" parent="." unique_id=754652556]
+mesh = ExtResource("120_x7q0x")
+
+[node name="Workshop_13_07" type="MeshInstance3D" parent="." unique_id=248474287]
+cast_shadow = 0
+mesh = ExtResource("121_08aok")
+
+[node name="Workshop_13_09" type="MeshInstance3D" parent="." unique_id=374922198]
+cast_shadow = 0
+mesh = ExtResource("122_an8nh")
+
+[node name="Workshop_13_04" type="MeshInstance3D" parent="." unique_id=124356881]
+mesh = ExtResource("123_erdj4")
+
+[node name="Workshop_13_12" type="MeshInstance3D" parent="." unique_id=1922087245]
+cast_shadow = 0
+mesh = ExtResource("124_jpjyl")
+
+[node name="Workshop_13_08" type="MeshInstance3D" parent="." unique_id=85354033]
+cast_shadow = 0
+mesh = ExtResource("125_7b373")
+
+[node name="Workshop_13_13" type="MeshInstance3D" parent="." unique_id=1861706824]
+cast_shadow = 0
+mesh = ExtResource("126_c0jss")
+
+[node name="Workshop_00_14" type="MeshInstance3D" parent="." unique_id=2075454121]
+mesh = ExtResource("127_txgej")
+
+[node name="Workshop_12_14" type="MeshInstance3D" parent="." unique_id=954247467]
+mesh = ExtResource("128_6xd5u")
+
+[node name="Workshop_03_00" type="MeshInstance3D" parent="." unique_id=1843556717]
+mesh = ExtResource("129_8sdg7")
+
+[node name="Workshop_03_01" type="MeshInstance3D" parent="." unique_id=806256046]
+mesh = ExtResource("130_clvq4")
+
+[node name="Workshop_03_05" type="MeshInstance3D" parent="." unique_id=468556073]
+mesh = ExtResource("131_32xan")
+
+[node name="Workshop_03_06" type="MeshInstance3D" parent="." unique_id=1458582972]
+mesh = ExtResource("132_f0o64")
+
+[node name="Workshop_03_03" type="MeshInstance3D" parent="." unique_id=1003602752]
+mesh = ExtResource("133_c74p1")
+
+[node name="Workshop_03_07" type="MeshInstance3D" parent="." unique_id=1572036118]
+cast_shadow = 0
+mesh = ExtResource("134_3jtwn")
+
+[node name="Workshop_03_09" type="MeshInstance3D" parent="." unique_id=1395520411]
+cast_shadow = 0
+mesh = ExtResource("135_nevns")
+
+[node name="Workshop_03_04" type="MeshInstance3D" parent="." unique_id=1079700983]
+mesh = ExtResource("136_6ah83")
+
+[node name="Workshop_03_02" type="MeshInstance3D" parent="." unique_id=532620939]
+mesh = ExtResource("137_dn5q2")
+
+[node name="Workshop_03_08" type="MeshInstance3D" parent="." unique_id=1288318904]
+cast_shadow = 0
+mesh = ExtResource("138_7rbiv")
+
+[node name="Workshop_03_13" type="MeshInstance3D" parent="." unique_id=1283343704]
+cast_shadow = 0
+mesh = ExtResource("139_y8gjx")
+
+[node name="Workshop_03_12" type="MeshInstance3D" parent="." unique_id=568312902]
+cast_shadow = 0
+mesh = ExtResource("140_a0yyh")
+
+[node name="Workshop_14_00" type="MeshInstance3D" parent="." unique_id=1836185541]
+mesh = ExtResource("141_gsoum")
+
+[node name="Workshop_14_01" type="MeshInstance3D" parent="." unique_id=1205372580]
+mesh = ExtResource("142_iyus5")
+
+[node name="Workshop_14_05" type="MeshInstance3D" parent="." unique_id=1459259690]
+mesh = ExtResource("143_jaqof")
+
+[node name="Workshop_14_06" type="MeshInstance3D" parent="." unique_id=1447356646]
+mesh = ExtResource("144_3bj0v")
+
+[node name="Workshop_14_03" type="MeshInstance3D" parent="." unique_id=1606062455]
+mesh = ExtResource("145_r8m61")
+
+[node name="Workshop_14_07" type="MeshInstance3D" parent="." unique_id=505340735]
+cast_shadow = 0
+mesh = ExtResource("146_w7qw5")
+
+[node name="Workshop_14_09" type="MeshInstance3D" parent="." unique_id=1644035132]
+cast_shadow = 0
+mesh = ExtResource("147_6bro3")
+
+[node name="Workshop_14_04" type="MeshInstance3D" parent="." unique_id=1395522345]
+mesh = ExtResource("148_hao86")
+
+[node name="Workshop_14_02" type="MeshInstance3D" parent="." unique_id=1110522690]
+mesh = ExtResource("149_fycc5")
+
+[node name="Workshop_14_08" type="MeshInstance3D" parent="." unique_id=522013481]
+cast_shadow = 0
+mesh = ExtResource("150_7h3hr")
+
+[node name="Workshop_14_13" type="MeshInstance3D" parent="." unique_id=530027462]
+cast_shadow = 0
+mesh = ExtResource("151_cxy3e")
+
+[node name="Workshop_14_12" type="MeshInstance3D" parent="." unique_id=560516363]
+cast_shadow = 0
+mesh = ExtResource("152_8kjd2")
+
+[node name="Workshop_03_14" type="MeshInstance3D" parent="." unique_id=2001133529]
+mesh = ExtResource("153_8c5bf")
+
+[node name="Workshop_15_14" type="MeshInstance3D" parent="." unique_id=121689020]
+mesh = ExtResource("154_lkvsf")
+
+[node name="WorkshopLight00" type="OmniLight3D" parent="." unique_id=157119706]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.756, 1.161, 5.795)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool00" type="MeshInstance3D" parent="." unique_id=1599535751]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.756, 0.027, 5.795)
+material_override = SubResource("ShaderMaterial_rd0h1")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_rclgk")
+
+[node name="WorkshopLight01" type="OmniLight3D" parent="." unique_id=16644335]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.244, 1.161, 8.205)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool01" type="MeshInstance3D" parent="." unique_id=861686630]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.244, 0.028, 8.205)
+material_override = SubResource("ShaderMaterial_jkns3")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_h6dnm")
+
+[node name="WorkshopLight02" type="OmniLight3D" parent="." unique_id=1793169249]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.084, 1.6, 8.154)
+light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool02" type="MeshInstance3D" parent="." unique_id=698781067]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.084, 0.029, 8.154)
+material_override = SubResource("ShaderMaterial_n7df1")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_0xi0i")
+
+[node name="WorkshopLight03" type="OmniLight3D" parent="." unique_id=599755809]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.244, 1.161, -31.205)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool03" type="MeshInstance3D" parent="." unique_id=727866143]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.244, 0.03, -31.205)
+material_override = SubResource("ShaderMaterial_0af0r")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_h6xlv")
+
+[node name="WorkshopLight04" type="OmniLight3D" parent="." unique_id=2142793824]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.756, 1.161, -28.795)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool04" type="MeshInstance3D" parent="." unique_id=1483867265]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.756, 0.027, -28.795)
+material_override = SubResource("ShaderMaterial_1h5xs")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_b1t5u")
+
+[node name="WorkshopLight05" type="OmniLight3D" parent="." unique_id=692694554]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.916, 1.6, -28.846)
+light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool05" type="MeshInstance3D" parent="." unique_id=937845358]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.916, 0.028, -28.846)
+material_override = SubResource("ShaderMaterial_msiwo")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_igokm")
+
+[node name="WorkshopLight06" type="OmniLight3D" parent="." unique_id=231021241]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.244, 1.161, 5.795)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool06" type="MeshInstance3D" parent="." unique_id=1856652047]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.244, 0.029, 5.795)
+material_override = SubResource("ShaderMaterial_g7t26")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_m8has")
+
+[node name="WorkshopLight07" type="OmniLight3D" parent="." unique_id=441294081]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.756, 1.161, 8.205)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool07" type="MeshInstance3D" parent="." unique_id=122677781]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.756, 0.03, 8.205)
+material_override = SubResource("ShaderMaterial_ssmn6")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_vewo0")
+
+[node name="WorkshopLight08" type="OmniLight3D" parent="." unique_id=699400234]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.916, 1.6, 8.154)
+light_color = Color(1, 0.38431373, 0.25490198, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool08" type="MeshInstance3D" parent="." unique_id=1974020441]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.916, 0.027, 8.154)
+material_override = SubResource("ShaderMaterial_gk1ng")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_7ipg2")
+
+[node name="WorkshopLight09" type="OmniLight3D" parent="." unique_id=1142675547]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.2439995, 1.161, -3.205)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool09" type="MeshInstance3D" parent="." unique_id=2131579663]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.2439995, 0.028, -3.205)
+material_override = SubResource("ShaderMaterial_6l6gr")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_07dix")
+
+[node name="WorkshopLight10" type="OmniLight3D" parent="." unique_id=1500197822]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.756, 1.161, -0.79499996)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool10" type="MeshInstance3D" parent="." unique_id=1184210740]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.756, 0.029, -0.79499996)
+material_override = SubResource("ShaderMaterial_bfdap")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_plpnr")
+
+[node name="WorkshopLight11" type="OmniLight3D" parent="." unique_id=1632061900]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.244, 1.161, -3.205)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool11" type="MeshInstance3D" parent="." unique_id=1973722739]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.244, 0.03, -3.205)
+material_override = SubResource("ShaderMaterial_kdlar")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_ml1ek")
+
+[node name="WorkshopLight12" type="OmniLight3D" parent="." unique_id=2063660659]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.756, 1.161, -0.79499996)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool12" type="MeshInstance3D" parent="." unique_id=2123037318]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.756, 0.027, -0.79499996)
+material_override = SubResource("ShaderMaterial_telax")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_ksjiu")
+
+[node name="WorkshopLight13" type="OmniLight3D" parent="." unique_id=1542903042]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 2.55, -38.31)
+light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool13" type="MeshInstance3D" parent="." unique_id=1815861297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 0.028, -38.31)
+material_override = SubResource("ShaderMaterial_e2qyv")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_m2q4b")
+
+[node name="WorkshopLight14" type="OmniLight3D" parent="." unique_id=669416288]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.9, 2.12, -38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool14" type="MeshInstance3D" parent="." unique_id=720848437]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.9, 0.029, -38.18)
+material_override = SubResource("ShaderMaterial_elsdh")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_javxv")
+
+[node name="WorkshopLight15" type="OmniLight3D" parent="." unique_id=492294670]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.1, 2.12, -38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool15" type="MeshInstance3D" parent="." unique_id=734073963]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.1, 0.03, -38.18)
+material_override = SubResource("ShaderMaterial_ggou8")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_0anf6")
+
+[node name="WorkshopLight16" type="OmniLight3D" parent="." unique_id=1452594384]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.2, 3.135, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool16" type="MeshInstance3D" parent="." unique_id=406951877]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.2, 0.027, -36.8)
+material_override = SubResource("ShaderMaterial_i10gf")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_4k34t")
+
+[node name="WorkshopLight17" type="OmniLight3D" parent="." unique_id=295813109]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 3.08, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool17" type="MeshInstance3D" parent="." unique_id=2130586870]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 0.028, -36.8)
+material_override = SubResource("ShaderMaterial_hyy3u")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_jlkbo")
+
+[node name="WorkshopLight18" type="OmniLight3D" parent="." unique_id=944680930]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.8, 3.135, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool18" type="MeshInstance3D" parent="." unique_id=142631548]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.8, 0.029, -36.8)
+material_override = SubResource("ShaderMaterial_gskeu")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_vtbmq")
+
+[node name="WorkshopLight19" type="OmniLight3D" parent="." unique_id=326568083]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.8, 2.55, 38.31)
+light_color = Color(0.24313726, 0.827451, 0.8666667, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool19" type="MeshInstance3D" parent="." unique_id=1955190460]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.8, 0.03, 38.31)
+material_override = SubResource("ShaderMaterial_2mug8")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_jwhkj")
+
+[node name="WorkshopLight20" type="OmniLight3D" parent="." unique_id=1806568714]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.1, 2.12, 38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool20" type="MeshInstance3D" parent="." unique_id=351857156]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.1, 0.027, 38.18)
+material_override = SubResource("ShaderMaterial_xevdf")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_ko452")
+
+[node name="WorkshopLight21" type="OmniLight3D" parent="." unique_id=1245281861]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.9, 2.12, 38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool21" type="MeshInstance3D" parent="." unique_id=1155546889]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.9, 0.028, 38.18)
+material_override = SubResource("ShaderMaterial_mkloj")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_778vl")
+
+[node name="WorkshopLight22" type="OmniLight3D" parent="." unique_id=1204996372]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.8, 3.135, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool22" type="MeshInstance3D" parent="." unique_id=1212131531]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.8, 0.029, 36.8)
+material_override = SubResource("ShaderMaterial_dxtpq")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_7ya8r")
+
+[node name="WorkshopLight23" type="OmniLight3D" parent="." unique_id=563716854]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 3.08, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool23" type="MeshInstance3D" parent="." unique_id=1637151240]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.03, 36.8)
+material_override = SubResource("ShaderMaterial_0ms6s")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_5x0so")
+
+[node name="WorkshopLight24" type="OmniLight3D" parent="." unique_id=830876421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.200001, 3.135, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool24" type="MeshInstance3D" parent="." unique_id=1242490938]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.200001, 0.027, 36.8)
+material_override = SubResource("ShaderMaterial_1cmbr")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_5f1re")
+
+[node name="WorkshopLight25" type="OmniLight3D" parent="." unique_id=998657336]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.8, 2.55, -38.31)
+light_color = Color(1, 0.38431373, 0.25490198, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool25" type="MeshInstance3D" parent="." unique_id=1578330176]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.8, 0.028, -38.31)
+material_override = SubResource("ShaderMaterial_lg382")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_tctqd")
+
+[node name="WorkshopLight26" type="OmniLight3D" parent="." unique_id=1169382319]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.1, 2.12, -38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool26" type="MeshInstance3D" parent="." unique_id=1433503354]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.1, 0.029, -38.18)
+material_override = SubResource("ShaderMaterial_f3wcs")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_3sji2")
+
+[node name="WorkshopLight27" type="OmniLight3D" parent="." unique_id=1970829549]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.9, 2.12, -38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool27" type="MeshInstance3D" parent="." unique_id=799772782]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.9, 0.03, -38.18)
+material_override = SubResource("ShaderMaterial_t7jmd")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_o5wdh")
+
+[node name="WorkshopLight28" type="OmniLight3D" parent="." unique_id=1035594281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.8, 3.135, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool28" type="MeshInstance3D" parent="." unique_id=22621184]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.8, 0.027, -36.8)
+material_override = SubResource("ShaderMaterial_aht5i")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_fsxea")
+
+[node name="WorkshopLight29" type="OmniLight3D" parent="." unique_id=208624176]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 3.08, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool29" type="MeshInstance3D" parent="." unique_id=1804831850]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0.028, -36.8)
+material_override = SubResource("ShaderMaterial_npi3q")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_qq0kg")
+
+[node name="WorkshopLight30" type="OmniLight3D" parent="." unique_id=252556768]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.2, 3.135, -36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool30" type="MeshInstance3D" parent="." unique_id=455952534]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.2, 0.029, -36.8)
+material_override = SubResource("ShaderMaterial_uxeq6")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_jn23q")
+
+[node name="WorkshopLight31" type="OmniLight3D" parent="." unique_id=1137853935]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.2, 2.55, 38.31)
+light_color = Color(1, 0.38431373, 0.25490198, 1)
+light_energy = 0.85
+omni_range = 3.8
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool31" type="MeshInstance3D" parent="." unique_id=656436027]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.2, 0.03, 38.31)
+material_override = SubResource("ShaderMaterial_khxpw")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_hxfy3")
+
+[node name="WorkshopLight32" type="OmniLight3D" parent="." unique_id=1761076913]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.9, 2.12, 38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool32" type="MeshInstance3D" parent="." unique_id=1603399613]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.9, 0.027, 38.18)
+material_override = SubResource("ShaderMaterial_tnnc2")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_67w85")
+
+[node name="WorkshopLight33" type="OmniLight3D" parent="." unique_id=771790264]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.1, 2.12, 38.18)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool33" type="MeshInstance3D" parent="." unique_id=1703037656]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.1, 0.028, 38.18)
+material_override = SubResource("ShaderMaterial_5rpfp")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_c3ya4")
+
+[node name="WorkshopLight34" type="OmniLight3D" parent="." unique_id=95946683]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.2, 3.135, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool34" type="MeshInstance3D" parent="." unique_id=916605961]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.2, 0.029, 36.8)
+material_override = SubResource("ShaderMaterial_s2kax")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_0etsp")
+
+[node name="WorkshopLight35" type="OmniLight3D" parent="." unique_id=428499879]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 3.08, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool35" type="MeshInstance3D" parent="." unique_id=1064123923]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.03, 36.8)
+material_override = SubResource("ShaderMaterial_68nq4")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_rrr4o")
+
+[node name="WorkshopLight36" type="OmniLight3D" parent="." unique_id=149552167]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.799999, 3.135, 36.8)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool36" type="MeshInstance3D" parent="." unique_id=1617802149]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.799999, 0.027, 36.8)
+material_override = SubResource("ShaderMaterial_rq4jd")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_j8vyx")
+
+[node name="WorkshopLight37" type="OmniLight3D" parent="." unique_id=1949923259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.25, 3.3000002, -17)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool37" type="MeshInstance3D" parent="." unique_id=55295849]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.25, 0.028, -17)
+material_override = SubResource("ShaderMaterial_or8v0")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_xh0pf")
+
+[node name="WorkshopLight38" type="OmniLight3D" parent="." unique_id=1973264073]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 3.2, -17)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool38" type="MeshInstance3D" parent="." unique_id=940487007]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.029, -17)
+material_override = SubResource("ShaderMaterial_1odh6")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_qv324")
+
+[node name="WorkshopLight39" type="OmniLight3D" parent="." unique_id=85157990]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.75, 3.3000002, -17)
+light_color = Color(1, 0.7607843, 0.4745098, 1)
+light_energy = 1.05
+omni_range = 3.4
+omni_attenuation = 1.6
+metadata/workshop_light = true
+
+[node name="LightPool39" type="MeshInstance3D" parent="." unique_id=51121145]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.75, 0.03, -17)
+material_override = SubResource("ShaderMaterial_hp78n")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_348au")

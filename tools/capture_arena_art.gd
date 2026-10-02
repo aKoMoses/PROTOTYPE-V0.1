@@ -3,7 +3,7 @@ extends SceneTree
 ## Production camera visual/performance fixture. No camera projection or offsets
 ## are overridden. Positions and aim are fixed; HUD, visibility and actor rigs run.
 ## Usage: -- <output-directory> <prefix> [center|north|west|south|east|all]
-## Optional: low, combat, mobile, baseline=<metrics.json>.
+## Optional: low, combat, mobile, reference-loadout, baseline=<metrics.json>.
 ## review uses fewer frames for visual inspection; its timings are not a benchmark.
 ## Output includes PNGs and metrics; baseline verifies actual camera invariance.
 
@@ -58,6 +58,11 @@ func _run() -> void:
 	var player := scene.get_node("Player") as Node3D
 	var target := scene.get_node("TargetDummy") as Node3D
 	player.call("reset_combat_state")
+	if args.has("reference-loadout"):
+		# Equip real selectable gameplay assets for the reference review; never
+		# write saved loadouts or override the scene's camera/render pipeline.
+		player.call("set_robot", "puissant")
+		player.call("set_weapon", "mekatana")
 	player.call("clear_touch_inputs")
 	player.call("set_gameplay_enabled", true)
 	player.set_physics_process(false)
@@ -93,6 +98,7 @@ func _run() -> void:
 		"quality": "low" if args.has("low") else "default",
 		"quality_applied": quality_applied,
 		"combat_effects": args.has("combat"),
+		"reference_loadout": args.has("reference-loadout"),
 		"camera_fixture": "production rig; fixed FORWARD aim; snap via set_follow_offset",
 		"views": {},
 	}
@@ -162,7 +168,7 @@ func _run() -> void:
 		var error := root.get_texture().get_image().save_png(path)
 		if error != OK:
 			code = 1
-		report.views[view] = {"player_position": _vec(player.global_position), "target_position": _vec(target.global_position), "rig_position": _vec(rig.global_position), "camera_position": _vec(camera.global_position), "camera_rotation": _vec(camera.global_rotation), "camera_fov": camera.fov, "camera_projection": camera.projection, "capture_path": path, "capture_error": error, "average": totals, "samples": SAMPLE_FRAMES}
+		report.views[view] = {"player_position": _vec(player.global_position), "target_position": _vec(target.global_position), "rig_position": _vec(rig.global_position), "camera_position": _vec(camera.global_position), "camera_rotation": _vec(camera.global_rotation), "camera_fov": camera.fov, "camera_projection": camera.projection, "capture_path": path, "capture_error": error, "average": totals, "samples": sample_frames}
 		if baseline is Dictionary and baseline.get("views", {}).has(view):
 			var camera_match := true
 			for key in ["player_position", "target_position", "rig_position", "camera_position", "camera_rotation", "camera_fov", "camera_projection"]:

@@ -54,8 +54,12 @@ func _initialize() -> void:
 	_check(player.call("_module_target") == first_targets[0], "visée sélectionne un ennemi de la vague")
 	var health_before := float(first_targets[0].call("get_health"))
 	player.call("_fire_blaster_projectile", float(player.get("_blaster_damage")), 0.0, Vector3(0, 0, -1))
-	await process_frame
 	var blaster_projectile := scene.get_node_or_null("BlasterProjectile")
+	# A tap emits after the final skeleton pose; its update can follow this frame.
+	var blaster_deadline := Time.get_ticks_msec() + 1000
+	while blaster_projectile == null and Time.get_ticks_msec() < blaster_deadline:
+		await process_frame
+		blaster_projectile = scene.get_node_or_null("BlasterProjectile")
 	_check(blaster_projectile != null and blaster_projectile.get_node_or_null("ProjectileCore") != null, "projectile du Blaster visible en Survie")
 	await create_timer(0.5).timeout
 	_check(float(first_targets[0].call("get_health")) < health_before, "tir atteint l'ennemi de la vague")

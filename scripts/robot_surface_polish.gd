@@ -20,7 +20,7 @@ static func apply(root: Node3D, player_model: bool = false) -> void:
 			finish.roughness = maxf(source.roughness, 0.88) if cloth else clampf(source.roughness * 0.74, 0.44, 0.68)
 			finish.metallic = source.metallic if cloth else maxf(source.metallic, 0.18)
 			finish.rim_enabled = not cloth
-			finish.rim = 0.22
+			finish.rim = 0.36
 			finish.rim_tint = 0.25
 			mesh.set_surface_override_material(surface, finish)
 

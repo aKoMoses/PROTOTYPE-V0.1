@@ -1156,8 +1156,8 @@ func _build_hud() -> void:
 	var score_panel := Control.new()
 	score_panel.name = "MatchSummary"
 	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	score_panel.position = Vector2(-230, 12)
-	score_panel.size = Vector2(460, 60)
+	score_panel.position = Vector2(-190, 12)
+	score_panel.size = Vector2(380, 50)
 	score_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(score_panel)
 	var vitals := Control.new()
@@ -1176,21 +1176,21 @@ func _build_hud() -> void:
 	score_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
 	score_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	score_panel.add_child(score_backdrop)
-	_hud_labels.match = _label("0 — 0", 27, CREAM)
-	_hud_labels.match.position = Vector2(168, 7)
-	_hud_labels.match.size = Vector2(124, 46)
+	_hud_labels.match = _label("0 — 0", 24, CREAM)
+	_hud_labels.match.position = Vector2(138, 3)
+	_hud_labels.match.size = Vector2(104, 44)
 	_hud_labels.match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match)
 	_hud_labels.match_round = _label("MANCHE 1", 14, CREAM)
-	_hud_labels.match_round.position = Vector2(32, 15)
-	_hud_labels.match_round.size = Vector2(130, 30)
+	_hud_labels.match_round.position = Vector2(24, 10)
+	_hud_labels.match_round.size = Vector2(110, 30)
 	_hud_labels.match_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.match_round.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_panel.add_child(_hud_labels.match_round)
-	_hud_labels.phase = _label("PRÉPARATION", 13, CYAN)
-	_hud_labels.phase.position = Vector2(298, 15)
-	_hud_labels.phase.size = Vector2(130, 30)
+	_hud_labels.phase = _label("PRÉPARATION", 11, CYAN)
+	_hud_labels.phase.position = Vector2(249, 10)
+	_hud_labels.phase.size = Vector2(107, 30)
 	_hud_labels.phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hud_labels.phase.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_hud_labels.phase.autowrap_mode = TextServer.AUTOWRAP_OFF

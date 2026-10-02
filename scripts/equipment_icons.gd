@@ -6,7 +6,7 @@ const SOURCES := {
 	"rocket_basket": preload("res://art/icons/rocket-basket.svg"),
 	"agile": preload("res://art/robot-concepts/robot-agile-face-v3.png"),
 	"polyvalent": preload("res://art/robot-concepts/robot-polyvalent-face-v3.png"),
-	"puissant": preload("res://art/robot-concepts/robot-puissant-face-v3.png"),
+	"puissant": preload("res://art/robot-concepts/robot-puissant-orange.png"),
 	"blaster": preload("res://art/icons/blaster-gravure.png"),
 	"shotgun": preload("res://art/icons/ben/shotgun-a.png"),
 	"longshot": preload("res://art/icons/longshot.svg"),
@@ -32,7 +32,7 @@ const SOURCES := {
 const REGIONS := {
 	"agile": Rect2(388, 34, 478, 1174),
 	"polyvalent": Rect2(334, 10, 574, 1186),
-	"puissant": Rect2(292, 4, 670, 1216),
+	"puissant": Rect2(130, 270, 385, 710),
 	"blaster": Rect2(100, 270, 1100, 770),
 	"shotgun": Rect2(20, 335, 1220, 610),
 }

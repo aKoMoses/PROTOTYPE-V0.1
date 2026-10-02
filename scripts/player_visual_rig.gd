@@ -8,6 +8,10 @@ const CHASSIS_VISUALS := preload("res://scripts/robot_chassis_visuals.gd")
 const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
 const LOWER_BODY_MODIFIER_SCRIPT := preload("res://scripts/player_lower_body_direction_modifier.gd")
 const AIM_MODIFIER_SCRIPT := preload("res://scripts/player_aim_modifier.gd")
+const PRESENCE_SCRIPT := preload("res://scripts/mecha_presence_modifier.gd")
+const MODULE_POSE_SCRIPT := preload("res://scripts/mecha_module_pose.gd")
+const CONTEXT_BANK := preload("res://scripts/mecha_animation_bank.gd")
+const GAMEPLAY_STATES := [&"idle", &"walk", &"run", &"fire", &"fall", &"warm_up", &"bow", &"box_01", &"afraid", &"cheer", &"defeat_02"]
 const MODEL_AXIS_CORRECTION_YAW := PI
 const AIM_TURN_SPEED := 20.0
 const LOCOMOTION_TURN_SPEED := 12.0
@@ -36,6 +40,10 @@ var right_hand_attachment: BoneAttachment3D
 var aim_blend: AnimationNodeBlend2
 var ready_blend: AnimationNodeBlend2
 var aim_modifier: PlayerAimModifier
+var presence_modifier: PRESENCE_SCRIPT
+var module_pose: MODULE_POSE_SCRIPT
+var _win_result_index := 0
+var _lose_result_index := 0
 var aim_pose_sample_time := 0.0
 var aim_pose_stability_degrees := 0.0
 var ready_pose_sample_time := 0.0
@@ -77,6 +85,8 @@ var _animation_library_names: Array[StringName] = []
 var _chassis_visuals := CHASSIS_VISUALS.new()
 var _chassis_base_scale := Vector3.ZERO
 var _chassis_scale_factor := 1.0
+var _model_path := PLAYER_MODEL_PATH
+var _model_scale := 2.0
 
 
 func set_chassis_appearance(identifier: String) -> void:
@@ -93,11 +103,99 @@ func set_chassis_appearance(identifier: String) -> void:
 	for state in _locomotion_reference_speeds:
 		_locomotion_reference_speeds[state] *= stride_ratio
 	_chassis_scale_factor = next_factor
+	var next_path := CHASSIS_VISUALS.model_path(identifier)
+	if model_axis_correction != null and next_path != _model_path:
+		_replace_chassis_model(next_path)
 	if model_axis_correction != null:
 		var imported_model := model_axis_correction.get_node_or_null("ImportedAnimatedModel") as Node3D
 		_chassis_visuals.apply(imported_model, identifier)
 	if was_concealed:
 		set_bush_concealed(true)
+
+
+func _replace_chassis_model(next_path: String) -> void:
+	if not ResourceLoader.exists(next_path):
+		push_warning("Modèle de châssis absent : " + next_path)
+		return
+	var next_scene := load(next_path) as PackedScene
+	if next_scene == null:
+		return
+	var next_model := next_scene.instantiate() as Node3D
+	if next_model == null or _find_skeleton(next_model) == null or _find_animation_player(next_model) == null:
+		if next_model != null:
+			next_model.free()
+		push_warning("Le châssis demandé ne possède pas de rig animé valide.")
+		return
+	# Keep weapon nodes referenced by Player and recalibrate their existing sockets.
+	var sockets: Array[Node3D] = []
+	for socket in right_hand_attachment.get_children():
+		if socket is Node3D:
+			sockets.append(socket)
+			socket.reparent(self, false)
+	var mobility := module_visuals.mobility_id
+	var autonomous := presence_modifier.autonomous
+	var external_modifiers: Array[SkeletonModifier3D] = []
+	for child in skeleton.get_children():
+		if child is SkeletonModifier3D and child not in [lower_body_modifier, aim_modifier, presence_modifier, module_pose]:
+			external_modifiers.append(child)
+			child.reparent(self, false)
+	var connections := skeleton.get_signal_connection_list("skeleton_updated")
+	var old_axis := model_axis_correction
+	visual_motion.remove_child(old_axis)
+	_model_path = next_path
+	model_axis_correction = null
+	skeleton = null
+	animation_player = null
+	animation_tree = null
+	right_hand_attachment = null
+	module_visuals = null
+	lower_body_modifier = null
+	aim_modifier = null
+	presence_modifier = null
+	module_pose = null
+	aim_blend = null
+	ready_blend = null
+	lower_body_blend = null
+	_animation_states.clear()
+	_locomotion_reference_speeds.clear()
+	detected_animation_names.clear()
+	aim_filtered_track_paths.clear()
+	ready_filtered_track_paths.clear()
+	locomotion_filtered_track_paths.clear()
+	_fire_animation_name = &""
+	_active_action = &""
+	_right_hand_bone_index = -1
+	_hips_bone_index = -1
+	_spine_bone_index = -1
+	hips_bone_name = &""
+	right_hand_bone_name = &""
+	left_hand_bone_name = &""
+	_chassis_visuals = CHASSIS_VISUALS.new()
+	install_animated_model(null, _model_scale, next_model)
+	presence_modifier.autonomous = autonomous
+	module_visuals.set_mobility_module(mobility)
+	for modifier in external_modifiers:
+		modifier.request_ready()
+		modifier.reparent(skeleton, false)
+		skeleton.move_child(modifier, presence_modifier.get_index())
+	for connection in connections:
+		if not skeleton.is_connected("skeleton_updated", connection.callable):
+			skeleton.connect("skeleton_updated", connection.callable, connection.flags)
+	for socket in sockets:
+		socket.reparent(right_hand_attachment, false)
+		var profile: Dictionary = socket.get_meta("weapon_alignment_profile", {})
+		if profile.is_empty():
+			continue
+		var weapon_id := StringName(String(socket.name).trim_prefix("WeaponSocket_"))
+		var grip: Transform3D = profile.right_grip_from_root
+		var weapon := socket.get_node("Weapon_%s" % weapon_id)
+		var has_grip := weapon.find_child("RightHandGrip", true, false) != null
+		socket.set_meta("weapon_aim_transform", _get_weapon_socket_transform(profile.position, profile.rotation, profile.scale, weapon_id, grip.origin, has_grip))
+		var carry_rotation: Vector3 = profile.rotation + Vector3(deg_to_rad(profile.carry_pitch_degrees), 0.0, 0.0)
+		socket.set_meta("weapon_carry_transform", _get_weapon_socket_transform(profile.position, carry_rotation, profile.scale, weapon_id, grip.origin, has_grip, true))
+	_update_weapon_socket_poses()
+	# Chassis changes can originate inside a skeleton_updated callback.
+	old_axis.queue_free()
 
 
 func set_mobility_module(identifier: String) -> void:
@@ -171,15 +269,16 @@ func setup_visual_motion() -> Node3D:
 	return visual_motion
 
 
-func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -> bool:
-	if not ResourceLoader.exists(PLAYER_MODEL_PATH):
+func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0, prepared_model: Node3D = null) -> bool:
+	_model_scale = model_scale
+	if not ResourceLoader.exists(_model_path):
 		push_warning("GLB joueur absent ; le robot procédural reste actif.")
 		return false
-	var packed_model := load(PLAYER_MODEL_PATH) as PackedScene
+	var packed_model := load(_model_path) as PackedScene
 	if packed_model == null:
 		push_warning("Impossible de charger le GLB joueur ; le robot procédural reste actif.")
 		return false
-	var imported_root := packed_model.instantiate() as Node3D
+	var imported_root := prepared_model if prepared_model != null else packed_model.instantiate() as Node3D
 	if imported_root == null:
 		push_warning("La racine du GLB joueur n'est pas un Node3D.")
 		return false
@@ -190,11 +289,11 @@ func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -
 	# Inspection du clip run : Hips avance en +Z. Cette unique correction convertit
 	# l'avant du GLB vers le -Z de gameplay de Godot, sans toucher au CharacterBody3D.
 	model_axis_correction.rotation.y = MODEL_AXIS_CORRECTION_YAW
-	model_axis_correction.scale = Vector3.ONE * model_scale
+	model_axis_correction.scale = Vector3.ONE * model_scale * float(CHASSIS_VISUALS.SOURCE_HEIGHTS[PLAYER_MODEL_PATH]) / float(CHASSIS_VISUALS.SOURCE_HEIGHTS[_model_path])
 	visual_motion.add_child(model_axis_correction)
 	imported_root.name = "ImportedAnimatedModel"
 	model_axis_correction.add_child(imported_root)
-	preload("res://scripts/robot_surface_polish.gd").apply(imported_root, true)
+	preload("res://scripts/robot_surface_polish.gd").apply(imported_root, _model_path == PLAYER_MODEL_PATH)
 	skeleton = _find_skeleton(imported_root)
 	animation_player = _find_animation_player(imported_root)
 	if skeleton == null:
@@ -212,9 +311,22 @@ func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -
 	_configure_locomotion_clips()
 	_create_aim_pose()
 	_create_ready_pose()
+	CONTEXT_BANK.install(animation_player, skeleton, CONTEXT_BANK.RESULT_CLIPS, true)
 	_configure_hand_attachment()
 	_configure_lower_body_modifier()
+	presence_modifier = PRESENCE_SCRIPT.new()
+	presence_modifier.name = "MechaPresence"
+	presence_modifier.library = CONTEXT_BANK.presence_library(animation_player)
+	skeleton.add_child(presence_modifier)
 	_configure_aim_modifier()
+	module_pose = MODULE_POSE_SCRIPT.new()
+	module_pose.name = "MechaModulePose"
+	module_pose.library = CONTEXT_BANK.sampling_library(animation_player, CONTEXT_BANK.MODULE_CLIPS)
+	for candidate in animation_player.get_animation_list():
+		if _canonical_animation_name(candidate) == &"idle":
+			module_pose.idle_clip = animation_player.get_animation(candidate)
+			break
+	skeleton.add_child(module_pose)
 	_configure_animation_tree(imported_root)
 	# Evaluate the actual authored pose before creating ANY hand-local socket.
 	animation_tree.set(AIM_BLEND_PARAMETER, 0.0)
@@ -297,6 +409,10 @@ func play_action(animation_name: StringName, _blend_time: float = 0.16, speed_sc
 		return true
 	if _base_state_machine == null or not _base_state_machine.has_node(state_name):
 		return false
+	if presence_modifier != null:
+		presence_modifier.reset_presence()
+	if module_pose != null:
+		module_pose.clear_pose()
 	_active_action = state_name
 	_cancel_shot_kick()
 	_refresh_aim_state()
@@ -306,6 +422,55 @@ func play_action(animation_name: StringName, _blend_time: float = 0.16, speed_sc
 	_travel_to(state_name)
 	_set_locomotion_blend(0.0, 0.016, true)
 	return true
+
+
+func set_presence_context(quiet: bool, torso: bool) -> void:
+	if presence_modifier != null:
+		presence_modifier.set_context(quiet and _active_action == &"" and not _aim_requested, torso and not _aim_requested)
+
+
+func reset_presence() -> void:
+	if presence_modifier != null:
+		presence_modifier.reset_presence()
+	if module_pose != null:
+		module_pose.clear_pose()
+	if _active_action in CONTEXT_BANK.RESULT_CLIPS:
+		play_action(&"idle")
+
+
+func show_round_result(won: bool) -> void:
+	var choices := CONTEXT_BANK.WIN_CLIPS if won else CONTEXT_BANK.LOSE_CLIPS
+	var index := _win_result_index if won else _lose_result_index
+	if play_action(choices[index % choices.size()]):
+		if won:
+			_win_result_index += 1
+		else:
+			_lose_result_index += 1
+
+
+func set_module_pose(id: String, phase: String, progress: float, duration: float, variant: int = 0) -> void:
+	if module_pose != null and presence_modifier.autonomous:
+		module_pose.replica = false
+		module_pose.set_pose(id, phase, progress, duration, variant)
+
+
+func clear_module_pose() -> void:
+	if module_pose != null:
+		module_pose.clear_pose()
+
+
+func presence_snapshot() -> Dictionary:
+	var value := presence_modifier.snapshot() if presence_modifier != null else {}
+	if module_pose != null:
+		value["module"] = module_pose.snapshot()
+	return value
+
+
+func restore_presence(value: Dictionary) -> void:
+	if presence_modifier != null and _active_action == &"":
+		presence_modifier.restore(value)
+		if module_pose != null and not presence_modifier.autonomous:
+			module_pose.restore(value.get("module", {}))
 
 
 func equip_weapon(weapon_id: StringName, weapon_root: Node3D, profile: Dictionary) -> bool:
@@ -460,6 +625,9 @@ func configure_aim_transition(raise_time: float, lower_time: float) -> void:
 
 func set_aim_enabled(enabled: bool, immediate: bool = false) -> void:
 	_aim_requested = enabled
+	if enabled and presence_modifier != null:
+		presence_modifier.interrupt_rest()
+		presence_modifier.torso_allowed = false
 	if immediate:
 		_aim_blend_amount = 1.0 if enabled else 0.0
 		_update_weapon_socket_poses()
@@ -646,7 +814,9 @@ func _configure_animation_tree(model_root: Node3D) -> void:
 	var locomotion_index := 0
 	for animation_name in animation_player.get_animation_list():
 		var state_name := _canonical_animation_name(animation_name)
-		if state_name == &"" or state_name in [&"aimpose", &"readypose"] or state_name in _animation_states:
+		if state_name in CONTEXT_BANK.RESULT_CLIPS and not String(animation_name).begins_with("context/"):
+			continue
+		if (state_name not in GAMEPLAY_STATES and state_name not in CONTEXT_BANK.RESULT_CLIPS) or state_name in _animation_states:
 			continue
 		_animation_states[state_name] = animation_name
 		if state_name == &"fire":
@@ -816,6 +986,13 @@ func configure_left_hand_support(weapon_id: StringName) -> void:
 	var grip := weapon.find_child("LeftHandGrip", true, false) as Node3D if weapon != null else null
 	if grip == null:
 		return
+	if weapon_id == &"longshot":
+		if not grip.has_meta("chassis_original_grip_position"):
+			grip.set_meta("chassis_original_grip_position", grip.position)
+		grip.position = grip.get_meta("chassis_original_grip_position")
+		if _model_path == CHASSIS_VISUALS.POWERFUL_MODEL_PATH:
+			# The orange stance reaches the rear of the fore-end, below the barrel.
+			grip.position.z = -0.36
 	var grip_local := Transform3D.IDENTITY
 	var node: Node3D = grip
 	while node != right_hand_attachment:

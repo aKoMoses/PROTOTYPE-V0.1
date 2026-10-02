@@ -95,6 +95,8 @@ func _module_ready(module_id: String) -> bool:
 
 
 func _start_module_cooldown(module_id: String, duration: float) -> void:
+	if player._presentation_component != null:
+		player._presentation_component.begin_module_gesture(module_id)
 	if module_id == "pyro_boots":
 		PLAYER_STATE.PYRO_BOOTS.spend(player._module_cooldowns, 0.0 if player.training_instant_cooldowns else duration * float(player._survival_cooldown_multipliers.get("mobility", 1.0)))
 		return
@@ -170,6 +172,7 @@ func _magnetic_placement_valid(origin: Vector3, center: Vector3) -> bool:
 func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direction: Vector3) -> void:
 	if token != player._module_token or not player._module_action_can_execute(action_token, "magnetic_field"):
 		return
+	player._presentation_component.confirm_module_release("magnetic_field")
 	var wall := PLAYER_STATE.MAGNETIC_WALL.new()
 	wall.configure(player, player._magnetic_width, player._magnetic_height, player._magnetic_duration)
 	player.get_tree().current_scene.add_child(wall)
@@ -194,39 +197,53 @@ func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direc
 
 
 func _perform_static_shield() -> void:
-	if player._stasis_remaining > 0.0:
-		var minimum := float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.static_shield.minimum_duration)
-		if player._static_duration - player._stasis_remaining >= minimum - 0.00001:
-			player._stasis_remaining = 0.0
-			if is_instance_valid(player._stasis_visual):
-				player._stasis_visual.queue_free()
-			player._stasis_visual = null
-			if player._attack_label != null:
-				player._attack_label.text = "STATIC SHIELD  •  SORTIE"
+	if not player._gameplay_enabled or player.is_real_dead():
 		return
-	if player._stasis_remaining > 0.0 or player._fulguro_projection_active or not player._module_ready("static_shield") or (player.combat_state != null and player.combat_state.is_stunned()):
+	var mobile_shield := player.survival_evolution_effects if player.survival_mode else null
+	if mobile_shield != null and mobile_shield.shield_remaining > 0.0:
+		mobile_shield.shield_remaining = 0.0
+		mobile_shield.shield_health = 0.0
+		mobile_shield.shield_energy = 0.0
+		if is_instance_valid(mobile_shield.shield_visual):
+			mobile_shield.shield_visual.queue_free()
+		mobile_shield.shield_visual = null
+		if player._attack_label != null:
+			player._attack_label.text = "STATIC SHIELD  •  SORTIE"
+		return
+	if player._stasis_remaining > 0.0:
+		player._stasis_remaining = 0.0
+		if is_instance_valid(player._stasis_visual):
+			player._stasis_visual.queue_free()
+		player._stasis_visual = null
+		if player._attack_label != null:
+			player._attack_label.text = "STATIC SHIELD  •  SORTIE"
+		return
+	if not player._module_ready("static_shield"):
 		return
 	var action_token: int = player._try_begin_module_action("static_shield")
 	if action_token == 0:
 		return
+	player._cancel_fulguro_projection()
 	player._cancel_pelto_pull()
+	player._clear_defensive_buffer()
+	PLAYER_STATE.PERMUTATION.cancel_for_actor(player)
+	player.velocity = Vector3.ZERO
+	player.move_direction = Vector3.ZERO
+	if player._dash_active:
+		player._cancel_dash()
 	player._mark_combat_event()
 	player._start_module_cooldown("static_shield", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
 	if player.passive_authoritative() and player.combat_state != null:
 		player.combat_state.cleanse_burn_and_slow()
 	if player.survival_mode and player.survival_evolution_effects != null:
 		player.survival_evolution_effects.activate_shield()
+		player.survival_evolution_effects.shield_remaining = minf(player.survival_evolution_effects.shield_remaining, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.static_shield.duration))
 		player._end_module_action(action_token, "static_shield")
 		return
 	player._static_pulse_token += 1
 	var pulse_token := player._static_pulse_token
+	player._static_duration = minf(player._static_duration, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.static_shield.duration))
 	player._stasis_remaining = player._static_duration
-	if player._blaster_charge_active or player._touch_fire_active:
-		player.cancel_touch_fire("BLASTER  •  INTERROMPU")
-	if player._shotgun_attack_busy:
-		player._cancel_shotgun_attack()
-	if player._dash_active:
-		player._cancel_dash()
 	if player._attack_label != null:
 		player._attack_label.text = "STATIC SHIELD  •  PURIFIÉ  •  %.1fs" % player._stasis_remaining
 	player._create_stasis_fx()

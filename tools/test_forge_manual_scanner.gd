@@ -66,6 +66,7 @@ func _run() -> void:
 			var pointer := zone_point(zone_index)
 			scanner.point_at(pointer, true)
 			check(scanner.target_valid, "zone accessible : %s / %d" % [identifier, zone_index])
+			check(scanner.target_zone == scanner._zones[zone_index].label, "zone anatomique visee : %s / %d" % [identifier, zone_index])
 			var start_tip: Vector3 = garage.stage.arm.contact.global_position
 			var safe := true
 			var speed_limited := true
@@ -256,7 +257,12 @@ func check_routed_input() -> void:
 
 func zone_point(index: int) -> Vector2:
 	scanner._update_zones()
-	var point: Vector2 = garage.stage.camera.unproject_position(scanner._zones[index].center)
+	var anchor: Vector3 = scanner._zones[index].center
+	# The orange chassis has a higher shoulder. Its lower service area is
+	# reachable; the opposite shoulder still verifies the arm's reach limit.
+	if garage.stage.chassis_id == "puissant" and index == 1:
+		anchor.y -= float(scanner._zones[index].radii.y) * 0.65
+	var point: Vector2 = garage.stage.camera.unproject_position(anchor)
 	return point * garage.stage.size / Vector2(garage.stage.viewport.size)
 
 

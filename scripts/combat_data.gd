@@ -241,8 +241,8 @@ const MODULE_DEFINITIONS := {
 	},
 	"static_shield": {
 		"category": "defensive",
-		"duration": 1.5,
-		"minimum_duration": 0.5,
+		"duration": 2.0,
+		"minimum_duration": 0.0,
 		"cooldown": 12.0,
 	},
 	"projector": {

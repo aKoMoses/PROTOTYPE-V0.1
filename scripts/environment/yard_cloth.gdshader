@@ -10,6 +10,10 @@ uniform float phase = 0.0;
 uniform bool four_corner_pin = false;
 uniform bool gear_banner = false;
 uniform float fabric_aspect = 2.0;
+uniform vec3 organic_impulse_origin = vec3(0.0);
+uniform vec2 organic_impulse_direction = vec2(0.0);
+uniform float organic_impulse_strength = 0.0;
+uniform float organic_impulse_age = 0.0;
 
 void vertex() {
 	// Banner UV.y=0 is sewn to the fixed header. Canopy boundaries are fixed
@@ -24,14 +28,20 @@ void vertex() {
 	if (four_corner_pin) {
 		VERTEX.y += gust * 0.055 * free_weight * wind_strength * motion_scale;
 	}
+	// Pressure waves tug the free fabric; sewn headers and corner pins stay put.
+	float response = sin(organic_impulse_age * 12.0 + UV.x * 2.0)
+		* exp(-organic_impulse_age * 3.0) * organic_impulse_strength;
+	vec3 push = (inverse(MODEL_MATRIX) * vec4(organic_impulse_direction.x, 0.25, organic_impulse_direction.y, 0.0)).xyz;
+	VERTEX += push * response * free_weight * 0.28 * motion_scale;
 }
 
 void fragment() {
 	vec3 weave = texture(canvas_texture, UV).rgb;
 	// Separate the painted insignia from the fabric pigment: multiplying the
 	// cream gear by red canvas made it disappear in the old banner.
-	float crease = sin(UV.x * 28.0 + sin(UV.y * 4.0) * 2.0) * 0.035;
-	ALBEDO = mix(vec3(0.78), weave, 0.25) * canvas_tint.rgb * (1.0 + crease);
+	float crease = sin(UV.x * 28.0 + sin(UV.y * 4.0) * 2.0) * 0.11;
+	float edge_dust = smoothstep(0.70, 1.0, UV.y) * 0.14;
+	ALBEDO = mix(vec3(0.78), weave, 0.25) * canvas_tint.rgb * (1.0 + crease + edge_dust);
 	if (gear_banner) {
 		vec2 p = (UV - vec2(0.5, 0.52)) * vec2(fabric_aspect, 1.0);
 		float radius = length(p);

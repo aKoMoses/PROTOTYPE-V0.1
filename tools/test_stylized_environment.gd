@@ -46,11 +46,20 @@ func _run() -> void:
 			var scene := packed.instantiate() as Node3D
 			root.add_child(scene)
 			current_scene = scene
+			# Finish the actors' deferred startup before the before/after snapshot.
+			await process_frame
 			# Snapshot before processing so actors, menus and camera are stationary.
 			_freeze(scene)
 			var before := _signature(scene)
 			await director._prepare_scene(scene)
 			_check(before == _signature(scene), "Physics, camera or actor/VFX visuals changed in " + path)
+			# The reference finish and workshop equipment build scenery over two
+			# deferred frames. Settle that bootstrap before comparing repeat passes.
+			for frame in 4:
+				await process_frame
+			_freeze(scene)
+			await director._prepare_scene(scene)
+			_check(before == _signature(scene), "Deferred scenery changed a protected gameplay resource in " + path)
 			var styled := _styled_count(scene)
 			_check(styled > 0, "No environment finishes applied in " + path)
 			await director._prepare_scene(scene)

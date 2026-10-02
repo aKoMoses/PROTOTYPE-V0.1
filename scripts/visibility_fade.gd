@@ -107,7 +107,8 @@ func _watch(node: Node) -> void:
 	var exiting := _forget.bind(key)
 	_watched[key] = {"node": weakref(node), "exiting": exiting}
 	node.child_entered_tree.connect(_watch)
-	node.tree_exiting.connect(exiting)
+	if not node.tree_exiting.is_connected(exiting):
+		node.tree_exiting.connect(exiting)
 	if node is MeshInstance3D or node is GPUParticles3D or node is Sprite3D or node is AnimatedSprite3D or node is Label3D:
 		_cache_visual(node)
 	for child: Node in node.get_children():

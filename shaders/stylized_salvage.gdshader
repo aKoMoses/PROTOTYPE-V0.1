@@ -14,6 +14,7 @@ uniform bool world_projection = false;
 uniform vec3 texture_scale = vec3(1.0);
 uniform vec3 texture_offset = vec3(0.0);
 uniform float texture_strength = 0.90;
+uniform float texture_gain = 1.0;
 uniform vec4 pigment_color : source_color = vec4(1.0);
 uniform float pigment_strength = 0.0;
 uniform float relief_strength = 0.35;
@@ -72,7 +73,7 @@ void fragment() {
             sampled = mix(sampled, pigment_color.rgb, pigment_strength);
         }
     }
-    vec3 base = source_tint.rgb * sampled;
+    vec3 base = source_tint.rgb * sampled * texture_gain;
     if (vertex_tint) { base *= COLOR.rgb; }
     float brush = cloud(world_position.xz * 0.70 + world_position.y * vec2(0.21, 0.37));
     base *= 0.93 + brush * 0.14;

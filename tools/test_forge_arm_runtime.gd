@@ -28,6 +28,10 @@ func _run() -> void:
 	root.add_child(main)
 	current_scene = main
 	await process_frame
+	# Complete the deferred courtyard work before measuring an installation's
+	# wall time, rather than including the cost of loading the main scene.
+	for frame in 6:
+		await process_frame
 	var flow: Node = main.get_node("Interface")
 	var garage_button: Button
 	for button in main.find_children("*", "Button", true, false):
@@ -49,6 +53,8 @@ func _run() -> void:
 		garage.call("_select_equipment", category, draft[category])
 	garage.build_name = "TEST INSTALLATION"
 	check(flow.get("loadout") == before and _bytes(LOADOUT.SAVE_PATH) == backups[LOADOUT.SAVE_PATH].bytes, "six choix en brouillon sans sauvegarde immediate")
+	for frame in 3:
+		await process_frame
 	garage.get("_save_button").pressed.emit()
 	var started := Time.get_ticks_msec()
 	var rest: Vector3 = stage.arm.contact.global_position

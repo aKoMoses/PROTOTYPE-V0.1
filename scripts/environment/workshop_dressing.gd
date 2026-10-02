@@ -16,6 +16,13 @@ func _ready() -> void:
 		if light.has_meta("workshop_light"):
 			_lights.append(light as OmniLight3D)
 	_update_lights()
+	_install_ambience.call_deferred()
+
+func _install_ambience() -> void:
+	if not has_node("WorkshopAmbience"):
+		var ambience := load("res://scripts/environment/workshop_ambience.gd").new() as Node3D
+		ambience.name = "WorkshopAmbience"
+		add_child(ambience)
 
 func set_quality(level: int, wind: Vector2, strength: float) -> void:
 	_quality = clampi(level,0,1)
@@ -35,8 +42,10 @@ func _update_lights() -> void:
 	var camera := get_viewport().get_camera_3d()
 	var focus := Vector3.ZERO
 	if camera != null:
-		var arena := get_parent().get_parent()
-		var rig := arena.get_node_or_null("CameraRig") as Node3D
+		var arena := get_parent()
+		while arena!=null and arena.get_node_or_null("CameraRig")==null:
+			arena = arena.get_parent()
+		var rig := arena.get_node_or_null("CameraRig") as Node3D if arena!=null else null
 		focus = rig.global_position if rig != null else camera.global_position
 	_lights.sort_custom(func(a: OmniLight3D,b: OmniLight3D) -> bool: return a.global_position.distance_squared_to(focus) < b.global_position.distance_squared_to(focus))
 	var budget := LIGHT_BUDGET if _quality>0 and is_visible_in_tree() else 0

@@ -43,10 +43,9 @@ func _run() -> void:
 	await process_frame
 	var pose: Transform3D = stage.skeleton.global_transform * stage.skeleton.get_bone_global_pose(attachment.bone_idx)
 	check(modules.mounts.pyro_left.global_transform.is_equal_approx(pose * bind), "accessory follows the animated foot")
-	var original_scale: Vector3 = stage.robot.scale
-	var original_size: Vector3 = modules.module_bounds("pyro_boots").size
 	stage.set_chassis("puissant")
-	check(modules.module_bounds("pyro_boots").size.is_equal_approx(original_size * stage.robot.scale.x / original_scale.x), "accessories scale with chassis")
+	modules = stage.module_visuals
+	check(modules.mobility_id == "pyro_boots" and modules.mounts.pyro_left.visible and modules.skeleton == stage.skeleton, "accessories rebuilt on the orange chassis skeleton")
 	for identifier in ["pyro_boots", "bio_injector"]:
 		var triangles: int = modules.triangle_count(identifier)
 		print("MODULE GEOMETRY ", identifier, " triangles=", triangles)

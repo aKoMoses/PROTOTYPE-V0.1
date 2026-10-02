@@ -14,6 +14,8 @@ func _init(controller: PLAYER_STATE) -> void:
 
 
 func _mark_combat_event() -> void:
+	if player._visual_rig != null and player._visual_rig.presence_modifier != null:
+		player._visual_rig.presence_modifier.interrupt_rest()
 	player.get_node("/root/GameSfx").mark_combat()
 	if player.visibility_state != null:
 		player.visibility_state.mark_combat_event()
@@ -224,6 +226,8 @@ func _finalize_passive_death() -> void:
 
 
 func _on_state_died() -> void:
+	if player._visual_rig != null:
+		player._visual_rig.reset_presence()
 	if player._counter != null:
 		player._counter.cancel(true)
 	if player.passive_state != null:
@@ -372,6 +376,8 @@ func _on_health_changed(current: float, maximum: float) -> void:
 
 
 func _on_damage_applied(amount: float, source_id: String, _attack_id: String) -> void:
+	if not player.combat_state.processing_burn and source_id != "surcharge":
+		player._presentation_component.react_to_damage(amount)
 	if not player._external_damage_pending:
 		player.effective_damage_taken.emit(amount, source_id, _attack_id)
 	# CombatState applies BURN directly, so all effective damage must refresh

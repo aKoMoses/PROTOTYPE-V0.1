@@ -12,6 +12,8 @@ var _shake: CheckButton
 var _touch: HSlider
 var _touch_value: Label
 var _volumes: Dictionary = {}
+var _zoom: HSlider
+var _zoom_value: Label
 
 func configure(flow: Node) -> void:
 	_flow = flow
@@ -49,7 +51,7 @@ func _select_page(index: int) -> void:
 
 func _build_audio() -> void:
 	var page := _pages[0]
-	var audio := section(page, "AUDIO", Rect2(0, 0, 450, 172))
+	var audio := section(page, "AUDIO", Rect2(0, 0, 450, 242))
 	for entry in [["music", "Musique", 70], ["effects", "Effets sonores", 124]]:
 		var kind: String = entry[0]
 		var y: float = entry[2]
@@ -71,7 +73,7 @@ func _build_audio() -> void:
 			if int(_preferences.call("set_volume", kind, amount/100.0)) != OK:
 				_message.text = "Volume appliqué. Sauvegarde indisponible."
 		)
-	var comfort := section(page, "CONFORT", Rect2(466, 0, 484, 172))
+	var comfort := section(page, "CONFORT", Rect2(466, 0, 484, 242))
 	text(comfort, "Secousses de caméra", Rect2(20, 70, 290, 40), 17)
 	_shake = CheckButton.new()
 	_shake.name = "CameraShake"
@@ -107,9 +109,27 @@ func _build_audio() -> void:
 		if touch != null:
 			touch.call("set_control_scale", amount)
 	)
-	var interface_row := section(page, "INTERFACE", Rect2(0, 186, 950, 116))
-	text(interface_row, "Personnaliser l’interface", Rect2(25, 65, 500, 40), 19)
-	button(interface_row, "PERSONNALISER  ›", Rect2(689, 65, 236, 42), _flow._open_hud_editor).name = "CustomizeInterface"
+	text(comfort, "Caméra de combat", Rect2(20, 178, 180, 40), 17)
+	_zoom = HSlider.new()
+	_zoom.name = "CombatZoom"
+	_zoom.position = Vector2(202, 178)
+	_zoom.size = Vector2(200, 40)
+	_zoom.min_value = 100
+	_zoom.max_value = 125
+	_zoom.step = 1
+	_zoom.value = float(_preferences.get("combat_zoom")) * 100.0
+	_zoom.tooltip_text = "Rapproche le robot. 100 % conserve le champ de vision le plus large."
+	style_slider(_zoom)
+	comfort.add_child(_zoom)
+	_zoom_value = text(comfort, "%d %%" % roundi(_zoom.value), Rect2(410, 178, 69, 40), 17)
+	_zoom.value_changed.connect(func(amount: float) -> void:
+		_zoom_value.text = "%d %%" % roundi(amount)
+		if int(_preferences.call("set_combat_zoom", amount / 100.0)) != OK:
+			_message.text = "Caméra appliquée. Sauvegarde indisponible."
+	)
+	var interface_row := plate(page, Rect2(0, 258, 950, 44))
+	text(interface_row, "Personnaliser l’interface", Rect2(25, 2, 500, 40), 19)
+	button(interface_row, "PERSONNALISER  ›", Rect2(689, 2, 236, 40), _flow._open_hud_editor).name = "CustomizeInterface"
 
 func _build_commands() -> void:
 	var page := _pages[1]
@@ -140,6 +160,8 @@ func _on_visibility() -> void:
 		var amount := float(_preferences.get(kind+"_volume"))*100.0
 		_volumes[kind].slider.set_value_no_signal(amount)
 		_volumes[kind].value.text = "%d %%" % roundi(amount)
+	_zoom.set_value_no_signal(float(_preferences.get("combat_zoom")) * 100.0)
+	_zoom_value.text = "%d %%" % roundi(_zoom.value)
 	_refresh_keys()
 
 func _refresh_keys() -> void:

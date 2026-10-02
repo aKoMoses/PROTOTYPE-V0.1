@@ -4,8 +4,17 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const MODULE_POSE := preload("res://scripts/mecha_module_pose.gd")
 
 var player: PLAYER_STATE
+var _threat_check_remaining := 0.0
+var _nearby_threat := false
+var _module_gesture_id := ""
+var _module_gesture_time := 0.0
+var _module_release_time := -1.0
+var _module_variants: Dictionary = {}
+var _module_gesture_accepted := false
+var _module_release_confirmed := false
 
 
 func _init(controller: PLAYER_STATE) -> void:
@@ -41,6 +50,17 @@ func _update_robot_motion(delta: float) -> void:
 			node.rotation = base_rotation
 	if player._visual_rig != null:
 		player._update_aim_pose_state()
+		var quiet: bool = player._gameplay_enabled and not player.is_real_dead() and not player._round_warmup_active and visual_speed < 0.15
+		quiet = quiet and not player._action_gate.is_busy() and not player._shotgun_reloading and not player._blaster_charge_active
+		quiet = quiet and player._stasis_remaining <= 0.0 and not player.combat_state.is_stunned() and not player.is_eclipse_travelling()
+		quiet = quiet and player.get_combat_reveal_remaining() <= 0.0 and player._touch_move_vector.length_squared() < 0.01
+		_threat_check_remaining -= delta
+		if quiet and _threat_check_remaining <= 0.0:
+			_nearby_threat = _has_nearby_threat()
+			_threat_check_remaining = 0.4
+		quiet = quiet and not _nearby_threat
+		player._visual_rig.set_presence_context(quiet, not player._weapon_pose_uses_aim() and not player._action_gate.is_busy())
+		_update_module_gesture(delta)
 		var visual_aim := player._fulguro_direction if player._fulguro_phase != "" else player.aim_direction
 		if player._pelto_phase != "":
 			visual_aim = player._pelto_direction
@@ -49,6 +69,137 @@ func _update_robot_motion(delta: float) -> void:
 		player._visual_rig.update_visual_state(player.move_direction, visual_aim, visual_speed, player.move_speed, delta, player._gameplay_enabled and not player.is_real_dead())
 	if not player._has_skeletal_weapon_attachment():
 		player._update_player_debug_vectors()
+
+
+func begin_module_gesture(id: String) -> void:
+	if not MODULE_POSE.PROFILES.has(id) or player._visual_rig == null or not player._visual_rig.presence_modifier.autonomous:
+		return
+	_module_gesture_id = id
+	_module_gesture_accepted = true
+	_module_gesture_time = 0.0
+	_module_release_time = -1.0
+	_module_release_confirmed = false
+	_module_variants[id] = int(_module_variants.get(id, -1)) + 1
+
+
+func reset_module_gesture() -> void:
+	_module_gesture_id = ""
+	_module_gesture_accepted = false
+	_module_gesture_time = 0.0
+	_module_release_time = -1.0
+	_module_release_confirmed = false
+	if player._visual_rig != null:
+		player._visual_rig.clear_module_pose()
+
+
+func confirm_module_release(id: String) -> void:
+	if _module_gesture_id == id:
+		_module_release_confirmed = true
+
+
+func cancel_module_gesture(id: String) -> void:
+	if _module_gesture_id == id:
+		reset_module_gesture()
+
+
+func _module_pose(id: String, phase: String, elapsed: float, duration: float) -> void:
+	player._visual_rig.set_module_pose(id, phase, clampf(elapsed / maxf(0.001, duration), 0.0, 1.0), duration, int(_module_variants.get(id, 0)))
+
+
+func _update_module_gesture(delta: float) -> void:
+	# Authority follows the real ability phases. Replicas use the same snapshot
+	# as idle/hit reactions, including the source clip variation and phase clock.
+	if not player._visual_rig.presence_modifier.autonomous:
+		return
+	if not player._gameplay_enabled or player.is_real_dead() or player._round_warmup_active or player.combat_state.is_stunned():
+		reset_module_gesture()
+		return
+	if player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.WEAPON) or player._shotgun_reloading or player._mekatana_attack.phase != "":
+		reset_module_gesture()
+		return
+	_module_gesture_time += delta
+	if player._counter.phase != "":
+		var counter_phase: String = player._counter.phase
+		var duration: float = player._counter.definition.preparation if counter_phase == "preparation" else player._counter.definition.guard_duration if counter_phase == "guard" else player._counter.definition.failure_recovery
+		_module_pose("counter", "active" if counter_phase == "guard" else counter_phase, duration - player._counter.remaining, duration)
+		return
+	var stasis: float = player._stasis_remaining
+	if player.survival_mode and player.survival_evolution_effects != null:
+		stasis = maxf(stasis, float(player.survival_evolution_effects.shield_remaining))
+	if stasis > 0.0:
+		var elapsed := maxf(0.0, player._static_duration - stasis)
+		_module_pose("static_shield", "preparation" if elapsed < 0.12 else "active", elapsed if elapsed < 0.12 else 0.0, 0.12 if elapsed < 0.12 else 10.0)
+		return
+	if _module_gesture_id == "static_shield":
+		reset_module_gesture()
+		return
+	if player._fulguro_phase != "":
+		var duration: float = player._fulguro_preparation if player._fulguro_phase == "preparation" else player._fulguro_active_window if player._fulguro_phase == "active" else player._fulguro_recovery
+		_module_pose("fulguro_punch", player._fulguro_phase, player._fulguro_elapsed, duration)
+		return
+	if player._pelto_phase != "":
+		var duration: float = player._pelto_preparation if player._pelto_phase == "preparation" else player._pelto_impact_duration if player._pelto_phase == "impact" else player._pelto_recovery
+		_module_pose("pelto_smash", "active" if player._pelto_phase == "impact" else player._pelto_phase, player._pelto_elapsed, duration)
+		return
+	if player._javelin_charging:
+		_module_pose("javelin", "preparation", player._javelin_elapsed, player._javelin_preparation)
+		return
+	if player._dash_active:
+		_module_pose("pyro_boots", "active", player._dash_elapsed, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.dash_duration))
+		return
+	if player.is_eclipse_aiming():
+		if _module_gesture_id != "eclipse":
+			_module_gesture_id = "eclipse"
+			_module_gesture_accepted = false
+			_module_gesture_time = 0.0
+		_module_pose("eclipse", "preparation", _module_gesture_time, 0.18)
+		return
+	if player.is_eclipse_travelling():
+		player._visual_rig.clear_module_pose()
+		return
+	if _module_gesture_id.is_empty():
+		player._visual_rig.clear_module_pose()
+		return
+	if _module_gesture_id == "eclipse" and not _module_gesture_accepted:
+		reset_module_gesture()
+		return
+	if _module_gesture_id in ["fulguro_punch", "pelto_smash", "counter"]:
+		reset_module_gesture()
+		return
+	if _module_gesture_id == "javelin" and not _module_release_confirmed:
+		reset_module_gesture()
+		return
+	if _module_gesture_id == "bio_injector":
+		if player._bio_remaining <= 0.0:
+			reset_module_gesture()
+		elif _module_gesture_time < 0.12:
+			_module_pose("bio_injector", "preparation", _module_gesture_time, 0.12)
+		else:
+			_follow_module_release(delta)
+		return
+	if _module_gesture_id == "projector" and player._projector_cast_remaining > 0.0:
+		var duration: float = PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.projector.cast_duration
+		_module_pose("projector", "preparation", duration - player._projector_cast_remaining, duration)
+		return
+	if _module_gesture_id in ["rocket_basket", "magnetic_field", "permutation"]:
+		var duration: float = player._magnetic_preparation if _module_gesture_id == "magnetic_field" else PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS[_module_gesture_id].preparation
+		if player._active_module_id == _module_gesture_id:
+			_module_pose(_module_gesture_id, "preparation", _module_gesture_time, duration)
+			return
+	if _module_gesture_id in ["rocket_basket", "magnetic_field", "permutation", "projector"] and not _module_release_confirmed:
+		reset_module_gesture()
+		return
+	_follow_module_release(delta)
+
+
+func _follow_module_release(delta: float) -> void:
+	_module_release_time = 0.0 if _module_release_time < 0.0 else _module_release_time + delta
+	if _module_release_time < 0.12:
+		_module_pose(_module_gesture_id, "active", _module_release_time, 0.12)
+	elif _module_release_time < 0.34:
+		_module_pose(_module_gesture_id, "recovery", _module_release_time - 0.12, 0.22)
+	else:
+		reset_module_gesture()
 
 
 func _world_offset_to_visual_local(world_offset: Vector3) -> Vector3:
@@ -153,6 +304,27 @@ func _play_player_animation(animation_name: StringName, blend_time: float = 0.16
 	if player._visual_rig == null:
 		return false
 	return player._visual_rig.play_action(animation_name, blend_time, speed_scale)
+
+
+func react_to_damage(amount: float) -> void:
+	if amount <= 0.0 or not player._gameplay_enabled or player.get_health() <= 0.0 or player.is_real_dead() or not player.passive_authoritative():
+		return
+	if player._visual_rig == null or player._visual_rig.presence_modifier == null or player._visual_rig._active_action != &"":
+		return
+	if player._stasis_remaining > 0.0 or player.is_eclipse_travelling():
+		return
+	player._visual_rig.presence_modifier.react_to_hit()
+
+
+func _has_nearby_threat() -> bool:
+	for target in player._fulguro_targets():
+		if not is_instance_valid(target) or not target is Node3D or not target.has_method("get_health") or float(target.call("get_health")) <= 0.0:
+			continue
+		if player.global_position.distance_squared_to(target.global_position) > 64.0:
+			continue
+		if not target.has_method("is_visible_to") or bool(target.call("is_visible_to", player)):
+			return true
+	return false
 
 
 func _has_skeletal_weapon_attachment() -> bool:

@@ -5,7 +5,7 @@ Les dégâts directs des quatre offensifs restent inchangés.
 
 | Module | Comportement |
 | --- | --- |
-| Static Shield | L'activation acceptée supprime BURN et toutes les sources de SLOW, y compris les cumuls de roquettes. Recharge de 12 s, stase de 1,5 s et sortie volontaire après 0,5 s. |
+| Static Shield | Activable sous STUN, projection, traction ou pendant une action, qu'il interrompt. Annule les permutations en cours et supprime BURN et toutes les sources de SLOW, y compris les cumuls de roquettes. Recharge de 12 s, durée maximale de 2 s et sortie immédiate au second appui, sur PC et tactile. Les améliorations de Survie respectent aussi cette limite. |
 | Traqueur | Deux attaques d'arme distinctes sur la même cible révèlent pendant 6 s. Le repère à travers les couverts gagne en contraste, en taille et affiche le temps restant. |
 | Javelin | Une téléportation réussie oriente déjà le joueur vers sa cible ; elle prépare désormais la pose de visée et applique SLOW 25 % pendant 0,8 s à la cible pour permettre une attaque manuelle. |
 | Fulguro Punch | Une collision murale laisse désormais 1 s d'étourdissement. La projection libre n'étourdit toujours pas. |

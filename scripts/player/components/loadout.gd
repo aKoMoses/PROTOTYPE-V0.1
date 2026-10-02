@@ -187,7 +187,7 @@ func configure_survival_build(build: Dictionary) -> void:
 	var defensive_ranks: Dictionary = ranks.get("defensive", {})
 	var defensive_power := 0.70 + 0.55 * int(defensive_ranks.get("power", 0))
 	player._magnetic_duration *= defensive_power
-	player._static_duration *= defensive_power
+	player._static_duration = minf(player._static_duration * defensive_power, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.static_shield.duration))
 	var mobility_ranks: Dictionary = ranks.get("mobility", {})
 	var mobility_power := 0.70 + 0.55 * int(mobility_ranks.get("power", 0))
 	player._survival_dash_multiplier = mobility_power
@@ -315,7 +315,7 @@ func _perform_offensive_module() -> void:
 
 
 func _activate_defensive_module() -> void:
-	if player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
+	if player._defensive_module_id != "static_shield" and player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
 		return
 	player._perform_defensive_module()
 

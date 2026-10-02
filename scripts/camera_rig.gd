@@ -19,6 +19,7 @@ var _focus_start_position := Vector3.ZERO
 var _focus_start_camera_position := Vector3.ZERO
 var _focus_start_fov := 38.0
 const FOCUS_DURATION := 1.45
+const BASE_FOV := 38.0
 
 
 func _ready() -> void:
@@ -73,6 +74,14 @@ func _process(delta: float) -> void:
 	if "aim_direction" in _target:
 		target_aim = _target.aim_direction
 	_smoothed_aim = _smoothed_aim.lerp(target_aim, 1.0 - exp(-aim_smoothing_speed * delta))
+	# Zoom changes projection only: movement, targeting and world visibility stay
+	# in metres. Menus and the winner camera keep their own authored framing.
+	if _camera != null:
+		var preferences := get_node_or_null("/root/GamePreferences")
+		var live := _target.has_method("is_gameplay_enabled") and bool(_target.call("is_gameplay_enabled"))
+		var zoom := float(preferences.get("combat_zoom")) if preferences != null and live else 1.0
+		var desired_fov := rad_to_deg(2.0 * atan(tan(deg_to_rad(BASE_FOV) * 0.5) / zoom))
+		_camera.fov = lerpf(_camera.fov, desired_fov, 1.0 - exp(-7.0 * delta))
 	var desired := _target.global_position + _follow_offset
 	desired.y = 0.0
 	_follow_position = _follow_position.lerp(desired, 1.0 - exp(-follow_speed * delta))

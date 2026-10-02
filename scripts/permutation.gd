@@ -39,6 +39,25 @@ static func can_activate(source: Node3D, victim: Node3D) -> bool:
 	return source != victim and actor_available(source) and actor_available(victim) and source.global_position.distance_to(victim.global_position) <= float(DATA.MODULE_DEFINITIONS.permutation.activation_range)
 
 
+static func in_stasis(actor: Node3D) -> bool:
+	return bool(actor.get_meta("duel_static_shield", false)) or (actor.has_method("get_stasis_remaining") and float(actor.call("get_stasis_remaining")) > 0.0)
+
+
+static func cancel_for_actor(actor: Node3D) -> void:
+	for mark in actor.get_tree().get_nodes_in_group("prototype0_permutation_marks"):
+		if mark.caster == actor or mark.target == actor:
+			mark.cancel()
+
+
+func cancel() -> void:
+	if _settled:
+		return
+	_settled = true
+	stop_audio()
+	failed.emit()
+	queue_free()
+
+
 func configure(source: Node3D, victim: Node3D, authority: bool = true) -> void:
 	caster = source
 	target = victim
@@ -50,6 +69,7 @@ func configure(source: Node3D, victim: Node3D, authority: bool = true) -> void:
 func _ready() -> void:
 	name = "PermutationMark"
 	add_to_group("prototype0_gameplay_projectiles")
+	add_to_group("prototype0_permutation_marks")
 	process_physics_priority = 20
 	_build_shadow()
 	if is_instance_valid(caster):
@@ -76,7 +96,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _settled:
 		return
-	if not is_instance_valid(caster) or not is_instance_valid(target) or not actor_available(caster) or not actor_available(target) or epoch(caster) != _caster_epoch or epoch(target) != _target_epoch:
+	if not is_instance_valid(caster) or not is_instance_valid(target) or not actor_available(caster) or not actor_available(target) or in_stasis(caster) or in_stasis(target) or epoch(caster) != _caster_epoch or epoch(target) != _target_epoch:
 		_settled = true
 		stop_audio()
 		failed.emit()
@@ -136,7 +156,7 @@ static func play_exchange_sound(scene: Node, destination: Vector3) -> void:
 
 
 static func exchange(source: Node3D, victim: Node3D) -> bool:
-	if source == victim or not actor_available(source) or not actor_available(victim):
+	if source == victim or not actor_available(source) or not actor_available(victim) or in_stasis(source) or in_stasis(victim):
 		return false
 	var origin := source.global_position
 	var destination := victim.global_position

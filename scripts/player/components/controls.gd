@@ -37,11 +37,17 @@ func _module_id(action: String) -> String:
 	return player._offensive_module_id if action == "offensive" else player._defensive_module_id if action == "defensive" else player._mobility_module_id if action == "mobility" else ""
 
 
+func _static_shield_remaining() -> float:
+	if player.survival_mode and player.survival_evolution_effects != null:
+		return maxf(player._stasis_remaining, player.survival_evolution_effects.shield_remaining)
+	return player._stasis_remaining
+
+
 func _module_blocked(action: String) -> bool:
 	var module_id := _module_id(action)
-	# The second Static Shield press exits stasis; recasts keep their own rules.
-	if module_id == "static_shield" and player._stasis_remaining > 0.0:
-		return false
+	# Static Shield preempts casts and crowd control; only its recharge gates entry.
+	if module_id == "static_shield":
+		return _static_shield_remaining() <= 0.0 and not player._module_ready(module_id)
 	var recast: bool = module_id == "javelin" and player._has_live_javelin_mark()
 	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame():
 		return true
@@ -80,7 +86,7 @@ func _execute_module_command(command: Dictionary) -> bool:
 	var action: String = command.action
 	var touch: bool = command.touch
 	var generation: int = player._action_gate._generation
-	var stasis_before := player._stasis_remaining
+	var shield_before := _static_shield_remaining()
 	var recast_accepted := false
 	if action == "offensive":
 		if player._offensive_module_id == "fulguro_punch":
@@ -102,7 +108,7 @@ func _execute_module_command(command: Dictionary) -> bool:
 		player._activate_defensive_module()
 	elif action == "mobility":
 		player._activate_mobility_module()
-	var accepted: bool = recast_accepted or generation != player._action_gate._generation or player._stasis_remaining < stasis_before
+	var accepted: bool = recast_accepted or generation != player._action_gate._generation or _static_shield_remaining() < shield_before
 	if accepted and bool(command.released):
 		end_touch_action(action, touch)
 	return accepted
@@ -325,13 +331,9 @@ func _normalized_aim_direction() -> Vector3:
 func get_weapon_aim_preview() -> Dictionary:
 	if not player._uses_local_feedback() or not player._gameplay_enabled or player.is_real_dead() or player._weapon_id not in ["blaster", "longshot"]:
 		return {}
-	if player._stasis_remaining > 0.0 or (player.combat_state != null and player.combat_state.is_stunned()) or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
-		return {}
 	# Only a currently held, accepted fire input owns this guide. Movement,
 	# mouse emulation and the lingering aim/fire pose must not keep it visible.
-	var touch_firing := not player._touch_attack_rearm_required and (player._touch_fire_active or player._touch_attack_held)
-	var desktop_firing: bool = not player._desktop_attack_rearm_required and player._desktop_attack_input_held()
-	if not touch_firing and not desktop_firing:
+	if not _weapon_aim_input_held():
 		return {}
 	var direction: Vector3 = player._normalized_aim_direction()
 	var muzzle := player._blaster_muzzle if player._weapon_id == "blaster" else player._longshot_muzzle
@@ -357,6 +359,14 @@ func get_weapon_aim_preview() -> Dictionary:
 	return {"origin": start, "direction": direction, "range": maximum, "radius": radius,
 		"mask": mask, "exclude": excluded, "support": player.global_position + Vector3.UP * 0.9,
 		"weapon": player._weapon_id}
+
+
+func _weapon_aim_input_held() -> bool:
+	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
+		return false
+	var touch_held := not player._touch_attack_rearm_required and (player._touch_fire_active or player._touch_attack_held)
+	var desktop_held: bool = not player._desktop_attack_rearm_required and player._desktop_attack_input_held()
+	return touch_held or desktop_held
 
 
 func _weapon_pose_uses_aim() -> bool:
@@ -416,6 +426,9 @@ func _update_weapon_pose_state(delta: float) -> void:
 	if not player._gameplay_enabled or player.is_real_dead() or player._weapon_id not in ["blaster", "shotgun", "longshot"]:
 		player._reset_weapon_pose_to_locomotion(true)
 		return
+	var aim_held := _weapon_aim_input_held()
+	if aim_held and not player._weapon_pose_uses_aim():
+		player._begin_weapon_aim()
 	if player.weapon_pose_state == PLAYER_STATE.WeaponPoseState.AIM:
 		if not player._blaster_charge_active and not player._shotgun_attack_busy and not player._longshot_attack_busy:
 			player._begin_aim_hold()
@@ -426,7 +439,9 @@ func _update_weapon_pose_state(delta: float) -> void:
 			player._begin_aim_hold()
 		return
 	if player.weapon_pose_state == PLAYER_STATE.WeaponPoseState.AIM_HOLD:
-		player._aim_hold_remaining = maxf(0.0, player._aim_hold_remaining - delta)
+		# Cooldown may outlast the post-shot hold. Keep following live aim until
+		# the accepted fire input is released, then start the usual lowering delay.
+		player._aim_hold_remaining = player.aim_hold_time if aim_held else maxf(0.0, player._aim_hold_remaining - delta)
 		if player._aim_hold_remaining <= 0.0:
 			player._reset_weapon_pose_to_locomotion()
 		return
@@ -478,10 +493,20 @@ func _try_begin_weapon_action(action_id: String) -> int:
 
 
 func _try_begin_module_action(module_id: String) -> int:
-	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
-		return 0
 	var action_token := 0
-	if player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.WEAPON):
+	if module_id == "static_shield":
+		if not player._gameplay_enabled or player.is_real_dead() or not player._module_ready(module_id):
+			return 0
+		player._cancel_fulguro_attack()
+		player._cancel_pelto_smash()
+		player._cancel_pending_module_action()
+		player._eclipse.cancel(player)
+		# Invalidate the old owner even when it started during this physics frame.
+		player._action_gate.release(player._action_gate.get_generation())
+		action_token = player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.MODULE, module_id, -1, true)
+	elif player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
+		return 0
+	elif player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.WEAPON):
 		action_token = player._action_gate.replace_weapon_with_module(module_id)
 	else:
 		action_token = player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.MODULE, module_id)
@@ -894,6 +919,8 @@ func get_mobile_blaster_input_state() -> StringName:
 
 
 func trigger_touch_action(action: String) -> bool:
+	if action == "defensive" and player._defensive_module_id == "static_shield":
+		return request_module_command(action, true, true)
 	if action in ["offensive", "defensive", "mobility"]:
 		if _module_blocked(action):
 			return request_module_command(action, true, true)
@@ -964,6 +991,10 @@ func clear_touch_inputs() -> void:
 
 
 func set_gameplay_enabled(value: bool) -> void:
+	if player._presentation_component != null:
+		player._presentation_component.reset_module_gesture()
+	if player._visual_rig != null:
+		player._visual_rig.reset_presence()
 	if not value and player.passive_state != null:
 		player.passive_state.clear_triggers()
 	if not value:

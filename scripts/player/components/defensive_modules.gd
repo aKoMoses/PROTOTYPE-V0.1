@@ -94,6 +94,7 @@ func _update_projector_cast(delta: float) -> void:
 	player._cancel_projector_cast()
 	_cast_completed = false
 	player._emit_projector_wave()
+	player._presentation_component.confirm_module_release("projector")
 	player._end_module_action(token, "projector")
 
 

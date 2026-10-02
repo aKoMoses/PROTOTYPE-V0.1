@@ -367,8 +367,8 @@ func _build() -> void:
 	_sprite = Sprite3D.new()
 	_sprite.name = "HealthBarSprite"
 	_sprite.texture = _viewport.get_texture()
-	_sprite.position = Vector3(0.0, 2.95, 0.0)
-	_sprite.pixel_size = 0.013
+	_sprite.position = Vector3(0.0, 2.65, 0.0)
+	_sprite.pixel_size = 0.0105
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.shaded = false
 	add_child(_sprite)

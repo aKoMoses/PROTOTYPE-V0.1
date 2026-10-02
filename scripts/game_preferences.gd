@@ -2,6 +2,7 @@ extends Node
 
 signal bindings_changed
 signal audio_changed
+signal presentation_changed
 
 const SAVE_PATH := "user://prototype0_settings.cfg"
 const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "attack", "offensive", "defensive", "mobility", "weapon", "reload"]
@@ -11,6 +12,7 @@ const RESERVED := [KEY_ESCAPE, KEY_TAB, KEY_K, KEY_F1, KEY_F2, KEY_F3, KEY_F4, K
 var bindings: Dictionary = {}
 var music_volume := 1.0
 var effects_volume := 1.0
+var combat_zoom := 1.14
 
 func _enter_tree() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -43,6 +45,7 @@ func load_preferences(path: String = SAVE_PATH) -> void:
 			used[key] = action
 	music_volume = clampf(float(config.get_value("audio", "music", 1.0)), 0.0, 1.0)
 	effects_volume = clampf(float(config.get_value("audio", "effects", 1.0)), 0.0, 1.0)
+	combat_zoom = clampf(float(config.get_value("presentation", "combat_zoom", 1.14)), 1.0, 1.25)
 	apply_bindings()
 	apply_audio()
 
@@ -57,7 +60,13 @@ func save_preferences(path: String = SAVE_PATH) -> Error:
 			config.set_value("bindings", action, int(bindings[action][0]))
 	config.set_value("audio", "music", music_volume)
 	config.set_value("audio", "effects", effects_volume)
+	config.set_value("presentation", "combat_zoom", combat_zoom)
 	return config.save(path)
+
+func set_combat_zoom(value: float, persist: bool = true) -> Error:
+	combat_zoom = clampf(value, 1.0, 1.25)
+	presentation_changed.emit()
+	return save_preferences() if persist else OK
 
 func apply_bindings() -> void:
 	for action in ACTIONS:

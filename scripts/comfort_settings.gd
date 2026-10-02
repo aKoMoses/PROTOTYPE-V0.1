@@ -38,6 +38,31 @@ func _ready() -> void:
 			if error != OK:
 				_message.text = "Volume appliqué, mais la sauvegarde a échoué."
 		)
+	var camera_row := HBoxContainer.new()
+	add_child(camera_row)
+	var camera_title := Label.new()
+	camera_title.text = "Caméra de combat"
+	camera_title.custom_minimum_size.x = 160
+	camera_row.add_child(camera_title)
+	var zoom := HSlider.new()
+	zoom.name = "CombatZoom"
+	zoom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	zoom.min_value = 100
+	zoom.max_value = 125
+	zoom.step = 1
+	zoom.value = float(_preferences.get("combat_zoom")) * 100.0
+	zoom.tooltip_text = "Rapproche le robot. 100 % conserve le champ de vision le plus large."
+	camera_row.add_child(zoom)
+	var zoom_value := Label.new()
+	zoom_value.custom_minimum_size.x = 55
+	zoom_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	zoom_value.text = "%d %%" % int(zoom.value)
+	camera_row.add_child(zoom_value)
+	zoom.value_changed.connect(func(amount: float) -> void:
+		zoom_value.text = "%d %%" % int(amount)
+		if _preferences.call("set_combat_zoom", amount / 100.0, persist_changes) != OK:
+			_message.text = "Caméra appliquée, mais la sauvegarde a échoué."
+	)
 	_message = Label.new()
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message.add_theme_font_size_override("font_size", 12)

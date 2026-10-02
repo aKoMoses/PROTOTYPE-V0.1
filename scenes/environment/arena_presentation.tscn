@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/environment/arena_presentation.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/environment/salvage_yard.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/environment/courtyard_edges.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/environment/workshop_dressing.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/environment/reference_workshop_dressing.tscn" id="4"]
+[ext_resource type="Script" path="res://scripts/environment/reference_render_finish.gd" id="5"]
 
 [node name="ArenaPresentation" type="Node3D"]
 script = ExtResource("1")
@@ -14,3 +15,7 @@ metadata/visual_only = true
 [node name="CourtyardEdges" parent="." instance=ExtResource("3")]
 
 [node name="WorkshopDressing" parent="." instance=ExtResource("4")]
+
+[node name="ReferenceRenderFinish" type="Node3D" parent="."]
+script = ExtResource("5")
+metadata/visual_only = true

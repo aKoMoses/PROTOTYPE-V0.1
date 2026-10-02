@@ -37,6 +37,8 @@ var _presentation_observer_epoch := -1
 
 func _ready() -> void:
 	super._ready()
+	if _visual_rig != null and _visual_rig.presence_modifier != null:
+		_visual_rig.presence_modifier.autonomous = authoritative
 	_counter.authoritative = authoritative
 	_counter.exploded.connect(_on_counter_exploded)
 	collision_layer = 2
@@ -529,6 +531,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 	if action == "rocket_end":
 		if visual_only and not authoritative and str(data.get("sound", "")) in ["rocket_impact", "rocket_destroyed"]:
 			get_node("/root/GameSfx").play_module_event(str(data.sound), data.get("center", global_position))
+			preload("res://scripts/rocket_visual.gd").spawn_burst(get_tree().current_scene, data.get("center", global_position), data.get("heading", Vector3.FORWARD), data.get("normal", Vector3.UP), str(data.sound) == "rocket_destroyed")
 		return
 	if action == "projector_cast":
 		if visual_only and not authoritative and _projector_cast_token == 0:
@@ -547,7 +550,8 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		cancel_touch_fire()
 		_replaying = false
 		return
-	if not visual_only and ((_stasis_remaining > 0.0 and action != "stasis_exit") or combat_state.is_stunned()):
+	var static_shield_command := _defensive_module_id == "static_shield" and action in ["defensive", "stasis_exit"]
+	if not visual_only and not static_shield_command and (_stasis_remaining > 0.0 or combat_state.is_stunned()):
 		return
 	if action == "stasis_exit":
 		_replaying = visual_only
@@ -650,6 +654,7 @@ func network_snapshot() -> Dictionary:
 		"baroud_active": passive_state.baroud_active, "baroud_used": passive_state.baroud_used,
 		"baroud_health": passive_state.baroud_health, "baroud_remaining": passive_state.baroud_remaining,
 		"passive_status": passive_state.snapshot(), "real_dead": passive_state.real_dead, "mark": get_javelin_mark_remaining(),
+		"presence": _visual_rig.presence_snapshot() if _visual_rig != null else {},
 		"reveal": visibility_state.combat_remaining, "spotted": visibility_state.spotted_remaining}
 
 
@@ -743,6 +748,8 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 		_javelin_mark_target = opponent
 	if is_real_dead() and not was_dead:
 		_on_state_died()
+	if _visual_rig != null and _gameplay_enabled and not is_real_dead():
+		_visual_rig.restore_presence(value.get("presence", {}))
 	_update_bush_presentation()
 
 

@@ -30,7 +30,8 @@ func _watch(source: Node) -> void:
 	var exiting := _forget.bind(key)
 	_watched[key] = {"source": weakref(source), "exiting": exiting}
 	source.child_entered_tree.connect(_watch)
-	source.tree_exiting.connect(exiting)
+	if not source.tree_exiting.is_connected(exiting):
+		source.tree_exiting.connect(exiting)
 	if source is Skeleton3D:
 		_cache_skeleton(source)
 	elif source is MeshInstance3D:

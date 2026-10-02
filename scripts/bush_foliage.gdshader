@@ -7,6 +7,10 @@ uniform float local_actor_influence = 0.0;
 uniform float wind_phase = 0.0;
 uniform vec2 wind_direction = vec2(0.94, -0.34);
 uniform float wind_strength = 0.65;
+uniform vec3 organic_impulse_origin = vec3(0.0);
+uniform vec2 organic_impulse_direction = vec2(0.0);
+uniform float organic_impulse_strength = 0.0;
+uniform float organic_impulse_age = 0.0;
 
 void vertex() {
 	float tip = UV.y * UV.y;
@@ -20,12 +24,23 @@ void vertex() {
 	float response = (1.0 - smoothstep(0.18, 0.95, distance_to_actor)) * local_actor_influence;
 	VERTEX.xz += away / max(distance_to_actor, 0.08) * response * tip * 0.30;
 	VERTEX.y -= response * tip * 0.12;
+	// A local disturbance travels through the tuft, then rings down like a spring.
+	vec2 offset = world_base.xz - organic_impulse_origin.xz;
+	float arrival = length(offset) / 9.0;
+	float age = max(0.0, organic_impulse_age - arrival);
+	float envelope = exp(-age * 4.0) * step(arrival, organic_impulse_age);
+	vec2 push = normalize(offset + organic_impulse_direction * 0.8 + vec2(0.0001));
+	vec3 local_push = (inverse(MODEL_MATRIX) * vec4(push.x, 0.0, push.y, 0.0)).xyz;
+	float bend = cos(age * 11.0) * envelope * organic_impulse_strength;
+	VERTEX += local_push * bend * tip * 0.36;
+	VERTEX.y -= abs(bend) * tip * 0.11;
 }
 
 void fragment() {
-	ALBEDO = COLOR.rgb;
+	float rib = 0.95 + 0.05 * sin(UV.y * 105.0 + UV.x * 4.0);
+	ALBEDO = COLOR.rgb * rib;
 	ROUGHNESS = mix(0.97, 0.84, UV.y);
 	SPECULAR = 0.16;
 	// A little wrapped leaf light keeps the dark roots readable from above.
-	EMISSION = COLOR.rgb * UV.y * 0.035;
+	EMISSION = COLOR.rgb * UV.y * 0.055;
 }

@@ -155,6 +155,7 @@ func _check_player_integration() -> void:
 	var guide := player.get_node("WeaponAimGuide") as Node3D
 	guide.set_process(false)
 	_check_fire_input_visibility(player, guide)
+	await _check_held_fire_pose(player, guide)
 	player.call("set_weapon", "blaster")
 	player.call("begin_touch_fire")
 	player.call("_set_aim_direction", Vector3.RIGHT)
@@ -267,6 +268,98 @@ func _mouse(player: Node, pressed: bool, device: int, unhandled: bool) -> void:
 	player.call("_input", event)
 	if unhandled:
 		player.call("_unhandled_input", event)
+
+
+func _check_held_fire_pose(player: Node3D, guide: Node3D) -> void:
+	var rig := player.get_node("VisualRoot") as PlayerVisualRig
+	rig.animation_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	rig.skeleton.modifier_callback_mode_process = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_MANUAL
+	# BoneAttachment transforms are final during skeleton_updated; Godot restores
+	# unmodified bone poses after the modifier pass.
+	var final_barrel := {"direction": Vector3.FORWARD}
+	var capture_barrel := func() -> void:
+		final_barrel.direction = rig.get_weapon_forward_direction(StringName(player.get("_weapon_id")))
+	rig.skeleton.skeleton_updated.connect(capture_barrel)
+	var keyboard := InputEventKey.new()
+	keyboard.keycode = KEY_SPACE
+	for weapon in ["longshot", "blaster", "shotgun"]:
+		for source in ["keyboard", "mouse", "touch"]:
+			player.call("set_weapon", weapon)
+			player.call("clear_touch_inputs")
+			player.set("_desktop_attack_rearm_required", false)
+			if source == "keyboard":
+				keyboard.pressed = true
+				Input.parse_input_event(keyboard.duplicate())
+				Input.flush_buffered_events()
+			elif source == "mouse":
+				_mouse(player, true, 0, true)
+			else:
+				player.call("set_touch_attack_held", true)
+			player.call("_set_aim_direction", Vector3.RIGHT)
+			player.call("_begin_weapon_fire")
+			var kept_aim := true
+			var max_guide_error := 0.0
+			var max_barrel_error := 0.0
+			# Exercise the complete fire/hold/idle transitions beyond the Longshot
+			# cooldown, then fire again while changing direction during recovery.
+			for frame in range(150):
+				await process_frame
+				var direction := Vector3.RIGHT if frame < 80 else Vector3.LEFT
+				player.call("_set_aim_direction", direction)
+				if frame == 90:
+					player.call("_begin_weapon_fire")
+				player.call("_update_weapon_pose_state", 1.0 / 60.0)
+				player.call("_update_robot_motion", 1.0 / 60.0)
+				rig.animation_tree.advance(1.0 / 60.0)
+				rig.skeleton.advance(1.0 / 60.0)
+				await rig.skeleton.skeleton_updated
+				kept_aim = kept_aim and bool(player.call("_weapon_pose_uses_aim"))
+				max_barrel_error = maxf(max_barrel_error, rad_to_deg((final_barrel.direction as Vector3).angle_to(direction)))
+				if weapon in ["longshot", "blaster"]:
+					guide.refresh()
+					kept_aim = kept_aim and guide.visible
+					var preview: Dictionary = player.call("get_weapon_aim_preview")
+					if not preview.is_empty():
+						max_guide_error = maxf(max_guide_error, rad_to_deg((preview.direction as Vector3).angle_to(direction)))
+			_check(kept_aim, "%s %s: held fire keeps aim between shots" % [weapon, source])
+			_check(max_barrel_error < 0.1, "%s %s: barrel follows changing aim (%.3f deg)" % [weapon, source, max_barrel_error])
+			_check(max_guide_error < 0.1, "%s %s: guide follows changing aim (%.3f deg)" % [weapon, source, max_guide_error])
+			if source == "keyboard":
+				keyboard.pressed = false
+				Input.parse_input_event(keyboard.duplicate())
+				Input.flush_buffered_events()
+			elif source == "mouse":
+				_mouse(player, false, 0, false)
+			else:
+				player.call("set_touch_attack_held", false)
+			guide.refresh()
+			_check(not guide.visible, "%s %s: release hides guide immediately" % [weapon, source])
+			player.call("_update_weapon_pose_state", 1.0)
+			_check(not bool(player.call("_weapon_pose_uses_aim")), "%s %s: release allows aim to expire" % [weapon, source])
+			# An interrupted hold still down must not keep the pose raised.
+			if source == "keyboard":
+				keyboard.pressed = true
+				Input.parse_input_event(keyboard.duplicate())
+				Input.flush_buffered_events()
+			elif source == "mouse":
+				_mouse(player, true, 0, true)
+			else:
+				player.call("set_touch_attack_held", true)
+			player.call("_begin_aim_hold")
+			player.set("_desktop_attack_rearm_required", true)
+			player.set("_touch_attack_rearm_required", true)
+			player.call("_update_weapon_pose_state", 1.0)
+			_check(not bool(player.call("_weapon_pose_uses_aim")), "%s %s: blocked input does not preserve aim" % [weapon, source])
+			keyboard.pressed = false
+			Input.parse_input_event(keyboard.duplicate())
+			Input.flush_buffered_events()
+			_mouse(player, false, 0, false)
+			player.call("clear_touch_inputs")
+	rig.skeleton.skeleton_updated.disconnect(capture_barrel)
+	rig.animation_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+	rig.skeleton.modifier_callback_mode_process = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_IDLE
+	player.call("clear_touch_inputs")
+	player.call("reset_desktop_inputs")
 
 
 func _capture() -> void:

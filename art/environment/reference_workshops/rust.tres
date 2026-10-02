@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_albedo.png" id="1_8r7ta"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_steel_normal.png" id="2_vepto"]
+
+[resource]
+resource_name = "Workshop_rust"
+albedo_color = Color(0.54901963, 0.3019608, 0.20392157, 1)
+albedo_texture = ExtResource("1_8r7ta")
+metallic = 0.16
+roughness = 0.85
+normal_enabled = true
+normal_scale = 0.32
+normal_texture = ExtResource("2_vepto")
+uv1_scale = Vector3(0.9, 0.9, 0.9)
+uv1_triplanar = true
+uv1_world_triplanar = true

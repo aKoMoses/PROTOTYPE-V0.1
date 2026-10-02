@@ -51,6 +51,7 @@ func _perform_rocket_basket() -> void:
 			player._end_module_action(action_token, "rocket_basket")
 			return
 		var attack_id := "rocket_basket:%d:%d:%d" % [player.get_instance_id(), player._visibility_epoch, token]
+		player._presentation_component.confirm_module_release("rocket_basket")
 		player.register_offensive_attack(attack_id)
 		PLAYER_STATE.ROCKET_BASKET.launch(player, player.aim_direction, "player", attack_id, player._module_cooldowns, player._rocket_damage_multiplier, func(_target: Node3D, applied: float) -> void:
 			player.on_direct_offensive_hit(attack_id, applied, _target)
@@ -180,6 +181,7 @@ func _cancel_javelin_charge() -> void:
 	if not player._javelin_charging:
 		return
 	player._javelin_charging = false
+	player._presentation_component.cancel_module_gesture("javelin")
 	player._javelin_launch_token += 1
 	player._clear_javelin_charge_visual()
 	player._end_module_action(player._javelin_charge_action_token, "javelin")
@@ -190,6 +192,7 @@ func _cancel_javelin_charge() -> void:
 func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Vector3, power: float = 0.0) -> void:
 	if token != player._javelin_launch_token or not player._module_action_can_execute(action_token, "javelin"):
 		return
+	player._presentation_component.confirm_module_release("javelin")
 	if player.survival_mode and player.survival_evolution_effects != null and player.survival_evolution_effects.launch_beacon(origin, direction):
 		player._end_module_action(action_token, "javelin")
 		return

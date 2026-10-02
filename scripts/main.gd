@@ -1925,6 +1925,8 @@ func _set_arena_branch_active(node: Node, enabled: bool) -> void:
 
 
 func focus_round_winner(player_won: bool) -> void:
+	if player_won:
+		player.call("show_round_result", true)
 	var rig := get_node_or_null("CameraRig")
 	var winner: Node3D = player if player_won else target
 	if rig != null:

@@ -2,6 +2,7 @@ extends StaticBody3D
 
 signal impacted(target: Node3D, rocket: Node3D)
 const DATA := preload("res://scripts/combat_data.gd")
+const VISUAL := preload("res://scripts/rocket_visual.gd")
 const GROUP := "prototype0_homing_rockets"
 var caster: Node3D
 var rocket_id := ""
@@ -12,10 +13,7 @@ var _epoch := -1
 var _finished := false
 var _age := 0.0
 var _damage_ids: Dictionary = {}
-var _body: Node3D
-var _bar: MeshInstance3D
-var _trail: MeshInstance3D
-var _points: Array[Vector3] = []
+var _visual: Node3D
 var _cast: ShapeCast3D
 var _propulsion: AudioStreamPlayer3D
 
@@ -114,7 +112,9 @@ func _physics_process(delta: float) -> void:
 		global_position += motion * _cast.get_closest_collision_safe_fraction()
 		_finished = true
 		collision_layer = 0
-		_play_terminal_sound("rocket_impact")
+		var normal := _cast.get_collision_normal(0)
+		_visual.finish(normal)
+		_play_terminal_sound("rocket_impact", normal)
 		if is_instance_valid(collider) and collider != caster and collider.has_method("take_damage"):
 			impacted.emit(collider, self)
 		if is_instance_valid(collider) and collider.has_method("projectile_impact"):
@@ -180,6 +180,7 @@ func take_damage(amount: float, _source: String = "", _attack: String = "") -> f
 	var applied := minf(health, maxf(0.0, amount))
 	health -= applied
 	if health <= 0.0:
+		_visual.finish(Vector3.UP, true)
 		_play_terminal_sound("rocket_destroyed")
 		_destroy()
 	else:
@@ -195,15 +196,15 @@ func _destroy() -> void:
 	queue_free()
 
 
-func _play_terminal_sound(event_id: String) -> void:
+func _play_terminal_sound(event_id: String, normal: Vector3 = Vector3.UP) -> void:
 	_propulsion.stop()
 	get_node("/root/GameSfx").play_module_event(event_id, global_position)
 	if not replica and is_instance_valid(caster) and caster.has_method("_notify"):
-		caster.call("_notify", "rocket_end", {"sound": event_id, "center": global_position})
+		caster.call("_notify", "rocket_end", {"sound": event_id, "center": global_position, "heading": direction, "normal": normal})
 
 
 func flash_impact(_critical: bool = false) -> void:
-	pass
+	_update_visual()
 
 
 func apply_slow(_duration: float, _percent: float, _source: String = "") -> void:
@@ -222,76 +223,11 @@ func get_fulguro_hit_radius() -> float:
 	return float(DATA.MODULE_DEFINITIONS.rocket_basket.collision_radius)
 
 
-func _material(color: Color, glow: bool = false) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.metallic = 0.7
-	if glow:
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.emission_enabled = true
-		material.emission = color
-		material.emission_energy_multiplier = 2.0
-	return material
-
-
-func _mesh(parent: Node3D, mesh: Mesh, material: Material, position_value: Vector3) -> MeshInstance3D:
-	var visual := MeshInstance3D.new()
-	visual.mesh = mesh
-	visual.material_override = material
-	visual.position = position_value
-	visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(visual)
-	return visual
-
-
 func _build_visual() -> void:
-	_body = Node3D.new()
-	add_child(_body)
-	var chassis := _material(Color("#536477"))
-	var electric := _material(Color("#60ebff"), true)
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = 0.10
-	cylinder.bottom_radius = 0.10
-	cylinder.height = 0.40
-	var body := _mesh(_body, cylinder, chassis, Vector3.ZERO)
-	body.rotation.x = PI * 0.5
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 0.10
-	cone.height = 0.20
-	var nose := _mesh(_body, cone, electric, Vector3(0, 0, -0.29))
-	nose.rotation.x = -PI * 0.5
-	for index in range(4):
-		var fin := BoxMesh.new()
-		fin.size = Vector3(0.24, 0.026, 0.15)
-		var visual := _mesh(_body, fin, chassis, Vector3(0, 0, 0.15))
-		visual.rotation.z = float(index) * PI * 0.5
-	var bar := QuadMesh.new()
-	bar.size = Vector2(0.42, 0.045)
-	var background := _mesh(self, bar, _material(Color("#15232f")), Vector3(0, 0.30, 0))
-	(background.material_override as StandardMaterial3D).billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	(background.material_override as StandardMaterial3D).billboard_keep_scale = true
-	_bar = _mesh(self, bar, _material(Color("#8dffb4"), true), Vector3(0, 0.30, 0.002))
-	(_bar.material_override as StandardMaterial3D).billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	(_bar.material_override as StandardMaterial3D).billboard_keep_scale = true
-	_trail = _mesh(self, ImmediateMesh.new(), electric, Vector3.ZERO)
-	_trail.top_level = true
-	_trail.global_transform = Transform3D.IDENTITY
+	_visual = VISUAL.new()
+	add_child(_visual)
+	_update_visual()
 
 
 func _update_visual() -> void:
-	_body.look_at(global_position + direction, Vector3.UP)
-	_bar.scale.x = maxf(0.01, health / float(DATA.MODULE_DEFINITIONS.rocket_basket.health))
-	_points.push_front(global_position - direction * 0.24)
-	if _points.size() > 9:
-		_points.pop_back()
-	var mesh := _trail.mesh as ImmediateMesh
-	mesh.clear_surfaces()
-	if _points.size() < 2:
-		return
-	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	for index in range(_points.size() - 1):
-		var jitter := Vector3(0, sin(_age * 42.0 + index * 2.0) * 0.035, 0)
-		mesh.surface_add_vertex(_points[index] + jitter)
-		mesh.surface_add_vertex(_points[index + 1])
-	mesh.surface_end()
+	_visual.update_pose(direction, health / float(DATA.MODULE_DEFINITIONS.rocket_basket.health))

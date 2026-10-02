@@ -130,6 +130,7 @@ func _perform_permutation() -> void:
 			player._end_module_action(action_token, "permutation")
 			return
 		var mark := PLAYER_STATE.PERMUTATION.new()
+		player._presentation_component.confirm_module_release("permutation")
 		mark.configure(player, target, player._permutation_authoritative())
 		mark.arrived.connect(player._on_permutation_arrived)
 		mark.failed.connect(player._on_permutation_failed)

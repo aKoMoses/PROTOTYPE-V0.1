@@ -1,7 +1,6 @@
 extends SubViewportContainer
 
 ## The combat GLB and chassis paint, presented in an isolated, silent 3D world.
-const MODEL := preload("res://art/player_mecha_animated.glb")
 const CHASSIS_VISUALS := preload("res://scripts/robot_chassis_visuals.gd")
 const ROTATION_SPEED := PI / 15.0
 const SHOWCASE_STATES := ["idle", "warm_up", "walk", "run", "box_01", "bow"]
@@ -16,6 +15,7 @@ var _clip_index := 0
 var _clip_elapsed := 0.0
 var _clip_duration := 4.0
 var _paint := CHASSIS_VISUALS.new()
+var _reference_height := 0.0
 
 
 func _ready() -> void:
@@ -36,16 +36,35 @@ func _ready() -> void:
 	_turntable.name = "Turntable"
 	_turntable.rotation.y = deg_to_rad(-18.0)
 	stage.add_child(_turntable)
-	_model = MODEL.instantiate() as Node3D
-	_turntable.add_child(_model)
+	set_chassis(chassis_id)
 	var bounds := _model_bounds()
-	_model.position -= Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
-	_turntable.scale = Vector3.ONE * float(CHASSIS_VISUALS.SCALE_FACTORS.get(chassis_id, 1.0))
-	_paint.apply(_model, chassis_id)
-	_setup_animations()
 	_build_showroom(stage, bounds)
 	visibility_changed.connect(_sync_visibility)
 	_sync_visibility()
+
+
+func set_chassis(identifier: String) -> void:
+	chassis_id = identifier if CHASSIS_VISUALS.SCALE_FACTORS.has(identifier) else "polyvalent"
+	if _turntable == null:
+		return
+	var path := CHASSIS_VISUALS.model_path(chassis_id)
+	if _model == null or _model.scene_file_path != path:
+		if _model != null:
+			_model.free()
+		_model = (load(path) as PackedScene).instantiate() as Node3D
+		_turntable.add_child(_model)
+		var bounds := _model_bounds()
+		if _reference_height == 0.0:
+			_reference_height = bounds.size.y
+		_model.position -= Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
+		_paint = CHASSIS_VISUALS.new()
+		_animation_player = null
+		_clips.clear()
+		_clip_index = 0
+		_setup_animations()
+	var height := _model_bounds().size.y
+	_turntable.scale = Vector3.ONE * _reference_height / maxf(height, 0.01) * float(CHASSIS_VISUALS.SCALE_FACTORS[chassis_id])
+	_paint.apply(_model, chassis_id)
 
 
 func _process(delta: float) -> void:

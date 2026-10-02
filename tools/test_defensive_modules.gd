@@ -119,10 +119,10 @@ func _test_static_shield(player: Node) -> void:
 	await create_timer(0.45, true, false, false).timeout
 	if absf(float(player.call("get_health")) - before) > 0.01:
 		_failures.append("Static Shield : BURN inflige des dégâts pendant la stase")
-	await create_timer(1.20, true, false, false).timeout
+	await create_timer(1.70, true, false, false).timeout
 	if float(player.call("get_stasis_remaining")) > 0.01:
 		_failures.append("Static Shield : stase ne se termine pas")
-	if absf(float(player.call("get_module_cooldown", "static_shield")) - (12.0 - 1.65)) > 0.35:
+	if absf(float(player.call("get_module_cooldown", "static_shield")) - (12.0 - 2.15)) > 0.35:
 		_failures.append("Static Shield : cooldown absent ou trop court")
 	player.call("reset_combat_state")
 	player.call("set_weapon", "shotgun")
@@ -136,11 +136,11 @@ func _test_static_shield(player: Node) -> void:
 	var reload_during := float(player.get("_shotgun_reload_remaining"))
 	if reload_before - reload_during > 0.05:
 		_failures.append("Static Shield : recharge Shotgun non suspendue")
-	await create_timer(2.50, true, false, false).timeout
+	await create_timer(3.20, true, false, false).timeout
 	if bool(player.call("is_shotgun_reloading")):
 		_failures.append("Static Shield : recharge Shotgun ne reprend pas après la stase")
 	player.call("reset_combat_state")
 	player.call("apply_stun", 0.6, "test_stun")
 	player.call("_perform_defensive_module")
-	if float(player.call("get_stasis_remaining")) > 0.01:
-		_failures.append("Static Shield : activation autorisée sous STUN")
+	if float(player.call("get_stasis_remaining")) <= 0.01:
+		_failures.append("Static Shield : activation refusée sous STUN")

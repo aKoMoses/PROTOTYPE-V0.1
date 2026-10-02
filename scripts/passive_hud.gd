@@ -3,18 +3,18 @@ extends Control
 
 ## Presentation only; inherits the spell bar's visibility and HUD transforms.
 const ICONS := preload("res://scripts/equipment_icons.gd")
-const LOADOUT := preload("res://scripts/loadout_state.gd")
 var player: Node
 var _icons = ICONS.new()
-var _box := StyleBoxFlat.new()
 
 
 static func attach(bar: Control, actor: Node, controller: Node) -> Control:
 	var widget := PassiveHud.new()
 	widget.name = "PassiveSlot"
 	widget.player = actor
-	widget.position = Vector2(bar.size.x * 0.5 - 100.0, -64.0)
-	widget.size = Vector2(200, 54)
+	# A smaller, separate medallion beside the active modules. The stable HUD
+	# identity still lets the interface editor move and scale it independently.
+	widget.size = Vector2(48, 56)
+	widget.position = Vector2(-60.0, (bar.size.y - widget.size.y) * 0.5)
 	widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(widget)
 	controller.call("register", "passive_slot", widget)
@@ -33,30 +33,43 @@ func _draw() -> void:
 	if id == "":
 		return
 	var state: Dictionary = player.call("get_passive_status")
-	var active := float(state.get("alternator", 0.0)) > 0.0 or float(state.get("inertia", 0.0)) > 0.0
-	var tint := Color("#bbecdb") if active else Color("#f3ddbb")
-	var pulse := float(state.get("pulse", 0.0)) / 0.25
-	draw_style_box(_background(tint, pulse), Rect2(Vector2.ZERO, size))
+	var active := float(state.get("alternator", 0.0)) > 0.0 or float(state.get("inertia", 0.0)) > 0.0 or float(state.get("reveal", 0.0)) > 0.0
+	var tint := Color("#bbecdb") if active else Color("#dcc298")
+	var pulse := clampf(float(state.get("pulse", 0.0)) / 0.25, 0.0, 1.0)
+	var center := Vector2(24, 22)
+	draw_circle(center, 21.0, Color("#172023e8"))
+	draw_arc(center, 20.0, 0.0, TAU, 48, tint.lerp(Color.WHITE, pulse), 1.5 + pulse, true)
 	var icon: Texture2D = _icons.get_icon(id)
 	if icon != null:
-		draw_texture_rect(icon, Rect2(6, 6, 40, 40), false, Color.WHITE.lerp(Color("#bbecdb"), maxf(float(active), pulse)))
-	var title: String = str({"auxiliary_reactor": "RÉACTEUR AUX.", "tracker": "TRAQUEUR", "alternator": "ALTERNATEUR", "inertia": "INERTIE"}.get(id, LOADOUT.display_name(id)))
-	draw_string(ThemeDB.fallback_font, Vector2(52, 19), str(title), HORIZONTAL_ALIGNMENT_LEFT, 143, 13, tint)
-	var text := "AUTOMATIQUE"
+		var icon_tint := Color.WHITE.lerp(Color("#bbecdb"), maxf(float(active), pulse))
+		if id == "auxiliary_reactor" and float(state.get("reactor", 0.0)) > 0.0:
+			icon_tint.a = 0.6
+		draw_texture_rect(icon, Rect2(9, 7, 30, 30), false, icon_tint)
+	# A permanent automatic-effect seal, never a keyboard shortcut or button.
+	draw_circle(Vector2(40, 8), 8.0, Color("#172023"))
+	draw_arc(Vector2(40, 8), 7.0, 0.0, TAU, 24, tint, 1.0, true)
+	draw_string(ThemeDB.fallback_font, Vector2(32, 12), "∞", HORIZONTAL_ALIGNMENT_CENTER, 16, 13, tint)
+	draw_string(ThemeDB.fallback_font, Vector2(0, 54), "PASSIF", HORIZONTAL_ALIGNMENT_CENTER, 48, 9, tint)
+	var counter := ""
 	match id:
 		"auxiliary_reactor":
-			text = "PRÊT" if float(state.get("reactor", 0.0)) <= 0.0 else "RECHARGE %.2f s" % float(state.reactor)
+			if float(state.get("reactor", 0.0)) > 0.0:
+				counter = str(ceili(float(state.reactor)))
 		"tracker":
 			var marks := int(state.get("marks", 0))
-			var segments := int(state.get("hits", 3))
-			text = "SPOTTED %.1f s" % float(state.reveal) if float(state.get("reveal", 0.0)) > 0.0 else "%d / %d  ·  %.1f s" % [marks, segments, float(state.get("gap", 0.0))]
+			var segments := maxi(1, int(state.get("hits", 3)))
+			var step := 30.0 / segments
 			for index in segments:
-				draw_rect(Rect2(7 + index * 13, 46, 10, 3), Color("#bbecdb") if index < marks else Color("#536365"))
+				draw_rect(Rect2(9 + index * step, 37, maxf(1.0, step - 2.0), 2), Color("#bbecdb") if index < marks or active else Color("#536365"))
 		"alternator":
-			text = "PRÊT  ·  %.1f s" % float(state.alternator) if active else "TOUCHER AVEC LE MODULE"
+			if active:
+				counter = str(ceili(float(state.alternator)))
 		"inertia":
-			text = "PRÊT  ·  %.1f s" % float(state.inertia) if active else "TERMINER UN DASH"
-	draw_string(ThemeDB.fallback_font, Vector2(52, 39), text, HORIZONTAL_ALIGNMENT_LEFT, 143, 11, tint)
+			if active:
+				counter = str(ceili(float(state.inertia)))
+	if not counter.is_empty():
+		draw_rect(Rect2(28, 28, 19, 14), Color("#172023"))
+		draw_string(ThemeDB.fallback_font, Vector2(28, 39), counter, HORIZONTAL_ALIGNMENT_CENTER, 19, 10, tint)
 	# SPOTTED retains its eye cue through solid cover, without exposing a live
 	# actor mesh, altering visibility admission or changing projectile collisions.
 	var camera := get_viewport().get_camera_3d()
@@ -83,11 +96,3 @@ func _draw() -> void:
 		var text_point := point + Vector2(-caption_width * 0.5, -20)
 		draw_string_outline(font, text_point, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 5, Color("#10191b"))
 		draw_string(font, text_point, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#bbecdb"))
-
-
-func _background(tint: Color, pulse: float) -> StyleBoxFlat:
-	_box.bg_color = Color("#242629e8")
-	_box.border_color = tint.lerp(Color.WHITE, pulse)
-	_box.set_border_width_all(2 if pulse > 0.0 else 1)
-	_box.set_corner_radius_all(6)
-	return _box

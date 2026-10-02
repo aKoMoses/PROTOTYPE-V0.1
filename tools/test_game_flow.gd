@@ -25,13 +25,23 @@ func _initialize() -> void:
 		elif menu_music.stream.resource_path != "res://art/audio/menu_poussiere_et_cambouis.wav":
 			_failures.append("le menu ne joue pas la piste choisie")
 		else:
+			# Finish deferred scenery preparation before observing the independent audio clock.
+			for preparation_frame in 6:
+				await process_frame
 			var menu_stream := menu_music.stream as AudioStreamWAV
 			if menu_stream.loop_mode != AudioStreamWAV.LOOP_FORWARD or menu_stream.loop_begin <= 0 or menu_stream.loop_end <= menu_stream.loop_begin:
 				_failures.append("boucle du menu absente ou invalide")
 			menu_music.seek(menu_stream.get_length() - 0.2)
-			await create_timer(0.6).timeout
+			# The audio mixer advances in wall time; a startup frame's SceneTree
+			# delta must not make the check run before the mixer reaches the loop.
+			var loop_deadline := Time.get_ticks_msec() + 2000
+			while Time.get_ticks_msec() < loop_deadline:
+				await process_frame
+				var position := menu_music.get_playback_position()
+				if menu_music.playing and position >= 4.75 and position <= 8.0:
+					break
 			if not menu_music.playing or menu_music.get_playback_position() < 4.75 or menu_music.get_playback_position() > 8.0:
-				_failures.append("la musique ne reboucle pas après son introduction")
+				_failures.append("la musique ne reboucle pas après son introduction (position %.3f, active %s)" % [menu_music.get_playback_position(), menu_music.playing])
 			menu_music.seek(0.0)
 		await create_timer(0.15).timeout
 		var menu_position := menu_music.get_playback_position()

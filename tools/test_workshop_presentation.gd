@@ -12,6 +12,15 @@ func _run() -> void:
 	await process_frame
 	var presentation := scene.get_node("ArenaPresentation")
 	var workshops := presentation.get_node("WorkshopDressing")
+	var actual_triangles := 0
+	for mesh in workshops.find_children("Workshop_*","MeshInstance3D",true,false):
+		for surface in mesh.mesh.get_surface_count():
+			var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			actual_triangles += (indices.size() if not indices.is_empty() else vertices.size())/3
+			_check(mesh.mesh.get_aabb().size.is_finite(),"baked decoration has invalid bounds")
+	_check(actual_triangles==int(workshops.get_meta("baked_triangles",0)),"baked scene references stale or incomplete geometry")
 	var camera := scene.get_node("CameraRig") as Node3D
 	camera.set_process(false)
 	camera.global_position = Vector3.ZERO

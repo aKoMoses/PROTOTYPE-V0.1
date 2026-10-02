@@ -1,7 +1,7 @@
 extends Node3D
 
 const FOLIAGE_SHADER: Shader = preload("res://scripts/bush_foliage.gdshader")
-const BLADE_COUNT := 126
+const BLADE_COUNT := 184
 const FOOTPRINT_SEGMENTS := 48
 const GOLDEN_ANGLE := 2.39996323
 
@@ -104,7 +104,7 @@ func _create_foliage(random: RandomNumberGenerator) -> void:
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
-	var palette: Array[Color] = [Color("#788357"), Color("#939268"), Color("#a39c70"), Color("#b2a477"), Color("#6c7c5b")]
+	var palette: Array[Color] = [Color("#687749"), Color("#87904c"), Color("#a49d5c"), Color("#bcaa60"), Color("#5d7351")]
 	var clump_phase := random.randf_range(0.0, TAU)
 	for blade_index in range(BLADE_COUNT):
 		# Sunflower distribution covers the whole circular hiding volume. Shorter
@@ -121,10 +121,10 @@ func _create_foliage(random: RandomNumberGenerator) -> void:
 		var direction := Vector3(cos(heading), 0.0, sin(heading))
 		var side := Vector3(-sin(heading), 0.0, cos(heading))
 		var lean := minf(random.randf_range(0.20, 0.54) * _radius, _radius - radial)
-		var width := random.randf_range(0.047, 0.10) * _radius
+		var width := random.randf_range(0.060, 0.12) * _radius
 		var leaf_color: Color = palette[random.randi_range(0, palette.size() - 1)]
 		if blade_index % 13 == 0:
-			leaf_color = Color("#b2a36a")
+			leaf_color = Color("#bfac5c")
 		var points: Array[Vector3] = []
 		var levels := [0.0, 0.36, 0.76, 1.0]
 		var widths := [0.28, 1.0, 0.48, 0.0]

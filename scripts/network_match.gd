@@ -229,6 +229,9 @@ func _on_round_finished(host_score: int, guest_score: int, winner_id: int, match
 	_guest_score = guest_score
 	_player.call("set_gameplay_enabled", false)
 	_target.call("set_gameplay_enabled", false)
+	if winner_id != 0:
+		_player.call("show_round_result", _player.peer_id == winner_id)
+		_target.call("show_round_result", _target.peer_id == winner_id)
 	_touch.visible = false
 	_status.text = "ÉGALITÉ" if winner_id == 0 else ("MATCH GAGNÉ" if winner_id == _session.local_peer_id() else "MATCH PERDU") if match_over else ("MANCHE GAGNÉE" if winner_id == _session.local_peer_id() else "MANCHE PERDUE")
 	_status.add_theme_color_override("font_color", CREAM if winner_id == 0 else GREEN if winner_id == _session.local_peer_id() else RED)

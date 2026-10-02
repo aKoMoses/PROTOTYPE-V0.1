@@ -30,6 +30,7 @@ var _stun_chain_until := 0.0
 var _stun_recovery_until := 0.0
 var _stun_continuous_limit := 0.0
 var _stun_repeats := 0
+var processing_burn := false
 
 
 func _init(health_max: float = COMBAT_DATA.MAX_HEALTH) -> void:
@@ -225,7 +226,9 @@ func _process_burn(previous_time: float, burn_blocked: bool) -> void:
 	if until_time > from_time:
 		var elapsed := until_time - from_time
 		if not burn_blocked:
+			processing_burn = true
 			apply_damage(float(burn.get("damage_per_second", 0.0)) * elapsed, str(burn.get("source_id", "")))
+			processing_burn = false
 		burn["next_damage_time"] = until_time
 	if simulation_time >= end_time - SLOW_EPSILON:
 		_effects.erase(COMBAT_DATA.EFFECT_BURN)
