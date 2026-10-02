@@ -108,11 +108,12 @@ func _initialize() -> void:
 	await physics_frame
 	equipment.call("_launch_projectile", body, player, Vector3(0.0, 0.9, 0.0), Vector3.RIGHT, 0, {})
 	await create_timer(0.3).timeout
-	_check(is_equal_approx(player.health, 950.0), "charged blaster hits a present target along the segment for its unchanged damage")
+	var expected_health := 1000.0 - float(DATA.WEAPON_DEFINITIONS.blaster.max_damage)
+	_check(is_equal_approx(player.health, expected_health), "charged bot blaster applies shared full-charge damage along its flight")
 	equipment.call("_launch_projectile", body, player, Vector3(0.0, 0.9, 0.0), Vector3.RIGHT, 0, {})
 	player.global_position = Vector3(4.0, 0.0, 3.0)
 	await create_timer(0.65).timeout
-	_check(is_equal_approx(player.health, 950.0), "projectile keeps its committed line when the player dodges")
+	_check(is_equal_approx(player.health, expected_health), "projectile keeps its committed line when the player dodges")
 	player.global_position = Vector3(4.0, 0.0, 0.0)
 	await physics_frame
 	await physics_frame
@@ -127,7 +128,7 @@ func _initialize() -> void:
 	scene.add_child(wall)
 	wall.global_position = Vector3(2.0, 1.0, 0.0)
 	await create_timer(0.3).timeout
-	_check(is_equal_approx(player.health, 950.0) and not is_instance_valid(projectile), "new cover blocks projectiles before they reach the player")
+	_check(is_equal_approx(player.health, expected_health) and not is_instance_valid(projectile), "new cover blocks projectiles before they reach the player")
 	current_scene = null
 	scene.queue_free()
 	await process_frame

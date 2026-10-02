@@ -146,7 +146,14 @@ func run() -> void:
 	prepare(player)
 	await physics_frame
 	player.apply_stun(1.0, "test")
-	check(not player.begin_touch_action("mobility"), "activation malgré stun")
+	check(player.begin_touch_action("mobility"), "commande tactile anticipée refusée pendant le stun")
+	player._controls_component.execute_buffered_command()
+	check(not player.is_eclipse_aiming() and not player.is_eclipse_travelling() and player.get_module_cooldown("eclipse") == 0.0, "activation malgré stun")
+	check(not player._perform_eclipse(Vector3(4, 0, 0)), "départ direct malgré stun")
+	player._controls_component.advance_input_time(1.0)
+	player.combat_state.update(1.0)
+	player._controls_component.execute_buffered_command()
+	check(not player.is_eclipse_aiming() and not player.is_eclipse_travelling(), "commande expirée exécutée après le stun")
 	prepare(player)
 	await physics_frame
 	player._perform_eclipse(Vector3(4, 0, 0))

@@ -256,7 +256,9 @@ func _test_presentation() -> void:
 	var full_colors: Array[Color] = []
 	for mesh in rig.find_children("*", "MeshInstance3D", true, false):
 		var material := (mesh as MeshInstance3D).get_active_material(0) as BaseMaterial3D
-		if material != null and material.albedo_color.a > 0.05:
+		# Inactive weapon effects (such as Mekatana's BladeTrail) are hidden
+		# presentation nodes; only meshes actually rendered need an alpha fade.
+		if (mesh as MeshInstance3D).is_visible_in_tree() and material != null and material.albedo_color.a > 0.05:
 			body_meshes.append(mesh)
 			full_colors.append(material.albedo_color)
 	_check(rig.visible and is_equal_approx(float(_target.call("get_presentation_visibility_weight")), 1.0), "inner vision keeps the opponent fully rendered")

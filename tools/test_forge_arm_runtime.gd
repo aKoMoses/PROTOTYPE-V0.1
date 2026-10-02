@@ -3,6 +3,7 @@ extends SceneTree
 ## Exercise the official menu, natural process loop and real training round trip.
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const LIBRARY := preload("res://scripts/garage_build_library.gd")
+const EXPERIENCE := preload("res://scripts/review_preferences.gd")
 var failures: Array[String] = []
 var backups: Dictionary = {}
 
@@ -16,8 +17,13 @@ func _run() -> void:
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	root.content_scale_size = Vector2i.ZERO
 	root.size = Vector2i(1280, 720)
-	for path in [LOADOUT.SAVE_PATH, LIBRARY.SAVE_PATH]:
+	for path in [LOADOUT.SAVE_PATH, LIBRARY.SAVE_PATH, EXPERIENCE.PATH]:
 		backups[path] = {"existed": FileAccess.file_exists(path), "bytes": _bytes(path)}
+	# This test exercises the complete arm animation regardless of a saved
+	# quick-mode preference, then restores the user's original preference.
+	var experience := EXPERIENCE.read()
+	experience.quick = false
+	check(EXPERIENCE.write(experience) == OK, "installation complete configuree pour la fixture")
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	current_scene = main

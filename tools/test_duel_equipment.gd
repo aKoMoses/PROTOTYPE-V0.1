@@ -18,8 +18,9 @@ func _initialize() -> void:
 	scene.call("set_bot_build_seed", 49271)
 	var build_ids := {}
 	var weapons := {}
-	for round_index in range(BUILD_PRESETS.PRESETS.size()):
-		flow.set("round_number", round_index + 1)
+	for match_index in range(BUILD_PRESETS.PRESETS.size()):
+		flow.set("match_id", match_index + 1)
+		flow.set("round_number", 1)
 		scene.call("prepare_round", {})
 		var build: Dictionary = scene.call("get_current_bot_build")
 		var equipped: Dictionary = scene.call("get_bot_build")
@@ -30,13 +31,14 @@ func _initialize() -> void:
 			_failures.append("pause build differs from the chosen opponent")
 		build_ids[str(build.id)] = true
 		weapons[str(target.call("get_duel_profile"))] = true
+		flow.set("round_number", 2)
 		scene.call("prepare_round", {})
 		if str(target.get_meta("bot_build_id", "")) != str(build.id):
-			_failures.append("preparing the same round drew another build")
+			_failures.append("another round of the same match drew another build")
 		if equipped != scene.call("get_bot_build"):
-			_failures.append("preparing the same round changed the exposed build")
-	if build_ids.size() != BUILD_PRESETS.PRESETS.size() or not weapons.has("blaster") or not weapons.has("shotgun"):
-		_failures.append("a seeded bag did not visit distinct builds with both weapon families")
+			_failures.append("another round of the same match changed the exposed build")
+	if build_ids.size() != BUILD_PRESETS.PRESETS.size() or not weapons.has("blaster") or not weapons.has("shotgun") or not weapons.has("longshot") or not weapons.has("mekatana"):
+		_failures.append("a seeded bag did not visit distinct builds with all four weapon families")
 	var last: Dictionary = scene.call("get_bot_build")
 	scene.call("start_duel", {})
 	if last.title == scene.call("get_bot_build").title:

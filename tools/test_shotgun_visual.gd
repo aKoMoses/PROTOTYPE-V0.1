@@ -115,19 +115,19 @@ func _test_structure_and_parameters() -> void:
 		"_shotgun_pellet_speed": 22.0,
 		"_shotgun_max_range": 7.0,
 		"_shotgun_falloff_start": 3.0,
-		"_shotgun_pellet_damage": 20.0,
+		"_shotgun_pellet_damage": 28.0,
 		"_shotgun_minimum_damage": 8.0,
 		"_shotgun_hitbox_radius": 0.78,
 		"_shotgun_preparation": 0.10,
 		"_shotgun_recovery": 0.60,
 		"_shotgun_magazine_size": 3.0,
-		"_shotgun_reload_duration": 1.80,
+		"_shotgun_reload_duration": 1.40,
 	}
 	var parameters_unchanged := true
 	for property in expected:
 		parameters_unchanged = parameters_unchanged and is_equal_approx(float(_player.get(property)), float(expected[property]))
 	_check(parameters_unchanged and _player._shotgun_pellet_angles == [-14.0, -8.0, -3.0, 3.0, 8.0, 14.0], "integration preserves shotgun damage, spread, speed, range, timing and magazine values")
-	_check(is_equal_approx(_player._shotgun_damage_at_distance(2.0), 20.0) and is_equal_approx(_player._shotgun_damage_at_distance(5.0), 14.0) and is_equal_approx(_player._shotgun_damage_at_distance(7.0), 8.0), "damage falloff remains 20 to 8 between 3 and 7 units")
+	_check(is_equal_approx(_player._shotgun_damage_at_distance(2.0), 28.0) and is_equal_approx(_player._shotgun_damage_at_distance(5.0), 18.0) and is_equal_approx(_player._shotgun_damage_at_distance(7.0), 8.0), "current damage falls from 28 to 8 between 3 and 7 units")
 
 
 func _test_weapon_switches() -> void:

@@ -19,12 +19,26 @@ class RelayProbe:
 	func call_func(callback: Callable, _a = null, _b = null, _c = null, _d = null, _e = null, _f = null) -> void:
 		sent.append(str(callback.get_method()))
 
+class FeedbackProbe:
+	extends Control
+	var actor: Node3D
+	var target: Node3D
+	var bindings := 0
+	var registrations := 0
+	func bind_actor(value: Node3D) -> void:
+		actor = value
+		bindings += 1
+	func register_target(value: Node3D) -> void:
+		target = value
+		registrations += 1
+
 class FlowProbe:
 	extends CanvasLayer
 	var opened := 0
 	var stopped := 0
 	var player: Node3D
 	var target: Node3D
+	var _combat_feedback := FeedbackProbe.new()
 	func _open_lobby() -> void: opened += 1
 	func _stop_match_music() -> void: stopped += 1
 	func hide_network_precombat() -> void: pass
@@ -85,6 +99,7 @@ func _run() -> void:
 	# leave_room emits synchronously, then the leave button closes once more.
 	var controller := MATCH.new()
 	var flow := FlowProbe.new()
+	flow.add_child(flow._combat_feedback)
 	var flow_root := Control.new()
 	flow_root.name = "FlowRoot"
 	flow.add_child(flow_root)
@@ -135,6 +150,7 @@ func _run() -> void:
 	_check(controller._phase == "closed" and controller._cleanup_done, "le contrôleur fermé termine son nettoyage une seule fois")
 	_check(player.module_resets == 1 and target.module_resets == 1 and main.cleared == 1, "les deux combattants réseau et leurs effets sont nettoyés une seule fois")
 	_check(touch.player == original_player and camera.target == original_player and flow.player == original_player and flow.target == original_target, "les contrôles, la caméra et le HUD retrouvent les acteurs locaux")
+	_check(flow._combat_feedback.actor == original_player and flow._combat_feedback.target == original_target and flow._combat_feedback.bindings == 1 and flow._combat_feedback.registrations == 1, "le feedback retrouve les acteurs locaux une seule fois")
 	_check(lobby.notifications == 1, "la fermeture synchrone ne notifie le salon qu'une fois")
 	await process_frame
 	# Autoloads also support SceneTree scripts with no current scene at startup.
