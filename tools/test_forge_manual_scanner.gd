@@ -169,10 +169,16 @@ func _run() -> void:
 	enter_mode()
 	check(not garage._module_panel.visible and garage.focus.zone == "robot", "le scanner retrouve la vue de travail")
 	ui.stop()
+	var prior_weapon: String = garage.stage.weapon_id
+	var prior_zone: String = garage.focus.zone
 	(garage.weapon_buttons["longshot"] as Button).pressed.emit()
 	garage.focus.advance(0.7)
-	check(not scanner.enabled and garage.stage.weapon_id == "longshot" and garage.focus.zone == "robot", "choix d'arme conserve le robot entier")
+	check(not scanner.enabled and garage.stage.weapon_id == prior_weapon and garage.focus.zone == prior_zone and garage._preview_id == "longshot", "apercu d'arme conserve le modele equipe et le cadrage")
 	check(garage._training_demo.equipment_id == "longshot", "demo de combat preservee")
+	garage._equip_preview()
+	if garage.module_installation.active:
+		garage.module_installation.finish_now()
+	check(not scanner.enabled and garage.stage.weapon_id == "longshot", "equiper fixe l'arme sans relancer le scanner manuel")
 	enter_mode()
 	garage.stage.set_equipment_focus(true)
 	check(not scanner.enabled and not scanner._motor.playing, "une inspection externe libere le bras manuel")

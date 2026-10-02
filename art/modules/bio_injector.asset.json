@@ -1,0 +1,19 @@
+{
+  "asset": "bio_injector",
+  "triangles": 5816,
+  "material_batches": 6,
+  "bytes": 1140940,
+  "sha256": "5a188f0155e071d2c16c49fc8a17db03783877ad01826f745ddcc92fc12a06ab",
+  "blender_bounds_min": [
+    -0.06364624947309494,
+    -0.042750000953674316,
+    -0.08979962021112442
+  ],
+  "blender_bounds_max": [
+    0.0442359633743763,
+    0.0020000003278255463,
+    0.0905982255935669
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/bio_injector.blend"
+}

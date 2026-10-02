@@ -1,0 +1,19 @@
+{
+  "asset": "magnetic_field",
+  "triangles": 3800,
+  "material_batches": 6,
+  "bytes": 1025656,
+  "sha256": "e8413bdce20e11c82879f4508394c4563d6e205a4273719c4ed12fe3527673db",
+  "blender_bounds_min": [
+    -0.06646129488945007,
+    -0.04500001296401024,
+    -0.09123308211565018
+  ],
+  "blender_bounds_max": [
+    0.06627772748470306,
+    0.008000005036592484,
+    0.09115876257419586
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/magnetic_field.blend"
+}

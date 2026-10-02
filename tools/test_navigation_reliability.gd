@@ -50,14 +50,22 @@ func _run() -> void:
 	var official: Control = flow.get("_forge_garage")
 	var loadout_script: Script = load("res://scripts/loadout_state.gd")
 	var saved_before_selection: Dictionary = loadout_script.load_local()
+	official.call("_navigate", "ARMES")
 	(official.get("weapon_buttons")["shotgun"] as Button).pressed.emit()
+	(official.get("equip_button") as Button).pressed.emit()
+	if official.get("module_installation").active:
+		official.get("module_installation").finish_now()
 	var restored: Dictionary = loadout_script.load_local()
 	_check(official.get("loadout").weapon == "shotgun" and restored == saved_before_selection, "weapon selection changes the draft without saving it")
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true
-	flow.call("_unhandled_input", escape)
-	_check(int(flow.get("current_screen")) == 0, "Escape returns from forge")
+	root.push_input(escape, true)
+	await process_frame
+	_check(int(flow.get("current_screen")) == 1 and official.get("_hub_mode"), "Escape returns from the catalog to the garage")
+	root.push_input(escape, true)
+	await process_frame
+	_check(int(flow.get("current_screen")) == 0, "a second Escape returns from the garage to the menu")
 	flow.call("_open_equipment")
 	_check(official.get("loadout").weapon == "shotgun" and loadout_script.load_local() == saved_before_selection, "draft survives reopening and the combat build remains saved separately")
 	flow.call("_return_menu")

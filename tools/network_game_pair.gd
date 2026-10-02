@@ -13,6 +13,10 @@ var _room_prefix := ""
 var _rounds_finished := 0
 var _first_round := 0
 var _match_token := ""
+var _rematch := false
+var _return_verified := false
+var _peer_back := false
+var _modules_verified := false
 
 
 func _ready() -> void:
@@ -27,17 +31,21 @@ func _ready() -> void:
 	_service = get_node("/root/GDSync")
 	_service.expose_func(Callable(self, "_guest_stage"))
 	_service.expose_func(Callable(self, "_guest_result"))
+	_service.expose_func(Callable(self, "_peer_returned"))
+	_service.expose_func(Callable(self, "_complete"))
+	_service.expose_func(Callable(self, "_modules_result"))
 	_session.connection_changed.connect(_on_connection)
 	_session.rooms_changed.connect(_on_rooms)
 	_session.room_changed.connect(_on_room)
 	_session.round_live.connect(_on_live)
 	_session.round_finished.connect(_on_finished)
+	_session.match_cancelled.connect(_on_returned_to_room)
 	_session.action_requested.connect(func(value: Dictionary) -> void: print("TEST HOST REQUEST ", value.action))
 	game_flow.set("loadout", {"robot": "polyvalent", "weapon": "blaster" if _role == "host" else "shotgun",
 		"offensive": "javelin", "defensive": "magnetic_field" if _role == "host" else "static_shield",
 		"mobility": "pyro_boots", "passive": "omnivamp"})
 	_session.connect_to_service()
-	await get_tree().create_timer(45.0).timeout
+	await get_tree().create_timer(180.0).timeout
 	_fail("timeout")
 
 
@@ -83,9 +91,39 @@ func _on_room(room: Dictionary) -> void:
 
 func _on_live() -> void:
 	print("TEST LIVE ", _role)
+	# The fixture subscribed before the match controller; let it reveal the HUD.
+	await get_tree().process_frame
+	var bar: Control = game_flow.get_node("FlowRoot/CombatHUD/SpellBar")
+	_check(bar.is_visible_in_tree(), "spell bar is missing in the online fight")
+	_check(bar.get_node("PassiveSlot").get("player") == network_match.get("_player"), "passive HUD did not follow the network fighter")
+	_check(not game_flow.get_node("FlowRoot/CombatHUD/PauseButton").visible, "online match exposes a local pause button")
+	if DisplayServer.get_name() != "headless" and _rounds_finished == 5:
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://captures/multi-playable-rematch.png")
 	if _running:
-		if _rounds_finished == 1 and _role == "host":
-			_run_draw.call_deferred()
+		if _rounds_finished == 5:
+			_rematch = true
+			_rounds_finished = 0
+			_check(str(_session.get("_match_token")) != _match_token and int(_session.get("_round_number")) == 1, "rematch reused the previous match or round")
+			_check(int(network_match.get("_host_score")) == 0 and int(network_match.get("_guest_score")) == 0, "rematch did not reset the score")
+			_check(is_equal_approx(float(network_match.get("_player").call("get_health")), 1000.0), "rematch did not reset health")
+		if _role == "host":
+			if _rematch:
+				if _rounds_finished == 0:
+					_run_rematch_modules.call_deferred()
+				else:
+					await get_tree().create_timer(0.3).timeout
+					network_match.get("_target").call("take_damage", 2000.0, "test", "rematch_round_%d" % _rounds_finished)
+			elif _rounds_finished == 1:
+				_run_draw.call_deferred()
+			elif _rounds_finished in [2, 3, 4]:
+				await get_tree().create_timer(0.3).timeout
+				var victim: Node = network_match.get("_player") if _rounds_finished == 3 else network_match.get("_target")
+				victim.call("take_damage", 2000.0, "test", "complete_round_%d" % _rounds_finished)
+		elif _rematch and _rounds_finished == 0:
+			var guest: Node3D = network_match.get("_player")
+			guest.position = Vector3(0, 0, 17)
+			guest.call("set_aim_input", Vector2.LEFT)
 		return
 	_running = true
 	await get_tree().process_frame
@@ -99,7 +137,7 @@ func _on_live() -> void:
 
 
 func _stage(stage: String) -> void:
-	print("TEST SEND STAGE ", stage)
+	print("TEST SEND STAGE %s t=%.1f" % [stage, Time.get_ticks_msec() / 1000.0])
 	_service.call_func(Callable(self, "_guest_stage"), stage)
 
 
@@ -150,6 +188,7 @@ func _run_host() -> void:
 	if not _check(_guest_verified, "guest did not confirm health, projectiles and remote actions"):
 		return
 	remote.call("take_damage", 2000.0, "test", "host_test_death")
+	_check(remote.call("is_real_dead"), "host's lethal hit did not kill the guest")
 
 
 func _guest_stage(stage: String) -> void:
@@ -177,10 +216,45 @@ func _guest_stage(stage: String) -> void:
 			var valid := _seen_projectile and int(remote.get("received_actions")) >= 4 and float(local.call("get_health")) < 900.0
 			_check(valid, "guest presentation or confirmed state missing")
 			_service.call_func(Callable(self, "_guest_result"), valid)
+		"rematch": network_match.get("_rematch_button").pressed.emit()
+		"fulguro_begin": local.call("_begin_fulguro_charge")
+		"fulguro_release": local.call("_release_fulguro_charge")
+		"verify_modules":
+			var valid := float(local.call("get_health")) < 950.0 and float(remote.call("get_health")) < 950.0 and int(local.get("_permutation_revision")) > 0
+			_check(valid, "guest did not receive Fulguro damage and Pelto pull")
+			_service.call_func(Callable(self, "_modules_result"), valid)
 
 
 func _guest_result(ok: bool) -> void:
 	_guest_verified = ok
+
+
+func _modules_result(ok: bool) -> void:
+	_modules_verified = ok
+
+
+func _run_rematch_modules() -> void:
+	var local: Node3D = network_match.get("_player")
+	var remote: Node3D = network_match.get("_target")
+	local.position = Vector3(-1.5, 0, 17)
+	local.call("set_aim_input", Vector2.RIGHT)
+	await get_tree().create_timer(0.3).timeout
+	_stage("fulguro_begin")
+	await get_tree().create_timer(0.45).timeout
+	_stage("fulguro_release")
+	await get_tree().create_timer(0.8).timeout
+	if not _check(float(local.call("get_health")) < 950.0 and int(remote.get("_fulguro_attack_serial")) > 0, "guest Fulguro was not resolved on the host"):
+		return
+	local.position = Vector3(-3.5, 0, 17)
+	local.call("_perform_pelto_smash")
+	await get_tree().create_timer(1.8).timeout
+	if not _check(float(remote.call("get_health")) < 950.0 and int(remote.get("_permutation_revision")) > 0, "host Pelto did not hit and pull the guest"):
+		return
+	_stage("verify_modules")
+	await get_tree().create_timer(0.4).timeout
+	if not _check(_modules_verified, "guest did not confirm the new modules"):
+		return
+	remote.call("take_damage", 2000.0, "test", "rematch_round_0")
 
 
 func _run_draw() -> void:
@@ -195,21 +269,65 @@ func _run_draw() -> void:
 
 
 func _on_finished(host_score: int, guest_score: int, winner_id: int, over: bool) -> void:
-	var expected_winner := int(_session.current_room.host_id) if _rounds_finished == 0 else 0
-	if not _check(host_score == 1 and guest_score == 0 and winner_id == expected_winner and not over, "round result differs from host resolution"):
+	var expected_winner := int(_session.current_room.host_id) if _rematch or _rounds_finished in [0, 2, 4] else int(_session.current_room.guest_id) if _rounds_finished == 3 else 0
+	var expected_host_score := _rounds_finished + 1 if _rematch else 1 if _rounds_finished < 2 else 2 if _rounds_finished < 4 else 3
+	var expected_guest_score := 0 if _rematch or _rounds_finished < 3 else 1
+	if not _check(host_score == expected_host_score and guest_score == expected_guest_score and winner_id == expected_winner and over == (_rounds_finished == (2 if _rematch else 4)), "round result differs from host resolution"):
 		return
 	var local: Node = network_match.get("_player")
-	if _role == "guest" and not _check(bool(local.call("is_real_dead")), "round finished before authoritative death arrived"):
+	if winner_id != 0 and winner_id != _session.local_peer_id() and not _check(bool(local.call("is_real_dead")), "round finished before authoritative death arrived"):
 		return
 	_rounds_finished += 1
-	if _rounds_finished < 2:
+	if _rematch:
+		if over and _role == "guest":
+			await get_tree().create_timer(0.4).timeout
+			network_match.get("_room_button").pressed.emit()
+		return
+	if _rounds_finished < 5:
 		return
 	await get_tree().create_timer(0.4).timeout
-	network_match.call("_finish_to_lobby", "Test terminé.")
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://captures/multi-playable-match-result.png")
+	_check(network_match.get("_rematch_button").is_visible_in_tree() and network_match.get("_room_button").is_visible_in_tree(), "complete match has no playable result controls")
+	var next_build: Dictionary = game_flow.get("loadout").duplicate(true)
+	next_build.offensive = "pelto_smash" if _role == "host" else "fulguro_punch"
+	game_flow.set("loadout", next_build)
+	if _role == "host":
+		network_match.get("_rematch_button").pressed.emit()
+		await get_tree().create_timer(0.3).timeout
+		_check(str(_session.get("_phase")) == "finished", "one player's rematch vote restarted the match alone")
+		_stage("rematch")
+
+
+func _on_returned_to_room(_message: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if _return_verified:
+		return
+	_return_verified = true
+	if not _check(_rematch and not _session.current_room.is_empty() and int(_session.current_room.guest_id) != 0 and str(_session.get("_phase")) == "waiting", "return to lobby did not preserve both players"):
+		return
 	if not _check(game_flow.get("player") == get_node("Player") and game_flow.get("target") == get_node("TargetDummy") and get_node_or_null("NetworkActors") == null, "leaving a match did not restore the solo actors"):
 		return
+	if _role == "guest":
+		_service.call_func(Callable(self, "_peer_returned"))
+		return
+	var deadline := Time.get_ticks_msec() + 3000
+	while not _peer_back and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	if not _check(_peer_back, "guest did not confirm its return to the same lobby"):
+		return
+	_service.call_func(Callable(self, "_complete"))
+	await get_tree().create_timer(0.3).timeout
+	_complete()
+
+
+func _peer_returned() -> void:
+	_peer_back = true
+
+
+func _complete() -> void:
 	_session.leave_room()
 	print("NETWORK GAME TEST: PASS [%s] checks=%d" % [_role, _checks])
 	for audio in get_tree().root.find_children("*", "AudioStreamPlayer", true, false):

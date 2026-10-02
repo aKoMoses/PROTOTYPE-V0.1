@@ -203,6 +203,11 @@ func set_mobility_module(identifier: String) -> void:
 		module_visuals.set_mobility_module(identifier)
 
 
+func set_equipped_modules(equipment: Dictionary) -> void:
+	if module_visuals != null:
+		module_visuals.set_loadout(equipment)
+
+
 var _bush_concealed := false
 var _bush_materials: Array[Dictionary] = []
 

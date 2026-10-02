@@ -665,7 +665,10 @@ func _build_robot() -> void:
 
 func _update_weapon_visuals() -> void:
 	if player._visual_rig != null:
-		player._visual_rig.set_mobility_module(player._mobility_module_id)
+		player._visual_rig.set_equipped_modules({
+			"offensive": player._offensive_module_id, "defensive": player._defensive_module_id,
+			"mobility": player._mobility_module_id, "passive": player.get_passive_id(),
+		})
 	if player._mekatana_pivot != null:
 		player._mekatana_pivot.visible = player._weapon_id == "mekatana" and not player._pelto_weapon_hidden
 	if player._longshot_pivot != null:

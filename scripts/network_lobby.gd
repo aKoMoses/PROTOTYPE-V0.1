@@ -18,6 +18,7 @@ var _guest_status: Label
 var _guest_portrait: TextureRect
 var _host_label: Label
 var _guest_label: Label
+var _joined_hint: Label
 
 func configure(flow: Node) -> void:
 	_flow = flow
@@ -26,6 +27,7 @@ func configure(flow: Node) -> void:
 	session.connection_changed.connect(_on_connection_changed)
 	session.rooms_changed.connect(_on_rooms_changed)
 	session.room_changed.connect(_on_room_changed)
+	session.lobby_busy_changed.connect(func(_busy: bool) -> void: _update_controls())
 	_on_rooms_changed([])
 	_on_room_changed(session.current_room)
 	_update_controls()
@@ -34,6 +36,7 @@ func refresh() -> void:
 	_refresh_clock = 0.0
 	_update_controls()
 	var session := get_node("/root/NetworkSession")
+	_on_room_changed(session.current_room)
 	if session.connected:
 		session.refresh_rooms()
 	else:
@@ -43,7 +46,7 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree():
 		return
 	var session := get_node("/root/NetworkSession")
-	if not session.connected or not session.current_room.is_empty():
+	if not session.connected or session.lobby_busy or not session.current_room.is_empty():
 		return
 	_refresh_clock += delta
 	if _refresh_clock >= 3.0:
@@ -125,7 +128,9 @@ func _build() -> void:
 	_room_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_leave_button = button(_joined, "QUITTER LE SALON", Rect2(189, 582, 265, 46), _leave)
 	_leave_button.name = "LeaveRoom"
-	text(_joined, "L’hôte lance le duel.", Rect2(462, 582, 300, 46), 17, MUTED).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_joined_hint = text(_joined, "L’hôte lance le duel.", Rect2(462, 570, 340, 64), 15, MUTED)
+	_joined_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_joined_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_start_button = button(_joined, "LANCER LE MATCH", Rect2(817, 580, 287, 50), _start_match, true)
 	_start_button.name = "StartMatch"
 	footer()
@@ -145,6 +150,8 @@ func _return_menu() -> void:
 func _on_connection_changed(is_connected: bool, message: String) -> void:
 	# Project configuration belongs in the editor, never in the player's menu.
 	_status.text = "Le multijoueur est indisponible sur cette version." if message.begins_with("Configuration requise") else message
+	if not get_node("/root/NetworkSession").current_room.is_empty():
+		_joined_hint.text = _status.text
 	_update_controls()
 	if not is_connected:
 		_on_rooms_changed([])
@@ -170,12 +177,16 @@ func _on_rooms_changed(rooms: Array) -> void:
 		_portrait(card, true, Rect2(10, 9, 59, 58))
 		var room_title := str(room.get("title", "Salon"))
 		text(card, room_title, Rect2(84, 10, 285, 29), 20, CREAM, true).tooltip_text = room_title
-		text(card, "En attente · %d / 2" % int(room.get("players", 1)), Rect2(84, 40, 285, 25), 16, MUTED)
+		var compatible := bool(room.get("compatible", false))
+		text(card, "En attente · %d / 2" % int(room.get("players", 1)) if compatible else "Version différente du jeu", Rect2(84, 40, 285, 25), 16, MUTED)
 		var join := button(card, "REJOINDRE", Rect2(376, 17, 161, 43), func() -> void:
 			get_node("/root/NetworkSession").join_room(room_title)
 		)
 		join.name = "JoinRoom"
-		join.disabled = not get_node("/root/NetworkSession").current_room.is_empty()
+		join.set_meta("compatible", compatible)
+		join.disabled = not compatible or get_node("/root/NetworkSession").lobby_busy or not get_node("/root/NetworkSession").current_room.is_empty()
+		if not compatible:
+			join.tooltip_text = "Installez tous les deux la même version du jeu."
 
 func _on_room_changed(room: Dictionary) -> void:
 	var in_room := not room.is_empty()
@@ -194,6 +205,7 @@ func _on_room_changed(room: Dictionary) -> void:
 		_guest_status.text = "● CONNECTÉ" if has_guest else "EN ATTENTE"
 		_guest_status.add_theme_color_override("font_color", CYAN if has_guest else MUTED)
 		_room_status.text = "%d / 2 JOUEURS" % (2 if has_guest else 1)
+		_joined_hint.text = "Vous pouvez lancer le duel." if am_host and has_guest else "En attente d'un deuxième joueur." if am_host else "L'hôte lance le duel."
 	_update_controls()
 
 func _update_controls() -> void:
@@ -203,8 +215,14 @@ func _update_controls() -> void:
 	_connection_badge.text = "● EN LIGNE" if session.connected else "● HORS LIGNE"
 	_connection_badge.add_theme_color_override("font_color", CYAN if session.connected else MUTED)
 	_create_button.disabled = not session.connected or in_room
-	_refresh_button.disabled = not session.connected
+	_create_button.disabled = _create_button.disabled or session.lobby_busy
+	_create_button.text = "CONNEXION…" if session.lobby_busy else "CRÉER LE SALON"
+	_refresh_button.disabled = session._connecting or session.lobby_busy
+	_refresh_button.text = "↻  ACTUALISER" if session.connected else "RÉESSAYER"
 	_leave_button.disabled = not in_room
 	_start_button.disabled = not session.connected or not in_room or int(room.get("host_id", -1)) < 0 or int(room.get("host_id", -1)) != session.local_peer_id() or int(room.get("guest_id", 0)) == 0 or str(room.get("phase", "")) not in ["waiting", "finished"]
 	for item in [_create_button, _refresh_button, _leave_button, _start_button]:
 		item.queue_redraw()
+	for row in _room_list.get_children():
+		for join in row.find_children("JoinRoom", "Button", true, false):
+			join.disabled = not session.connected or session.lobby_busy or in_room or not bool(join.get_meta("compatible", false))

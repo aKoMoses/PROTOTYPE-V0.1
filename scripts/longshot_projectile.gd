@@ -83,6 +83,9 @@ func resolve_muzzle_guard(support: Vector3) -> void:
 	# projectile still originates at the muzzle, but this obstruction ends it
 	# immediately, without granting travel or damage bonuses along the barrel.
 	var obstruction := _sweep(support, _origin - support)
+	while _non_blocking_receiver(obstruction) != null:
+		_exclude_target(_non_blocking_receiver(obstruction))
+		obstruction = _sweep(support, _origin - support)
 	if not obstruction.is_empty():
 		obstruction["muzzle_blocked"] = true
 		_finish(obstruction)
@@ -102,6 +105,12 @@ func _physics_process(delta: float) -> void:
 			_distance += step
 			advanced.emit(start, global_position)
 			break
+		var receiver := _non_blocking_receiver(hit)
+		if receiver != null:
+			if receiver.has_method("projectile_impact"):
+				receiver.call("projectile_impact", hit["position"])
+			_exclude_target(receiver)
+			continue
 		var traveled := clampf(float(hit.get("travel", 0.0)), 0.0, step)
 		hit["center_distance"] = _distance + traveled
 		global_position = start + _direction * traveled
@@ -121,6 +130,11 @@ func _physics_process(delta: float) -> void:
 		step -= traveled
 	if _distance >= _range - 0.000001:
 		_finish({})
+
+
+func _non_blocking_receiver(hit: Dictionary) -> CollisionObject3D:
+	var receiver := hit.get("collider") as CollisionObject3D
+	return receiver if receiver != null and receiver.get_meta("non_blocking_projectile_receiver", false) else null
 
 
 func _pierce_target(hit: Dictionary) -> Node:

@@ -16,6 +16,7 @@ var _damage_ids: Dictionary = {}
 var _visual: Node3D
 var _cast: ShapeCast3D
 var _propulsion: AudioStreamPlayer3D
+var _sensor_exclusions: Array[RID] = []
 
 
 func configure(actor: Node3D, identifier: String, heading: Vector3, visual_only: bool = false) -> void:
@@ -98,6 +99,8 @@ func _physics_process(delta: float) -> void:
 		direction = direction.slerp(desired, minf(1.0, turn / angle)).normalized()
 	var motion := direction * float(DATA.MODULE_DEFINITIONS.rocket_basket.speed) * delta
 	_cast.clear_exceptions()
+	for receiver_rid in _sensor_exclusions:
+		_cast.add_exception_rid(receiver_rid)
 	_cast.add_exception_rid(get_rid())
 	if caster is CollisionObject3D:
 		_cast.add_exception_rid(caster.get_rid())
@@ -107,6 +110,15 @@ func _physics_process(delta: float) -> void:
 			_cast.add_exception_rid(rocket.get_rid())
 	_cast.target_position = motion
 	_cast.force_shapecast_update()
+	while _cast.is_colliding():
+		var receiver := _cast.get_collider(0) as CollisionObject3D
+		if receiver == null or not receiver.get_meta("non_blocking_projectile_receiver", false):
+			break
+		if receiver.has_method("projectile_impact"):
+			receiver.call("projectile_impact", _cast.get_collision_point(0))
+		_sensor_exclusions.append(receiver.get_rid())
+		_cast.add_exception_rid(receiver.get_rid())
+		_cast.force_shapecast_update()
 	if _cast.is_colliding():
 		var collider := _cast.get_collider(0) as Node3D
 		global_position += motion * _cast.get_closest_collision_safe_fraction()

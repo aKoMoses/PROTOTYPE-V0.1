@@ -28,6 +28,8 @@ var arm
 var weapon_attachment: BoneAttachment3D
 var weapon_socket: Node3D
 var module_visuals: MODULE_VISUALS
+var module_stations: Node3D
+var weapon_rack: Node3D
 var idle_clip: StringName = &""
 var chassis_id := "polyvalent"
 var weapon_id := "blaster"
@@ -36,6 +38,7 @@ var _normalizing_scale := 1.0
 var _next_service := 1.2
 var _opaque_paint_shader: Shader
 var _opaque_paint_materials: Dictionary = {}
+var _weapon_profiles: Dictionary = {}
 var _robot_pick_bounds := AABB()
 var _rotating_robot := false
 var _equipment_focused := false
@@ -68,6 +71,7 @@ func _ready() -> void:
 	world.name = "WorkshopWorld"
 	viewport.add_child(world)
 	world.add_child(WORKSHOP.instantiate())
+	_close_workshop_edge()
 	_build_environment()
 	_build_robot()
 	arm = SERVICE_ARM.new()
@@ -215,7 +219,7 @@ func set_chassis(identifier: String) -> void:
 		arm.cancel_service()
 		_next_service = 0.8
 	if robot_model.scene_file_path != PAINT.model_path(chassis_id):
-		var mobility := module_visuals.mobility_id
+		var equipment: Dictionary = module_visuals.equipment_ids.duplicate()
 		robot_model.free()
 		robot_model = null
 		skeleton = null
@@ -230,7 +234,7 @@ func set_chassis(identifier: String) -> void:
 		_paint = PAINT.new()
 		_opaque_paint_materials.clear()
 		_build_robot()
-		module_visuals.set_mobility_module(mobility)
+		module_visuals.set_loadout(equipment)
 	robot.scale = Vector3.ONE * _normalizing_scale * float(PAINT.SCALE_FACTORS[chassis_id])
 	_paint.apply(robot_model, chassis_id)
 	_make_paint_opaque()
@@ -254,25 +258,60 @@ func set_weapon(identifier: String) -> void:
 	holder.name = "WeaponGeometry"
 	weapon_socket.add_child(holder)
 	holder.add_child(weapon)
-	var bounds := _bounds(weapon)
+	var bounds: AABB = _weapon_profile(weapon_id).bounds
 	weapon.position -= bounds.get_center()
-	var longest: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
 	# Socket's world transform already cancels the imported centimetre scale.
-	holder.scale = Vector3.ONE * float(WEAPON_LENGTHS[weapon_id]) / maxf(longest, 0.001)
-	var axis := Vector3.RIGHT if bounds.size.x == longest else (Vector3.UP if bounds.size.y == longest else Vector3.BACK)
-	var desired_basis := Basis(Quaternion(axis, Vector3(-0.18, -0.98, 0.02).normalized()))
+	var desired := weapon_mount_transform(weapon_id)
+	holder.scale = desired.basis.get_scale()
+	desired.basis = desired.basis.orthonormalized()
 	skeleton.force_update_all_bone_transforms()
 	var hand_pose: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(weapon_attachment.bone_idx)
-	var hand_offset := -0.50 if weapon_id == "mekatana" else (-0.38 if weapon_id == "longshot" else -0.29)
-	# Keep newly selected weapons in the same pose after manually turning the robot.
-	var turn := Basis(Vector3.UP, robot.rotation.y - ROBOT_YAW)
-	var desired := Transform3D(turn * desired_basis, hand_pose.origin + turn * Vector3(-0.035, hand_offset, 0.02))
 	weapon_socket.transform = hand_pose.affine_inverse() * desired
+
+
+func _weapon_profile(identifier: String) -> Dictionary:
+	if not _weapon_profiles.has(identifier):
+		var source := (WEAPON_MODELS[identifier] as PackedScene).instantiate() as Node3D
+		source.visible = false
+		world.add_child(source)
+		var bounds := _bounds(source)
+		source.free()
+		var longest := maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+		var axis := Vector3.RIGHT if bounds.size.x == longest else (Vector3.UP if bounds.size.y == longest else Vector3.BACK)
+		_weapon_profiles[identifier] = {
+			"bounds": bounds,
+			"basis": Basis(Quaternion(axis, Vector3(-0.18, -0.98, 0.02).normalized())),
+			"scale": float(WEAPON_LENGTHS[identifier]) / maxf(longest, 0.001),
+		}
+	return _weapon_profiles[identifier]
+
+
+func weapon_geometry_bounds(identifier: String) -> AABB:
+	var bounds: AABB = _weapon_profile(identifier).bounds
+	return AABB(bounds.position - bounds.get_center(), bounds.size)
+
+
+func weapon_mount_transform(identifier: String) -> Transform3D:
+	if weapon_attachment == null or not WEAPON_MODELS.has(identifier):
+		return Transform3D.IDENTITY
+	var profile := _weapon_profile(identifier)
+	skeleton.force_update_all_bone_transforms()
+	var hand_pose: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(weapon_attachment.bone_idx)
+	var hand_offset := -0.50 if identifier == "mekatana" else (-0.38 if identifier == "longshot" else -0.29)
+	# The centred raw geometry has this exact world pose in the hand and gripper.
+	var turn := Basis(Vector3.UP, robot.rotation.y - ROBOT_YAW)
+	var basis: Basis = turn * profile.basis
+	return Transform3D(basis.scaled(Vector3.ONE * float(profile.scale)), hand_pose.origin + turn * Vector3(-0.035, hand_offset, 0.02))
 
 
 func set_mobility_module(identifier: String) -> void:
 	if module_visuals != null:
 		module_visuals.set_mobility_module(identifier)
+
+
+func set_equipped_modules(equipment: Dictionary) -> void:
+	if module_visuals != null:
+		module_visuals.set_loadout(equipment)
 
 
 func inspect_robot() -> bool:
@@ -467,6 +506,30 @@ func _make_paint_opaque() -> void:
 				opaque.shader = _opaque_paint_shader
 				_opaque_paint_materials[key] = opaque
 			mesh.set_surface_override_material(surface, _opaque_paint_materials[key])
+
+
+func _close_workshop_edge() -> void:
+	# The original frontal shot never saw the open right edge of the set.
+	# Station travelling shots now need the same enclosed workshop on that side.
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("#544438")
+	material.roughness = 0.84
+	material.metallic = 0.16
+	var wall := MeshInstance3D.new()
+	wall.name = "WorkshopRightWall"
+	var wall_mesh := BoxMesh.new()
+	wall_mesh.size = Vector3(0.22, 7.2, 12.0)
+	wall.mesh = wall_mesh
+	wall.material_override = material
+	wall.position = Vector3(8.85, 3.6, -0.25)
+	world.add_child(wall)
+	for index in 11:
+		var rib := MeshInstance3D.new()
+		rib.mesh = BoxMesh.new()
+		(rib.mesh as BoxMesh).size = Vector3(0.07, 7.0, 0.055)
+		rib.material_override = material
+		rib.position = Vector3(8.70, 3.5, -5.0 + index)
+		world.add_child(rib)
 
 
 func _build_environment() -> void:

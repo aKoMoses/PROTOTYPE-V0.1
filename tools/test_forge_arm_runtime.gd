@@ -51,6 +51,9 @@ func _run() -> void:
 	var draft := {"robot": "agile", "weapon": "shotgun", "offensive": "pelto_smash", "defensive": "counter", "mobility": "permutation", "passive": "alternator"}
 	for category in draft:
 		garage.call("_select_equipment", category, draft[category])
+		# The new rack equips through its own cinematic before saving the build.
+		if garage.module_installation.active:
+			garage.module_installation.finish_now()
 	garage.build_name = "TEST INSTALLATION"
 	check(flow.get("loadout") == before and _bytes(LOADOUT.SAVE_PATH) == backups[LOADOUT.SAVE_PATH].bytes, "six choix en brouillon sans sauvegarde immediate")
 	for frame in 3:

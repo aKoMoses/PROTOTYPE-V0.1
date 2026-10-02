@@ -53,12 +53,18 @@ func _initialize() -> void:
 		if garage == null or not garage.visible:
 			_failures.append("garage officiel inaccessible")
 		var saved_loadout: Dictionary = flow.get("loadout").duplicate(true)
+		var garage_before: Dictionary = garage.get("loadout").duplicate(true)
+		var passive := "omnivamp" if str(garage_before.passive) != "omnivamp" else "tracker"
 		garage.call("_open_modules", "passive")
-		var options: GridContainer = garage.get("_module_options")
-		(options.get_child(1) as Button).emit_signal("pressed")
+		(garage.get("_choices").passive[passive] as Button).pressed.emit()
+		if garage.get("loadout") != garage_before or bool(garage.get("module_installation").active):
+			_failures.append("la carte doit ouvrir un aperçu sans équiper le module")
+		(garage.get("equip_button") as Button).pressed.emit()
+		if garage.get("module_installation").active or str(garage.get("loadout").passive) != passive:
+			_failures.append("Équiper applique le passif sans transport de pièce factice")
 		var current_loadout: Dictionary = flow.get("loadout")
-		if str(garage.get("loadout").passive) != "omnivamp" or current_loadout != saved_loadout:
-			_failures.append("la sélection doit changer le brouillon en conservant le build de combat")
+		if str(garage.get("loadout").passive) != passive or current_loadout != saved_loadout:
+			_failures.append("la pose doit changer le brouillon en conservant le build de combat")
 		(garage.get("_nav")["ARMES"] as Button).emit_signal("pressed")
 		if not (garage.get("weapon_buttons")["shotgun"] as Button).visible or str(garage.get("_category")) != "weapon":
 			_failures.append("la navigation ne ramène pas aux armes")

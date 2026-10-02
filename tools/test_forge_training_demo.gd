@@ -14,6 +14,7 @@ func _run() -> void:
 	root.add_child(garage)
 	current_scene = garage
 	await process_frame
+	garage._navigate("ROBOT")
 	var preview = garage.get("_training_demo")
 	check(not garage.get("_nav").has("INSPECTER"), "les onglets ouvrent les catalogues")
 	for identifier in LOADOUT.ROBOTS:
@@ -34,9 +35,19 @@ func _run() -> void:
 		check(preview.video.is_playing() and preview.video.get_stream_position() > 0, "video decodee et lue : " + identifier)
 		check(preview.title.text == LOADOUT.display_name(identifier), "titre correspondant : " + identifier)
 		check(preview.video.get_video_texture().get_width() >= 640, "image video chargee : " + identifier)
+	garage._navigate("ARMES")
+	check(garage.focus.station_category == "weapon" and garage.stage.weapon_rack.items.size() == LOADOUT.WEAPONS.size(), "ARMES ouvre le ratelier physique distinct")
 	for identifier in LOADOUT.WEAPONS:
+		var before_choice: Dictionary = garage.loadout.duplicate(true)
 		garage.weapon_buttons[identifier].pressed.emit()
-		check(preview.equipment_id == identifier and garage.loadout.weapon == identifier, "selection arme actualise la demo : " + identifier)
+		check(preview.equipment_id == identifier and garage.loadout == before_choice and not garage.module_installation.active, "selection arme actualise la demo sans equiper : " + identifier)
+		garage.equip_button.pressed.emit()
+		if str(before_choice.weapon) == identifier:
+			check(not garage.module_installation.active and garage.loadout == before_choice, "arme deja equipee conserve le build sans transport : " + identifier)
+		else:
+			check(garage.module_installation.active and garage.loadout == before_choice, "equiper attend le transport avant de changer l'arme : " + identifier)
+			garage.module_installation.finish_now()
+		check(preview.equipment_id == identifier and garage.loadout.weapon == identifier, "arme equipee conserve sa demo : " + identifier)
 	var equipped: Dictionary = garage.loadout.duplicate(true)
 	garage.call("_open_weapon_info", "blaster")
 	check(preview.equipment_id == "blaster" and garage.loadout == equipped, "fiche arme montre la demo sans changer le build")
@@ -47,18 +58,22 @@ func _run() -> void:
 		option.mouse_entered.emit()
 		check(garage.loadout == equipped, "survol module preserve le build")
 		option.pressed.emit()
-		check(preview.equipment_id == garage.loadout[category], "selection module actualise la demo")
+		check(preview.equipment_id == str(garage._options(category)[1]) and garage.loadout == equipped, "l'aperçu actualise la démo sans équiper le module")
 		equipped = garage.loadout.duplicate(true)
 	preview.show_equipment("blaster")
 	preview.video.finished.emit()
 	check(preview.video.is_playing(), "lecture en boucle")
 	await check_enlarged(garage, preview)
+	var preview_before_hide: String = preview.equipment_id
 	garage.hide()
 	await process_frame
 	check(not preview.video.is_playing(), "lecture suspendue hors forge")
 	garage.show()
+	check(garage._hub_mode and not preview.video.is_playing(), "la réouverture rend les rangements sans relancer une vidéo cachée")
+	garage._navigate("ARMES")
+	preview.show_equipment(preview_before_hide)
 	await create_timer(0.12).timeout
-	check(preview.video.is_playing(), "lecture reprise a la reouverture")
+	check(preview.video.is_playing(), "lecture reprise à la réouverture du catalogue")
 	for dimensions in [Vector2i(1280, 720), Vector2i(960, 540), Vector2i(1920, 1080)]:
 		root.content_scale_size = dimensions
 		root.size = dimensions
@@ -137,7 +152,11 @@ func check_enlarged(garage, preview) -> void:
 	check(not preview._viewer.visible and not preview.video.is_playing() and preview.video.get_parent() == preview._video_layer, "fermer la forge retire aussi la grande video")
 	garage.show()
 	await process_frame
-	check(not preview._viewer.visible and preview.video.is_playing(), "reouverture avec la miniature")
+	check(garage._hub_mode and not preview._viewer.visible and not preview.video.is_playing(), "réouverture au garage sans vidéo cachée en lecture")
+	garage._navigate("ARMES")
+	preview.show_equipment("mekatana")
+	await process_frame
+	check(not preview._viewer.visible and preview.video.is_playing(), "la fiche rouverte retrouve la miniature")
 	check(garage.loadout == original_build and back_requests[0] == 0, "agrandir preserve le build et la forge")
 
 

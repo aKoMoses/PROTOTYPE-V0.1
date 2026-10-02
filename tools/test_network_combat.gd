@@ -4,6 +4,17 @@ const ACTOR := preload("res://scripts/network_player.gd")
 const DATA := preload("res://scripts/combat_data.gd")
 var _failures := 0
 
+class ActionRelay:
+	extends Node
+	var _phase := "live"
+	var replica: Node
+	var host: Node
+	var requested: Array[String] = []
+	func on_actor_action(actor: Node, action: String, data: Dictionary) -> void:
+		if actor == replica:
+			requested.append(action)
+			host.call("receive_action", action, data)
+
 
 func _initialize() -> void:
 	# GD-Sync's autoloads require a current scene even for standalone test scripts.
@@ -170,6 +181,53 @@ func _run() -> void:
 	b.call("_finalize_passive_death")
 	client.call("receive_snapshot", b.call("network_snapshot"))
 	_check(client.call("is_real_dead"), "Baroud's final death arrives from the host")
+	# Exercise the same begin/release/cancel API used by PC and touch input.
+	_reset(a, b, "static_shield", "fulguro_punch")
+	a.position.x = -1.5
+	client.call("apply_loadout", {"weapon": "blaster", "offensive": "fulguro_punch"})
+	client.call("reset_combat_state")
+	client.call("set_gameplay_enabled", true)
+	client.position = a.position
+	client.set("aim_direction", Vector3.RIGHT)
+	var relay := ActionRelay.new()
+	scene.add_child(relay)
+	relay.replica = client
+	relay.host = a
+	client.set("controller", relay)
+	a.set("controller", relay)
+	client.call("_begin_fulguro_charge")
+	_check(relay.requested == ["fulguro_begin"] and a.call("is_fulguro_charging"), "guest Fulguro charge starts on the host")
+	await create_timer(0.45).timeout
+	client.call("_release_fulguro_charge")
+	_check(relay.requested.has("fulguro_release") and a.get("_fulguro_release_requested"), "guest Fulguro release reaches the host")
+	await create_timer(0.25).timeout
+	_check(float(b.call("get_health")) < 1000.0 and float(a.get("_fulguro_strike_damage")) < float(DATA.MODULE_DEFINITIONS.fulguro_punch.damage_max), "host resolves Fulguro damage from its own charge time")
+	_reset(a, b, "static_shield", "fulguro_punch")
+	client.call("reset_combat_state")
+	client.call("set_gameplay_enabled", true)
+	client.call("_begin_fulguro_charge")
+	client.call("_cancel_fulguro_attack")
+	_check(relay.requested.has("fulguro_cancel") and not a.call("is_fulguro_charging"), "a lost touch contact cancels Fulguro on the host")
+	client.set("controller", null)
+	a.set("controller", null)
+	# Both forced movement and its final correction come from the host.
+	_reset(a, b)
+	client.call("reset_combat_state")
+	client.call("set_gameplay_enabled", true)
+	b.call("start_pelto_pull", Vector3.LEFT, 1.5, 0.15, "test", "pull-test")
+	client.call("receive_snapshot", b.call("network_snapshot"))
+	_check(client.call("is_pelto_pulled"), "confirmed Pelto pull reaches the client")
+	await create_timer(0.25).timeout
+	_check(b.position.x < -1.0 and not b.call("is_pelto_pulled"), "host moves the remote human during Pelto's pull")
+	client.call("receive_snapshot", b.call("network_snapshot"))
+	_check(not client.call("is_pelto_pulled") and client.position.distance_to(b.position) < 0.01, "Pelto ends with the same position on both clients")
+	_reset(a, b)
+	b.call("_perform_static_shield")
+	await create_timer(float(DATA.MODULE_DEFINITIONS.static_shield.minimum_duration) + 0.05).timeout
+	b.call("apply_stun", 1.0, "test")
+	b.call("receive_action", "stasis_exit", {})
+	_check(float(b.get("_stasis_remaining")) <= 0.0, "guest can cancel Static Shield even while stunned")
+	relay.queue_free()
 	# Freeze cleanup before SceneTree exits so pending callbacks cannot hit freed actors.
 	for actor in [a, b, client]:
 		actor.call("set_gameplay_enabled", false)

@@ -222,7 +222,15 @@ static func fits(actor: CharacterBody3D, at: Vector3, check_range: bool = true) 
 	if TERRAIN.terrain(actor) != null:
 		extent_x = 13.4
 		extent_z = 13.4
-	if absf(at.x) > extent_x or absf(at.z) > extent_z:
+	elif scene != null and scene.has_meta("arena_half_size"):
+		var half: Vector2 = scene.get_meta("arena_half_size")
+		extent_x = half.x - 1.0
+		extent_z = half.y - 1.0
+	var outline: PackedVector2Array = scene.get_meta("arena_outline", PackedVector2Array()) if scene != null else PackedVector2Array()
+	if outline.size() >= 3:
+		if not _inside_arena_outline(actor, at, outline):
+			return false
+	elif absf(at.x) > extent_x or absf(at.z) > extent_z:
 		return false
 	for child in actor.get_children():
 		if not child is CollisionShape3D or child.shape == null or child.disabled:
@@ -385,7 +393,25 @@ static func cast_distance(actor: CharacterBody3D, at: Vector3) -> float:
 static func terrain_exclusions(actor: CharacterBody3D) -> Array[RID]:
 	var excluded: Array[RID] = [actor.get_rid()]
 	excluded.append_array(TERRAIN.exclusions(actor))
+	var scene := actor.get_tree().current_scene
+	if scene != null and scene.has_meta("arena_floor_rid"):
+		excluded.append(scene.get_meta("arena_floor_rid"))
 	return excluded
+
+
+static func _inside_arena_outline(actor: CharacterBody3D, at: Vector3, outline: PackedVector2Array) -> bool:
+	var point := Vector2(at.x, at.z)
+	if not Geometry2D.is_point_in_polygon(point, outline):
+		return false
+	for index in range(outline.size()):
+		var start := outline[index]
+		var finish := outline[(index + 1) % outline.size()]
+		var nearest := Geometry2D.get_closest_point_to_segment(point, start, finish)
+		var normal := (finish - start).orthogonal().normalized()
+		var clearance := _body_support(actor, Vector3(normal.x, 0, normal.y)) + 0.015
+		if point.distance_to(nearest) < clearance:
+			return false
+	return true
 
 
 static func pointer_destination(actor: CharacterBody3D, start: Vector3, ray: Vector3) -> Vector3:

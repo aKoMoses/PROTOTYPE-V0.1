@@ -98,9 +98,12 @@ func _run() -> void:
 	session.connected = true
 	var lobby: Control = flow.get("_lobby_panel")
 	flow.call("_open_lobby")
-	lobby.call("_on_rooms_changed", [{"title": "Test room", "players": 1}])
+	lobby.call("_on_rooms_changed", [{"title": "Test room", "players": 1, "compatible": true}])
+	check(not lobby.find_child("JoinRoom", true, false).disabled, "matching version can join")
 	(lobby.find_child("JoinRoom", true, false) as Button).pressed.emit()
 	check(session.requested_join == "Test room", "join button submits correct room identity")
+	lobby.call("_on_rooms_changed", [{"title": "Old room", "players": 1, "compatible": false}])
+	check(lobby.find_child("JoinRoom", true, false).disabled, "incompatible version cannot join")
 	lobby.find_child("RoomName", true, false).text = "Test create"
 	lobby.find_child("CreateRoom", true, false).pressed.emit()
 	check(session.requested_create == "Test create", "create button submits typed name")
@@ -120,7 +123,7 @@ func _run() -> void:
 	check(lobby.get("_browser").visible, "leaving restores browser")
 	session.connected = false
 	lobby.call("_on_connection_changed", false, "Connexion perdue")
-	check(lobby.get("_create_button").disabled and lobby.get("_refresh_button").disabled, "offline controls disabled")
+	check(lobby.get("_create_button").disabled and not lobby.get("_refresh_button").disabled and lobby.get("_refresh_button").text == "RÉESSAYER", "offline lobby offers a connection retry")
 	for dimensions in [Vector2i(1280, 720), Vector2i(1600, 720), Vector2i(960, 540), Vector2i(800, 600)]:
 		root.size = dimensions
 		await process_frame

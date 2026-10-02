@@ -14,4 +14,6 @@ Les sorties rapides de scène ont révélé des démarrages différés de décor
 
 Les régressions du Static Shield vérifient désormais sa sortie immédiate, y compris en réseau. Les contrôles du tactile et de l'audio observent les événements réels et leurs horloges respectives. Le test du scanner utilise une zone d'épaule accessible sur le nouveau châssis et conserve ses vérifications de portée, de collision et de vitesse des articulations. Les vérifications de répétition des finitions attendent la construction différée du décor.
 
+Les changements arrivés sur `main` pendant la préparation sont intégrés : cinq arènes compactes, le râtelier et les nouveaux modules de la forge, le parcours de préparation du duel solo et les corrections réseau. L'import et 24 suites ciblées de forge, cartes, commandes, animations et réseau réussissent après la fusion. Tous les accessoires sont conservés lors d'un remplacement de châssis ; le cadrage d'inspection suit également sa focale. Les tests de sélection attendent la fixation des armes avant de vérifier la sauvegarde complète.
+
 Les résultats locaux détaillés et les empreintes des fichiers vérifiés sont conservés dans `exports/publication-mechas-20261002/`. Le workflow `Android test APK` assure ensuite la compilation et la signature de la version Android ainsi que l'export Windows. Les essais locaux ont été réalisés sur PC.

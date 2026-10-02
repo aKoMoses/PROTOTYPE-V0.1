@@ -219,6 +219,9 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	query.collide_with_bodies = true
 	var excluded: Array[RID] = [body.get_rid()]
 	excluded.append_array(ARENA_TRAVERSAL.exclusions(body))
+	var scene := body.get_tree().current_scene
+	if scene != null and scene.has_meta("arena_floor_rid"):
+		excluded.append(scene.get_meta("arena_floor_rid"))
 	query.exclude = excluded
 	# Godot's motion sweep does not expand all shape types by query.margin.
 	# Inflate the actual query resource so occupancy and sweeps agree at corners.

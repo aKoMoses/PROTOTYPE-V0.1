@@ -9,7 +9,7 @@ const COLORS := {
 	"passive": Color("#bd9aff"),
 }
 const ZONES := {
-	"modulo_drone": "shoulder", "javelin": "arm", "fulguro_punch": "arm", "pelto_smash": "arm",
+	"modulo_drone": "shoulder", "rocket_basket": "shoulder", "javelin": "arm", "fulguro_punch": "arm", "pelto_smash": "arm",
 	"magnetic_field": "torso", "static_shield": "torso",
 	"pyro_boots": "legs", "bio_injector": "core", "baroud": "core", "omnivamp": "core",
 }
@@ -36,6 +36,9 @@ var _materials: Array[StandardMaterial3D] = []
 var _base_alphas: Array[float] = []
 var _light: OmniLight3D
 var _chassis_scale := 1.0
+var station_category := ""
+var _from_fov := 31.0
+var _target_fov := 31.0
 
 
 func configure(garage_stage: Node, picker: Control, interface: Control) -> void:
@@ -47,6 +50,8 @@ func configure(garage_stage: Node, picker: Control, interface: Control) -> void:
 	_design_fov = _base_fov
 	_authored_fov = _base_fov
 	_from = _base
+	_from_fov = _base_fov
+	_target_fov = _base_fov
 	_chassis_scale = stage.robot.scale.x
 	for index in stage.skeleton.get_bone_count():
 		var bone: String = stage.skeleton.get_bone_name(index)
@@ -88,12 +93,17 @@ func fit_layout() -> void:
 	_design_fov = _authored_fov + (6.0 if _framed_chassis == "puissant" else 0.0)
 	var design_height := 720.0 * _ui.scale.y
 	_base_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(_design_fov * 0.5)) * stage.size.y / maxf(design_height, 1.0)))
-	if not stage._equipment_focused or zone != "robot":
+	if zone not in ["garage", "station"]:
+		_target_fov = _base_fov
+	if zone not in ["garage", "station"] and (not stage._equipment_focused or zone != "robot"):
 		stage.camera.fov = _base_fov
 	_reframe()
 
 
 func show_equipment(kind: String, identifier: String, play_effect: bool = true) -> void:
+	station_category = ""
+	_from_fov = stage.camera.fov
+	_target_fov = _base_fov
 	if kind == "robot":
 		show_overview()
 		return
@@ -112,6 +122,9 @@ func show_equipment(kind: String, identifier: String, play_effect: bool = true) 
 
 
 func show_overview(animated: bool = true) -> void:
+	station_category = ""
+	_from_fov = stage.camera.fov
+	_target_fov = _base_fov
 	category = "robot"
 	equipment_id = ""
 	zone = "robot"
@@ -123,6 +136,89 @@ func show_overview(animated: bool = true) -> void:
 	if not animated:
 		stage.camera.global_transform = _base
 		stage.camera.fov = _base_fov
+
+
+func show_garage(animated: bool = true) -> void:
+	category = "robot"
+	equipment_id = ""
+	station_category = ""
+	zone = "garage"
+	_from = stage.camera.global_transform
+	_from_fov = stage.camera.fov
+	_target_fov = 40.0
+	_transition = 0.0 if animated else 1.0
+	stage.set_equipment_focus(false)
+	_clear_effects()
+	effect_elapsed = EFFECT_TIME
+	if not animated:
+		stage.camera.global_transform = _garage_transform()
+		stage.camera.fov = _target_fov
+
+
+func show_station(kind: String, animated: bool = true) -> void:
+	var provider := _station_provider(kind)
+	if provider == null or not COLORS.has(kind):
+		return
+	category = kind
+	equipment_id = ""
+	station_category = kind
+	zone = "station"
+	_from = stage.camera.global_transform
+	_from_fov = stage.camera.fov
+	_target_fov = 36.0
+	_transition = 0.0 if animated else 1.0
+	stage.set_equipment_focus(true)
+	if stage.module_stations != null:
+		stage.module_stations.highlight(kind)
+	if stage.weapon_rack != null:
+		stage.weapon_rack.highlight(kind)
+	_clear_effects()
+	effect_elapsed = EFFECT_TIME
+	if not animated:
+		stage.camera.global_transform = _station_transform()
+		stage.camera.fov = _target_fov
+
+
+func _garage_transform() -> Transform3D:
+	var bounds := AABB(Vector3(-4.35, 0.1, -3.6), Vector3(8.65, 3.5, 6.0))
+	if stage.weapon_rack != null:
+		bounds = bounds.merge(stage.weapon_rack.bounds("weapon").grow(0.22))
+	return cinematic_frame(bounds, Vector3(-0.24, 0.25, 1.0), 40.0)
+
+
+func _station_provider(kind: String) -> Node3D:
+	return stage.weapon_rack if kind == "weapon" else stage.module_stations
+
+
+func _station_transform() -> Transform3D:
+	var provider := _station_provider(station_category)
+	if provider == null:
+		return _garage_transform()
+	var bounds: AABB = provider.bounds(station_category).grow(0.22)
+	var direction := Vector3(float({"weapon": 0.55, "offensive": -0.36, "defensive": 0.9, "passive": -0.65, "mobility": 0.24}.get(station_category, 0.0)), 0.60 if station_category == "passive" else 0.24, 1.0)
+	return cinematic_frame(bounds, direction, _target_fov)
+
+
+func cinematic_frame(bounds: AABB, direction: Vector3, fov: float = 36.0) -> Transform3D:
+	var target := bounds.get_center()
+	direction = direction.normalized()
+	var basis := Basis.looking_at(-direction, Vector3.UP)
+	var rect := frame_rect()
+	var control_size: Vector2 = stage.size
+	var fraction := rect.size / control_size
+	var aspect := float(stage.viewport.size.x) / maxf(stage.viewport.size.y, 1.0)
+	var tangent := tan(deg_to_rad(fov * 0.5))
+	var distance := 2.5
+	for corner in 8:
+		var relative := bounds.get_endpoint(corner) - target
+		var depth := relative.dot(direction)
+		distance = maxf(distance, absf(relative.dot(basis.x)) / maxf(tangent * aspect * fraction.x * 0.9, 0.01) + depth)
+		distance = maxf(distance, absf(relative.dot(basis.y)) / maxf(tangent * fraction.y * 0.9, 0.01) + depth)
+	var center := rect.get_center() / control_size
+	var position := target + direction * distance
+	position -= basis.x * ((center.x - 0.5) * 2.0 * tangent * distance * aspect)
+	position += basis.y * ((center.y - 0.5) * 2.0 * tangent * distance)
+	return Transform3D(basis, position)
 
 
 func preview_equipment(kind: String, identifier: String) -> void:
@@ -147,10 +243,29 @@ func advance(delta: float) -> void:
 			var bone: String = stage.skeleton.get_bone_name(index)
 			_bones[bone.to_lower().trim_prefix("mixamorig_").trim_prefix("mixamorig:")] = index
 		fit_layout()
-	_transition = minf(_transition + delta / TRANSITION_TIME, 1.0)
-	var weight := _transition * _transition * (3.0 - 2.0 * _transition)
-	var desired := _base if zone == "robot" else _focused_transform()
+	var duration := 0.9 if zone in ["garage", "station"] else TRANSITION_TIME
+	_transition = minf(_transition + delta / duration, 1.0)
+	var weight := _transition * _transition * _transition * (_transition * (_transition * 6.0 - 15.0) + 10.0)
+	var desired := _base
+	if zone == "garage":
+		desired = _garage_transform()
+	elif zone == "station":
+		desired = _station_transform()
+	elif zone != "robot":
+		desired = _focused_transform()
 	stage.camera.global_transform = _from.interpolate_with(desired, weight)
+	stage.camera.fov = lerpf(_from_fov, _target_fov, weight)
+	var lens := stage.camera.attributes as CameraAttributesPractical
+	if lens != null:
+		lens.dof_blur_far_enabled = zone != "garage"
+		var target := Vector3(0, 1.7, 0)
+		if zone == "station":
+			var provider := _station_provider(station_category)
+			if provider != null:
+				target = provider.bounds(station_category).get_center()
+		elif zone != "robot" and zone != "garage":
+			target = region_bounds().get_center()
+		lens.dof_blur_far_distance = stage.camera.global_position.distance_to(target) + 2.0
 	effect_elapsed = minf(effect_elapsed + delta, EFFECT_TIME)
 	_update_effects()
 
@@ -179,7 +294,7 @@ func frame_rect() -> Rect2:
 
 func region_bounds() -> AABB:
 	var factor := _scale_factor()
-	if equipment_id in ["pyro_boots", "bio_injector"] and zone != "robot" and stage.module_visuals != null:
+	if stage.module_visuals != null and stage.module_visuals.has_model(equipment_id) and zone != "robot":
 		# Frame the installed housing and enough neighbouring armor to locate it.
 		return stage.module_visuals.module_bounds(equipment_id).grow(0.22 * factor)
 	if zone == "weapon" and stage.weapon_socket != null:
@@ -204,7 +319,12 @@ func region_bounds() -> AABB:
 func _focused_transform() -> Transform3D:
 	var bounds := region_bounds()
 	var target := bounds.get_center()
-	var basis := Basis.looking_at(-_view_direction, Vector3.UP)
+	var direction := _view_direction
+	if stage.module_visuals != null and stage.module_visuals.has_model(equipment_id):
+		var module_pose: Transform3D = stage.module_visuals.module_transform(equipment_id)
+		# Inspect the authored face, including heel exhausts and the rear reactor.
+		direction = (module_pose.basis.z.normalized() + Vector3.UP * 0.14 + stage.robot.global_basis.x.normalized() * 0.12).normalized()
+	var basis := Basis.looking_at(-direction, Vector3.UP)
 	var rect := frame_rect()
 	var viewport_size := Vector2(stage.viewport.size)
 	var control_size: Vector2 = stage.size
@@ -215,11 +335,11 @@ func _focused_transform() -> Transform3D:
 	# Fit all corners in the actual free area, including wide/rotated weapons.
 	for corner in 8:
 		var relative := bounds.get_endpoint(corner) - target
-		var depth := relative.dot(_view_direction)
+		var depth := relative.dot(direction)
 		distance = maxf(distance, absf(relative.dot(basis.x)) / maxf(tangent * aspect * fraction.x * 0.88, 0.01) + depth)
 		distance = maxf(distance, absf(relative.dot(basis.y)) / maxf(tangent * fraction.y * 0.88, 0.01) + depth)
 	var center := rect.get_center() / control_size
-	var position := target + _view_direction * distance
+	var position := target + direction * distance
 	position -= basis.x * ((center.x - 0.5) * 2.0 * tangent * distance * aspect)
 	position += basis.y * ((center.y - 0.5) * 2.0 * tangent * distance)
 	return Transform3D(basis, position)
@@ -297,6 +417,10 @@ func _build_effects() -> void:
 		color = Color("#85ffc0")
 	elif equipment_id == "baroud":
 		color = Color("#ff745d")
+	if stage.module_visuals != null and stage.module_visuals.has_model(equipment_id):
+		_build_module_effects(color)
+		_update_effects()
+		return
 	var bone := "RightFoot" if cue_zone == "legs" else ("RightHand" if cue_zone in ["weapon", "arm"] else ("RightShoulder" if cue_zone == "shoulder" else ("Spine1" if cue_zone == "core" else "Spine")))
 	var offset := Vector3(0, 0.01, 0.34) if cue_zone == "core" else (Vector3(0, -0.08, 0.34) if bone == "Spine" else Vector3(0, -0.05, 0.19))
 	var center := _holder(bone, offset)
@@ -356,6 +480,39 @@ func _build_effects() -> void:
 	_update_effects()
 
 
+func _build_module_effects(color: Color) -> void:
+	var modules = stage.module_visuals
+	for key in modules.mounts:
+		if str(modules.MOUNT_IDS[key]) != equipment_id:
+			continue
+		var mount := modules.mounts[key] as Node3D
+		var holder := _holder("", Vector3.ZERO)
+		holder.set_meta("module_mount", key)
+		var bounds := AABB()
+		var first := true
+		for child in mount.get_children():
+			if child is MeshInstance3D:
+				bounds = child.mesh.get_aabb() if first else bounds.merge(child.mesh.get_aabb())
+				first = false
+		var radius := clampf(maxf(bounds.size.x, bounds.size.y) * 0.22, 0.016, 0.045)
+		var halo := TorusMesh.new()
+		halo.inner_radius = radius - 0.002
+		halo.outer_radius = radius + 0.002
+		halo.rings = 24
+		halo.ring_segments = 6
+		var ring := _mesh(holder, halo, color, 0.35)
+		ring.rotation.x = PI * 0.5
+		ring.position.z = 0.004
+		if _light == null:
+			_light = OmniLight3D.new()
+			_light.light_color = color
+			_light.omni_range = 0.24
+			_light.light_energy = 0.0
+			_light.position.z = 0.02
+			_light.set_meta("compact_module", true)
+			holder.add_child(_light)
+
+
 func _update_effects() -> void:
 	if _holders.is_empty():
 		return
@@ -366,6 +523,12 @@ func _update_effects() -> void:
 	var intensity := smoothstep(0.12, 0.30, time) * (1.0 - smoothstep(0.68, 1.0, time))
 	var rotation: Basis = stage.robot.global_basis.orthonormalized()
 	for holder in _holders:
+		if holder.has_meta("module_mount"):
+			var key := str(holder.get_meta("module_mount"))
+			var mount := stage.module_visuals.mounts[key] as Node3D
+			holder.global_transform = mount.global_transform
+			holder.global_position = (mount.get_node("ServicePoint") as Node3D).global_position
+			continue
 		var offset: Vector3 = holder.get_meta("offset")
 		var orbit: float = holder.get_meta("orbit")
 		if not is_zero_approx(orbit):
@@ -381,5 +544,8 @@ func _update_effects() -> void:
 		color.a = _base_alphas[index] * intensity
 		_materials[index].albedo_color = color
 	if _light != null:
-		_light.light_energy = intensity * (0.65 + 0.15 * sin(effect_elapsed * 18.0))
+		if _light.has_meta("compact_module"):
+			_light.light_energy = intensity * (0.16 + 0.0368 * sin(effect_elapsed * 18.0))
+		else:
+			_light.light_energy = intensity * (0.65 + 0.15 * sin(effect_elapsed * 18.0))
 	_effects.visible = effect_elapsed < EFFECT_TIME

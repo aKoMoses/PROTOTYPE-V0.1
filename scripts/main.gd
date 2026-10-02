@@ -4,6 +4,10 @@ const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
 const ARENA_HAZARDS := preload("res://scripts/arena_hazards.gd")
 const TEST_ARENA := preload("res://scripts/test_arena.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
+const COMPACT_ARENAS := preload("res://scripts/compact_arena_catalog.gd")
+const COMPACT_STAGE := preload("res://scripts/compact_arena_stage.gd")
+const COMPACT_MECHANISMS := preload("res://scripts/compact_arena_mechanisms.gd")
+const OPEN_MECHANISMS := preload("res://scripts/open_arena_mechanisms.gd")
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
@@ -44,8 +48,14 @@ var duel_active := false
 var arena_variant := "classic"
 var _arena_hazards: Node3D
 var _classic_arena_nodes: Array[Node3D] = []
-var _classic_blockers: Array[StaticBody3D] = []
 var _test_arena: Node3D
+var _classic_hazards: Node3D
+var _compact_stage: Node3D
+var _classic_arena_roots: Array[Node] = []
+var _classic_arena_blockers: Array[StaticBody3D] = []
+var _classic_environment: Environment
+var _classic_light_color := Color.WHITE
+var _classic_light_energy := 1.0
 var _bot_build: Dictionary = {}
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
@@ -129,35 +139,44 @@ func _trim_fx_budget() -> void:
 
 
 func _ready() -> void:
+	var remembered_arena := str(get_tree().get_meta("selected_duel_arena", "classic"))
 	set_meta("camera_shake_enabled", true)
 	var vfx := VFX_MANAGER_SCRIPT.new()
 	vfx.name = "VFXManager"
 	add_child(vfx)
 	_build_environment()
-	var existing_nodes := get_children()
+	var before_arena := get_children()
 	_build_arena()
-	for child in get_children():
-		if child is Node3D and not child in existing_nodes:
-			_classic_arena_nodes.append(child)
-	_classic_blockers.assign(_arena_blockers)
+	for node in get_children():
+		if node not in before_arena:
+			_classic_arena_roots.append(node)
+			if node is Node3D:
+				_classic_arena_nodes.append(node)
+	_classic_arena_blockers.assign(_arena_blockers)
 	_build_player()
 	_build_camera()
 	_build_target()
 	_arena_hazards = ARENA_HAZARDS.new()
 	_arena_hazards.name = "ArenaHazards"
 	add_child(_arena_hazards)
+	_classic_hazards = _arena_hazards
 	_arena_hazards.call("configure", player, target)
 	_build_interface()
-	add_child(ARENA_PRESENTATION.instantiate())
+	var presentation := ARENA_PRESENTATION.instantiate()
+	add_child(presentation)
+	_classic_arena_roots.append(presentation)
 	fog_of_war = FOG_OF_WAR_SCRIPT.new()
 	fog_of_war.name = "FogOfWar"
 	add_child(fog_of_war)
 	fog_of_war.call("configure", player, get_node("CameraRig/Camera3D"))
 	fog_of_war.call("set_enabled", false)
 	get_node("/root/NetworkSession").match_started.connect(_on_network_match_started)
+	if remembered_arena != "classic":
+		game_flow.call_deferred("_select_arena", remembered_arena)
 
 
 func _on_network_match_started(host_id: int, guest_id: int) -> void:
+	# Online sessions currently agree on the classic arena only.
 	set_arena_variant("classic")
 	if _arena_hazards != null:
 		_arena_hazards.call("set_enabled", false)
@@ -1694,6 +1713,8 @@ func set_menu_showcase_enabled(value: bool) -> void:
 		set_arena_variant("classic")
 	if DisplayServer.get_name() == "headless":
 		return
+	if COMPACT_ARENAS.is_compact(arena_variant):
+		value = false
 	if _menu_showcase_active == value:
 		return
 	_menu_showcase_active = value
@@ -1782,14 +1803,17 @@ func start_duel(loadout: Dictionary, rematch: bool = false) -> void:
 func prepare_round(loadout: Dictionary) -> void:
 	duel_active = true
 	if _arena_hazards != null:
-		_arena_hazards.call("set_enabled", arena_variant == "hazards" and not is_instance_valid(network_match))
+		_arena_hazards.call("set_enabled", (arena_variant == "hazards" or COMPACT_ARENAS.is_compact(arena_variant)) and not is_instance_valid(network_match))
 	if player == null or target == null:
 		return
-	reset_round_camera()
 	clear_transient_fx()
-	player.position = Vector3(-3.5, 0.0, 11.8) if arena_variant == "test" else Vector3(-3.5, 0.0, 17.0)
-	target.position = Vector3(3.5, 0.0, -11.8) if arena_variant == "test" else Vector3(3.5, 0.0, 15.5)
-	target.call("set_training_bot_spawn_position", target.position)
+	var spawns := get_arena_spawns()
+	player.position = spawns[0]
+	target.position = spawns[1]
+	player.velocity = Vector3.ZERO
+	if COMPACT_ARENAS.is_compact(arena_variant):
+		player.set("aim_direction", (target.position - player.position).normalized())
+	reset_round_camera()
 	target.call("set_duel_mode", true)
 	var round_key := str(game_flow.match_id if game_flow != null else 0)
 	# Keep the opponent's identity and build for the whole match, including draws.
@@ -1805,6 +1829,10 @@ func prepare_round(loadout: Dictionary) -> void:
 	target.call("set_duel_loadout", _bot_build)
 	target.call("set_bot_difficulty", bot_difficulty)
 	target.call("set_training_bot_enabled", false)
+	target.call("set_training_bot_spawn_position", target.position)
+	var bot_controller := target.get_node_or_null("TrainingBot")
+	if bot_controller != null:
+		bot_controller.set("duel_arena_limit", minf(get_arena_half_size().x, get_arena_half_size().y) - 0.6 if COMPACT_ARENAS.is_compact(arena_variant) else (TEST_ARENA.PLAYABLE_HALF_EXTENTS.x if arena_variant == "test" else 27.0))
 	target.call("reset_combat_state")
 	player.call("apply_loadout", loadout)
 	player.call("reset_combat_state")
@@ -1834,6 +1862,8 @@ func activate_round() -> void:
 	player.call("set_gameplay_enabled", true)
 	target.call("set_training_bot_enabled", true)
 	_set_repair_kits_active(true)
+	if is_instance_valid(_compact_stage):
+		_compact_stage.set("running", true)
 	if _arena_hazards != null:
 		_arena_hazards.call("start_round")
 
@@ -1844,6 +1874,8 @@ func restart_duel(loadout: Dictionary) -> void:
 
 func stop_duel() -> void:
 	duel_active = false
+	if is_instance_valid(_compact_stage):
+		_compact_stage.set("running", false)
 	if _arena_hazards != null:
 		_arena_hazards.call("stop_round")
 	clear_transient_fx()
@@ -1857,44 +1889,163 @@ func stop_duel() -> void:
 
 
 func set_arena_variant(value: String) -> void:
-	var next := value if value in ["classic", "hazards", "test"] else "classic"
+	var selected := COMPACT_ARENAS.sanitize(value)
 	if is_instance_valid(network_match):
-		next = "classic"
-	if next != arena_variant and (next == "test" or arena_variant == "test"):
-		if _test_arena == null:
-			_test_arena = TEST_ARENA.new()
-			_test_arena.name = "TestArena"
-			add_child(_test_arena)
-			_test_arena.call("configure", _classic_arena_nodes, self)
-		var testing := next == "test"
-		for node in _classic_arena_nodes:
-			_set_arena_branch_active(node, not testing)
-		_set_arena_branch_active(_test_arena, testing)
-		var presentation := get_node_or_null("ArenaPresentation") as Node3D
-		if presentation != null:
-			presentation.visible = not testing
-		_arena_blockers.clear()
-		if testing:
-			for body in _test_arena.find_children("*", "StaticBody3D", true, false):
-				if body.get_meta("blocks_navigation", false):
-					_arena_blockers.append(body)
-			_arena_blockers.append_array(_test_arena.get("surfaces"))
-		else:
-			_arena_blockers.assign(_classic_blockers)
-		for surface in _test_arena.get("surfaces"):
-			if testing:
-				player.add_collision_exception_with(surface)
-			else:
+		selected = "classic"
+	if selected != arena_variant:
+		_set_repair_kits_active(false)
+		if _arena_hazards != null:
+			_arena_hazards.call("stop_round")
+		if is_instance_valid(_test_arena) and _test_arena.get_parent() == self:
+			for surface in _test_arena.get("surfaces"):
 				player.remove_collision_exception_with(surface)
-	arena_variant = next
-	if sight_tracker != null:
-		sight_tracker.call("_cache_obstacles")
-	if player != null:
-		ARENA_TRAVERSAL.snap(player)
-	if target != null:
-		ARENA_TRAVERSAL.snap(target)
+			_set_arena_branch_active(_test_arena, false)
+			remove_child(_test_arena)
+		if is_instance_valid(_compact_stage):
+			remove_child(_compact_stage)
+			_compact_stage.queue_free()
+			_compact_stage = null
+		if _arena_hazards != _classic_hazards and is_instance_valid(_arena_hazards):
+			remove_child(_arena_hazards)
+			_arena_hazards.queue_free()
+		remove_meta("arena_floor_rid")
+		remove_meta("arena_outline")
+		arena_variant = selected
+		var custom := COMPACT_ARENAS.is_compact(selected) or selected == "test"
+		for node in _classic_arena_roots:
+			_set_arena_branch_active(node, true)
+			if custom and selected != "test" and node.get_parent() == self:
+				remove_child(node)
+			elif (not custom or selected == "test") and node.get_parent() == null:
+				add_child(node)
+		if COMPACT_ARENAS.is_compact(selected):
+			if _classic_hazards.get_parent() == self:
+				remove_child(_classic_hazards)
+			_compact_stage = COMPACT_STAGE.new()
+			_compact_stage.set("arena_id", selected)
+			add_child(_compact_stage)
+			_arena_blockers.clear()
+			for body in _compact_stage.find_children("*", "StaticBody3D", true, false):
+				if body.is_in_group("arena_solid"):
+					_arena_blockers.append(body)
+			var compact_floor := _compact_stage.get_node("CompactFloor") as StaticBody3D
+			set_meta("arena_floor_rid", compact_floor.get_rid())
+			set_meta("arena_outline", COMPACT_ARENAS.footprint(selected))
+			_arena_hazards = OPEN_MECHANISMS.new() if COMPACT_ARENAS.definition(selected).get("mechanism", "") == "open" else COMPACT_MECHANISMS.new()
+			_arena_hazards.set("arena_id", selected)
+			_arena_hazards.name = "ArenaHazards"
+			add_child(_arena_hazards)
+			_arena_hazards.call("configure", player, target)
+			if _arena_hazards.has_method("set_stage"):
+				_arena_hazards.call("set_stage", _compact_stage)
+		else:
+			if _classic_hazards.get_parent() == null:
+				add_child(_classic_hazards)
+			_arena_hazards = _classic_hazards
+			if selected == "test":
+				if not is_instance_valid(_test_arena):
+					_test_arena = TEST_ARENA.new()
+					_test_arena.name = "TestArena"
+					add_child(_test_arena)
+					_test_arena.call("configure", _classic_arena_nodes, self)
+				elif _test_arena.get_parent() == null:
+					add_child(_test_arena)
+				_set_arena_branch_active(_test_arena, true)
+				_arena_blockers.clear()
+				for body in _test_arena.find_children("*", "StaticBody3D", true, false):
+					if body.get_meta("blocks_navigation", false):
+						_arena_blockers.append(body)
+				_arena_blockers.append_array(_test_arena.get("surfaces"))
+				for surface in _test_arena.get("surfaces"):
+					player.add_collision_exception_with(surface)
+				# The older test-map API keeps the inactive courtyard accessible.
+				for node in _classic_arena_roots:
+					_set_arena_branch_active(node, false)
+			else:
+				_arena_blockers.assign(_classic_arena_blockers)
+		_apply_arena_atmosphere()
+		set_meta("arena_half_size", get_arena_half_size())
+		if sight_tracker != null:
+			sight_tracker.call("configure", self, player, target)
 	if _arena_hazards != null:
-		_arena_hazards.call("set_enabled", arena_variant == "hazards" and not is_instance_valid(network_match))
+		_arena_hazards.call("set_enabled", (arena_variant == "hazards" or COMPACT_ARENAS.is_compact(arena_variant)) and not is_instance_valid(network_match))
+	if COMPACT_ARENAS.is_compact(arena_variant):
+		set_menu_showcase_enabled(false)
+		var spawns := get_arena_spawns()
+		player.position = spawns[0]
+		target.position = spawns[1]
+	ARENA_TRAVERSAL.snap(player)
+	ARENA_TRAVERSAL.snap(target)
+	reset_round_camera()
+
+
+func get_arena_half_size() -> Vector2:
+	if arena_variant == "test":
+		return TEST_ARENA.MAP_HALF_EXTENTS
+	return COMPACT_ARENAS.definition(arena_variant).half_size if COMPACT_ARENAS.is_compact(arena_variant) else Vector2(29, 29)
+
+
+func get_arena_spawns() -> Array:
+	if arena_variant == "test":
+		return [Vector3(-3.5, 0, 11.8), Vector3(3.5, 0, -11.8)]
+	return COMPACT_ARENAS.definition(arena_variant).spawns if COMPACT_ARENAS.is_compact(arena_variant) else [Vector3(-3.5, 0, 17), Vector3(3.5, 0, 15.5)]
+
+
+func _apply_arena_atmosphere() -> void:
+	var environment: WorldEnvironment
+	for child in get_children():
+		if child is WorldEnvironment:
+			environment = child
+			break
+	if environment == null:
+		return
+	var sun := get_node("ArenaKeyLight") as DirectionalLight3D
+	if _classic_environment == null:
+		_classic_environment = environment.environment.duplicate(true)
+		_classic_light_color = sun.light_color
+		_classic_light_energy = sun.light_energy
+	if not COMPACT_ARENAS.is_compact(arena_variant):
+		environment.environment = _classic_environment.duplicate(true)
+		sun.light_color = _classic_light_color
+		sun.light_energy = _classic_light_energy
+		return
+	var palette: Array = {
+		"heliostat": [Color("#638c9b"), Color("#c2d7df"), Color("#ffe1b2"), 1.12, 0.42],
+		"tideglass": [Color("#244e59"), Color("#a3cbc3"), Color("#e2efcd"), 1.10, 0.43],
+		"clockwork": [Color("#242339"), Color("#bdbbd8"), Color("#ffe0b9"), 1.14, 0.43],
+		"gyre": [Color("#18232c"), Color("#a0bac5"), Color("#ffd0a7"), 1.22, 0.45],
+		"resonance": [Color("#202b42"), Color("#b6cedc"), Color("#ffe2dd"), 1.08, 0.43],
+	}.get(arena_variant, [Color("#171b1e"), Color("#aab4b7"), Color("#f2d7b5"), 1.08])
+	environment.environment.background_color = palette[0]
+	environment.environment.background_mode = Environment.BG_COLOR
+	environment.environment.sky = null
+	if arena_variant == "heliostat":
+		var sky := Sky.new()
+		var sky_material := ProceduralSkyMaterial.new()
+		sky_material.sky_top_color = Color("#426d91")
+		sky_material.sky_horizon_color = Color("#b8d0ce")
+		sky_material.ground_horizon_color = Color("#b8d0ce")
+		sky_material.ground_bottom_color = Color("#567f96")
+		sky_material.sky_curve = 0.45
+		sky_material.ground_curve = 0.5
+		sky.sky_material = sky_material
+		environment.environment.sky = sky
+		environment.environment.background_mode = Environment.BG_SKY
+	environment.environment.ambient_light_color = palette[1]
+	environment.environment.ambient_light_energy = palette[4]
+	sun.light_color = palette[2]
+	sun.light_energy = palette[3]
+
+
+func _exit_tree() -> void:
+	# Detached classic roots stay available for instant map changes during play.
+	for node in _classic_arena_roots:
+		if is_instance_valid(node) and node.get_parent() == null:
+			node.queue_free()
+	if is_instance_valid(_test_arena) and _test_arena.get_parent() == null:
+		_test_arena.queue_free()
+	if is_instance_valid(_classic_hazards) and _classic_hazards.get_parent() == null:
+		_classic_hazards.queue_free()
 
 
 func _set_arena_branch_active(node: Node, enabled: bool) -> void:

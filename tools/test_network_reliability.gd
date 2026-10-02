@@ -9,6 +9,20 @@ var live_count := 0
 class RelayProbe:
 	extends Node
 	var sent: Array[String] = []
+	var sender := 22
+	var creations := 0
+	var joins := 0
+	var created_public := true
+	var published := false
+	var protocol := ""
+	func get_sender_id() -> int: return sender
+	func stop_multiplayer() -> void: pass
+	func lobby_create(_title: String, _password: String, public: bool, _limit: int, _tags: Dictionary) -> void:
+		creations += 1
+		created_public = public
+	func lobby_join(_title: String) -> void: joins += 1
+	func lobby_get_tag(_key: String, _default: String) -> String: return protocol
+	func lobby_set_visibility(public: bool) -> void: published = public
 	func is_host() -> bool: return true
 	func get_client_id() -> int: return 11
 	func get_host() -> int: return 11
@@ -83,6 +97,50 @@ func _run() -> void:
 	root.add_child(session)
 	session._service = relay
 	session.connected = true
+	session.current_room = {"host_id": 11, "guest_id": 22}
+	session.set_process(false)
+	# Rapid taps cannot create multiple rooms or race a second join request.
+	session.current_room = {}
+	session.create_room("Test rapide")
+	session.create_room("Deuxième clic")
+	session.join_room("Autre salon")
+	_check(relay.creations == 1 and relay.joins == 0 and session.lobby_busy, "un seul salon est créé même lors d'appuis répétés")
+	_check(not relay.created_public, "le salon attend son créateur avant d'apparaître dans la liste")
+	relay.protocol = session.compatibility_id()
+	session._on_lobby_joined("Test rapide")
+	_check(relay.published and not session.current_room.is_empty(), "le salon devient public une fois le créateur installé")
+	session.leave_room()
+	session._on_lobby_creation_failed("Test", 1)
+	_check(not session.lobby_busy, "une erreur de salon permet de réessayer")
+	session.join_room("Test")
+	session.join_room("Test")
+	_check(relay.joins == 1, "un seul appel pour rejoindre le salon")
+	session._on_lobby_join_failed("Test", 1)
+	var listed: Array = []
+	session.rooms_changed.connect(func(rooms: Array) -> void: listed.assign(rooms))
+	session._on_lobbies_received([
+		{"Name": "Compatible", "PlayerCount": 1, "Tags": {"p0_protocol": session.compatibility_id()}},
+		{"Name": "Ancienne version", "PlayerCount": 1, "Tags": {}},
+		{"Name": "Complet", "PlayerCount": 2}])
+	_check(listed.size() == 2 and listed[0].compatible and not listed[1].compatible, "la liste distingue les versions incompatibles et les salons pleins")
+	session.current_room = {"host_id": 11, "guest_id": 22}
+	session.start_match()
+	var start_token: String = session._match_token
+	session.match_ready({"weapon": "shotgun"})
+	session._process(session.HANDSHAKE_INTERVAL)
+	_check(relay.sent.count("_remote_start_match") == 2, "le lancement est renvoyé tant que l'invité n'a pas confirmé")
+	session._process(session.MATCH_LOAD_TIMEOUT)
+	_check(session._phase == "waiting" and session.current_room.phase == "waiting" and not session.current_room.is_empty(), "un chargement bloqué revient au salon sans attente infinie")
+	_check(session._retired_tokens.has(start_token), "un lancement expiré ne peut pas reprendre plus tard")
+	# Both players must accept a rematch; messages from an old match are ignored.
+	session._phase = "finished"
+	session._match_token = "finished-match"
+	session.request_rematch()
+	_check(session._phase == "finished" and session._rematch_ids.size() == 1, "la revanche attend l'accord des deux joueurs")
+	session._host_rematch("old-match")
+	_check(session._rematch_ids.size() == 1, "une ancienne demande de revanche est ignorée")
+	session._host_return_to_room("finished-match")
+	_check(session._phase == "waiting" and not session.current_room.is_empty(), "l'invité peut ramener les deux joueurs au salon")
 	session.current_room = {"host_id": 11, "guest_id": 22}
 	session.round_live.connect(func() -> void: live_count += 1)
 	# The old countdown must not complete a replacement match's countdown.

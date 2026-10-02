@@ -1,0 +1,19 @@
+{
+  "asset": "auxiliary_reactor",
+  "triangles": 3100,
+  "material_batches": 5,
+  "bytes": 889820,
+  "sha256": "a84a6aa23fa503caa720e27b5b0dce59ea21bde59ed89202b407bfd35d68b66b",
+  "blender_bounds_min": [
+    -0.07950000464916229,
+    -0.05859999731183052,
+    -0.1296263337135315
+  ],
+  "blender_bounds_max": [
+    0.07950000464916229,
+    0.00800000037997961,
+    0.12947316467761993
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/auxiliary_reactor.blend"
+}
