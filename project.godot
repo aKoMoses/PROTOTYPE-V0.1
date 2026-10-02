@@ -24,7 +24,7 @@ NetworkSession="*res://scripts/network_session.gd"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GD-Sync/plugin.cfg")
+enabled=PackedStringArray("res://addons/GD-Sync/plugin.cfg", "res://addons/choices_site/plugin.cfg")
 
 [display]
 

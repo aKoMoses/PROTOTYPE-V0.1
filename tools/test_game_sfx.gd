@@ -25,6 +25,9 @@ func _initialize() -> void:
 		await physics_frame
 		await physics_frame
 		player.call("_perform_javelin")
+		# The real launch now advances the charge in the Player physics loop,
+		# which this fixture disables to keep both collision actors stationary.
+		player.call("_update_javelin_charge", 1.0)
 		for _frame in range(240):
 			await physics_frame
 			if bool(target.call("has_javelin_mark")):

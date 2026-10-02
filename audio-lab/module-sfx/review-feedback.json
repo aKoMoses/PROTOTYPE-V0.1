@@ -1,0 +1,9 @@
+{
+  "batch_status": "rejected_by_user",
+  "specifically_rejected_cues": ["rocket-arm", "projector-passive", "counter-overload"],
+  "feedback_summary": "Signaux trop semblables et désagréables ; le lot manque de sens sonore par rapport aux armes précédentes.",
+  "next_scope": ["rocket_basket", "counter"],
+  "revision_directory": "revisions/rocket-counter-v2",
+  "generator": "Stable Audio",
+  "integration_authorized": false
+}

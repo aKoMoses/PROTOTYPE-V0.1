@@ -52,6 +52,10 @@ jobs:
               tools/test_arena_art_contract.gd)
                 godot --headless --path . --script "res://$test_file" -- verify docs/arena_art_gameplay_baseline.json
                 ;;
+              tools/test_forge_training_demo_pack.gd)
+                godot --headless --path . --export-pack 'Windows Desktop' "$RUNNER_TEMP/forge-demo-smoke.pck"
+                godot --headless --path . --script "res://$test_file" -- "$RUNNER_TEMP/forge-demo-smoke.pck"
+                ;;
               tools/test_longshot_presentation.gd|tools/test_weapon_attachment_runtime.gd)
                 xvfb-run -a godot --audio-driver Dummy --rendering-method gl_compatibility --path . --script "res://$test_file"
                 ;;

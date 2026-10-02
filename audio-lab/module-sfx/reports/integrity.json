@@ -1,0 +1,164 @@
+{
+  "status": "pass",
+  "candidate_count": 22,
+  "preview_count": 10,
+  "format": "WAV PCM16 stereo 44100 Hz",
+  "technical_checks": [
+    {
+      "id": "rocket-arm",
+      "status": "pass",
+      "onset_seconds": 0.00619,
+      "rms_dbfs": -24.14,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "rocket-volley",
+      "status": "pass",
+      "onset_seconds": 0.00268,
+      "rms_dbfs": -24.9,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "rocket-propulsion",
+      "status": "pass",
+      "onset_seconds": 0.0,
+      "rms_dbfs": -30.0,
+      "loop_boundary_difference": 0.00335693359375
+    },
+    {
+      "id": "rocket-impact",
+      "status": "pass",
+      "onset_seconds": 0.00107,
+      "rms_dbfs": -23.23,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "rocket-destroyed",
+      "status": "pass",
+      "onset_seconds": 0.0012,
+      "rms_dbfs": -23.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "counter-guard",
+      "status": "pass",
+      "onset_seconds": 0.00624,
+      "rms_dbfs": -25.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "counter-intercept",
+      "status": "pass",
+      "onset_seconds": 0.00161,
+      "rms_dbfs": -24.03,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "counter-overload",
+      "status": "pass",
+      "onset_seconds": 0.0024,
+      "rms_dbfs": -27.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "counter-discharge",
+      "status": "pass",
+      "onset_seconds": 0.00079,
+      "rms_dbfs": -20.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "projector-charge",
+      "status": "pass",
+      "onset_seconds": 0.00218,
+      "rms_dbfs": -25.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "projector-wave",
+      "status": "pass",
+      "onset_seconds": 0.00052,
+      "rms_dbfs": -22.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "projector-repulse",
+      "status": "pass",
+      "onset_seconds": 0.00351,
+      "rms_dbfs": -26.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "projector-passive",
+      "status": "pass",
+      "onset_seconds": 0.00236,
+      "rms_dbfs": -22.09,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "permutation-send",
+      "status": "pass",
+      "onset_seconds": 0.00558,
+      "rms_dbfs": -25.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "permutation-travel",
+      "status": "pass",
+      "onset_seconds": 0.00036,
+      "rms_dbfs": -29.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "permutation-swap",
+      "status": "pass",
+      "onset_seconds": 0.00177,
+      "rms_dbfs": -24.71,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "permutation-shield",
+      "status": "pass",
+      "onset_seconds": 0.00617,
+      "rms_dbfs": -27.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "eclipse-aim",
+      "status": "pass",
+      "onset_seconds": 0.0085,
+      "rms_dbfs": -27.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "eclipse-vanish",
+      "status": "pass",
+      "onset_seconds": 0.00084,
+      "rms_dbfs": -24.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "eclipse-travel",
+      "status": "pass",
+      "onset_seconds": 0.00061,
+      "rms_dbfs": -29.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "eclipse-arrival",
+      "status": "pass",
+      "onset_seconds": 0.00079,
+      "rms_dbfs": -19.0,
+      "loop_boundary_difference": null
+    },
+    {
+      "id": "eclipse-shield",
+      "status": "pass",
+      "onset_seconds": 0.00082,
+      "rms_dbfs": -27.0,
+      "loop_boundary_difference": null
+    }
+  ],
+  "listening_validation": "pending user audition",
+  "integrated_in_game": false
+}

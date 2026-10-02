@@ -1,0 +1,396 @@
+{
+  "revision": 2,
+  "model": "Stable Audio 3 Small-SFX",
+  "module_count": 2,
+  "candidate_count": 9,
+  "integrated_in_game": true,
+  "selection": "accepted by user",
+  "modules": {
+    "rocket_basket": {
+      "name": "Panier roquettes",
+      "meaning": "Des roquettes physiques : on ouvre le rack, elles s'arrachent du lanceur, puis frappent ou sont détruites en vol.",
+      "scenario": [
+        [
+          "rocket-arm",
+          0.5,
+          1
+        ],
+        [
+          "rocket-launch",
+          1.0,
+          1
+        ],
+        [
+          "rocket-flight",
+          1.22,
+          0.7
+        ],
+        [
+          "rocket-impact",
+          2.5,
+          1
+        ],
+        [
+          "rocket-destroyed",
+          3.9,
+          1
+        ]
+      ]
+    },
+    "counter": {
+      "name": "Counter",
+      "meaning": "Le coup est stoppé. Son énergie est aspirée dans le robot, puis violemment rendue au prochain impact.",
+      "scenario": [
+        [
+          "counter-guard",
+          0.5,
+          1
+        ],
+        [
+          "counter-parry",
+          1.1,
+          1
+        ],
+        [
+          "counter-capture",
+          1.17,
+          0.8
+        ],
+        [
+          "counter-release",
+          2.85,
+          1
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "rocket-arm",
+      "module": "rocket_basket",
+      "label": "Ouverture / armement",
+      "meaning": "Le rack s'ouvre et verrouille les roquettes : poids, glissière, clac final.",
+      "kind": "accent",
+      "file": "candidates\\rocket-arm.wav",
+      "sha256": "21e1af35de1356dbdd34c4fdaa82d8072b7f4b4405e75a86f788ec67b2024f46",
+      "source": "raw\\rocket-arm.wav",
+      "source_sha256": "c2f5e33625a1a6709a144f7c28af70f36062cb010a793362cac55c5e2c43997b",
+      "source_interval_seconds": [
+        0.2,
+        0.7
+      ],
+      "duration_seconds": 0.5,
+      "main_peak_offset": 0.37415,
+      "source_rms_dbfs": -31.51,
+      "gain_db": 3.69,
+      "output_rms_dbfs": -27.82,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "rocket-launch",
+      "module": "rocket_basket",
+      "label": "Départ des roquettes",
+      "meaning": "Une poussée brûlante arrache la salve au lanceur, sans tir de fusil.",
+      "kind": "accent",
+      "file": "candidates\\rocket-launch.wav",
+      "sha256": "9b3c56ea6430a0f30456dede966ce5805a8812c0fb16319aabb1b08450bcd0b8",
+      "source": "raw\\rocket-launch.wav",
+      "source_sha256": "fac8388d9c9cc303b00cd51fcbd182f32122f13e735ee1adda44d1f61f385111",
+      "source_interval_seconds": [
+        0.02891,
+        0.68891
+      ],
+      "duration_seconds": 0.66,
+      "main_peak_offset": 0.41508,
+      "source_rms_dbfs": -12.99,
+      "gain_db": -7.01,
+      "output_rms_dbfs": -20.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "rocket-flight",
+      "module": "rocket_basket",
+      "label": "Propulsion en vol",
+      "meaning": "La poussée continue des moteurs suit les roquettes ; elle reste sous les impacts.",
+      "kind": "loop",
+      "file": "candidates\\rocket-flight.wav",
+      "sha256": "1c53678ce8684d4163f24cd9b5bd1469d7afcabbc994b1271706a12e82afd1db",
+      "source": "raw\\rocket-flight.wav",
+      "source_sha256": "167bc36e19f21c305753b9062fc4c669a8f53a3665746c4f1661ef60a5c0345f",
+      "source_interval_seconds": [
+        0.25612,
+        1.56113
+      ],
+      "duration_seconds": 1.25,
+      "main_peak_offset": null,
+      "source_rms_dbfs": -22.0,
+      "gain_db": -7.0,
+      "output_rms_dbfs": -29.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "rocket-impact",
+      "module": "rocket_basket",
+      "label": "Impact explosif",
+      "meaning": "La roquette atteint sa cible : détonation courte, pression et débris.",
+      "kind": "accent",
+      "file": "candidates\\rocket-impact.wav",
+      "sha256": "f552039d83fe6a3165d56f31beea5e228e1d0f0bb3b08470065fb183d0bc1b68",
+      "source": "raw\\rocket-impact.wav",
+      "source_sha256": "4e7f6f07924b876849a16816acff17371d646697a8a901386c37ff32fb4687ca",
+      "source_interval_seconds": [
+        0.00397,
+        0.88397
+      ],
+      "duration_seconds": 0.88,
+      "main_peak_offset": 0.07585,
+      "source_rms_dbfs": -12.11,
+      "gain_db": -6.89,
+      "output_rms_dbfs": -19.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "rocket-destroyed",
+      "module": "rocket_basket",
+      "label": "Roquette détruite en vol",
+      "meaning": "La carcasse éclate avant la cible : petit éclatement fragile, distinct de l'impact.",
+      "kind": "accent",
+      "file": "candidates\\rocket-destroyed.wav",
+      "sha256": "42f4a90a78a523bb95496f331499a51e2c32455d55afd6b18072e60465ba2d90",
+      "source": "raw\\rocket-destroyed.wav",
+      "source_sha256": "80e4877be5eb8fb9eea1d84a62f484b58209c8e6ea834add86c289b41781b7ae",
+      "source_interval_seconds": [
+        0.0,
+        0.35
+      ],
+      "duration_seconds": 0.35,
+      "main_peak_offset": 0.00998,
+      "source_rms_dbfs": -23.94,
+      "gain_db": -2.05,
+      "output_rms_dbfs": -25.99,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "counter-guard",
+      "module": "counter",
+      "label": "Mise en garde",
+      "meaning": "Le robot se ferme au coup : une tension physique brève, pas un signal d'interface.",
+      "kind": "accent",
+      "file": "candidates\\counter-guard.wav",
+      "sha256": "855a4965e44a24c2b1b1800f55a5debc75572428905141a15ba17d95406d04b4",
+      "source": "raw\\counter-guard.wav",
+      "source_sha256": "ab2835d5758e1c9b228f1e68e636053a70e131cce36e2937a7a45a6f2b0b6a2c",
+      "source_interval_seconds": [
+        2.88741,
+        3.03821
+      ],
+      "duration_seconds": 0.15079365079365079,
+      "main_peak_offset": 0.04093,
+      "source_rms_dbfs": -28.64,
+      "gain_db": 3.64,
+      "output_rms_dbfs": -25.0,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "counter-parry",
+      "module": "counter",
+      "label": "Attaque arrêtée",
+      "meaning": "Le choc est net : on doit sentir que le coup adverse vient d'être bloqué.",
+      "kind": "accent",
+      "file": "candidates\\counter-parry.wav",
+      "sha256": "7737795d935cf52b5085073d0bc264c1a90e4f20e9c3861d9944d4681a883689",
+      "source": "raw\\counter-parry.wav",
+      "source_sha256": "3c2d50da767c73c9f0de2f20229d5ac5a13eb5df8b06a1ce61b4d51f5cbb746d",
+      "source_interval_seconds": [
+        0.31825,
+        0.57381
+      ],
+      "duration_seconds": 0.25555555555555554,
+      "main_peak_offset": 0.03594,
+      "source_rms_dbfs": -20.26,
+      "gain_db": -1.45,
+      "output_rms_dbfs": -21.71,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "counter-capture",
+      "module": "counter",
+      "label": "Énergie capturée / surcharge",
+      "meaning": "Après la parade, l'énergie rentre dans le robot : aspiration et crépitement contenu.",
+      "kind": "accent",
+      "file": "candidates\\counter-capture.wav",
+      "sha256": "b456b80e7d3469abe7c38058a661cb3f60067e23c1f54318ae4c075c8d84bb35",
+      "source": "raw\\counter-capture.wav",
+      "source_sha256": "b61f37c970be8099eee42fe7dc6f1e187aec3e419c2a544d8ebee2b47a3d7496",
+      "source_interval_seconds": [
+        0.6,
+        0.99
+      ],
+      "duration_seconds": 0.39,
+      "main_peak_offset": 0.07483,
+      "source_rms_dbfs": -31.3,
+      "gain_db": 1.04,
+      "output_rms_dbfs": -30.26,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    },
+    {
+      "id": "counter-release",
+      "module": "counter",
+      "label": "Énergie renvoyée à l'impact",
+      "meaning": "L'énergie stockée ressort au contact : décharge plus brutale que l'absorption.",
+      "kind": "accent",
+      "file": "candidates\\counter-release.wav",
+      "sha256": "0978b34c56330d2b24134156ed68159ce8be873a3a1bab65109a15160af482c7",
+      "source": "raw\\counter-release.wav",
+      "source_sha256": "5ede21853308ee057b9029fb43d62fc67cd3a9e49e7a5ae0d3c06e2c01624c2e",
+      "source_interval_seconds": [
+        0.41304,
+        1.13304
+      ],
+      "duration_seconds": 0.72,
+      "main_peak_offset": 0.17063,
+      "source_rms_dbfs": -25.69,
+      "gain_db": 2.56,
+      "output_rms_dbfs": -23.12,
+      "envelope": "natural source envelope; only short edge fades; no universal rising ramp",
+      "decision": "accepted by user"
+    }
+  ],
+  "previews": {
+    "rocket_basket": {
+      "isolated": {
+        "file": "previews\\rocket_basket-isolated.wav",
+        "events": [
+          {
+            "id": "rocket-arm",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "rocket-launch",
+            "time": 1.8,
+            "gain": 1
+          },
+          {
+            "id": "rocket-flight",
+            "time": 3.31,
+            "gain": 1
+          },
+          {
+            "id": "rocket-impact",
+            "time": 5.41,
+            "gain": 1
+          },
+          {
+            "id": "rocket-destroyed",
+            "time": 7.14,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 8.44,
+        "headroom_gain": 1,
+        "sha256": "c07eddb3adc28fd460db4e98146193d8171d28ff2b723242b1e6cb26d2e158f1"
+      },
+      "scenario": {
+        "file": "previews\\rocket_basket-scenario.wav",
+        "events": [
+          {
+            "id": "rocket-arm",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "rocket-launch",
+            "time": 1.0,
+            "gain": 1
+          },
+          {
+            "id": "rocket-flight",
+            "time": 1.22,
+            "gain": 0.7
+          },
+          {
+            "id": "rocket-impact",
+            "time": 2.5,
+            "gain": 1
+          },
+          {
+            "id": "rocket-destroyed",
+            "time": 3.9,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 5.05,
+        "headroom_gain": 1,
+        "sha256": "bd0ce6cbb5f8b1f908730ee232f1fa2ce909b7c1301a48f3187e1e94742ce7b4"
+      }
+    },
+    "counter": {
+      "isolated": {
+        "file": "previews\\counter-isolated.wav",
+        "events": [
+          {
+            "id": "counter-guard",
+            "time": 0.45,
+            "gain": 1
+          },
+          {
+            "id": "counter-parry",
+            "time": 1.4508,
+            "gain": 1
+          },
+          {
+            "id": "counter-capture",
+            "time": 2.5563,
+            "gain": 1
+          },
+          {
+            "id": "counter-release",
+            "time": 3.7963,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 5.466349206349206,
+        "headroom_gain": 1,
+        "sha256": "6485434c6c546cc09883865c5f1c71505415f608e682eb8bab7a9f854c6544dc"
+      },
+      "scenario": {
+        "file": "previews\\counter-scenario.wav",
+        "events": [
+          {
+            "id": "counter-guard",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "counter-parry",
+            "time": 1.1,
+            "gain": 1
+          },
+          {
+            "id": "counter-capture",
+            "time": 1.17,
+            "gain": 0.8
+          },
+          {
+            "id": "counter-release",
+            "time": 2.85,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 4.37,
+        "headroom_gain": 1,
+        "sha256": "9350091c92a5a75bafecad7f47d7016a41ab137869592f6da8b1b0bbaab32183"
+      }
+    }
+  },
+  "review_boundary": "User accepted the pair. Gameplay wiring and cleanup verified headlessly; live listening and two-computer network test not performed."
+}

@@ -1,12 +1,20 @@
 extends Control
 
-## First playable workshop. All selections use the existing loadout contract.
+## A complete draft build. Only the end of the installation commits it.
 signal equipment_selected(category: String, identifier: String)
+signal build_saved(equipment: Dictionary)
+signal test_requested(equipment: Dictionary)
+signal settings_requested
 signal back_requested
 signal start_requested
 signal arena_selected(identifier: String)
 
 const STAGE := preload("res://scripts/forge_garage_stage.gd")
+const EQUIPMENT_FOCUS := preload("res://scripts/forge_garage_focus.gd")
+const TRAINING_DEMO := preload("res://scripts/forge_training_demo.gd")
+const INSTALLATION := preload("res://scripts/forge_build_installation.gd")
+const MODULE_INSTALLATION := preload("res://scripts/forge_module_installation.gd")
+const LIBRARY := preload("res://scripts/garage_build_library.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const DATA := preload("res://scripts/combat_data.gd")
 const ICONS := preload("res://scripts/equipment_icons.gd")
@@ -16,29 +24,59 @@ const DESIGN_SIZE := Vector2(1280, 720)
 const AMBER := Color("#f5b844")
 const CREAM := Color("#eee5ce")
 const CYAN := Color("#69e0e8")
+const CATEGORY_TITLES := {"offensive": "OFFENSIF", "defensive": "DÉFENSIF", "mobility": "MOBILITÉ", "passive": "PASSIF"}
+const TAGS := {
+	"agile": "Rapidité", "polyvalent": "Équilibre", "puissant": "Résistance",
+	"blaster": "Tir précis · charge", "shotgun": "Salves rapprochées", "mekatana": "Combo · mêlée", "longshot": "Longue portée",
+	"rocket_basket": "Roquettes guidées", "javelin": "Marquage · recast", "fulguro_punch": "Charge · impact", "pelto_smash": "Vague · traction",
+	"magnetic_field": "Mur protecteur", "static_shield": "Stase invulnérable", "projector": "Repousse · ralentit", "counter": "Garde · riposte",
+	"pyro_boots": "Dash enflammé", "bio_injector": "Vitesse · attaques", "permutation": "Échange de positions", "eclipse": "Déplacement intangible",
+	"baroud": "Dernière chance", "omnivamp": "Vol de vie", "auxiliary_reactor": "Recharge offensive", "tracker": "Révèle la cible", "alternator": "+15 % prochain coup", "inertia": "Ralentit après un dash",
+}
 
 var loadout: Dictionary = LOADOUT.defaults()
 var stage
+var focus
+var installation: INSTALLATION
+var module_installation: MODULE_INSTALLATION
 var robot_buttons: Dictionary = {}
 var weapon_buttons: Dictionary = {}
 var module_buttons: Dictionary = {}
 var arena_buttons: Dictionary = {}
+var library_path := LIBRARY.SAVE_PATH
+var legacy_save_path := LOADOUT.SAVE_PATH
+var build_name := "DUELLISTE"
+var build_id := ""
+var _library: Dictionary
+var _active_loadout: Dictionary = {}
+var _pending_library: Dictionary = {}
 var _icons := ICONS.new()
 var _ui: Control
 var _stat_name: Label
 var _health: Label
 var _speed: Label
-var _health_bar: ProgressBar
-var _speed_bar: ProgressBar
 var _status: Label
-var _inspect: Button
-var _module_panel: PanelContainer
-var _module_options: VBoxContainer
-var _module_title: Label
-var _module_category := "offensive"
+var _training_demo: TRAINING_DEMO
+var _module_panel: Panel
+var _module_options: GridContainer
+var _module_category := "passive"
+var _category := "passive"
 var _nav: Dictionary = {}
-var _arena_label: Label
-var _weapon_info_id := ""
+var _grids: Dictionary = {}
+var _choices: Dictionary = {}
+var _detail_icon: TextureRect
+var _detail_title: Label
+var _detail_description: Label
+var _detail_stats: Label
+var _missing_demo: Label
+var _save_button: Button
+var _build_selector: OptionButton
+var _header_name: Label
+var _rename_panel: Panel
+var _name_input: LineEdit
+var _notice_time := 0.0
+var _rotating_robot := false
+var _touch_index := -1
 
 
 func _ready() -> void:
@@ -49,69 +87,243 @@ func _ready() -> void:
 	custom_theme.default_font = BODY_FONT
 	custom_theme.default_font_size = 16
 	theme = custom_theme
+	_library = LIBRARY.load_local(library_path, legacy_save_path)
+	build_id = str(_library.active)
+	for entry in _library.builds:
+		if str(entry.id) == build_id:
+			loadout = entry.loadout.duplicate(true)
+			build_name = entry.name
 	stage = STAGE.new()
 	stage.name = "GarageStage"
+	stage.automatic_service_enabled = false
 	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(stage)
+	stage.camera.position -= stage.camera.global_basis.x * 0.58
 	_build_interface()
+	focus = EQUIPMENT_FOCUS.new()
+	focus.name = "EquipmentFocus"
+	focus.configure(stage, _module_panel, _ui)
+	stage.add_child(focus)
+	installation = INSTALLATION.new()
+	installation.name = "BuildInstallation"
+	installation.configure(stage, focus)
+	add_child(installation)
+	installation.completed.connect(_finish_save)
+	installation.cancelled.connect(_cancel_save)
+	module_installation = MODULE_INSTALLATION.new()
+	module_installation.name = "ModuleInstallation"
+	module_installation.configure(stage, focus)
+	add_child(module_installation)
 	resized.connect(_layout)
 	visibility_changed.connect(_sync_visibility)
 	_layout()
 	_refresh()
+	_open_modules("passive")
 	_sync_visibility()
 
 
-func _process(_delta: float) -> void:
-	if stage.arm != null:
-		_status.text = stage.arm.phase_name()
-		_inspect.disabled = stage.arm.active
+func _process(delta: float) -> void:
+	if _notice_time > 0:
+		_notice_time -= delta
+		if _notice_time <= 0:
+			_status.text = ""
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or installation.active:
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed and _touch_index == -1 and stage.is_robot_at_position(event.position):
+			module_installation.cancel(false)
+			_touch_index = event.index
+			_rotating_robot = true
+			stage.begin_robot_rotation()
+			accept_event()
+		elif event.index == _touch_index and (not event.pressed or event.canceled):
+			_stop_robot_rotation()
+			accept_event()
+	elif event is InputEventScreenDrag and event.index == _touch_index:
+		stage.rotate_robot(event.relative.x * TAU * 2.0 / maxf(size.x, 1.0))
+		accept_event()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION:
+		if event.pressed and stage.is_robot_at_position(event.position):
+			module_installation.cancel(false)
+			_rotating_robot = true
+			stage.begin_robot_rotation()
+			mouse_default_cursor_shape = Control.CURSOR_DRAG
+			accept_event()
+		elif not event.pressed and _rotating_robot:
+			_stop_robot_rotation()
+			accept_event()
+	elif event is InputEventMouseMotion:
+		if _rotating_robot:
+			if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+				stage.rotate_robot(event.relative.x * TAU * 2.0 / maxf(size.x, 1.0))
+			else:
+				_stop_robot_rotation()
+			accept_event()
+		else:
+			mouse_default_cursor_shape = Control.CURSOR_DRAG if stage.is_robot_at_position(event.position) else Control.CURSOR_ARROW
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_stop_robot_rotation()
+		if module_installation != null:
+			module_installation.cancel()
+
+
+func _stop_robot_rotation() -> void:
+	_rotating_robot = false
+	_touch_index = -1
+	mouse_default_cursor_shape = Control.CURSOR_ARROW
+	if stage != null:
+		stage.end_robot_rotation()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if _module_panel.visible:
-			_module_panel.hide()
-		else:
-			back_requested.emit()
+		if not installation.active:
+			if _rename_panel.visible:
+				_rename_panel.hide()
+			else:
+				back_requested.emit()
 		get_viewport().set_input_as_handled()
 
 
 func set_loadout(value: Dictionary) -> void:
-	loadout = LOADOUT.sanitize(value)
+	if installation != null and installation.active:
+		return
+	var equipment := LOADOUT.sanitize(value)
+	if equipment == _active_loadout:
+		return
+	if module_installation != null:
+		module_installation.cancel()
+	_active_loadout = equipment.duplicate(true)
+	loadout = equipment
 	if _ui != null:
 		_refresh()
+		_show_detail(_category, str(loadout[_category]))
+
+
+func draft_state() -> Dictionary:
+	return {"loadout": loadout.duplicate(true), "name": build_name, "id": build_id}
+
+
+func restore_draft(value: Dictionary) -> void:
+	if installation.active:
+		return
+	module_installation.cancel()
+	loadout = LOADOUT.sanitize(value.get("loadout", loadout))
+	build_name = LIBRARY.normalize_name(str(value.get("name", build_name)))
+	build_id = str(value.get("id", build_id))
+	_refresh()
+	_show_detail(_category, str(loadout[_category]))
+
+
+func is_dirty() -> bool:
+	if build_id != str(_library.active):
+		return true
+	for entry in _library.builds:
+		if str(entry.id) == build_id:
+			return entry.loadout != loadout or str(entry.name) != build_name
+	return true
 
 
 func set_arena_options(enabled: bool, selected: String = "classic") -> void:
-	_arena_label.visible = enabled
 	for identifier in arena_buttons:
 		var button: Button = arena_buttons[identifier]
 		button.visible = enabled
-		var frame := _style(identifier == selected)
-		frame.content_margin_top = 4
-		frame.content_margin_bottom = 4
-		button.add_theme_stylebox_override("normal", frame)
+		button.add_theme_stylebox_override("normal", _style(identifier == selected))
 
 
 func _choose_arena(identifier: String) -> void:
+	if installation.active:
+		return
 	set_arena_options(true, identifier)
 	arena_selected.emit(identifier)
 
 
 func _select_equipment(category: String, identifier: String) -> void:
+	if installation.active:
+		return
+	module_installation.cancel(false)
 	loadout[category] = identifier
 	loadout = LOADOUT.sanitize(loadout)
 	_refresh()
+	_show_detail(category, identifier)
+	if category == "mobility" and identifier in ["pyro_boots", "bio_injector"]:
+		module_installation.begin(identifier)
+	else:
+		focus.preview_equipment(category, identifier)
 	equipment_selected.emit(category, str(loadout[category]))
 
 
+func _save_build() -> void:
+	if installation.active:
+		return
+	module_installation.cancel()
+	_finish_rename()
+	_stop_robot_rotation()
+	_pending_library = LIBRARY.with_build(_library, build_id, build_name, loadout)
+	_training_demo.close_enlarged()
+	if not installation.begin(loadout):
+		_notice("Bras indisponible. Réessaie.")
+		return
+	_save_button.disabled = true
+	_ui.hide()
+
+
+func _finish_save() -> void:
+	if LIBRARY.save_local(_pending_library, library_path, legacy_save_path):
+		_library = _pending_library
+		build_id = str(_library.active)
+		for entry in _library.builds:
+			if str(entry.id) == build_id:
+				loadout = entry.loadout.duplicate(true)
+				build_name = entry.name
+		_active_loadout = loadout.duplicate(true)
+		build_saved.emit(loadout.duplicate(true))
+		_notice("Build sauvegardé")
+	else:
+		_notice("Sauvegarde impossible. Réessaie.")
+	_pending_library = {}
+	_ui.show()
+	_save_button.disabled = false
+	_refresh()
+	_show_detail(_category, str(loadout[_category]))
+
+
+func _cancel_save() -> void:
+	_pending_library = {}
+	_ui.show()
+	_save_button.disabled = false
+
+
+func _test_build() -> void:
+	if not installation.active:
+		module_installation.cancel()
+		_finish_rename()
+		test_requested.emit(loadout.duplicate(true))
+
+
+func _request_back() -> void:
+	if not installation.active:
+		back_requested.emit()
+
+
 func _sync_visibility() -> void:
-	set_process(is_visible_in_tree())
-	set_process_unhandled_key_input(is_visible_in_tree())
-	if not is_visible_in_tree() and _module_panel != null:
-		_module_panel.hide()
+	var active := is_visible_in_tree()
+	set_process(active)
+	set_process_unhandled_key_input(active)
+	if not active:
+		_stop_robot_rotation()
+		if module_installation != null:
+			module_installation.cancel(false)
+		if installation != null:
+			installation.cancel()
 
 
 func _layout() -> void:
@@ -121,22 +333,19 @@ func _layout() -> void:
 	_ui.scale = Vector2.ONE * ratio
 	_ui.position = (size - DESIGN_SIZE * ratio) * 0.5
 	_ui.size = DESIGN_SIZE
+	if focus != null:
+		focus.fit_layout()
 
 
 func _style(active: bool = false, strong: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.085, 0.067, 0.92) if not active else Color(0.23, 0.16, 0.075, 0.95)
-	style.border_color = AMBER if active else Color("#74604a")
+	style.bg_color = Color(0.085, 0.075, 0.06, 0.94) if not active else Color(0.23, 0.16, 0.075, 0.96)
+	style.border_color = AMBER if active else Color("#625544")
 	style.set_border_width_all(2 if active else 1)
 	style.set_corner_radius_all(3)
-	style.content_margin_left = 15
-	style.content_margin_right = 15
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	style.shadow_color = Color(0, 0, 0, 0.5)
-	style.shadow_size = 12 if strong else 5
-	if active:
-		style.shadow_color = Color(1, 0.52, 0.1, 0.12)
+	style.set_content_margin_all(8)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 8 if strong else 0
 	return style
 
 
@@ -160,307 +369,366 @@ func _button(text: String, pos: Vector2, dimensions: Vector2, callback: Callable
 	button.size = dimensions
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_override("font", DISPLAY_FONT)
-	button.add_theme_font_size_override("font_size", 17)
+	button.add_theme_font_size_override("font_size", 15)
 	button.add_theme_color_override("font_color", CREAM)
-	button.add_theme_stylebox_override("normal", _style(active))
-	button.add_theme_stylebox_override("hover", _style(true))
-	button.add_theme_stylebox_override("pressed", _style(true))
-	button.add_theme_stylebox_override("focus", _style(true))
-	button.add_theme_stylebox_override("disabled", _style(false))
-	button.add_theme_color_override("font_disabled_color", Color("#baa989"))
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, _style(active if state == "normal" else state != "disabled"))
 	button.pressed.connect(callback)
 	_ui.add_child(button)
 	return button
+
+
+func _panel(pos: Vector2, dimensions: Vector2, strong: bool = false) -> Panel:
+	var panel := Panel.new()
+	panel.position = pos
+	panel.size = dimensions
+	panel.add_theme_stylebox_override("panel", _style(false, strong))
+	_ui.add_child(panel)
+	return panel
 
 
 func _build_interface() -> void:
 	_ui = Control.new()
 	_ui.name = "GarageInterface"
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.set_meta("preview_rect", Rect2(455, 75, 520, 530))
 	add_child(_ui)
-	# A transparent edge gradient helps the interface without covering the robot.
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(0.025, 0.018, 0.010, 0.72))
-	gradient.set_color(1, Color(0.025, 0.018, 0.010, 0))
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.fill_from = Vector2.ZERO
-	texture.fill_to = Vector2(0.36, 0)
-	var shade := TextureRect.new()
-	shade.texture = texture
-	shade.size = DESIGN_SIZE
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ui.add_child(shade)
-	_ui.add_child(_label("FORGE", Vector2(38, 30), Vector2(265, 67), 49, CREAM, true))
-	_ui.add_child(_label("BAIE 01  /  ATELIER", Vector2(40, 98), Vector2(250, 25), 12, AMBER, true))
-	var titles := ["ROBOT", "ARMES", "MODULES", "INSPECTER"]
-	var icons := ["polyvalent", "blaster", "magnetic_field", "fulguro_punch"]
-	for index in range(titles.size()):
-		var title: String = titles[index]
-		var button := _button(title, Vector2(32, 150 + index * 78), Vector2(224, 68), _navigate.bind(title), index == 0)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-			var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-			style.content_margin_left = 71
-			button.add_theme_stylebox_override(state, style)
-		var icon := TextureRect.new()
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.texture = _icons.get_icon(icons[index])
-		icon.position = Vector2(13, 11)
-		icon.size = Vector2(44, 44)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon.size = Vector2(44, 44)
-		button.add_child(icon)
-		icon.set_deferred("size", Vector2(44, 44))
-		_nav[title] = button
-		if title == "INSPECTER":
-			_inspect = button
-	_ui.add_child(_label("CHÂSSIS", Vector2(34, 488), Vector2(218, 25), 12, AMBER, true))
-	for index in range(LOADOUT.ROBOTS.size()):
-		var identifier: String = LOADOUT.ROBOTS[index]
-		var button := _button(LOADOUT.display_name(identifier), Vector2(32, 519 + index * 36), Vector2(224, 30), _select_equipment.bind("robot", identifier))
-		button.add_theme_font_size_override("font_size", 12)
-		for state in ["normal", "hover", "pressed", "focus"]:
-			var compact := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-			compact.content_margin_top = 3
-			compact.content_margin_bottom = 3
-			button.add_theme_stylebox_override(state, compact)
-		button.size = Vector2(224, 30)
-		button.tooltip_text = LOADOUT.stat_line(identifier)
-		robot_buttons[identifier] = button
-	_button("RETOUR", Vector2(32, 660), Vector2(145, 35), func() -> void: back_requested.emit())
-	_build_stats()
-	_arena_label = _label("ARÈNE", Vector2(978, 42), Vector2(264, 22), 12, AMBER, true)
-	_ui.add_child(_arena_label)
-	for index in range(2):
-		var identifier: String = ["classic", "hazards"][index]
-		var title: String = ["CLASSIQUE", "PIÉGÉE"][index]
-		var button := _button(title, Vector2(975 + index * 138, 74), Vector2(130, 36), _choose_arena.bind(identifier))
-		button.add_theme_font_size_override("font_size", 12)
-		for state in ["normal", "hover", "pressed", "focus"]:
-			var frame := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-			frame.content_margin_top = 4
-			frame.content_margin_bottom = 4
-			button.add_theme_stylebox_override(state, frame)
-		button.size = Vector2(130, 36)
-		arena_buttons[identifier] = button
+	_panel(Vector2.ZERO, Vector2(1280, 58))
+	_ui.add_child(_label("GARAGE", Vector2(24, 6), Vector2(239, 48), 40, CREAM, true))
+	_button("JOUER", Vector2(284, 11), Vector2(116, 36), _request_back)
+	_button("GARAGE", Vector2(408, 11), Vector2(124, 36), func() -> void: pass, true)
+	_header_name = _label(build_name, Vector2(974, 16), Vector2(244, 28), 18, CREAM, true)
+	_header_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_header_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_ui.add_child(_header_name)
+	_button("✎", Vector2(1230, 12), Vector2(32, 32), _rename_build)
+	_module_panel = _panel(Vector2(0, 65), Vector2(451, 583))
+	for index in 3:
+		var title: String = ["ROBOT", "ARMES", "MODULES"][index]
+		_nav[title] = _button(title, Vector2(14 + index * 142, 74), Vector2(133, 41), _navigate.bind(title), title == "MODULES")
+	for index in 4:
+		var category: String = ["offensive", "defensive", "mobility", "passive"][index]
+		var button := _button(CATEGORY_TITLES[category], Vector2(14 + index * 107, 128), Vector2(107, 32), _open_modules.bind(category))
+		button.add_theme_font_size_override("font_size", 11)
+		module_buttons[category] = button
+	for category in ["robot", "weapon", "offensive", "defensive", "mobility", "passive"]:
+		_build_catalog(category)
+	_build_detail()
+	_build_footer()
+	_build_rename_panel()
+	for index in 2:
+		var id: String = ["classic", "hazards"][index]
+		var button := _button(["CLASSIQUE", "PIÉGÉE"][index], Vector2(536 + index * 117, 11), Vector2(109, 36), _choose_arena.bind(id))
+		button.add_theme_font_size_override("font_size", 11)
+		arena_buttons[id] = button
 	set_arena_options(false)
-	_build_module_slots()
-	var compact_weapons := LOADOUT.WEAPONS.size() > 2
-	var icon_size := Vector2(108, 45) if compact_weapons else Vector2(108, 78)
-	for index in range(LOADOUT.WEAPONS.size()):
-		var identifier: String = LOADOUT.WEAPONS[index]
-		var card_pos := Vector2(975 + (index % 2) * 138, 441 + floorf(index / 2.0) * 86) if compact_weapons else Vector2(975 + index * 138, 454)
-		var card_size := Vector2(130, 78) if compact_weapons else Vector2(130, 140)
-		var button := _button("", card_pos, card_size, _select_equipment.bind("weapon", identifier))
-		button.name = "Garage%s" % identifier.to_pascal_case()
+
+
+func _options(category: String) -> Array:
+	return {"robot": LOADOUT.ROBOTS, "weapon": LOADOUT.WEAPONS, "offensive": LOADOUT.OFFENSIVE, "defensive": LOADOUT.DEFENSIVE, "mobility": LOADOUT.MOBILITY, "passive": LOADOUT.PASSIVES}.get(category, [])
+
+
+func _build_catalog(category: String) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.position = Vector2(17, 174)
+	grid.size = Vector2(417, 447)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	_ui.add_child(grid)
+	_grids[category] = grid
+	_choices[category] = {}
+	for identifier in _options(category):
+		var button := Button.new()
+		button.name = "Garage%s" % str(identifier).to_pascal_case()
+		button.custom_minimum_size = Vector2(202, 141)
+		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.tooltip_text = LOADOUT.category_description(identifier)
+		for state in ["normal", "hover", "pressed", "focus"]:
+			button.add_theme_stylebox_override(state, _style(state != "normal"))
+		button.pressed.connect(_select_equipment.bind(category, str(identifier)))
+		button.mouse_entered.connect(_show_detail.bind(category, str(identifier)))
+		button.focus_entered.connect(_show_detail.bind(category, str(identifier)))
+		grid.add_child(button)
 		var icon := TextureRect.new()
+		icon.name = "EquipmentIcon"
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.texture = _icons.get_icon(identifier)
-		icon.position = Vector2(11, 5) if compact_weapons else Vector2(11, 13)
-		icon.size = icon_size
+		icon.position = Vector2(31, 8)
+		icon.size = Vector2(140, 79)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(icon)
-		icon.set_deferred("size", icon_size)
-		var label_pos := Vector2(5, 51) if compact_weapons else Vector2(5, 99)
-		var name_label := _label(LOADOUT.display_name(identifier), label_pos, Vector2(101, 24), 12 if compact_weapons else 15, CREAM, true)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.add_child(name_label)
-		var info := Button.new()
-		info.name = "Info"
-		info.text = "i"
-		info.position = Vector2(108, 53) if compact_weapons else Vector2(108, 105)
-		info.size = Vector2(18, 20)
-		info.add_theme_color_override("font_color", CYAN)
-		for state in ["normal", "hover", "pressed", "focus"]:
-			var frame := _style(state != "normal")
-			frame.set_content_margin_all(0)
-			frame.shadow_size = 0
-			info.add_theme_stylebox_override(state, frame)
-		info.pressed.connect(_open_weapon_info.bind(identifier))
-		button.add_child(info)
-		weapon_buttons[identifier] = button
-	var start := _button("JOUER   ›", Vector2(975, 620), Vector2(268, 64), func() -> void: start_requested.emit(), true)
-	start.name = "GarageStart"
-	start.add_theme_font_size_override("font_size", 25)
-	start.add_theme_color_override("font_color", Color("#292017"))
+		icon.set_deferred("size", Vector2(140, 79))
+		var title := _label(LOADOUT.display_name(identifier).replace("RÉACTEUR AUXILIAIRE", "RÉACTEUR AUX."), Vector2(8, 91), Vector2(186, 21), 13, CREAM, true)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_child(title)
+		var tag := _label(str(TAGS.get(identifier, "")), Vector2(8, 117), Vector2(186, 19), 12)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_child(tag)
+		var selected := _label("✓", Vector2(175, 7), Vector2(20, 22), 20, AMBER, true)
+		selected.name = "Selected"
+		button.add_child(selected)
+		_choices[category][identifier] = button
+		if category == "robot":
+			robot_buttons[identifier] = button
+		elif category == "weapon":
+			weapon_buttons[identifier] = button
+	grid.hide()
+
+
+func _build_detail() -> void:
+	var panel := _panel(Vector2(988, 78), Vector2(275, 557), true)
+	panel.name = "EquipmentDetail"
+	_detail_icon = TextureRect.new()
+	_detail_icon.position = Vector2(34, 13)
+	_detail_icon.size = Vector2(207, 144)
+	_detail_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_detail_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_detail_icon)
+	_detail_title = _label("", Vector2(18, 173), Vector2(239, 52), 21, CREAM, true)
+	_detail_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(_detail_title)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(18, 235)
+	scroll.size = Vector2(239, 115)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	_detail_description = _label("", Vector2.ZERO, Vector2(224, 115), 16)
+	_detail_description.custom_minimum_size.x = 222
+	_detail_description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_description.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(_detail_description)
+	_detail_stats = _label("", Vector2(18, 365), Vector2(239, 35), 13, CYAN)
+	_detail_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_stats.max_lines_visible = 2
+	_detail_stats.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_detail_stats.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(_detail_stats)
+	_training_demo = TRAINING_DEMO.new()
+	_training_demo.position = Vector2(18, 409)
+	_training_demo.size = Vector2(239, 147)
+	_training_demo.thumbnail_rect = Rect2(1, 1, 237, 133)
+	panel.add_child(_training_demo)
+	_training_demo.title.hide()
+	var play := Panel.new()
+	play.position = Vector2(97, 46)
+	play.size = Vector2(44, 44)
+	play.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var play_style := _style()
+	play_style.border_color = CREAM
+	play_style.set_border_width_all(2)
+	play_style.set_corner_radius_all(22)
+	play.add_theme_stylebox_override("panel", play_style)
+	_training_demo.thumbnail_overlay = play
+	_training_demo.video.add_child(play)
+	var triangle := _label("▶", Vector2(3, 6), Vector2(40, 33), 22)
+	triangle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	play.add_child(triangle)
+	var video_caption := _label("VOIR EN ACTION", Vector2(0, 137), Vector2(239, 19), 13, CREAM, true)
+	video_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_training_demo.add_child(video_caption)
+	_missing_demo = _label("Démonstration indisponible", Vector2(18, 433), Vector2(239, 70), 14, Color("#baa989"))
+	_missing_demo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_missing_demo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(_missing_demo)
+
+
+func _build_footer() -> void:
+	var stats := _panel(Vector2(523, 607), Vector2(386, 34))
+	_stat_name = _label("", Vector2(12, 6), Vector2(121, 22), 14, CREAM, true)
+	_health = _label("", Vector2(145, 6), Vector2(103, 22), 14)
+	_speed = _label("", Vector2(270, 6), Vector2(105, 22), 14)
+	stats.add_child(_stat_name)
+	stats.add_child(_health)
+	stats.add_child(_speed)
+	_panel(Vector2(0, 655), Vector2(1280, 65))
+	_button("⚙", Vector2(17, 666), Vector2(39, 39), func() -> void: settings_requested.emit())
+	_build_selector = OptionButton.new()
+	_build_selector.name = "SavedBuilds"
+	_build_selector.position = Vector2(71, 666)
+	_build_selector.size = Vector2(207, 40)
+	_build_selector.add_theme_font_override("font", DISPLAY_FONT)
+	_build_selector.add_theme_font_size_override("font_size", 16)
+	_build_selector.clip_text = true
+	_build_selector.fit_to_longest_item = false
+	_build_selector.add_theme_color_override("font_color", CREAM)
 	for state in ["normal", "hover", "pressed", "focus"]:
-		var style := _style(true, true)
-		style.bg_color = AMBER if state == "normal" else Color("#ffd484")
-		style.set_border_width_all(2)
-		style.border_color = Color("#ffdf93")
-		start.add_theme_stylebox_override(state, style)
-	_build_module_picker()
-
-
-func _build_stats() -> void:
-	var panel := Panel.new()
-	panel.position = Vector2(975, 131)
-	panel.size = Vector2(268, 180)
-	panel.add_theme_stylebox_override("panel", _style(false, true))
-	_ui.add_child(panel)
-	_stat_name = _label("POLYVALENT", Vector2(19, 15), Vector2(238, 37), 22, CREAM, true)
-	panel.add_child(_stat_name)
-	_health = _label("1000 PV", Vector2(20, 58), Vector2(230, 28), 18)
-	panel.add_child(_health)
-	_health_bar = _bar(Vector2(21, 91), 1200.0)
-	panel.add_child(_health_bar)
-	_speed = _label("5.0 m/s", Vector2(20, 112), Vector2(230, 28), 18)
-	panel.add_child(_speed)
-	_speed_bar = _bar(Vector2(21, 146), 6.0)
-	panel.add_child(_speed_bar)
-	_status = _label("ATELIER OPÉRATIONNEL", Vector2(977, 321), Vector2(270, 25), 12, CYAN, true)
+		_build_selector.add_theme_stylebox_override(state, _style(state != "normal"))
+	_build_selector.item_selected.connect(_select_build)
+	_ui.add_child(_build_selector)
+	_button("✎", Vector2(285, 666), Vector2(35, 40), _rename_build).tooltip_text = "Renommer le build"
+	_button("+", Vector2(326, 666), Vector2(35, 40), _new_build).tooltip_text = "Créer un nouveau build"
+	_button("⧉", Vector2(367, 666), Vector2(35, 40), _duplicate_build).tooltip_text = "Dupliquer le build"
+	_status = _label("", Vector2(416, 675), Vector2(315, 24), 14, CYAN)
 	_ui.add_child(_status)
-
-
-func _bar(pos: Vector2, maximum: float) -> ProgressBar:
-	var bar := ProgressBar.new()
-	bar.position = pos
-	bar.size = Vector2(223, 5)
-	bar.max_value = maximum
-	bar.show_percentage = false
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = CYAN
-	var background := StyleBoxFlat.new()
-	background.bg_color = Color("#514b3f")
-	bar.add_theme_stylebox_override("fill", fill)
-	bar.add_theme_stylebox_override("background", background)
-	bar.size = Vector2(223, 5)
-	bar.set_deferred("size", Vector2(223, 5))
-	return bar
-
-
-func _build_module_slots() -> void:
-	for index in range(4):
-		var category: String = ["offensive", "defensive", "mobility", "passive"][index]
-		var button := _button("", Vector2(975 + index * 69, 361), Vector2(61, 59), _open_modules.bind(category))
-		var icon := TextureRect.new()
-		icon.name = "ModuleIcon"
-		icon.position = Vector2(8, 8)
-		icon.size = Vector2(45, 43)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon.size = Vector2(45, 43)
-		button.add_child(icon)
-		module_buttons[category] = button
-
-
-func _build_module_picker() -> void:
-	_module_panel = PanelContainer.new()
-	_module_panel.name = "GarageModulePicker"
-	_module_panel.position = Vector2(285, 152)
-	_module_panel.size = Vector2(305, 350)
-	_module_panel.add_theme_stylebox_override("panel", _style(false, true))
-	_ui.add_child(_module_panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
-	_module_panel.add_child(column)
-	var header := HBoxContainer.new()
-	column.add_child(header)
-	_module_title = Label.new()
-	_module_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_module_title.add_theme_font_override("font", DISPLAY_FONT)
-	_module_title.add_theme_color_override("font_color", AMBER)
-	header.add_child(_module_title)
-	var close := Button.new()
-	close.text = "×"
-	close.custom_minimum_size = Vector2(35, 35)
-	close.add_theme_font_size_override("font_size", 22)
-	close.add_theme_color_override("font_color", CREAM)
+	_button("TESTER", Vector2(919, 665), Vector2(139, 42), _test_build)
+	_save_button = _button("SAUVEGARDER", Vector2(1074, 665), Vector2(190, 42), _save_build, true)
+	_save_button.name = "GarageSave"
+	_save_button.add_theme_color_override("font_color", Color("#292017"))
 	for state in ["normal", "hover", "pressed", "focus"]:
-		var frame := _style(state != "normal")
-		frame.content_margin_top = 0
-		frame.content_margin_bottom = 0
-		frame.content_margin_left = 5
-		frame.content_margin_right = 5
-		close.add_theme_stylebox_override(state, frame)
-	close.pressed.connect(_module_panel.hide)
-	header.add_child(close)
-	_module_options = VBoxContainer.new()
-	_module_options.add_theme_constant_override("separation", 8)
-	column.add_child(_module_options)
-	_module_panel.hide()
+		var style := _style(true)
+		style.bg_color = AMBER if state == "normal" else Color("#ffd484")
+		style.border_color = Color("#ffdf93")
+		_save_button.add_theme_stylebox_override(state, style)
+
+
+func _build_rename_panel() -> void:
+	_rename_panel = _panel(Vector2(70, 590), Vector2(330, 59), true)
+	_rename_panel.name = "RenameBuild"
+	_name_input = LineEdit.new()
+	_name_input.position = Vector2(9, 10)
+	_name_input.size = Vector2(254, 38)
+	_name_input.max_length = 28
+	_name_input.text_submitted.connect(func(_text: String) -> void: _finish_rename())
+	_rename_panel.add_child(_name_input)
+	var done := Button.new()
+	done.text = "✓"
+	done.position = Vector2(273, 10)
+	done.size = Vector2(47, 38)
+	done.pressed.connect(_finish_rename)
+	_rename_panel.add_child(done)
+	_rename_panel.hide()
+
+
+func _rename_build() -> void:
+	if installation.active:
+		return
+	_name_input.text = build_name
+	_rename_panel.show()
+	_name_input.grab_focus()
+	_name_input.select_all()
+
+
+func _finish_rename() -> void:
+	if not _rename_panel.visible:
+		return
+	build_name = LIBRARY.normalize_name(_name_input.text)
+	_rename_panel.hide()
+	_refresh_build_names()
+
+
+func _new_build() -> void:
+	if installation.active:
+		return
+	module_installation.cancel()
+	build_id = ""
+	build_name = "BUILD %d" % int(_library.next_id)
+	loadout = LOADOUT.defaults()
+	_refresh()
+	_show_detail(_category, str(loadout[_category]))
+	_rename_build()
+
+
+func _duplicate_build() -> void:
+	if installation.active:
+		return
+	build_id = ""
+	build_name = LIBRARY.normalize_name(build_name + " COPIE")
+	_refresh_build_names()
+	_rename_build()
+
+
+func _select_build(index: int) -> void:
+	if installation.active or index < 0 or index >= _library.builds.size():
+		return
+	module_installation.cancel()
+	var entry: Dictionary = _library.builds[index]
+	build_id = entry.id
+	build_name = entry.name
+	loadout = entry.loadout.duplicate(true)
+	_refresh()
+	_show_detail(_category, str(loadout[_category]))
+
+
+func _refresh_build_names() -> void:
+	_header_name.text = build_name + (" •" if is_dirty() else "")
+	_build_selector.clear()
+	var selected := -1
+	for entry in _library.builds:
+		_build_selector.add_item(build_name if entry.id == build_id else str(entry.name))
+		if entry.id == build_id:
+			selected = _build_selector.item_count - 1
+	if selected == -1:
+		_build_selector.add_item(build_name)
+		selected = _build_selector.item_count - 1
+	_build_selector.select(selected)
+
+
+func _notice(text: String) -> void:
+	_status.text = text
+	_notice_time = 3.5
 
 
 func _open_modules(category: String) -> void:
-	_weapon_info_id = ""
 	_module_category = category
-	_module_title.text = {"offensive": "OFFENSIF", "defensive": "DÉFENSIF", "mobility": "MOBILITÉ", "passive": "PASSIF"}[category]
-	for child in _module_options.get_children():
-		child.free()
-	var identifiers: Array = {"offensive": LOADOUT.OFFENSIVE, "defensive": LOADOUT.DEFENSIVE, "mobility": LOADOUT.MOBILITY, "passive": LOADOUT.PASSIVES}[category]
-	for identifier in identifiers:
-		var button := Button.new()
-		button.text = LOADOUT.display_name(str(identifier))
-		button.custom_minimum_size = Vector2(268, 53)
-		button.tooltip_text = LOADOUT.category_description(str(identifier))
-		button.add_theme_stylebox_override("normal", _style(str(loadout[category]) == identifier))
-		button.add_theme_stylebox_override("hover", _style(true))
-		button.add_theme_stylebox_override("pressed", _style(true))
-		button.add_theme_stylebox_override("focus", _style(true))
-		button.add_theme_color_override("font_color", CREAM)
-		button.pressed.connect(func() -> void:
-			_select_equipment(category, str(identifier))
-			_module_panel.hide()
-		)
-		_module_options.add_child(button)
-	_module_panel.show()
+	_navigate("MODULES")
 
 
 func _open_weapon_info(identifier: String) -> void:
-	_weapon_info_id = identifier
-	_module_title.text = LOADOUT.display_name(identifier)
-	for child in _module_options.get_children():
-		child.free()
-	for text in [LOADOUT.category_description(identifier), LOADOUT.stat_line(identifier)]:
-		var detail := Label.new()
-		detail.text = text
-		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		detail.custom_minimum_size.x = 268
-		detail.add_theme_color_override("font_color", CREAM)
-		_module_options.add_child(detail)
-	_module_panel.show()
+	_show_detail("weapon", identifier)
 
 
 func _navigate(title: String) -> void:
-	if title == "INSPECTER":
-		stage.inspect_robot()
+	if installation != null and installation.active:
 		return
-	if title == "MODULES":
-		_open_modules(_module_category)
-	else:
-		_module_panel.hide()
+	if module_installation != null:
+		module_installation.cancel(false)
+	_category = "robot" if title == "ROBOT" else ("weapon" if title == "ARMES" else _module_category)
+	for category in _grids:
+		(_grids[category] as Control).visible = category == _category
+	_module_options = _grids[_category]
+	for category in module_buttons:
+		var button: Button = module_buttons[category]
+		button.visible = title == "MODULES"
+		button.add_theme_stylebox_override("normal", _style(category == _category))
 	for key in _nav:
-		var style := _style(key == title)
-		style.content_margin_left = 71
-		(_nav[key] as Button).add_theme_stylebox_override("normal", style)
+		(_nav[key] as Button).add_theme_stylebox_override("normal", _style(key == title))
+	_show_detail(_category, str(loadout[_category]))
+	if focus != null:
+		focus.show_overview(false)
+
+
+func _show_detail(category: String, identifier: String) -> void:
+	if installation != null and installation.active:
+		return
+	_detail_icon.texture = _icons.get_icon(identifier)
+	_detail_title.text = LOADOUT.display_name(identifier)
+	_detail_description.text = LOADOUT.category_description(identifier)
+	_detail_description.get_parent().scroll_vertical = 0
+	_detail_stats.text = _stat_summary(identifier)
+	_detail_stats.tooltip_text = LOADOUT.stat_line(identifier)
+	_training_demo.show_equipment(identifier)
+	_missing_demo.visible = category != "robot" and not _training_demo.visible
+
+
+func _stat_summary(identifier: String) -> String:
+	var data: Dictionary = DATA.MODULE_DEFINITIONS.get(identifier, {})
+	match identifier:
+		"alternator": return "Sous %.0f s" % float(data.duration)
+		"auxiliary_reactor": return "−%.2f s · toutes les %.2f s" % [float(data.reduction), float(data.interval)]
+		"tracker": return "%d impacts · révélé %.0f s" % [int(data.hits), float(data.duration)]
+		"inertia": return "Sous %.1f s · slow %.0f s" % [float(data.window), float(data.slow_duration)]
+	return LOADOUT.stat_line(identifier)
 
 
 func _refresh() -> void:
-	var identifier: String = loadout.robot
-	var definition: Dictionary = DATA.ROBOT_DEFINITIONS[identifier]
-	_stat_name.text = LOADOUT.display_name(identifier)
+	var id: String = loadout.robot
+	var definition: Dictionary = DATA.ROBOT_DEFINITIONS[id]
+	_stat_name.text = LOADOUT.display_name(id)
 	_health.text = "%d PV" % int(definition.max_health)
-	_speed.text = "%.1f m/s" % float(definition.move_speed)
-	_health_bar.value = float(definition.max_health)
-	_speed_bar.value = float(definition.move_speed)
-	for key in robot_buttons:
-		var compact := _style(key == identifier)
-		compact.content_margin_top = 3
-		compact.content_margin_bottom = 3
-		(robot_buttons[key] as Button).add_theme_stylebox_override("normal", compact)
-	for key in weapon_buttons:
-		(weapon_buttons[key] as Button).add_theme_stylebox_override("normal", _style(key == str(loadout.weapon)))
-	for category in module_buttons:
-		var button: Button = module_buttons[category]
-		(button.get_node("ModuleIcon") as TextureRect).texture = _icons.get_icon(str(loadout[category]))
-		button.tooltip_text = LOADOUT.display_name(str(loadout[category])) + "\n" + LOADOUT.category_description(str(loadout[category]))
-	if stage.chassis_id != identifier:
-		stage.set_chassis(identifier)
+	_speed.text = ("%.1f m/s" % float(definition.move_speed)).replace(".", ",")
+	for category in _choices:
+		for identifier in _choices[category]:
+			var button: Button = _choices[category][identifier]
+			var selected := str(loadout[category]) == str(identifier)
+			button.add_theme_stylebox_override("normal", _style(selected))
+			button.get_node("Selected").visible = selected
+	if stage.chassis_id != id:
+		stage.set_chassis(id)
 	if stage.weapon_id != str(loadout.weapon):
 		stage.set_weapon(str(loadout.weapon))
+	stage.set_mobility_module(str(loadout.mobility))
+	_refresh_build_names()

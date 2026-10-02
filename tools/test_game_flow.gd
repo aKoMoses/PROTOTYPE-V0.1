@@ -1,8 +1,11 @@
 extends SceneTree
 
+const LOADOUT := preload("res://scripts/loadout_state.gd")
 var _failures: Array[String] = []
 
 func _initialize() -> void:
+	var save_existed := FileAccess.file_exists(LOADOUT.SAVE_PATH)
+	var save_bytes := FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH) if save_existed else PackedByteArray()
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -39,14 +42,15 @@ func _initialize() -> void:
 		var garage: Control = flow.get("_forge_garage")
 		if garage == null or not garage.visible:
 			_failures.append("garage officiel inaccessible")
+		var saved_loadout: Dictionary = flow.get("loadout").duplicate(true)
 		garage.call("_open_modules", "passive")
-		var options: VBoxContainer = garage.get("_module_options")
+		var options: GridContainer = garage.get("_module_options")
 		(options.get_child(1) as Button).emit_signal("pressed")
 		var current_loadout: Dictionary = flow.get("loadout")
-		if str(current_loadout.passive) != "omnivamp":
-			_failures.append("la sélection du passif ne met pas à jour l'équipement")
+		if str(garage.get("loadout").passive) != "omnivamp" or current_loadout != saved_loadout:
+			_failures.append("la sélection doit changer le brouillon en conservant le build de combat")
 		(garage.get("_nav")["ARMES"] as Button).emit_signal("pressed")
-		if not (garage.get("weapon_buttons")["shotgun"] as Button).visible or garage.get("_module_panel").visible:
+		if not (garage.get("weapon_buttons")["shotgun"] as Button).visible or str(garage.get("_category")) != "weapon":
 			_failures.append("la navigation ne ramène pas aux armes")
 		var selected := {"weapon": "shotgun", "offensive": "javelin", "defensive": "static_shield", "mobility": "bio_injector", "passive": "omnivamp"}
 		flow.set("loadout", selected)
@@ -228,6 +232,12 @@ func _initialize() -> void:
 	scene.queue_free()
 	for _cleanup_frame in range(3):
 		await process_frame
+	if save_existed:
+		var save_file := FileAccess.open(LOADOUT.SAVE_PATH, FileAccess.WRITE)
+		save_file.store_buffer(save_bytes)
+		save_file.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOADOUT.SAVE_PATH))
 	if _failures.is_empty():
 		print("V02-02 MATCH FLOW TEST: PASS")
 		quit(0)

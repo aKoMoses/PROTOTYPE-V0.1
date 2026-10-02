@@ -3,7 +3,7 @@ extends SceneTree
 const BUILDS := preload("res://scripts/bot_build_presets.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
-# These modules have player/network coverage but no duel-bot activation yet.
+# These player modules have no AI activation/destination policy yet.
 const PLAYER_ONLY_MODULES := ["eclipse", "projector"]
 var _failures: Array[String] = []
 var _integration_completed := false
@@ -64,6 +64,8 @@ func _test_draws() -> void:
 			_failures.append("weapon missing from generated opponents: %s" % weapon_id)
 	for module_id in COMBAT_DATA.MODULE_DEFINITIONS:
 		if module_id in PLAYER_ONLY_MODULES:
+			if equipment_seen.has(module_id):
+				_failures.append("opponent drew a module without AI support: %s" % module_id)
 			continue
 		if not equipment_seen.has(module_id):
 			_failures.append("module missing from generated opponents: %s" % module_id)

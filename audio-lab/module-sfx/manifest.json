@@ -1,0 +1,822 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "provider": "local Stability AI",
+  "requests": "sound-sheet.json",
+  "sample_rate": 44100,
+  "channels": 2,
+  "bit_depth": 16,
+  "candidate_count": 22,
+  "preview_count": 10,
+  "integrated_in_game": false,
+  "selection": "rejected by user; focused revision in revisions/rocket-counter-v2",
+  "cues": [
+    {
+      "id": "rocket-arm",
+      "module": "rocket_basket",
+      "label": "Ouverture / armement",
+      "kind": "accent",
+      "source": "raw\\rocket-arm.wav",
+      "source_sha256": "3b0e458fe3252103c17a5ab44f2896e0c01c5da738e9ece2cca45f3db2d4948a",
+      "file": "candidates\\rocket-arm.wav",
+      "sha256": "076e3b72a2eab3aafa85afe8e89910d218e93458f6cf852558c331f5b1a03458",
+      "duration_seconds": 0.3,
+      "raw_crop_start_seconds": 0.48508,
+      "main_energy_peak_offset": 0.01494,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -24.14,
+      "gain_db": 15.45,
+      "visible_cause": "Ouverture / armement",
+      "desired_association": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "rocket-volley",
+      "module": "rocket_basket",
+      "label": "Lancement de la salve",
+      "kind": "accent",
+      "source": "raw\\rocket-volley.wav",
+      "source_sha256": "6cc86fe6851d060313f28fe804a358fc8d2d1a240d349e551df25831953b1020",
+      "file": "candidates\\rocket-volley.wav",
+      "sha256": "4d821d3cb721fb13f17a1f90d97e132821fd22b2761811974c45bcdd4a0f0f8d",
+      "duration_seconds": 0.48,
+      "raw_crop_start_seconds": 0.46989,
+      "main_energy_peak_offset": 0.01542,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -24.9,
+      "gain_db": -2.07,
+      "visible_cause": "Lancement de la salve",
+      "desired_association": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "rocket-propulsion",
+      "module": "rocket_basket",
+      "label": "Propulsion en vol · boucle",
+      "kind": "loop",
+      "source": "raw\\rocket-propulsion.wav",
+      "source_sha256": "ba710cffbd0fe040c85ef612b14db39c44b24a05b0e57b9d7cb347076224cdf8",
+      "file": "candidates\\rocket-propulsion.wav",
+      "sha256": "c5b902f24fdaf3f7dc49dc0120d039fa9a114c8383c836f1e919bcca176608e7",
+      "duration_seconds": 1.2,
+      "raw_crop_start_seconds": 1.1841,
+      "main_energy_peak_offset": null,
+      "loop_seam_delta_before_gain": 0.007574185178070118,
+      "rms_dbfs": -30.0,
+      "gain_db": -7.1,
+      "visible_cause": "Propulsion en vol · boucle",
+      "desired_association": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "rocket-impact",
+      "module": "rocket_basket",
+      "label": "Explosion à l’impact",
+      "kind": "accent",
+      "source": "raw\\rocket-impact.wav",
+      "source_sha256": "5df6d93c0c45cef9d1ddaf93282019e221e1d18d4dee7b9eaab4dad00328f9a4",
+      "file": "candidates\\rocket-impact.wav",
+      "sha256": "c122544951313cce2499e29c282ebe87e77558806a4b47477237cd70a6bbc948",
+      "duration_seconds": 0.65,
+      "raw_crop_start_seconds": 0.38909,
+      "main_energy_peak_offset": 0.01404,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -23.22,
+      "gain_db": -1.35,
+      "visible_cause": "Explosion à l’impact",
+      "desired_association": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "rocket-destroyed",
+      "module": "rocket_basket",
+      "label": "Destruction en vol",
+      "kind": "accent",
+      "source": "raw\\rocket-destroyed.wav",
+      "source_sha256": "ed5f6382eef0d3b317fb4ee71de2d055e3ed1f50a9e00a4ea49346ca8506f7ec",
+      "file": "candidates\\rocket-destroyed.wav",
+      "sha256": "bbf9b330da4c670544091c53c7b275f56a914556b5dfb8f4e3a58f233660a388",
+      "duration_seconds": 0.38,
+      "raw_crop_start_seconds": 0.0354,
+      "main_energy_peak_offset": 0.06798,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -23.0,
+      "gain_db": -3.6,
+      "visible_cause": "Destruction en vol",
+      "desired_association": "Mécanique pneumatique, poussée de gaz et explosions compactes.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "counter-guard",
+      "module": "counter",
+      "label": "Activation de la garde",
+      "kind": "accent",
+      "source": "raw\\counter-guard.wav",
+      "source_sha256": "634ce0fc875d165dff3f203f226ccb41fe482ecaf7a976599d20c3bbec2a2135",
+      "file": "candidates\\counter-guard.wav",
+      "sha256": "f92ce04e5efc8c3c614a824f1b0383e5451d38fb6002d6930aad0feec3fb7b1a",
+      "duration_seconds": 0.12,
+      "raw_crop_start_seconds": 1.20141,
+      "main_energy_peak_offset": 0.01424,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -25.0,
+      "gain_db": 1.08,
+      "visible_cause": "Activation de la garde",
+      "desired_association": "Garde tendue, interception sèche et énergie capturée puis libérée.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "counter-intercept",
+      "module": "counter",
+      "label": "Interception",
+      "kind": "accent",
+      "source": "raw\\counter-intercept.wav",
+      "source_sha256": "3501094e9241af4de124d46b68722abb3a6298e6021652c24924cda1edb6d2e2",
+      "file": "candidates\\counter-intercept.wav",
+      "sha256": "f9f24b3c930021fc0db65ea774bf1397030fec619dfb821cc29320ca49e6dec0",
+      "duration_seconds": 0.22,
+      "raw_crop_start_seconds": 0.04705,
+      "main_energy_peak_offset": 0.058,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -24.02,
+      "gain_db": -2.77,
+      "visible_cause": "Interception",
+      "desired_association": "Garde tendue, interception sèche et énergie capturée puis libérée.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "counter-overload",
+      "module": "counter",
+      "label": "Surcharge obtenue",
+      "kind": "accent",
+      "source": "raw\\counter-overload.wav",
+      "source_sha256": "1f55155fc28ec399eefda3b0f45369e4f9f5570740bbcd8802921b050500b904",
+      "file": "candidates\\counter-overload.wav",
+      "sha256": "fceceb4340e1fb3fbc121059d379590d8dc180e24d028168fc50ab7c1d12bf01",
+      "duration_seconds": 0.25,
+      "raw_crop_start_seconds": 2.90621,
+      "main_energy_peak_offset": 0.10503,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -27.0,
+      "gain_db": 19.23,
+      "visible_cause": "Surcharge obtenue",
+      "desired_association": "Garde tendue, interception sèche et énergie capturée puis libérée.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "counter-discharge",
+      "module": "counter",
+      "label": "Décharge de surcharge à l’impact",
+      "kind": "accent",
+      "source": "raw\\counter-discharge.wav",
+      "source_sha256": "1b785754e470ccbac70f027d4fc0f6ae082be63dadc2bf52fdac2a7682bb13de",
+      "file": "candidates\\counter-discharge.wav",
+      "sha256": "33183582b55b954a59509982f491f17499bc5cca319ac1e669337b1ab1d546fe",
+      "duration_seconds": 0.48,
+      "raw_crop_start_seconds": 0.09882,
+      "main_energy_peak_offset": 0.03909,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -20.0,
+      "gain_db": -4.52,
+      "visible_cause": "Décharge de surcharge à l’impact",
+      "desired_association": "Garde tendue, interception sèche et énergie capturée puis libérée.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "projector-charge",
+      "module": "projector",
+      "label": "Montée en puissance",
+      "kind": "accent",
+      "source": "raw\\projector-charge.wav",
+      "source_sha256": "6dc4e148e2098f2844c24bb898083048d1580f01c0197503452d02e8f4f18a3c",
+      "file": "candidates\\projector-charge.wav",
+      "sha256": "898db61ae537879df3c9527364290accf5e1e6f6a31a8f8e8292d976cd6bf6ae",
+      "duration_seconds": 0.18,
+      "raw_crop_start_seconds": 2.36814,
+      "main_energy_peak_offset": 0.138,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -25.0,
+      "gain_db": 7.5,
+      "visible_cause": "Montée en puissance",
+      "desired_association": "Pression brève, onde grave et souffle physique ; déclenchement automatique distinct.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "projector-wave",
+      "module": "projector",
+      "label": "Départ de l’onde",
+      "kind": "accent",
+      "source": "raw\\projector-wave.wav",
+      "source_sha256": "48fa7e44b831eb48f64c7f10c598fb44946fec417909fb044a00a2641278b07b",
+      "file": "candidates\\projector-wave.wav",
+      "sha256": "e1641eb732dcabbe8d303739933c3aebaf77ad86a609a98aa400a9c1cb4792bb",
+      "duration_seconds": 0.46,
+      "raw_crop_start_seconds": 1.14542,
+      "main_energy_peak_offset": 0.02268,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -22.0,
+      "gain_db": -8.17,
+      "visible_cause": "Départ de l’onde",
+      "desired_association": "Pression brève, onde grave et souffle physique ; déclenchement automatique distinct.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "projector-repulse",
+      "module": "projector",
+      "label": "Souffle de répulsion",
+      "kind": "accent",
+      "source": "raw\\projector-repulse.wav",
+      "source_sha256": "d4d158b048119a41a2b55db869396544f33c920c860790fbbe4a6c685a3a14e3",
+      "file": "candidates\\projector-repulse.wav",
+      "sha256": "6efaf8b7dab0d2ecb06029266275e59ad248b04d1f34bb61799e4105d535fc07",
+      "duration_seconds": 0.42,
+      "raw_crop_start_seconds": 0.37971,
+      "main_energy_peak_offset": 0.06798,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -26.0,
+      "gain_db": -11.4,
+      "visible_cause": "Souffle de répulsion",
+      "desired_association": "Pression brève, onde grave et souffle physique ; déclenchement automatique distinct.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "projector-passive",
+      "module": "projector",
+      "label": "Déclenchement automatique · faibles PV",
+      "kind": "accent",
+      "source": "raw\\projector-passive.wav",
+      "source_sha256": "6760d9f2af3f541bd25532af9fa785ec862c503e44e865f89a153fc13949826a",
+      "file": "candidates\\projector-passive.wav",
+      "sha256": "ff101190e9adb68607b26d8e1ef08f55e5580c79bf68df031a7522310fe0b291",
+      "duration_seconds": 0.62,
+      "raw_crop_start_seconds": 0.70531,
+      "main_energy_peak_offset": 0.02567,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -22.09,
+      "gain_db": 2.83,
+      "visible_cause": "Déclenchement automatique · faibles PV",
+      "desired_association": "Pression brève, onde grave et souffle physique ; déclenchement automatique distinct.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "permutation-send",
+      "module": "permutation",
+      "label": "Envoi de l’ombre électrique",
+      "kind": "accent",
+      "source": "raw\\permutation-send.wav",
+      "source_sha256": "0283ef4fe2f3d577d677410867304f36be3d577a5a7bd0ea7a5a137923b3bc28",
+      "file": "candidates\\permutation-send.wav",
+      "sha256": "0c1d6edfbe48f98ef3c8aaa76bab011c5802a7de7a114d0264361faf492c1df2",
+      "duration_seconds": 0.18,
+      "raw_crop_start_seconds": 0.02769,
+      "main_energy_peak_offset": 0.02315,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -25.0,
+      "gain_db": 3.12,
+      "visible_cause": "Envoi de l’ombre électrique",
+      "desired_association": "Ombre électrique furtive, échange rapide et verrouillage du bouclier.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "permutation-travel",
+      "module": "permutation",
+      "label": "Déplacement de l’ombre",
+      "kind": "accent",
+      "source": "raw\\permutation-travel.wav",
+      "source_sha256": "83eae6c636233b42bf1219edb9274e67c2a82fbc635c658ac961ea32ecdab9f7",
+      "file": "candidates\\permutation-travel.wav",
+      "sha256": "d2843d9e92cfc8745b7ede5c26517eb18dec4dfe2b80cb1975b768366c6f086c",
+      "duration_seconds": 0.32,
+      "raw_crop_start_seconds": 0.51229,
+      "main_energy_peak_offset": 0.06798,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -29.0,
+      "gain_db": 4.68,
+      "visible_cause": "Déplacement de l’ombre",
+      "desired_association": "Ombre électrique furtive, échange rapide et verrouillage du bouclier.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "permutation-swap",
+      "module": "permutation",
+      "label": "Échange des positions",
+      "kind": "accent",
+      "source": "raw\\permutation-swap.wav",
+      "source_sha256": "80c00d29d6e535033cae97ec0b19d9a8c8a6ea4846b9bf0b6e5d50394813cf35",
+      "file": "candidates\\permutation-swap.wav",
+      "sha256": "e63ad29ed20d38b67353a61ebbbd00caf4b31279c2baff21f614c8ba14ade4c2",
+      "duration_seconds": 0.38,
+      "raw_crop_start_seconds": 0.21751,
+      "main_energy_peak_offset": 0.02628,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -24.71,
+      "gain_db": -0.84,
+      "visible_cause": "Échange des positions",
+      "desired_association": "Ombre électrique furtive, échange rapide et verrouillage du bouclier.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "permutation-shield",
+      "module": "permutation",
+      "label": "Apparition du bouclier",
+      "kind": "accent",
+      "source": "raw\\permutation-shield.wav",
+      "source_sha256": "64cf3f049189ffd133a9dccc0fc07fb8730e91684cff0c4759c5ecf5131e7d7b",
+      "file": "candidates\\permutation-shield.wav",
+      "sha256": "063398618af25330b4c285380d49467cefa88f20cf5431e7759cb28efbf819d7",
+      "duration_seconds": 0.28,
+      "raw_crop_start_seconds": 0.4898,
+      "main_energy_peak_offset": 0.01549,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -27.0,
+      "gain_db": -2.07,
+      "visible_cause": "Apparition du bouclier",
+      "desired_association": "Ombre électrique furtive, échange rapide et verrouillage du bouclier.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "eclipse-aim",
+      "module": "eclipse",
+      "label": "Préparation pendant la sélection",
+      "kind": "accent",
+      "source": "raw\\eclipse-aim.wav",
+      "source_sha256": "0b64f31e35cb41ec395bf2bb74ee5000ff13ca5d5cbde56763799206c2949005",
+      "file": "candidates\\eclipse-aim.wav",
+      "sha256": "c1939be9bdaacfd636b991d5d0457e51bac448ab41d60679532c77a4c7ef1f62",
+      "duration_seconds": 0.48,
+      "raw_crop_start_seconds": 0.77238,
+      "main_energy_peak_offset": 0.19846,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -27.0,
+      "gain_db": -8.33,
+      "visible_cause": "Préparation pendant la sélection",
+      "desired_association": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "eclipse-vanish",
+      "module": "eclipse",
+      "label": "Disparition",
+      "kind": "accent",
+      "source": "raw\\eclipse-vanish.wav",
+      "source_sha256": "ec01752972513813b9f0a1c34f320a87494067abaf7d918d9fe27bb64958144e",
+      "file": "candidates\\eclipse-vanish.wav",
+      "sha256": "a5c0d7df2d5570ed5cfe613da4eb0da43fd91dcdc27f88cdfab8d9f46e0e0328",
+      "duration_seconds": 0.12,
+      "raw_crop_start_seconds": 0.43671,
+      "main_energy_peak_offset": 0.03299,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -24.0,
+      "gain_db": -9.64,
+      "visible_cause": "Disparition",
+      "desired_association": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "eclipse-travel",
+      "module": "eclipse",
+      "label": "Trajet en particules",
+      "kind": "accent",
+      "source": "raw\\eclipse-travel.wav",
+      "source_sha256": "c4ab09f67c895b8a08e47fe6980c52c6db90a87f99b346772b2f4679702b4e11",
+      "file": "candidates\\eclipse-travel.wav",
+      "sha256": "af6c5b6db8e5665fec2452fd94b6b68efe0f7f6490c36b9c553dbda13d93203d",
+      "duration_seconds": 0.25,
+      "raw_crop_start_seconds": 1.78306,
+      "main_energy_peak_offset": 0.06549,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -29.0,
+      "gain_db": -5.47,
+      "visible_cause": "Trajet en particules",
+      "desired_association": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "eclipse-arrival",
+      "module": "eclipse",
+      "label": "Explosion à l’arrivée",
+      "kind": "accent",
+      "source": "raw\\eclipse-arrival.wav",
+      "source_sha256": "aac5b3307143f7cd1eb1eaee69947212dc3339f29921d1fcd49452beb0e7bddc",
+      "file": "candidates\\eclipse-arrival.wav",
+      "sha256": "ea2e28caaf081d5575f4f9e085165d1f6f85bb3e047deb0fbca0e0f527919ed1",
+      "duration_seconds": 0.78,
+      "raw_crop_start_seconds": 0.43517,
+      "main_energy_peak_offset": 0.0627,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -19.0,
+      "gain_db": -2.51,
+      "visible_cause": "Explosion à l’arrivée",
+      "desired_association": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    },
+    {
+      "id": "eclipse-shield",
+      "module": "eclipse",
+      "label": "Bouclier obtenu après une touche",
+      "kind": "accent",
+      "source": "raw\\eclipse-shield.wav",
+      "source_sha256": "79110a2fbda85a47a7cda33a79bdf26ced4152fa84783f10eeec6a3aee97d096",
+      "file": "candidates\\eclipse-shield.wav",
+      "sha256": "c84297f02f54278a613397eb03c040f71fe35ddb939af3625102a3820335e06e",
+      "duration_seconds": 0.3,
+      "raw_crop_start_seconds": 0.21023,
+      "main_energy_peak_offset": 0.06798,
+      "loop_seam_delta_before_gain": null,
+      "rms_dbfs": -27.0,
+      "gain_db": -6.41,
+      "visible_cause": "Bouclier obtenu après une touche",
+      "desired_association": "Aspiration sombre, particules et arrivée explosive avec braises.",
+      "forbidden_association": "speech, music, drill, jackhammer, siren, repeated unrelated impacts",
+      "heard_in_picture": "not claimed; awaiting user audition and later in-game synchronization",
+      "decision": "pending user audition"
+    }
+  ],
+  "previews": {
+    "rocket_basket": {
+      "isolated": {
+        "file": "previews\\rocket_basket-isolated.wav",
+        "events": [
+          {
+            "id": "rocket-arm",
+            "label": "Ouverture / armement",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "rocket-volley",
+            "label": "Lancement de la salve",
+            "time": 1.5,
+            "gain": 1
+          },
+          {
+            "id": "rocket-propulsion",
+            "label": "Propulsion en vol · boucle",
+            "time": 2.68,
+            "gain": 1
+          },
+          {
+            "id": "rocket-impact",
+            "label": "Explosion à l’impact",
+            "time": 4.58,
+            "gain": 1
+          },
+          {
+            "id": "rocket-destroyed",
+            "label": "Destruction en vol",
+            "time": 5.93,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 7.11,
+        "headroom_gain": 1,
+        "sha256": "2ba54d8447f3c949f5c351a595ddce3976a942b5af0067398068442d07ffa32f"
+      },
+      "scenario": {
+        "file": "previews\\rocket_basket-scenario.wav",
+        "events": [
+          {
+            "id": "rocket-arm",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "rocket-volley",
+            "time": 0.8,
+            "gain": 1
+          },
+          {
+            "id": "rocket-propulsion",
+            "time": 1.02,
+            "gain": 0.6
+          },
+          {
+            "id": "rocket-impact",
+            "time": 2.08,
+            "gain": 1
+          },
+          {
+            "id": "rocket-destroyed",
+            "time": 3.15,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 4.28,
+        "headroom_gain": 1,
+        "sha256": "82f99cc0393fa5a10b5c685b71798c915cac29b12c2baa6c7cfa6b95fb6586fe"
+      }
+    },
+    "counter": {
+      "isolated": {
+        "file": "previews\\counter-isolated.wav",
+        "events": [
+          {
+            "id": "counter-guard",
+            "label": "Activation de la garde",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "counter-intercept",
+            "label": "Interception",
+            "time": 1.32,
+            "gain": 1
+          },
+          {
+            "id": "counter-overload",
+            "label": "Surcharge obtenue",
+            "time": 2.24,
+            "gain": 1
+          },
+          {
+            "id": "counter-discharge",
+            "label": "Décharge de surcharge à l’impact",
+            "time": 3.19,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 4.47,
+        "headroom_gain": 1,
+        "sha256": "44f465d20d70301902401de5220f623bdabf846a2bbffba28dea421e8cf47aa8"
+      },
+      "scenario": {
+        "file": "previews\\counter-scenario.wav",
+        "events": [
+          {
+            "id": "counter-guard",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "counter-intercept",
+            "time": 0.96,
+            "gain": 1
+          },
+          {
+            "id": "counter-overload",
+            "time": 1.05,
+            "gain": 0.85
+          },
+          {
+            "id": "counter-discharge",
+            "time": 2.4,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 3.63,
+        "headroom_gain": 1,
+        "sha256": "feff254154050ce37c06053e9b3c738d97a1b2351c7b8a2f1a02a312458ef9b9"
+      }
+    },
+    "projector": {
+      "isolated": {
+        "file": "previews\\projector-isolated.wav",
+        "events": [
+          {
+            "id": "projector-charge",
+            "label": "Montée en puissance",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "projector-wave",
+            "label": "Départ de l’onde",
+            "time": 1.38,
+            "gain": 1
+          },
+          {
+            "id": "projector-repulse",
+            "label": "Souffle de répulsion",
+            "time": 2.54,
+            "gain": 1
+          },
+          {
+            "id": "projector-passive",
+            "label": "Déclenchement automatique · faibles PV",
+            "time": 3.66,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 5.08,
+        "headroom_gain": 1,
+        "sha256": "053e9a96acfb8230ae00a09cf1616f92734c08a7119a6d9dd2441593e09c7576"
+      },
+      "scenario": {
+        "file": "previews\\projector-scenario.wav",
+        "events": [
+          {
+            "id": "projector-charge",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "projector-wave",
+            "time": 0.68,
+            "gain": 1
+          },
+          {
+            "id": "projector-repulse",
+            "time": 0.73,
+            "gain": 0.75
+          },
+          {
+            "id": "projector-passive",
+            "time": 2.4,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 3.77,
+        "headroom_gain": 1,
+        "sha256": "0f3e3872c0d93ceb271105c7abdccfa4cf68ea504ccd02ae5d4b7afc00357be2"
+      }
+    },
+    "permutation": {
+      "isolated": {
+        "file": "previews\\permutation-isolated.wav",
+        "events": [
+          {
+            "id": "permutation-send",
+            "label": "Envoi de l’ombre électrique",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "permutation-travel",
+            "label": "Déplacement de l’ombre",
+            "time": 1.38,
+            "gain": 1
+          },
+          {
+            "id": "permutation-swap",
+            "label": "Échange des positions",
+            "time": 2.4,
+            "gain": 1
+          },
+          {
+            "id": "permutation-shield",
+            "label": "Apparition du bouclier",
+            "time": 3.48,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 4.56,
+        "headroom_gain": 1,
+        "sha256": "63e47fb1017fd550c49f64553d93eccce6ce68f321893641b7920be814d85c9a"
+      },
+      "scenario": {
+        "file": "previews\\permutation-scenario.wav",
+        "events": [
+          {
+            "id": "permutation-send",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "permutation-travel",
+            "time": 0.68,
+            "gain": 0.65
+          },
+          {
+            "id": "permutation-swap",
+            "time": 0.96,
+            "gain": 1
+          },
+          {
+            "id": "permutation-shield",
+            "time": 1.02,
+            "gain": 0.8
+          }
+        ],
+        "duration_seconds": 2.09,
+        "headroom_gain": 1,
+        "sha256": "90ed6e5cb4db30c3f81a8e3557535772a543a059f47fdf1a9b77b18f9a8fe6ec"
+      }
+    },
+    "eclipse": {
+      "isolated": {
+        "file": "previews\\eclipse-isolated.wav",
+        "events": [
+          {
+            "id": "eclipse-aim",
+            "label": "Préparation pendant la sélection",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-vanish",
+            "label": "Disparition",
+            "time": 1.68,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-travel",
+            "label": "Trajet en particules",
+            "time": 2.5,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-arrival",
+            "label": "Explosion à l’arrivée",
+            "time": 3.45,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-shield",
+            "label": "Bouclier obtenu après une touche",
+            "time": 4.93,
+            "gain": 1
+          }
+        ],
+        "duration_seconds": 6.03,
+        "headroom_gain": 1,
+        "sha256": "8c03e5c51d22a246bd53862395fbee674805464c466bfc75f1d6bdff6b9b594f"
+      },
+      "scenario": {
+        "file": "previews\\eclipse-scenario.wav",
+        "events": [
+          {
+            "id": "eclipse-aim",
+            "time": 0.5,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-vanish",
+            "time": 1.35,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-travel",
+            "time": 1.35,
+            "gain": 0.7
+          },
+          {
+            "id": "eclipse-arrival",
+            "time": 1.6,
+            "gain": 1
+          },
+          {
+            "id": "eclipse-shield",
+            "time": 1.66,
+            "gain": 0.85
+          }
+        ],
+        "duration_seconds": 3.13,
+        "headroom_gain": 1,
+        "sha256": "2662a01697c46e10bb8c0cb2349dcfc1148603e08eadbc1e1a776c15a886d757"
+      }
+    }
+  },
+  "timing_reference": {
+    "rocket_basket_preparation": 0.3,
+    "counter_preparation": 0.08,
+    "counter_guard_duration": 0.8,
+    "projector_cast": 0.18,
+    "projector_push": 0.42,
+    "permutation_preparation": 0.18,
+    "permutation_travel": "0.12 to approximately 0.31 seconds depending on distance",
+    "eclipse_travel": 0.25
+  },
+  "preview_note": "Isolated reels intentionally space effects for listening. Scenario reels illustrate timing, not a live gameplay recording.",
+  "review_feedback": "review-feedback.json"
+}

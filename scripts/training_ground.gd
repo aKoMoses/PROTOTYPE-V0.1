@@ -34,6 +34,7 @@ var _fixed_targets: Array[StaticBody3D] = []
 var _moving_target: StaticBody3D
 var _shooter_target: StaticBody3D
 var _loadout: Dictionary
+var _garage_test_session := false
 var _options := {"invulnerable": false, "instant_cooldowns": false, "unlimited_ammo": false}
 var _menu: PanelContainer
 var _menu_dim: ColorRect
@@ -70,6 +71,10 @@ func _ready() -> void:
 	# Input and menu remain available while combat actors are paused.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_loadout = LOADOUT.load_local()
+	if get_tree().has_meta("garage_test_loadout"):
+		_garage_test_session = true
+		_loadout = LOADOUT.sanitize(get_tree().get_meta("garage_test_loadout"))
+		get_tree().remove_meta("garage_test_loadout")
 	var vfx := VFX_MANAGER_SCRIPT.new()
 	vfx.name = "VFXManager"
 	add_child(vfx)
@@ -107,7 +112,7 @@ func _build_world() -> void:
 	sun.light_energy = 1.15
 	add_child(sun)
 	_make_box("TrainingFloor", Vector3(0.0, -0.3, 0.0), Vector3(88.0, 0.6, 76.0), Color("#4b453e"), true)
-	(get_node("TrainingFloor") as StaticBody3D).collision_layer = 5 # Ground rays use layer 4; obstacles stay on layer 1.
+	(get_node("TrainingFloor") as StaticBody3D).collision_layer = 4 # Ground rays use layer 4; teleport destinations check obstacles on layer 1.
 	var ground_mesh := get_node("TrainingFloor/Visual") as MeshInstance3D
 	var ground_material := ground_mesh.material_override as StandardMaterial3D
 	ground_material.albedo_color = Color("#aaa4a0")
@@ -750,7 +755,12 @@ func _on_loadout_selected(index: int, category: String, choices: Array) -> void:
 
 func _apply_loadout() -> void:
 	_loadout = LOADOUT.sanitize(_loadout)
-	LOADOUT.save_local(_loadout)
+	if _garage_test_session:
+		var draft: Dictionary = get_tree().get_meta("garage_return_draft", {})
+		draft.loadout = _loadout.duplicate(true)
+		get_tree().set_meta("garage_return_draft", draft)
+	else:
+		LOADOUT.save_local(_loadout)
 	player.call("apply_loadout", _loadout)
 	_update_spell_bar()
 	_update_status()

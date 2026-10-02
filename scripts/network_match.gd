@@ -33,6 +33,9 @@ var _last_event := 0
 var _last_snapshot := 0
 var _status: Label
 var _cleanup_done := false
+var _precombat_remaining := 0.0
+var _last_countdown_second := 0
+var _leave_button: Button
 
 
 func configure(main: Node3D, host_id: int, guest_id: int) -> void:
@@ -45,6 +48,7 @@ func configure(main: Node3D, host_id: int, guest_id: int) -> void:
 	_session = get_node("/root/NetworkSession")
 	_host_id = host_id
 	_guest_id = guest_id
+	_flow.set("round_phase", 0)
 	_flow.call("_show_screen", 3)
 	_original_player.call("set_gameplay_enabled", false)
 	_original_player.hide()
@@ -102,6 +106,7 @@ func _build_overlay() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	var leave := Button.new()
+	_leave_button = leave
 	leave.text = "QUITTER"
 	leave.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	leave.position = Vector2(-132, 18)
@@ -135,6 +140,13 @@ func _other_spawn() -> Vector3:
 func _process(delta: float) -> void:
 	if _phase == "closed" or _player == null:
 		return
+	if _phase == "countdown":
+		_precombat_remaining = maxf(0.0, _precombat_remaining - delta)
+		_flow.get("_precombat_overlay").call("set_remaining", _precombat_remaining)
+		var second := ceili(_precombat_remaining)
+		if second in [1, 2, 3] and second != _last_countdown_second:
+			_last_countdown_second = second
+			_flow.call("_play_countdown_sound", _flow.COUNTDOWN_SOUNDS[3-second])
 	_target.call("update_remote_visibility", delta)
 	var labels: Dictionary = _flow.get("_hud_labels")
 	labels.match.text = "%d — %d" % [_host_score if _is_host() else _guest_score, _guest_score if _is_host() else _host_score]
@@ -186,13 +198,22 @@ func _on_round_prepared(number: int, host_score: int, guest_score: int) -> void:
 	_player.position = _my_spawn()
 	_target.position = _other_spawn()
 	_touch.visible = false
-	_status.text = "MANCHE %d · PRÉPAREZ-VOUS" % number
+	_precombat_remaining = _session.round_intro_seconds(number)
+	_last_countdown_second = 0
+	var local_build: Dictionary = _session.round_loadouts.get(int(_player.get("peer_id")), {})
+	var other_build: Dictionary = _session.round_loadouts.get(int(_target.get("peer_id")), {})
+	_flow.call("show_network_precombat", local_build, other_build, _precombat_remaining)
+	_leave_button.hide()
+	_status.text = ""
 	_status.add_theme_color_override("font_color", CREAM)
 	_flow.get_node("FlowRoot/CombatHUD/SpellBar").show()
 
 
 func _on_round_live() -> void:
 	_phase = "live"
+	_flow.call("hide_network_precombat")
+	_flow.call("_play_countdown_sound", _flow.FIGHT_SOUND)
+	_leave_button.show()
 	_player.call("set_gameplay_enabled", true)
 	_target.call("set_gameplay_enabled", true)
 	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
@@ -265,9 +286,9 @@ func _on_action_received(event: Dictionary) -> void:
 	if _is_host() or _phase != "live" or not _valid_pose(event) or int(event.get("sequence", 0)) <= _last_event:
 		return
 	_last_event = int(event.sequence)
-	if str(event.action) == "counter_explosion":
+	if str(event.action) in ["counter_explosion", "rocket_end"]:
 		var counter_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
-		counter_owner.call("receive_action", "counter_explosion", event.data, true)
+		counter_owner.call("receive_action", str(event.action), event.data, true)
 		return
 	if str(event.action) in ["projector_pulse", "projector_cast"]:
 		var projector_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
@@ -281,11 +302,14 @@ func _on_action_received(event: Dictionary) -> void:
 		# A snapshot may precede this reliable event. Effects still play once;
 		# revisions prevent an older event from moving either actor backwards.
 		if is_instance_valid(caster.get("_permutation_mark")):
+			caster.get("_permutation_mark").stop_audio()
 			caster.get("_permutation_mark").queue_free()
 		caster.set("_permutation_mark", null)
 		if changed or int(event.data.get("caster_revision", 0)) == int(caster.get("_permutation_revision")):
 			PERMUTATION.pulse(_main, caster.global_position)
 			PERMUTATION.pulse(_main, victim.global_position)
+			PERMUTATION.play_exchange_sound(_main, caster.global_position)
+			_main.get_node("/root/GameSfx").play_module_event("permutation_shield", caster.global_position)
 		return
 	if int(event.peer) == _session.local_peer_id():
 		if str(event.action) == "javelin_recast":
@@ -335,6 +359,7 @@ func _cleanup_actors() -> void:
 	if _cleanup_done:
 		return
 	_cleanup_done = true
+	_flow.call("hide_network_precombat")
 	for actor in [_player, _target]:
 		if is_instance_valid(actor):
 			actor.call("set_gameplay_enabled", false)

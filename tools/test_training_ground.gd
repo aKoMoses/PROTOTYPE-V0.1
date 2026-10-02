@@ -3,6 +3,8 @@ extends SceneTree
 var failures: Array[String] = []
 
 func _initialize() -> void:
+	# Run with a known draft, independent of the player's saved chassis.
+	set_meta("garage_test_loadout", preload("res://scripts/loadout_state.gd").defaults())
 	var scene: Node3D = load("res://scenes/training_ground.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene

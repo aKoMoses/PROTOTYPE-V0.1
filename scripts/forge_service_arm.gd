@@ -3,6 +3,7 @@ extends Node3D
 ## Rigid, authored Blender joints. Playback belongs to this garage instance.
 signal service_started
 signal service_finished
+signal manual_control_cancelled
 
 const SOURCE := preload("res://art/forge-garage/service_arm.glb")
 var model: Node3D
@@ -12,6 +13,8 @@ var clip: StringName = &""
 var elapsed := 0.0
 var active := false
 var particles: GPUParticles3D
+var manual_control := false
+var manual_phase := "SCANNER MANUEL"
 
 
 func _ready() -> void:
@@ -57,14 +60,30 @@ func start_service() -> bool:
 
 
 func cancel_service() -> void:
+	var was_manual := manual_control
+	manual_control = false
 	seek_service(0.0)
 	active = false
 	if particles != null:
 		particles.emitting = false
+	if was_manual:
+		manual_control_cancelled.emit()
+
+
+func begin_manual_control() -> void:
+	cancel_service()
+	manual_control = true
+	active = true
+	animator.pause()
+
+
+func end_manual_control() -> void:
+	manual_control = false
+	cancel_service()
 
 
 func advance_service(delta: float) -> void:
-	if not active or animator == null:
+	if not active or animator == null or manual_control:
 		return
 	elapsed += delta
 	animator.advance(delta)
@@ -89,6 +108,8 @@ func seek_service(seconds: float) -> void:
 
 
 func phase_name() -> String:
+	if manual_control:
+		return manual_phase
 	if not active:
 		return "ATELIER OPÉRATIONNEL"
 	if elapsed < 3.9:

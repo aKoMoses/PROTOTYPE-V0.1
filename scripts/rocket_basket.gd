@@ -16,6 +16,7 @@ static func launch(caster: Node3D, direction: Vector3, source: String, attack_id
 		caster.call("register_offensive_attack", attack_id)
 	var volley := {"hits": {}, "bonus": false, "cooldown": float(definition.cooldown) if cooldown_basis < 0.0 else cooldown_basis}
 	var side := direction.cross(Vector3.UP).normalized()
+	caster.get_node("/root/GameSfx").play_module_event("rocket_launch", caster.global_position)
 	for index in range(int(definition.projectiles)):
 		var rocket := ROCKET.new()
 		var id := "%s:%d" % [attack_id, index]
@@ -69,12 +70,14 @@ static func snapshot(caster: Node3D) -> Array:
 
 static func receive_snapshot(caster: Node3D, values: Array) -> void:
 	var existing := {}
+	var new_volley := false
 	for rocket in caster.get_tree().get_nodes_in_group(ROCKET.GROUP):
 		if rocket.caster == caster:
 			existing[rocket.rocket_id] = rocket
 	for value in values:
 		var rocket: Node3D = existing.get(str(value.id))
 		if rocket == null:
+			new_volley = true
 			rocket = ROCKET.new()
 			rocket.configure(caster, str(value.id), value.direction, true)
 			caster.get_tree().current_scene.add_child(rocket)
@@ -82,5 +85,7 @@ static func receive_snapshot(caster: Node3D, values: Array) -> void:
 		rocket.direction = value.direction
 		rocket.health = float(value.health)
 		existing.erase(str(value.id))
+	if new_volley:
+		caster.get_node("/root/GameSfx").play_module_event("rocket_launch", caster.global_position)
 	for rocket in existing.values():
 		rocket._destroy()

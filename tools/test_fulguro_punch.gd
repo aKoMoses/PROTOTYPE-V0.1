@@ -1,6 +1,7 @@
 extends SceneTree
 
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
+const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 
 var _failures: Array[String] = []
 
@@ -188,7 +189,11 @@ func _test_wall_blocks_strike(player: Node, target: Node, scene: Node) -> void:
 
 
 func _test_dash_interaction(player: Node, target: Node) -> void:
-	await _prepare(player, target, Vector3(0.0, 0.0, 4.45), Vector3.BACK)
+	var dash_distance := float(COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.dash_distance)
+	await _prepare(player, target, Vector3(0.0, 0.0, 1.45), Vector3.BACK)
+	# Keep the final hit/projection in the open lane with the longer dash.
+	var dash_origin := Vector3(0.0, 0.0, -dash_distance)
+	player.global_position = dash_origin
 	player.call("_perform_pyro_boots", Vector3.BACK)
 	await create_timer(0.04, true, false, false).timeout
 	# The live mouse sampler continues during the dash; emulate a held right-stick
@@ -198,7 +203,7 @@ func _test_dash_interaction(player: Node, target: Node) -> void:
 	await create_timer(0.22, true, false, false).timeout
 	if bool(player.call("is_dash_active")):
 		_failures.append("Dash + frappe : dash prolongé par le module")
-	if absf(float(player.global_position.z) - 3.0) > 0.30:
+	if absf(player.global_position.distance_to(dash_origin) - dash_distance) > 0.30:
 		_failures.append("Dash + frappe : distance dash altérée (z=%.2f)" % player.global_position.z)
 	await _wait_projection_cycle(target)
 	if absf(float(target.call("get_health")) - 800.0) > 1.0:
@@ -256,6 +261,7 @@ func _test_invalid_buffer(player: Node, target: Node) -> void:
 	player.set("training_instant_cooldowns", false)
 	player.call("start_fulguro_projection", Vector3.RIGHT, 4.0, 0.35, 150.0, 0.75, "test", "buffer_invalid")
 	player.call("_activate_mobility_module")
+	player.call("_start_module_cooldown", "pyro_boots", 2.0)
 	player.call("_start_module_cooldown", "pyro_boots", 2.0)
 	await create_timer(0.46, true, false, false).timeout
 	if str(player.call("get_buffered_defensive_action")) != "" or bool(player.call("is_dash_active")):

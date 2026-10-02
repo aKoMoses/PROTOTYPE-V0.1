@@ -1,0 +1,73 @@
+{
+  "selected_at": "2026-10-01T22:25:13+02:00",
+  "confirmed_by": "user",
+  "weapons": {
+    "mekatana": "B-stable",
+    "longshot": "B-stable"
+  },
+  "future_sfx_generator": "Stable Audio",
+  "current_selected_model": "Stable Audio 3 Small-SFX",
+  "integrated_in_game": false,
+  "files": [
+    {
+      "id": "mekatana-windup",
+      "path": "selected\\mekatana-windup.wav",
+      "source": "candidates\\B-stable\\mekatana-windup.wav",
+      "sha256": "b3f2593a4efd106c133dbff9509a6ac3284f7bdb5d2047bfa9c654376070f0a4"
+    },
+    {
+      "id": "mekatana-slash-1",
+      "path": "selected\\mekatana-slash-1.wav",
+      "source": "candidates\\B-stable\\mekatana-slash-1.wav",
+      "sha256": "33e2773c8690a386fc43fa7643bfcd159adf12c43605a3d5b7f988073cf1b4b4"
+    },
+    {
+      "id": "mekatana-slash-2",
+      "path": "selected\\mekatana-slash-2.wav",
+      "source": "candidates\\B-stable\\mekatana-slash-2.wav",
+      "sha256": "63a2725f450493d92cd60fda50f75706ea13c8f3f9ae4517ab8ba4399a5f220a"
+    },
+    {
+      "id": "mekatana-slash-3",
+      "path": "selected\\mekatana-slash-3.wav",
+      "source": "candidates\\B-stable\\mekatana-slash-3.wav",
+      "sha256": "8ddd433924034f30c60c9082d4d62fa690a8b55b33bd084954ff7691c5903529"
+    },
+    {
+      "id": "mekatana-impact-1",
+      "path": "selected\\mekatana-impact-1.wav",
+      "source": "candidates\\B-stable\\mekatana-impact-1.wav",
+      "sha256": "e80d048bcae2e8db1302d53c993078b505f52f5095ae9693418acc881c1049c7"
+    },
+    {
+      "id": "mekatana-impact-2",
+      "path": "selected\\mekatana-impact-2.wav",
+      "source": "candidates\\B-stable\\mekatana-impact-2.wav",
+      "sha256": "9d8c74c9398586017a088122f7a983d7cc55f8163fca779bf4083e63b99c185b"
+    },
+    {
+      "id": "mekatana-impact-3",
+      "path": "selected\\mekatana-impact-3.wav",
+      "source": "candidates\\B-stable\\mekatana-impact-3.wav",
+      "sha256": "a856b6e67382ca6a8e59be3a96df3de9ba2d9a9f84a8eec4a0028ed8f1f3b6b2"
+    },
+    {
+      "id": "longshot-shot",
+      "path": "selected\\longshot-shot.wav",
+      "source": "candidates\\B-stable\\longshot-shot.wav",
+      "sha256": "f65d01c6612b02104697087327b869bac9ddec7160824e8390e3e2ba36bae61d"
+    },
+    {
+      "id": "longshot-enhanced",
+      "path": "selected\\longshot-enhanced.wav",
+      "source": "candidates\\B-stable\\longshot-enhanced.wav",
+      "sha256": "8c222298b873769e1dd2edfc2735322ff7e91791ba572d8fe314b57ab657f22a"
+    },
+    {
+      "id": "longshot-ready",
+      "path": "selected\\longshot-ready.wav",
+      "source": "candidates\\B-stable\\longshot-ready.wav",
+      "sha256": "78907cccc609103a5b4d0f32e49bb751863cbef43447121a776c0b9dccea5586"
+    }
+  ]
+}

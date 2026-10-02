@@ -2,11 +2,14 @@ extends SceneTree
 
 var failures: Array[String] = []
 var checks := 0
+var backups: Dictionary = {}
 
 func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	for path in ["user://prototype0_settings.cfg", "user://prototype0_loadout.cfg"]:
+		backups[path] = {"exists": FileAccess.file_exists(path), "bytes": FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()}
 	# Exercise actual canvas sizes, independent of the production window's
 	# canvas_items stretch, which maps physical window pixels to logical pixels.
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
@@ -45,15 +48,19 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	flow.call("_open_equipment")
 	var official: Control = flow.get("_forge_garage")
-	(official.get("weapon_buttons")["shotgun"] as Button).pressed.emit()
 	var loadout_script: Script = load("res://scripts/loadout_state.gd")
+	var saved_before_selection: Dictionary = loadout_script.load_local()
+	(official.get("weapon_buttons")["shotgun"] as Button).pressed.emit()
 	var restored: Dictionary = loadout_script.load_local()
-	_check(restored.get("weapon", "") == "shotgun", "weapon selection survives reopening before a match")
+	_check(official.get("loadout").weapon == "shotgun" and restored == saved_before_selection, "weapon selection changes the draft without saving it")
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true
 	flow.call("_unhandled_input", escape)
 	_check(int(flow.get("current_screen")) == 0, "Escape returns from forge")
+	flow.call("_open_equipment")
+	_check(official.get("loadout").weapon == "shotgun" and loadout_script.load_local() == saved_before_selection, "draft survives reopening and the combat build remains saved separately")
+	flow.call("_return_menu")
 	flow.call("_start_duel")
 	flow.call("_begin_live_round")
 	scene.get_node("TargetDummy").call("set_training_bot_enabled", false)
@@ -68,6 +75,13 @@ func _run() -> void:
 	scene.queue_free()
 	await process_frame
 	await create_timer(0.1).timeout
+	for path in backups:
+		if backups[path].exists:
+			var file := FileAccess.open(path, FileAccess.WRITE)
+			file.store_buffer(backups[path].bytes)
+			file.close()
+		else:
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("NAVIGATION RELIABILITY: %s (%d checks)" % ["PASS" if failures.is_empty() else "FAIL", checks])
 	for failure in failures:
 		push_error(failure)

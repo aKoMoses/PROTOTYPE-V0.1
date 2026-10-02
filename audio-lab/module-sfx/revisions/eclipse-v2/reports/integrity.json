@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "candidate_count": 1,
+  "generator": "Stable Audio 3 Small-SFX",
+  "user_validation": "pending",
+  "integrated_in_game": false,
+  "checks": [
+    "Strict inspection",
+    "RIFF stereo 44.1 kHz",
+    "Source and candidate SHA256",
+    "Source energy and gain limits",
+    "No clipping; edge fades"
+  ]
+}

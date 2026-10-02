@@ -176,8 +176,9 @@ func _push(enemy: Node3D, away_from: Vector3, distance: float) -> void:
 	var direction := (enemy.global_position - away_from).normalized()
 	direction.y = 0.0
 	var destination := enemy.global_position + direction * distance
-	destination.x = clampf(destination.x, -21.0, 21.0)
-	destination.z = clampf(destination.z, -21.0, 21.0)
+	var center: Vector3 = player.get("gameplay_arena_center")
+	destination.x = clampf(destination.x, center.x - 21.0, center.x + 21.0)
+	destination.z = clampf(destination.z, center.z - 21.0, center.z + 21.0)
 	if _clear_line(enemy.global_position, destination, [enemy.get_rid()]):
 		enemy.global_position = destination
 
@@ -355,7 +356,8 @@ func _clear_javelin() -> void:
 	javelin_visual = null
 
 func _landing_clear(position: Vector3) -> bool:
-	if absf(position.x) > 21.0 or absf(position.z) > 21.0:
+	var center: Vector3 = player.get("gameplay_arena_center")
+	if absf(position.x - center.x) > 21.0 or absf(position.z - center.z) > 21.0:
 		return false
 	var shape := CylinderShape3D.new()
 	shape.radius = 0.55

@@ -32,6 +32,22 @@ func _run() -> void:
 	print("Long-wall first route: %.2f ms / %.2f m" % [float(Time.get_ticks_usec() - before) / 1000.0, distance])
 	_check(not is_inf(distance) and distance > 40.0, "whole-map route goes around a long wall near the survival boundary")
 	await _walk(Vector3(8.0, 0.0, 0.0), 21.0, 360, "long-wall detour")
+	# The factory has its own world-space centre. Retained grids and waypoints
+	# must follow that centre while collision queries keep world coordinates.
+	var factory_center := Vector3(54.0, 0.0, -10.0)
+	actor.position = factory_center + Vector3(-8.0, 0.0, 0.0)
+	wall.position = factory_center
+	navigator.arena_center = factory_center
+	await physics_frame
+	var factory_goal := factory_center + Vector3(8.0, 0.0, 0.0)
+	_check(navigator.is_destination_clear(actor, factory_goal, 21.0), "shifted factory goal is playable")
+	_check(not navigator.is_destination_clear(actor, factory_center + Vector3(22.0, 0.0, 0.0), 21.0), "shifted factory boundary rejects outside goals")
+	var factory_route: float = navigator.route_distance(actor, factory_goal, 1.0, 21.0)
+	_check(not is_inf(factory_route) and factory_route > 40.0, "shifted grid preserves the long-wall detour")
+	await _walk(factory_goal, 21.0, 360, "shifted-factory detour")
+	wall.position = Vector3.ZERO
+	navigator.arena_center = Vector3.ZERO
+	await physics_frame
 	actor.position = Vector3(-0.88, 0.0, 0.0)
 	navigator.invalidate()
 	var close_to_cover: Vector3 = navigator.get_direction(actor, Vector3(8.0, 0.0, 0.0), 0.0, 21.0)

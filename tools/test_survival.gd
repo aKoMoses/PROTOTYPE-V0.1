@@ -111,6 +111,10 @@ func _initialize() -> void:
 		scene.call("_choose_reward", picked)
 		if completed_wave == 3:
 			_check(is_equal_approx(float(player.call("get_health")), 600.0), "soin de 100 PV au troisième palier")
+		if completed_wave == 6:
+			_check(str(scene.get("_state")) == "transition" and int(scene.get("wave")) == 6, "vague 7 attend la traversée")
+			player.position = Vector3(35, 0, 0)
+			scene.call("_enter_factory")
 		await physics_frame
 		_check(int(scene.get("wave")) == completed_wave + 1, "vague suivante après choix")
 		scene.call("_begin_wave_combat")

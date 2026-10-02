@@ -1,0 +1,98 @@
+{
+  "files_verified": 24,
+  "candidate_pairs": [
+    {
+      "id": "mekatana-windup",
+      "pair_rms_difference_db": 0.00078,
+      "onset_seconds": [
+        0.0051,
+        0.00295
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-slash-1",
+      "pair_rms_difference_db": 0.00024,
+      "onset_seconds": [
+        0.00236,
+        0.00193
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-slash-2",
+      "pair_rms_difference_db": 0.0001,
+      "onset_seconds": [
+        0.00145,
+        0.00095
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-slash-3",
+      "pair_rms_difference_db": 0.00016,
+      "onset_seconds": [
+        0.00152,
+        0.00109
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-impact-1",
+      "pair_rms_difference_db": 0.00012,
+      "onset_seconds": [
+        0.00059,
+        0.00696
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-impact-2",
+      "pair_rms_difference_db": 0.00031,
+      "onset_seconds": [
+        0.00095,
+        0.00696
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mekatana-impact-3",
+      "pair_rms_difference_db": 0.0004,
+      "onset_seconds": [
+        0.00059,
+        0.00619
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "longshot-shot",
+      "pair_rms_difference_db": 0.00043,
+      "onset_seconds": [
+        0.00061,
+        0.00789
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "longshot-enhanced",
+      "pair_rms_difference_db": 0.00059,
+      "onset_seconds": [
+        0.00041,
+        0.01061
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "longshot-ready",
+      "pair_rms_difference_db": 0.00057,
+      "onset_seconds": [
+        0.00079,
+        0.00975
+      ],
+      "status": "pass"
+    }
+  ],
+  "semantic_acceptance": "B selected for both weapons by user after audition; live game synchronization remains unverified",
+  "gameplay_modified": false,
+  "selected_files_verified": 12
+}

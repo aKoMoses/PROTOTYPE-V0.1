@@ -5,7 +5,7 @@ extends RefCounted
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 
 
-static func activate(caster: Node3D, targets: Array, source_id: String) -> void:
+static func activate(caster: Node3D, targets: Array, source_id: String, emergency := false) -> void:
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.projector
 	var center := caster.global_position
 	var hit_ids: Dictionary = {}
@@ -36,7 +36,7 @@ static func activate(caster: Node3D, targets: Array, source_id: String) -> void:
 		if target.has_method("start_knockback"):
 			target.call("start_knockback", direction, push, float(definition.push_duration), source_id)
 		target.call("apply_slow", float(definition.slow_duration), slow, source_id)
-	spawn_visual(caster.get_tree().current_scene, center)
+	spawn_visual(caster.get_tree().current_scene, center, emergency)
 
 
 static func _material(color: Color, energy: float = 2.0) -> StandardMaterial3D:
@@ -70,6 +70,9 @@ static func spawn_cast(caster: Node3D, duration: float) -> Node3D:
 	var effect := Node3D.new()
 	effect.name = "ProjectorCast"
 	caster.add_child(effect)
+	var sfx := caster.get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		effect.set_meta("charge_voice", sfx.call("play_module_event", "projector_charge", caster.global_position))
 	effect.add_to_group("prototype0_fx_budget")
 	var floor_ring := _ring(effect, 0.1, Color(0.3, 0.85, 1.0, 0.8), 0.04)
 	floor_ring.scale = Vector3(1.3, 0.8, 1.3)
@@ -85,9 +88,13 @@ static func spawn_cast(caster: Node3D, duration: float) -> Node3D:
 	return effect
 
 
-static func spawn_visual(scene: Node, center: Vector3) -> void:
+static func spawn_visual(scene: Node, center: Vector3, emergency := false) -> void:
 	if scene == null:
 		return
+	var sfx := scene.get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_module_event", "projector_passive" if emergency else "projector_wave", center)
+		sfx.call("play_module_event", "projector_push", center)
 	var effect := Node3D.new()
 	effect.name = "ProjectorShockwave"
 	scene.add_child(effect)

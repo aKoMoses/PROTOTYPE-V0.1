@@ -1,0 +1,18 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\rocket-counter-v2\\candidates\\rocket-flight.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.25,
+    "peak": 0.244293,
+    "rms": 0.035469,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.0,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

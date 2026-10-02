@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mekatana & Longshot · Comparaison audio</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#141619;color:#e9e6e0}*{box-sizing:border-box}body{margin:0;padding:30px 24px 50px}main{max-width:1000px;margin:auto}h1{font-size:30px;font-weight:650;letter-spacing:-1px;margin:10px 0}h2{font-size:23px;margin:0 0 9px}h3{font-size:18px;margin:0 0 12px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#d1b78a}.muted{color:#a8adb5;line-height:1.6}.intro{margin:0 0 30px}.weapon{border-top:1px solid #35383e;padding:26px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{border:1px solid #383d46;border-radius:12px;background:#1d2025;padding:20px}.label{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:7px;color:#141619;background:#d1b78a;font-size:16px;margin-right:8px}.b{background:#90b6c4}audio{width:100%;height:42px;margin-top:6px}p{margin:0 0 12px}details{margin-top:16px;color:#bec3ca}summary{cursor:pointer;font-size:14px}table{border-collapse:collapse;width:100%;margin-top:16px;font-size:13px}td,th{padding:10px 6px;border-bottom:1px solid #30343a;text-align:left}button{border:1px solid #5b6471;border-radius:6px;background:#242932;color:#eee;padding:7px 12px;cursor:pointer}button:hover{background:#36404d}button.active{background:#d1b78a;color:#161616}footer{border-top:1px solid #35383e;padding-top:18px;color:#a8adb5;font-size:13px;line-height:1.7}.now{min-height:22px;color:#d1b78a;font-size:13px;margin-top:9px}@media(max-width:700px){.grid{grid-template-columns:1fr}body{padding:20px 16px}h1{font-size:25px}}
+</style>
+<main>
+<div class="eyebrow">Prototype 0 · Atelier sonore</div>
+<h1>Mekatana & Longshot</h1>
+<p class="muted intro">Deux approches, les mêmes événements. A : fabrication originale par Codex. B : Stable Audio 3 Small-SFX, généré en local. Les niveaux A/B sont équilibrés pour chaque effet.</p>
+<section class="weapon">
+<h2>Mekatana</h2>
+<p class="muted">Trois frappes à vide, puis trois frappes avec impacts. Préparation électrique, souffle de lame et contact métallique séparés.</p>
+<div class="grid">
+<article class="card"><h3><span class="label">A</span>Codex</h3><p class="muted">Air découpé, acier résonant et étincelles brèves. Trois rangs de frappe.</p><audio controls preload="metadata" src="previews/mekatana-A.wav" data-weapon="mekatana"></audio><div class="now"></div></article>
+<article class="card"><h3><span class="label b">B</span>Stable Audio</h3><p class="muted">Sources générées séparément, puis gestes courts extraits et ajustés.</p><audio controls preload="metadata" src="previews/mekatana-B.wav" data-weapon="mekatana"></audio><div class="now"></div></article>
+</div>
+<details><summary>Écouter chaque effet du Mekatana</summary><table id="mekatana-cues"><thead><tr><th>Effet</th><th>Codex</th><th>Stable Audio</th></tr></thead><tbody></tbody></table></details>
+</section>
+<section class="weapon">
+<h2>Longshot</h2>
+<p class="muted">Quatre tirs normaux, un bref signal de disponibilité, puis le cinquième tir renforcé. Cadence de 1,05 seconde.</p>
+<div class="grid">
+<article class="card"><h3><span class="label">A</span>Codex</h3><p class="muted">Claque sèche, impulsion grave et mécanisme court. Version renforcée distincte.</p><audio controls preload="metadata" src="previews/longshot-A.wav" data-weapon="longshot"></audio><div class="now"></div></article>
+<article class="card"><h3><span class="label b">B</span>Stable Audio</h3><p class="muted">Tir normal, tir renforcé et signal de disponibilité générés séparément.</p><audio controls preload="metadata" src="previews/longshot-B.wav" data-weapon="longshot"></audio><div class="now"></div></article>
+</div>
+<details><summary>Écouter chaque effet du Longshot</summary><table id="longshot-cues"><thead><tr><th>Effet</th><th>Codex</th><th>Stable Audio</th></tr></thead><tbody></tbody></table></details>
+</section>
+<footer><strong>Choix enregistré : B / Stable Audio pour le Mekatana et le Longshot.</strong> Tous les prochains effets sonores seront produits avec Stable Audio. Fichiers WAV stéréo 44,1 kHz / 16 bits vérifiés ; les sons retenus sont conservés dans le dossier selected. Aucun son intégré au jeu à ce stade.</footer>
+</main>
+<script>
+const names={'mekatana-windup':'Préparation électrique','mekatana-slash-1':'Lame · coup 1','mekatana-slash-2':'Lame · coup 2','mekatana-slash-3':'Lame · coup 3','mekatana-impact-1':'Impact · coup 1','mekatana-impact-2':'Impact · coup 2','mekatana-impact-3':'Impact · coup 3','longshot-shot':'Tir normal','longshot-enhanced':'Tir renforcé','longshot-ready':'Signal de disponibilité'};
+let solo=new Audio();
+function stopOthers(current){document.querySelectorAll('audio').forEach(a=>{if(a!==current)a.pause()});if(solo!==current)solo.pause();document.querySelectorAll('button.active').forEach(b=>b.classList.remove('active'))}
+document.querySelectorAll('audio').forEach(a=>{a.addEventListener('play',()=>stopOthers(a));a.addEventListener('timeupdate',()=>{let t=a.currentTime;let text=a.dataset.weapon==='mekatana'?(t<.5?'':t<3.1?'Combo à vide':t<4.5?'Pause':t<7.3?'Combo avec impacts':''):(t<.5?'':t<4.25?'Tirs normaux':t<4.8?'Tir renforcé prêt':'Cinquième tir renforcé');a.nextElementSibling.textContent=text})});
+for(const [id,name] of Object.entries(names)){let row=document.createElement('tr');let td=document.createElement('td');td.textContent=name;row.append(td);for(const [label,folder] of [['A','A-codex'],['B','B-stable']]){let cell=document.createElement('td');let button=document.createElement('button');button.textContent='▶ '+label;button.setAttribute('aria-label',name+' version '+label);button.onclick=()=>{stopOthers(solo);solo.pause();solo.src='candidates/'+folder+'/'+id+'.wav';solo.play();button.classList.add('active');solo.onended=()=>button.classList.remove('active')};cell.append(button);row.append(cell)}document.querySelector('#'+(id.startsWith('mekatana')?'mekatana':'longshot')+'-cues tbody').append(row)}
+</script>
+</html>

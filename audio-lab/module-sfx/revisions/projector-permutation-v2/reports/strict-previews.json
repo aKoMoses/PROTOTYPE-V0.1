@@ -1,0 +1,100 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\previews\\projector-isolated.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 5.4248,
+    "peak": 0.769958,
+    "rms": 0.039199,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.54,
+      0.72,
+      1.7,
+      1.88,
+      2.0,
+      3.0,
+      3.12,
+      3.24,
+      3.42,
+      4.36
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8081,
+    "median_transient_gap_seconds": 0.18,
+    "transient_gap_cv": 0.9169,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\previews\\projector-scenario.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 3.6248,
+    "peak": 0.769958,
+    "rms": 0.045169,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.54,
+      0.72,
+      0.98,
+      1.12,
+      1.28,
+      1.4,
+      2.72
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7624,
+    "median_transient_gap_seconds": 0.17,
+    "transient_gap_cv": 1.1838,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\previews\\permutation-isolated.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 6.0705,
+    "peak": 0.687683,
+    "rms": 0.03449,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.52,
+      1.7,
+      1.88,
+      2.12,
+      3.54,
+      3.76,
+      3.9,
+      4.92
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8812,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 0.816,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\previews\\permutation-scenario.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 3.0,
+    "peak": 0.70401,
+    "rms": 0.045008,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.52,
+      0.96,
+      1.72,
+      1.94,
+      2.08
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8133,
+    "median_transient_gap_seconds": 0.33,
+    "transient_gap_cv": 0.6159,
+    "quality": "ok"
+  }
+]

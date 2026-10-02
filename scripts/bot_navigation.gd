@@ -21,6 +21,7 @@ static var _shared_grids: Dictionary = {}
 static var _world_geometry: Dictionary = {}
 
 var _path: Array[Vector3] = []
+var arena_center := Vector3.ZERO
 var _waypoint := 0
 var _destination := Vector3.INF
 var _route_key := ""
@@ -111,7 +112,7 @@ func route_distance(body: CollisionObject3D, destination: Vector3, now: float, a
 		return INF
 	var origin := _flat(body.global_position)
 	# Unlike movement, scoring must reject goals outside the playable map.
-	if absf(destination.x) > arena_limit or absf(destination.z) > arena_limit:
+	if absf(destination.x - arena_center.x) > arena_limit or absf(destination.z - arena_center.z) > arena_limit:
 		return INF
 	var goal := _flat(destination)
 	if not _point_clear(context, goal):
@@ -225,7 +226,7 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 		shape_signature = "%s/%s" % [collision.shape.get_rid().get_id(), collision.global_basis]
 	var offset := collision.global_position - body.global_position
 	var revision := _geometry_revision(body)
-	var key := "%s/%s/%s/%.2f/%s" % [body.get_world_3d().get_rid().get_id(), revision, shape_signature, arena_limit, offset]
+	var key := "%s/%s/%s/%.2f/%s/%s" % [body.get_world_3d().get_rid().get_id(), revision, shape_signature, arena_limit, offset, arena_center]
 	if not _shared_grids.has(key):
 		if _shared_grids.size() >= MAX_SHARED_GRIDS:
 			var oldest_key := ""
@@ -247,7 +248,7 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	departure_query.collide_with_areas = false
 	departure_query.exclude = [body.get_rid()]
 	departure_query.margin = DEPARTURE_MARGIN
-	return {"key": key, "query": query, "departure_query": departure_query, "offset": offset, "space": body.get_world_3d().direct_space_state, "limit": arena_limit, "size": int(floor(arena_limit * 2.0 / CELL_SIZE)) + 1, "grid": grid}
+	return {"key": key, "query": query, "departure_query": departure_query, "offset": offset, "space": body.get_world_3d().direct_space_state, "limit": arena_limit, "center": arena_center, "size": int(floor(arena_limit * 2.0 / CELL_SIZE)) + 1, "grid": grid}
 
 
 func _clearance_shape(original: Shape3D) -> Shape3D:
@@ -272,19 +273,21 @@ func _flat(value: Vector3) -> Vector3:
 
 
 func _clamp_point(value: Vector3, limit: float) -> Vector3:
-	return Vector3(clampf(value.x, -limit, limit), 0.0, clampf(value.z, -limit, limit))
+	return Vector3(clampf(value.x, arena_center.x - limit, arena_center.x + limit), 0.0, clampf(value.z, arena_center.z - limit, arena_center.z + limit))
 
 
 func _cell(context: Dictionary, point: Vector3) -> Vector2i:
-	return Vector2i(roundi((point.x + float(context.limit)) / CELL_SIZE), roundi((point.z + float(context.limit)) / CELL_SIZE))
+	var local := point - (context.center as Vector3)
+	return Vector2i(roundi((local.x + float(context.limit)) / CELL_SIZE), roundi((local.z + float(context.limit)) / CELL_SIZE))
 
 
 func _point(context: Dictionary, cell: Vector2i) -> Vector3:
-	return Vector3(float(cell.x) * CELL_SIZE - float(context.limit), 0.0, float(cell.y) * CELL_SIZE - float(context.limit))
+	return Vector3(float(cell.x) * CELL_SIZE - float(context.limit), 0.0, float(cell.y) * CELL_SIZE - float(context.limit)) + (context.center as Vector3)
 
 
 func _point_clear(context: Dictionary, point: Vector3) -> bool:
-	if absf(point.x) > float(context.limit) or absf(point.z) > float(context.limit):
+	var local := point - (context.center as Vector3)
+	if absf(local.x) > float(context.limit) or absf(local.z) > float(context.limit):
 		return false
 	var query: PhysicsShapeQueryParameters3D = context.query
 	query.transform.origin = point + (context.offset as Vector3)
@@ -300,7 +303,8 @@ func _physical_point_clear(context: Dictionary, point: Vector3) -> bool:
 
 
 func _segment_clear(context: Dictionary, origin: Vector3, destination: Vector3) -> bool:
-	if absf(destination.x) > float(context.limit) or absf(destination.z) > float(context.limit):
+	var local := destination - (context.center as Vector3)
+	if absf(local.x) > float(context.limit) or absf(local.z) > float(context.limit):
 		return false
 	var query: PhysicsShapeQueryParameters3D = context.query
 	query.transform.origin = origin + (context.offset as Vector3)

@@ -1,0 +1,120 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\projector-charge.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.37,
+    "peak": 0.464447,
+    "rms": 0.056223,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.2778,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\projector-wave.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.4,
+    "peak": 0.510284,
+    "rms": 0.099986,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.15,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\projector-push.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.58,
+    "peak": 0.268402,
+    "rms": 0.063082,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.1034,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\projector-passive.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.1248,
+    "peak": 0.769958,
+    "rms": 0.082968,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.02
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.6667,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\permutation-send.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.2705,
+    "peak": 0.687683,
+    "rms": 0.063085,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.3077,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\permutation-swap.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.5,
+    "peak": 0.620148,
+    "rms": 0.089113,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.24
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.4,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\permutation-shield.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.25,
+    "peak": 0.563751,
+    "rms": 0.056227,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.06
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8333,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

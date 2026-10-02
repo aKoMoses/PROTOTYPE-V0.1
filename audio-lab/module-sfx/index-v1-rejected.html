@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Modules · Écoutes Stable Audio</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#141619;color:#edeae3}*{box-sizing:border-box}body{margin:0;padding:30px 22px 50px}main{max-width:1050px;margin:auto}.eyebrow{color:#cfb68e;font-size:12px;letter-spacing:2px;text-transform:uppercase}h1{font-size:31px;letter-spacing:-1px;margin:9px 0 12px}p{line-height:1.55;margin:0 0 15px}.intro{color:#b0b5be;max-width:780px}nav{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0 26px}nav a{color:#d0d4db;text-decoration:none;font-size:13px;padding:7px 10px;border:1px solid #393e47;border-radius:7px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:#1e2127;border:1px solid #373d47;border-radius:12px;padding:23px;scroll-margin-top:15px}.card:last-child{grid-column:1/-1}h2{font-size:22px;margin:0 0 9px}.direction{color:#abb3bf;font-size:14px;min-height:44px}.count{font-size:11px;letter-spacing:1px;color:#d1b78a;text-transform:uppercase;margin-bottom:7px}.modes{display:flex;gap:8px;margin:15px 0 6px}button{cursor:pointer;border:1px solid #515b6a;border-radius:6px;background:#262d37;color:#e8ecf1;padding:7px 10px;font-size:12px}button:hover{background:#354253}button.active{background:#d1b78a;color:#141619;border-color:#d1b78a}audio{width:100%;height:41px;margin:10px 0 5px}.now{font-size:13px;color:#d1b78a;min-height:23px}details{margin-top:14px}summary{cursor:pointer;color:#c6ccd5;font-size:13px}table{border-collapse:collapse;width:100%;font-size:12px;margin-top:12px}td{padding:9px 4px;border-bottom:1px solid #343b45}.duration{white-space:nowrap;color:#969fac;text-align:right;padding-right:9px}footer{margin-top:24px;padding-top:16px;border-top:1px solid #343a44;font-size:13px;color:#aeb5bf;line-height:1.7}.pending{display:inline-block;background:#302a20;border:1px solid #645239;color:#e0c594;font-size:12px;border-radius:30px;padding:6px 12px;margin-bottom:13px}@media(max-width:730px){.grid{grid-template-columns:1fr}.card:last-child{grid-column:auto}body{padding:23px 16px}h1{font-size:26px}.direction{min-height:0}}
+</style>
+<main>
+<div class="eyebrow">Prototype 0 · Atelier sonore</div>
+<h1>Les cinq nouveaux modules</h1>
+<div class="pending">En attente de ton écoute et de ta validation</div>
+<p class="intro">22 effets originaux générés avec Stable Audio 3 Small-SFX. « Effets séparés » permet de juger chaque son ; « Enchaînement » illustre une activation. Tu peux aussi écouter les fichiers un par un.</p>
+<nav id="nav" aria-label="Modules"></nav>
+<div class="grid" id="modules"><p>Chargement des écoutes…</p></div>
+<footer>Les niveaux ont été préparés et les fichiers contrôlés. Les séquences sont des montages d'écoute, pas des captures de partie. Aucun son n'est intégré au jeu.</footer>
+</main>
+<script>
+const definitions={rocket_basket:['Panier roquettes','Mécanique pneumatique, propulsion et explosions compactes.'],counter:['Counter','Garde, interception et énergie capturée puis libérée.'],projector:['Projector','Pression et souffle de répulsion ; déclenchement automatique distinct.'],permutation:['Permutation','Ombre électrique, échange rapide et apparition du bouclier.'],eclipse:['Éclipse','Préparation, disparition, particules et arrivée explosive.']};
+const clean=p=>p.replaceAll('\\','/');
+const make=(tag,cls,text)=>{let el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el};
+let single=new Audio();
+function stopOthers(current){document.querySelectorAll('audio').forEach(a=>{if(a!==current)a.pause()});if(single!==current)single.pause();document.querySelectorAll('td button.active').forEach(b=>b.classList.remove('active'))}
+async function render(){
+ const response=await fetch('manifest.json');if(!response.ok)throw new Error('Les fichiers ne sont pas encore disponibles.');const data=await response.json();document.querySelector('#modules').replaceChildren();
+ for(const [id,[name,direction]] of Object.entries(definitions)){
+  const cues=data.cues.filter(c=>c.module===id);const link=make('a',null,name);link.href='#'+id;document.querySelector('#nav').append(link);
+  const card=make('section','card');card.id=id;card.append(make('div','count',cues.length+' effets · Stable Audio'),make('h2',null,name),make('p','direction',direction));
+  const modes=make('div','modes');const separate=make('button','active','Effets séparés');const scenario=make('button',null,'Enchaînement');modes.append(separate,scenario);
+  const player=make('audio');player.controls=true;player.preload='metadata';player.src=clean(data.previews[id].isolated.file);player.setAttribute('aria-label',name+' — écoute complète');const now=make('div','now','');let timeline=data.previews[id].isolated.events;
+  function mode(which){player.pause();player.src=clean(data.previews[id][which].file);timeline=data.previews[id][which].events;now.textContent='';separate.classList.toggle('active',which==='isolated');scenario.classList.toggle('active',which==='scenario')}
+  separate.onclick=()=>mode('isolated');scenario.onclick=()=>mode('scenario');player.onplay=()=>stopOthers(player);
+  player.ontimeupdate=()=>{let event=timeline.findLast(e=>e.time<=player.currentTime);let cue=event&&data.cues.find(c=>c.id===event.id);now.textContent=cue&&player.currentTime<event.time+cue.duration_seconds+.2?cue.label:''};
+  const details=make('details');details.append(make('summary',null,'Écouter chaque effet'));const table=make('table');
+  for(const cue of cues){const row=make('tr');const label=make('td',null,cue.label);const seconds=make('td','duration',cue.duration_seconds.toFixed(2).replace('.',',')+' s');const cell=make('td');const button=make('button',null,'▶ Écouter');button.setAttribute('aria-label',name+' — '+cue.label);button.onclick=()=>{stopOthers(single);single.pause();single.src=clean(cue.file);single.loop=false;single.play();button.classList.add('active');single.onended=()=>button.classList.remove('active')};cell.append(button);row.append(label,seconds,cell);table.append(row)}
+  details.append(table);card.append(modes,player,now,details);document.querySelector('#modules').append(card);
+ }
+}
+render().catch(error=>{document.querySelector('#modules').textContent=error.message});
+</script>
+</html>

@@ -37,7 +37,9 @@ func _initialize() -> void:
 	if player.get_world_3d().direct_space_state.intersect_ray(line).get("collider") != rear:
 		_failures.append("le cadavre intercepte encore la trajectoire")
 	var rear_health := float(rear.call("get_health"))
-	player.call("_fire_blaster_projectile", 20.0, 0.0, Vector3(0.0, 0.0, -1.0))
+	# Fix the origin to isolate corpse collision from the animated muzzle and
+	# live desktop aim, while using the real projectile and damage callback.
+	player.call("_spawn_blaster_projectile", Vector3(0.0, 0.9, 0.0), 20.0, 0.0, 0, Vector3.FORWARD, player.call("emit_passive_weapon"))
 	await create_timer(0.6, true, false, false).timeout
 	if float(rear.call("get_health")) >= rear_health:
 		_failures.append("le projectile ne traverse pas le cadavre vers l'ennemi vivant")

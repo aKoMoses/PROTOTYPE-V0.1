@@ -20,6 +20,8 @@ signal combat_received(snapshot: Dictionary)
 
 const KEY_STORE := preload("res://addons/GD-Sync/Scripts/KeyStore.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
+const PRECOMBAT_SECONDS := 8.0
+const NEXT_ROUND_SECONDS := 3.5
 
 # Rooms contain exactly two humans. Broadcast reaches only the other peer and
 # avoids the addon's target-id bit packing; every receiver checks the sender.
@@ -278,6 +280,10 @@ func _accept_ready(peer_id: int, loadout: Dictionary) -> void:
 		_host_prepare_round()
 
 
+func round_intro_seconds(number: int) -> float:
+	return PRECOMBAT_SECONDS if number == 1 else NEXT_ROUND_SECONDS
+
+
 func _host_prepare_round() -> void:
 	if not _service.is_host() or int(current_room.get("guest_id", 0)) == 0:
 		return
@@ -289,7 +295,7 @@ func _host_prepare_round() -> void:
 	round_prepared.emit(_round_number, _host_score, _guest_score)
 	var prepared_token := _match_token
 	var prepared_round := _round_number
-	await get_tree().create_timer(3.5).timeout
+	await get_tree().create_timer(round_intro_seconds(_round_number)).timeout
 	if generation != _match_generation or _phase != "countdown" or current_room.is_empty() or prepared_token != _match_token or prepared_round != _round_number:
 		return
 	_phase = "live"

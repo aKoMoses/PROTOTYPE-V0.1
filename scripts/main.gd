@@ -1,6 +1,7 @@
 extends Node3D
 
 const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
+const ARENA_HAZARDS := preload("res://scripts/arena_hazards.gd")
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
@@ -38,6 +39,8 @@ var touch_controls: Control
 var sight_tracker: CanvasLayer
 var fog_of_war: Node3D
 var duel_active := false
+var arena_variant := "classic"
+var _arena_hazards: Node3D
 var _bot_build: Dictionary = {}
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
@@ -130,6 +133,10 @@ func _ready() -> void:
 	_build_player()
 	_build_camera()
 	_build_target()
+	_arena_hazards = ARENA_HAZARDS.new()
+	_arena_hazards.name = "ArenaHazards"
+	add_child(_arena_hazards)
+	_arena_hazards.call("configure", player, target)
 	_build_interface()
 	add_child(ARENA_PRESENTATION.instantiate())
 	fog_of_war = FOG_OF_WAR_SCRIPT.new()
@@ -141,6 +148,8 @@ func _ready() -> void:
 
 
 func _on_network_match_started(host_id: int, guest_id: int) -> void:
+	if _arena_hazards != null:
+		_arena_hazards.call("set_enabled", false)
 	if network_match != null and is_instance_valid(network_match):
 		network_match.call("_cleanup_actors")
 		network_match.queue_free()
@@ -1759,6 +1768,8 @@ func start_duel(loadout: Dictionary) -> void:
 
 func prepare_round(loadout: Dictionary) -> void:
 	duel_active = true
+	if _arena_hazards != null:
+		_arena_hazards.call("set_enabled", arena_variant == "hazards" and not is_instance_valid(network_match))
 	if player == null or target == null:
 		return
 	reset_round_camera()
@@ -1809,6 +1820,8 @@ func activate_round() -> void:
 	player.call("set_gameplay_enabled", true)
 	target.call("set_training_bot_enabled", true)
 	_set_repair_kits_active(true)
+	if _arena_hazards != null:
+		_arena_hazards.call("start_round")
 
 
 func restart_duel(loadout: Dictionary) -> void:
@@ -1817,6 +1830,8 @@ func restart_duel(loadout: Dictionary) -> void:
 
 func stop_duel() -> void:
 	duel_active = false
+	if _arena_hazards != null:
+		_arena_hazards.call("stop_round")
 	clear_transient_fx()
 	_set_repair_kits_active(false)
 	if player != null:
@@ -1825,6 +1840,12 @@ func stop_duel() -> void:
 	if target != null:
 		target.call("set_training_bot_enabled", false)
 		target.call("set_duel_mode", false)
+
+
+func set_arena_variant(value: String) -> void:
+	arena_variant = "hazards" if value == "hazards" else "classic"
+	if _arena_hazards != null:
+		_arena_hazards.call("set_enabled", arena_variant == "hazards" and not is_instance_valid(network_match))
 
 
 func focus_round_winner(player_won: bool) -> void:

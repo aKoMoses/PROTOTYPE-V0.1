@@ -1,0 +1,18 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\module-sfx\\revisions\\projector-permutation-v2\\candidates\\permutation-flight.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.1,
+    "peak": 0.311462,
+    "rms": 0.035469,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.0364,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

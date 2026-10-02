@@ -378,7 +378,7 @@ func _perform_projector() -> bool:
 
 
 func _on_projector_activated() -> void:
-	_notify("projector_pulse", {"origin": global_position})
+	_notify("projector_pulse", {"origin": global_position, "emergency": bool(get_meta("projector_emergency_wave", false))})
 
 
 func _on_projector_cast_started() -> void:
@@ -505,6 +505,11 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 	if action == "counter_explosion":
 		if visual_only and not authoritative:
 			COUNTER.spawn_ring(get_tree().current_scene, data.get("center", global_position), float(COMBAT_DATA.MODULE_DEFINITIONS.counter.surcharge_radius))
+			get_node("/root/GameSfx").play_module_event("counter_release", data.get("center", global_position))
+		return
+	if action == "rocket_end":
+		if visual_only and not authoritative and str(data.get("sound", "")) in ["rocket_impact", "rocket_destroyed"]:
+			get_node("/root/GameSfx").play_module_event(str(data.sound), data.get("center", global_position))
 		return
 	if action == "projector_cast":
 		if visual_only and not authoritative and _projector_cast_token == 0:
@@ -512,7 +517,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		return
 	if action == "projector_pulse":
 		if visual_only and not authoritative:
-			PROJECTOR.spawn_visual(get_tree().current_scene, data.get("origin", global_position))
+			PROJECTOR.spawn_visual(get_tree().current_scene, data.get("origin", global_position), bool(data.get("emergency", false)))
 		return
 	if action == "contact":
 		_contact_started_at = Time.get_ticks_msec() / 1000.0

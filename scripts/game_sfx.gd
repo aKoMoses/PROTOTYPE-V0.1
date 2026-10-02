@@ -5,7 +5,7 @@ extends Node
 signal event_played(event_id: String)
 
 const STREAMS := {
-	"counter_intercept": preload("res://art/audio/game-sfx/magnetic-absorb-B.wav"),
+	"counter_intercept": preload("res://art/audio/game-sfx/counter-parry.wav"),
 	"pyro_dash": preload("res://art/audio/game-sfx/pyro-dash-A.wav"),
 	"javelin_teleport": preload("res://art/audio/game-sfx/javelin-teleport-A.wav"),
 	"magnetic_absorb": preload("res://art/audio/game-sfx/magnetic-absorb-B.wav"),
@@ -20,6 +20,24 @@ const STREAMS := {
 	"low_health": preload("res://art/audio/game-sfx/low-health-B.wav"),
 	"baroud_activation": preload("res://art/audio/game-sfx/baroud-A.wav"),
 }
+const MODULE_STREAMS := {
+	"projector_charge": preload("res://art/audio/game-sfx/projector-charge.wav"),
+	"projector_wave": preload("res://art/audio/game-sfx/projector-wave.wav"),
+	"projector_push": preload("res://art/audio/game-sfx/projector-push.wav"),
+	"projector_passive": preload("res://art/audio/game-sfx/projector-passive.wav"),
+	"permutation_send": preload("res://art/audio/game-sfx/permutation-send.wav"),
+	"permutation_swap": preload("res://art/audio/game-sfx/permutation-swap.wav"),
+	"permutation_shield": preload("res://art/audio/game-sfx/permutation-shield.wav"),
+	"rocket_arm": preload("res://art/audio/game-sfx/rocket-arm.wav"),
+	"rocket_launch": preload("res://art/audio/game-sfx/rocket-launch.wav"),
+	"rocket_impact": preload("res://art/audio/game-sfx/rocket-impact.wav"),
+	"rocket_destroyed": preload("res://art/audio/game-sfx/rocket-destroyed.wav"),
+	"counter_guard": preload("res://art/audio/game-sfx/counter-guard.wav"),
+	"counter_intercept": preload("res://art/audio/game-sfx/counter-parry.wav"),
+	"counter_capture": preload("res://art/audio/game-sfx/counter-capture.wav"),
+	"counter_release": preload("res://art/audio/game-sfx/counter-release.wav"),
+}
+var _module_voices: Array[AudioStreamPlayer3D] = []
 const MIN_INTERVAL_MS := {
 	"magnetic_absorb": 90,
 	"robot_destruction": 80,
@@ -66,9 +84,6 @@ func _ready() -> void:
 		player.stream = STREAMS[event_id]
 		player.max_polyphony = 4
 		player.volume_db = -8.0
-		if event_id == "counter_intercept":
-			player.pitch_scale = 1.28
-			player.volume_db = -7.0
 		if event_id == "repair_pickup":
 			player.pitch_scale = 1.22
 			player.volume_db = -6.0
@@ -190,6 +205,8 @@ func play_event(event_id: String) -> void:
 
 func set_paused(value: bool) -> void:
 	_paused = value
+	for voice in _module_voices:
+		voice.stream_paused = value
 	for player: AudioStreamPlayer in _players.values():
 		player.stream_paused = value
 	for voice in _enemy_voices:
@@ -201,6 +218,10 @@ func set_paused(value: bool) -> void:
 func clear() -> void:
 	# The autoload outlives every arena. Retire the old round's voices before
 	# its scene is hidden or replaced, and allow the next round's first event.
+	for voice in _module_voices.duplicate():
+		voice.stop()
+		voice.queue_free()
+	_module_voices.clear()
 	for player: AudioStreamPlayer in _players.values():
 		player.stop()
 		player.stream_paused = false
@@ -214,3 +235,32 @@ func clear() -> void:
 	_bush_transition_ms = -100000
 	_paused = false
 	_last_played_ms.clear()
+
+
+func play_module_event(event_id: String, position: Vector3) -> AudioStreamPlayer3D:
+	if _paused or not MODULE_STREAMS.has(event_id) or _module_voices.size() >= 24:
+		return null
+	var voice := AudioStreamPlayer3D.new()
+	voice.stream = MODULE_STREAMS[event_id]
+	voice.volume_db = -7.0
+	voice.unit_size = 5.0
+	voice.max_distance = 28.0
+	add_child(voice)
+	voice.global_position = position
+	_module_voices.append(voice)
+	voice.finished.connect(func() -> void:
+		_module_voices.erase(voice)
+		voice.queue_free()
+	)
+	voice.play()
+	mark_combat()
+	event_played.emit(event_id)
+	return voice
+
+
+func stop_module_voice(voice: AudioStreamPlayer3D) -> void:
+	if not is_instance_valid(voice) or voice.is_queued_for_deletion():
+		return
+	voice.stop()
+	_module_voices.erase(voice)
+	voice.queue_free()
