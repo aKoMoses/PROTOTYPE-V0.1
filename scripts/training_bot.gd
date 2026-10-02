@@ -37,6 +37,7 @@ const MOVE_ACCELERATION := 7.0
 const CHARGER_ATTACK_RANGE := 6.0
 const BOSS_ATTACK_RANGE := 8.0
 var survival_arena_center := Vector3.ZERO
+var duel_arena_limit := 27.0
 const SURVIVAL_ARENA_LIMIT := 21.0
 const CHARGE_OBSTACLE_MARGIN := 0.7
 const BOT_COLLISION_MARGIN := 0.04
@@ -678,7 +679,7 @@ func _select_bush_search_destination(bot_body: Node3D) -> Vector3:
 		entrance = Vector3.RIGHT
 	entrance = entrance.normalized()
 	var radius := BUSH_STATE.radius(_suspected_bush)
-	var limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	var limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit
 	# Check the entry, then the interior and different sides. Every point is
 	# derived from map geometry and the last sighting, independent of the foe.
 	for _attempt in range(6):
@@ -975,7 +976,7 @@ func _select_control_repair(bot_body: Node3D, health: float, target_health: floa
 		var rival_distance := _last_observed_position.distance_to(kit.global_position)
 		if distance > 10.0 or distance > rival_distance + 2.0:
 			continue
-		var route: float = _navigation.route_distance(bot_body, kit.global_position, _elapsed)
+		var route: float = _navigation.route_distance(bot_body, kit.global_position, _elapsed, duel_arena_limit)
 		if route < best_score and route <= rival_distance + 3.5:
 			best_score = route
 			best = kit
@@ -1029,8 +1030,8 @@ func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
 			"search": offset += direction * 2.0
 			_: offset += direction * clampf((toward.length() - _ideal_combat_range()) * 0.50, -2.5, 2.5)
 		var candidate := bot_body.global_position + offset
-		candidate.x = clampf(candidate.x, -26.0, 26.0)
-		candidate.z = clampf(candidate.z, -26.0, 26.0)
+		candidate.x = clampf(candidate.x, -duel_arena_limit + 1.0, duel_arena_limit - 1.0)
+		candidate.z = clampf(candidate.z, -duel_arena_limit + 1.0, duel_arena_limit - 1.0)
 		candidate.y = 0.0
 		candidates.append(candidate)
 	# Evaluate cover corners across the arena as well as nearby strafing points.
@@ -1041,7 +1042,7 @@ func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
 	var ranked: Array[Dictionary] = []
 	for candidate in candidates:
 		var travel := candidate - bot_body.global_position
-		if travel.length_squared() < 0.36 or not _navigation.is_destination_clear(bot_body, candidate):
+		if travel.length_squared() < 0.36 or not _navigation.is_destination_clear(bot_body, candidate, duel_arena_limit):
 			continue
 		var range_to_target := candidate.distance_to(_last_observed_position)
 		var ideal := _ideal_combat_range()
@@ -1064,7 +1065,7 @@ func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
 	var best_score := INF
 	for index in range(mini(4, ranked.size())):
 		var candidate: Vector3 = ranked[index].position
-		var route: float = _navigation.route_distance(bot_body, candidate, _elapsed)
+		var route: float = _navigation.route_distance(bot_body, candidate, _elapsed, duel_arena_limit)
 		if route == INF:
 			continue
 		var score := float(ranked[index].score) + maxf(0.0, route - bot_body.global_position.distance_to(candidate)) * 0.35
@@ -1074,7 +1075,7 @@ func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
 			_has_tactical_destination = true
 	if not _has_tactical_destination:
 		_tactical_destination = _last_observed_position
-		_has_tactical_destination = _navigation.is_destination_clear(bot_body, _tactical_destination)
+		_has_tactical_destination = _navigation.is_destination_clear(bot_body, _tactical_destination, duel_arena_limit)
 
 
 func _select_shelter_bush(bot_body: Node3D, for_ambush: bool) -> Dictionary:
@@ -1111,9 +1112,9 @@ func _select_shelter_bush(bot_body: Node3D, for_ambush: bool) -> Dictionary:
 		for offset_value in offsets:
 			var point := center + Vector3(offset_value)
 			point.y = 0.0
-			if not BUSH_STATE.contains(bush, point) or not _navigation.is_destination_clear(bot_body, point):
+			if not BUSH_STATE.contains(bush, point) or not _navigation.is_destination_clear(bot_body, point, duel_arena_limit):
 				continue
-			var route: float = _navigation.route_distance(bot_body, point, _elapsed)
+			var route: float = _navigation.route_distance(bot_body, point, _elapsed, duel_arena_limit)
 			if route == INF or route > 13.0:
 				continue
 			var score := float(candidates[index].score) + route * 0.32 + _candidate_crowd_penalty(bot_body, point)
@@ -1162,7 +1163,7 @@ func _arena_cover_positions(bot_body: Node3D) -> Array[Vector3]:
 				for z_sign in [-1.0, 1.0]:
 					var point: Vector3 = shape_node.global_transform * Vector3((half.x + 1.25) * x_sign, 0.0, (half.z + 1.25) * z_sign)
 					point.y = 0.0
-					if absf(point.x) < 26.0 and absf(point.z) < 26.0:
+					if absf(point.x) < duel_arena_limit - 1.0 and absf(point.z) < duel_arena_limit - 1.0:
 						positions.append(point)
 	return positions
 
@@ -1174,7 +1175,7 @@ func _select_search_destination(bot_body: Node3D) -> Vector3:
 		return _search_goal
 	# Sweep lanes, health pads and map quadrants without consulting a hidden target.
 	var sectors := [Vector3(-13, 0, -18), Vector3(0, 0, -20.8), Vector3(13, 0, -18), Vector3(21, 0, 0), Vector3(13, 0, 18), Vector3(0, 0, 20.8), Vector3(-13, 0, 18), Vector3(-21, 0, 0), Vector3(0, 0, 0)]
-	var limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	var limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit
 	for index in range(sectors.size()):
 		sectors[index] += survival_arena_center
 	# Grass is also worth inspecting when no entrance was witnessed. Sweep all
@@ -1260,7 +1261,7 @@ func _update_repair_target(bot_body: Node3D, player: Node3D) -> bool:
 		var retry_at := float(_repair_retry_after.get(candidate.get_instance_id(), 0.0))
 		if _elapsed < retry_at:
 			continue
-		var travel_distance: float = _navigation.route_distance(bot_body, candidate.global_position, _elapsed)
+		var travel_distance: float = _navigation.route_distance(bot_body, candidate.global_position, _elapsed, SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit)
 		if travel_distance == INF:
 			continue
 		var returning := not bool(candidate.call("is_available"))
@@ -1318,7 +1319,7 @@ func _advance_repair_seek(bot_body: Node3D, delta: float) -> bool:
 			return true
 		_repair_stuck_time += delta
 	else:
-		var direction: Vector3 = _navigation.get_direction(bot_body, _repair_target.global_position, _elapsed)
+		var direction: Vector3 = _navigation.get_direction(bot_body, _repair_target.global_position, _elapsed, SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit)
 		var slow := 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95) if bot_body.has_method("get_slow_percent") else 1.0
 		var base_speed := float(COMBAT_DATA.ROBOT_DEFINITIONS[str(_duel_equipment.get("robot_id"))].move_speed)
 		var speed := base_speed * 0.96 * slow * float(_duel_equipment.call("get_speed_multiplier"))
@@ -1650,7 +1651,7 @@ func _update_hazard_avoidance(bot_body: Node3D, delta: float) -> bool:
 			var angle := TAU * float(index) / 16.0
 			var motion := Vector3(cos(angle), 0, sin(angle)) * float(radius)
 			var candidate := origin + motion
-			if absf(candidate.x) > 26.0 or absf(candidate.z) > 26.0:
+			if absf(candidate.x) > duel_arena_limit - 1.0 or absf(candidate.z) > duel_arena_limit - 1.0:
 				continue
 			if not (hazards.call("threat_at", candidate, 0.85, threats) as Dictionary).is_empty():
 				continue
@@ -1712,7 +1713,7 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 		var slow_multiplier := 1.0
 		if bot_body.has_method("get_slow_percent"):
 			slow_multiplier = 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
-		var route_direction: Vector3 = _navigation.get_direction(bot_body, desired, _elapsed)
+		var route_direction: Vector3 = _navigation.get_direction(bot_body, desired, _elapsed, duel_arena_limit)
 		desired_velocity = route_direction * speed * slow_multiplier * float(_duel_equipment.call("get_speed_multiplier"))
 	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
 	_move_bot(bot_body, delta)
@@ -1737,21 +1738,21 @@ func _select_duel_angle(bot_body: Node3D, last_known_position: Vector3) -> void:
 	for lateral_distance in [3.0, 6.0, 9.0, 11.0]:
 		for side_sign in [-1.0, 1.0]:
 			var candidate: Vector3 = bot_body.global_position + side * lateral_distance * side_sign + direction * 1.5
-			if absf(candidate.x) > 26.0 or absf(candidate.z) > 26.0:
+			if absf(candidate.x) > duel_arena_limit - 1.0 or absf(candidate.z) > duel_arena_limit - 1.0:
 				continue
-			if not _navigation.is_destination_clear(bot_body, candidate):
+			if not _navigation.is_destination_clear(bot_body, candidate, duel_arena_limit):
 				continue
 			var shot_clear := _duel_path_clear(bot_body, candidate, last_known_position)
 			if not shot_clear:
 				continue
 			var range_to_target: float = candidate.distance_to(last_known_position)
-			var route: float = _navigation.route_distance(bot_body, candidate, _elapsed)
+			var route: float = _navigation.route_distance(bot_body, candidate, _elapsed, duel_arena_limit)
 			var score: float = absf(range_to_target - _ideal_combat_range()) * 0.6 + route * 0.18
 			if score < best_score:
 				best_score = score
 				_angle_destination = candidate
 				_has_angle_destination = true
-	if not _has_angle_destination and _navigation.is_destination_clear(bot_body, last_known_position):
+	if not _has_angle_destination and _navigation.is_destination_clear(bot_body, last_known_position, duel_arena_limit):
 		_angle_destination = last_known_position
 		_has_angle_destination = true
 
@@ -1789,8 +1790,8 @@ func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -
 			0.0,
 			cos(_elapsed * 0.53) * MOVE_RADIUS_Z
 		)
-	desired.x = clampf(desired.x, -27.0, 27.0)
-	desired.z = clampf(desired.z, -27.0, 27.0)
+	desired.x = clampf(desired.x, -duel_arena_limit, duel_arena_limit)
+	desired.z = clampf(desired.z, -duel_arena_limit, duel_arena_limit)
 	var to_desired := desired - bot_body.global_position
 	to_desired.y = 0.0
 	var desired_velocity := Vector3.ZERO
@@ -1798,7 +1799,7 @@ func _update_patrol(bot_body: Node3D, pursuit_position: Vector3, delta: float) -
 		var slow_multiplier := 1.0
 		if bot_body.has_method("get_slow_percent"):
 			slow_multiplier = 1.0 - clampf(float(bot_body.call("get_slow_percent")) / 100.0, 0.0, 0.95)
-		desired_velocity = _navigation.get_direction(bot_body, desired, _elapsed) * MOVE_SPEED * slow_multiplier
+		desired_velocity = _navigation.get_direction(bot_body, desired, _elapsed, duel_arena_limit) * MOVE_SPEED * slow_multiplier
 	_move_velocity = _move_velocity.move_toward(desired_velocity, MOVE_ACCELERATION * delta)
 	_move_bot(bot_body, delta)
 
@@ -1830,7 +1831,7 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 	else:
 		_blocked_time = maxf(0.0, _blocked_time - delta * 0.5)
 		_avoid_direction = Vector3.ZERO
-	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit
 	bot_body.global_position.x = clampf(bot_body.global_position.x, survival_arena_center.x - arena_limit, survival_arena_center.x + arena_limit)
 	bot_body.global_position.z = clampf(bot_body.global_position.z, survival_arena_center.z - arena_limit, survival_arena_center.z + arena_limit)
 	ARENA_TRAVERSAL.snap(bot_body)
@@ -1882,6 +1883,11 @@ func _bot_shape_query(bot_body: Node3D) -> PhysicsShapeQueryParameters3D:
 	excluded.append_array(ARENA_TRAVERSAL.exclusions(bot_body))
 	query.exclude = excluded
 	query.margin = BOT_COLLISION_MARGIN
+	var scene := bot_body.get_tree().current_scene
+	if scene != null and scene.has_meta("arena_floor_rid"):
+		var exclusions := query.exclude
+		exclusions.append(scene.get_meta("arena_floor_rid"))
+		query.exclude = exclusions
 	return query
 
 
@@ -1923,7 +1929,7 @@ func _recover_bot_from_cover(bot_body: Node3D) -> bool:
 		return query != null
 	var origin := bot_body.global_position
 	var shape_offset := query.transform.origin - origin
-	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit
 	for radius in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]:
 		for index in range(16):
 			var angle := TAU * float(index) / 16.0
@@ -2047,7 +2053,7 @@ func _choose_dodge_direction(bot_body: Node3D, incoming: Vector3) -> Vector3:
 	var side := Vector3(-forward.z, 0.0, forward.x)
 	var best := Vector3.ZERO
 	var best_score := -INF
-	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
+	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit
 	for index in range(8):
 		var direction := side.rotated(Vector3.UP, TAU * float(index) / 8.0)
 		var motion := direction * DODGE_SPEED * DODGE_DURATION

@@ -42,6 +42,17 @@ func _physics_process(delta: float) -> void:
 	query.hit_from_inside = true
 	query.exclude = HOMING_ROCKET.owned_exclusions(self, MAGNETIC_WALL.owned_exclusions(self, _excluded))
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	# Acoustic crystals sense a shot without sheltering anyone behind them.
+	# Each receiver is visited once; the original sweep still resolves its victim.
+	while not hit.is_empty():
+		var receiver := hit.get("collider") as CollisionObject3D
+		if receiver == null or not receiver.get_meta("non_blocking_projectile_receiver", false):
+			break
+		if receiver.has_method("projectile_impact"):
+			receiver.call("projectile_impact", hit["position"])
+		_excluded.append(receiver.get_rid())
+		query.exclude = HOMING_ROCKET.owned_exclusions(self, MAGNETIC_WALL.owned_exclusions(self, _excluded))
+		hit = get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		if (hit["normal"] as Vector3).is_zero_approx():
 			hit["normal"] = -_direction

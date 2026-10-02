@@ -169,9 +169,13 @@ static func _fits(actor: Node3D, destination: Vector3, other: Node3D) -> bool:
 		query.transform.origin += destination - actor.global_position
 		query.collision_mask = 1 # World geometry; the two fighters are exchanged.
 		query.margin = 0.0
-		query.exclude = [actor.get_rid()]
+		var exclusions: Array[RID] = [actor.get_rid()]
 		if other is CollisionObject3D:
-			query.exclude.append(other.get_rid())
+			exclusions.append(other.get_rid())
+		var scene := actor.get_tree().current_scene
+		if scene != null and scene.has_meta("arena_floor_rid"):
+			exclusions.append(scene.get_meta("arena_floor_rid"))
+		query.exclude = exclusions
 		if not actor.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
 			return false
 	return true

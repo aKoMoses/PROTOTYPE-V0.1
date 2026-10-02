@@ -10,6 +10,7 @@ signal start_requested
 signal arena_selected(identifier: String)
 
 const STAGE := preload("res://scripts/forge_garage_stage.gd")
+const ARENA_CATALOG := preload("res://scripts/compact_arena_catalog.gd")
 const EQUIPMENT_FOCUS := preload("res://scripts/forge_garage_focus.gd")
 const TRAINING_DEMO := preload("res://scripts/forge_training_demo.gd")
 const INSTALLATION := preload("res://scripts/forge_build_installation.gd")
@@ -44,6 +45,8 @@ var robot_buttons: Dictionary = {}
 var weapon_buttons: Dictionary = {}
 var module_buttons: Dictionary = {}
 var arena_buttons: Dictionary = {}
+var _arena_selector: OptionButton
+var _selected_arena := "classic"
 var library_path := LIBRARY.SAVE_PATH
 var legacy_save_path := LOADOUT.SAVE_PATH
 var build_name := "DUELLISTE"
@@ -239,14 +242,22 @@ func is_dirty() -> bool:
 
 
 func set_arena_options(enabled: bool, selected: String = "classic") -> void:
+	_selected_arena = selected
 	for identifier in arena_buttons:
 		var button: Button = arena_buttons[identifier]
-		button.visible = enabled
+		button.visible = false
 		button.add_theme_stylebox_override("normal", _style(identifier == selected))
+	if _arena_selector != null:
+		_arena_selector.visible = enabled
+		for index in _arena_selector.item_count:
+			if str(_arena_selector.get_item_metadata(index)) == selected:
+				_arena_selector.select(index)
+				_arena_selector.tooltip_text = str(ARENA_CATALOG.options()[index].description)
 
 
 func _choose_arena(identifier: String) -> void:
-	if installation.active:
+	if installation.active or (module_installation != null and module_installation.active):
+		set_arena_options(true, _selected_arena)
 		return
 	set_arena_options(true, identifier)
 	arena_selected.emit(identifier)
@@ -459,6 +470,22 @@ func _build_interface() -> void:
 		if id == "test":
 			button.tooltip_text = "Arène de 30 × 30 m • plateformes à 2,4 m • accès nord et sud"
 		arena_buttons[id] = button
+	_arena_selector = OptionButton.new()
+	_arena_selector.name = "ArenaSelector"
+	_arena_selector.fit_to_longest_item = false
+	_arena_selector.clip_text = true
+	_arena_selector.position = Vector2(536, 11)
+	_arena_selector.size = Vector2(424, 36)
+	_arena_selector.add_theme_font_size_override("font_size", 12)
+	_arena_selector.add_theme_color_override("font_color", CREAM)
+	_arena_selector.add_theme_stylebox_override("normal", _style(false))
+	_arena_selector.add_theme_stylebox_override("hover", _style(true))
+	for choice in ARENA_CATALOG.options():
+		_arena_selector.add_item("ARÈNE · " + str(choice.title))
+		_arena_selector.set_item_metadata(_arena_selector.item_count - 1, str(choice.id))
+	_arena_selector.item_selected.connect(func(index: int) -> void:
+		_choose_arena(str(_arena_selector.get_item_metadata(index))))
+	_ui.add_child(_arena_selector)
 	set_arena_options(false)
 
 

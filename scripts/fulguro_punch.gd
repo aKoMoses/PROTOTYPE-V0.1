@@ -142,6 +142,11 @@ static func sweep_static_body(body: CollisionObject3D, motion: Vector3, radius: 
 	query.collide_with_bodies = true
 	var excluded: Array[RID] = [body.get_rid()]
 	excluded.append_array(ARENA_TRAVERSAL.exclusions(body))
+	var scene := body.get_tree().current_scene
+	if scene != null and scene.has_meta("arena_floor_rid"):
+		var floor_rid: RID = scene.get_meta("arena_floor_rid")
+		if not excluded.has(floor_rid):
+			excluded.append(floor_rid)
 	query.exclude = excluded
 	var cast := world.direct_space_state.cast_motion(query)
 	if cast.is_empty() or float(cast[0]) >= 0.999:

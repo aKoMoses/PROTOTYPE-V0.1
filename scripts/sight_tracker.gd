@@ -289,6 +289,8 @@ func _map_half_extents() -> Vector2:
 		var arena := _scene.get_node_or_null("TestArena")
 		if arena != null:
 			return arena.call("map_half_extents")
+	if is_instance_valid(_scene) and _scene.has_meta("arena_half_size"):
+		return _scene.get_meta("arena_half_size")
 	return Vector2.ONE * ARENA_HALF_EXTENT
 
 
@@ -349,6 +351,23 @@ func _draw_map(canvas: Control) -> void:
 		canvas.draw_polyline(points, Color("#7f8d903a"), 1.0, true)
 	_draw_landmarks(canvas, pixels_per_unit)
 	canvas.draw_rect(Rect2(map_rect.position + Vector2.ONE, map_rect.size - Vector2.ONE * 2.0), Color("#7b929658"), false, 1.0)
+	if is_instance_valid(_scene) and _scene.has_meta("arena_outline"):
+		var outline: PackedVector2Array = _scene.get_meta("arena_outline")
+		var edge := PackedVector2Array()
+		for point in outline:
+			edge.append(_map_point(Vector3(point.x, 0, point.y), dimensions))
+		if edge.size() > 2:
+			edge.append(edge[0])
+			canvas.draw_polyline(edge, Color("#a6bfc9a0"), 1.2, true)
+	if is_instance_valid(_scene) and _scene.has_method("get_arena_spawns"):
+		var catalog = load("res://scripts/compact_arena_catalog.gd")
+		var definition: Dictionary = catalog.definition(str(_scene.get("arena_variant")))
+		for at in definition.get("portals", []):
+			canvas.draw_arc(_map_point(at, dimensions), 5.0, 0, TAU, 20, Color("#bda4ef"), 2.0, true)
+		for at in definition.get("repairs", []):
+			var point := _map_point(at, dimensions)
+			canvas.draw_line(point - Vector2(3, 0), point + Vector2(3, 0), Color("#72f49a"), 2.0)
+			canvas.draw_line(point - Vector2(0, 3), point + Vector2(0, 3), Color("#72f49a"), 2.0)
 	if _known:
 		var opponent_point := _map_point(_last_position, dimensions)
 		if _opponent_visible:

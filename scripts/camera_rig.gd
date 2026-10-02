@@ -28,7 +28,7 @@ func _ready() -> void:
 func set_target(target: Node3D) -> void:
 	reset_focus()
 	_target = target
-	global_position = target.global_position + _follow_offset
+	global_position = _clamp_follow(target.global_position + _follow_offset)
 	_follow_position = global_position
 	_aim_offset = Vector3.ZERO
 	if "aim_direction" in _target:
@@ -45,9 +45,9 @@ func set_follow_offset(offset: Vector3, snap: bool = false) -> void:
 	if "aim_direction" in _target:
 		target_aim = _target.aim_direction
 	_smoothed_aim = target_aim
-	global_position = _target.global_position + target_aim * look_ahead_distance + _follow_offset
+	global_position = _clamp_follow(_target.global_position + target_aim * look_ahead_distance + _follow_offset)
 	global_position.y = 0.0
-	_follow_position = _target.global_position + _follow_offset
+	_follow_position = _clamp_follow(_target.global_position + _follow_offset)
 	_follow_position.y = 0.0
 	_aim_offset = target_aim * look_ahead_distance
 	_aim_camera()
@@ -75,11 +75,12 @@ func _process(delta: float) -> void:
 	_smoothed_aim = _smoothed_aim.lerp(target_aim, 1.0 - exp(-aim_smoothing_speed * delta))
 	var desired := _target.global_position + _follow_offset
 	desired.y = 0.0
+	desired = _clamp_follow(desired)
 	_follow_position = _follow_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
 	# Aim panning has its own bounded speed; body follow never inherits shake.
 	var desired_aim_offset := _smoothed_aim * look_ahead_distance
 	_aim_offset = _aim_offset.move_toward(desired_aim_offset, max_aim_pan_speed * delta)
-	global_position = _follow_position + _aim_offset
+	global_position = _clamp_follow(_follow_position + _aim_offset)
 	if _shake_time > 0.0:
 		_shake_time -= delta
 		var shake_offset := Vector3(randf_range(-1.0, 1.0), randf_range(-0.5, 0.5), randf_range(-1.0, 1.0)) * _shake_strength
@@ -120,11 +121,25 @@ func reset_focus() -> void:
 	if _camera != null:
 		_camera.position = Vector3(0.0, 20.5, 17.5)
 		_camera.fov = 38.0
+		var scene := get_tree().current_scene
+		if scene != null and scene.has_meta("arena_half_size") and (scene.get_meta("arena_half_size") as Vector2).x < 15.0:
+			_camera.position = Vector3(0.0, 24.0, 20.0)
+			_camera.fov = 40.0
 
 
 func _resolve_camera() -> void:
 	if _camera == null:
 		_camera = get_node_or_null("Camera3D") as Camera3D
+
+
+func _clamp_follow(at: Vector3) -> Vector3:
+	var scene := get_tree().current_scene
+	if scene != null and scene.has_meta("arena_half_size"):
+		var half: Vector2 = scene.get_meta("arena_half_size")
+		if half.x < 15.0:
+			at.x = clampf(at.x, -maxf(0.0, half.x - 9.0), maxf(0.0, half.x - 9.0))
+			at.z = clampf(at.z, -maxf(0.0, half.y - 8.0), maxf(0.0, half.y - 8.0))
+	return at
 
 
 func _aim_camera() -> void:

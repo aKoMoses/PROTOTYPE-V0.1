@@ -5,6 +5,7 @@ extends CanvasLayer
 ## TargetDummy and the existing state objects.
 
 const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
+const ARENA_CATALOG := preload("res://scripts/compact_arena_catalog.gd")
 const COMFORT_SETTINGS := preload("res://scripts/comfort_settings.gd")
 const SETTINGS_SCREEN := preload("res://scripts/ui/settings_screen.gd")
 const PRECOMBAT_SCREEN := preload("res://scripts/ui/precombat_screen.gd")
@@ -115,6 +116,7 @@ var _selection_buttons: Dictionary = {}
 var _selection_markers: Dictionary = {}
 var _arena_buttons: Dictionary = {}
 var _arena_variant := "classic"
+var _arena_selector: OptionButton
 var _hud_labels: Dictionary = {}
 var _countdown_overlay: Control
 var _precombat_overlay: Control
@@ -789,21 +791,16 @@ func _build_equipment() -> void:
 	var arena_label := _label("ARÈNE", 14, MUTED)
 	arena_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	arenas.add_child(arena_label)
-	for choice in [{"id": "classic", "title": "CLASSIQUE"}, {"id": "hazards", "title": "PIÉGÉE"}, {"id": "test", "title": "MAP TEST"}]:
-		var button := _button(str(choice.title), Callable(self, "_select_arena").bind(str(choice.id)), 132)
-		button.custom_minimum_size.y = 38
-		button.add_theme_font_size_override("font_size", 14)
-		for state in ["normal", "hover", "pressed", "focus"]:
-			var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-			style.content_margin_top = 6
-			style.content_margin_bottom = 6
-			style.content_margin_left = 12
-			style.content_margin_right = 12
-			button.add_theme_stylebox_override(state, style)
-		button.name = "Arena%s" % str(choice.id).capitalize()
-		button.tooltip_text = "Arène compacte, plateformes et quatre rampes" if choice.id == "test" else ("Même arène, dalles et canons progressifs" if choice.id == "hazards" else "Arène sans pièges")
-		_arena_buttons[choice.id] = button
-		arenas.add_child(button)
+	_arena_selector = OptionButton.new()
+	_arena_selector.name = "ArenaSelector"
+	_arena_selector.custom_minimum_size = Vector2(252, 38)
+	_arena_selector.add_theme_font_size_override("font_size", 14)
+	for choice in ARENA_CATALOG.options():
+		_arena_selector.add_item(str(choice.title))
+		_arena_selector.set_item_metadata(_arena_selector.item_count - 1, str(choice.id))
+	_arena_selector.item_selected.connect(func(index: int) -> void:
+		_select_arena(str(_arena_selector.get_item_metadata(index))))
+	arenas.add_child(_arena_selector)
 	header.add_child(arenas)
 	_select_arena(_arena_variant)
 	var actions := HBoxContainer.new()
@@ -869,7 +866,13 @@ func _on_garage_arena_selected(value: String) -> void:
 
 
 func _select_arena(value: String) -> void:
-	_arena_variant = value if value in ["classic", "hazards", "test"] else "classic"
+	_arena_variant = ARENA_CATALOG.sanitize(value)
+	get_tree().set_meta("selected_duel_arena", _arena_variant)
+	if _arena_selector != null:
+		for index in _arena_selector.item_count:
+			if str(_arena_selector.get_item_metadata(index)) == _arena_variant:
+				_arena_selector.select(index)
+				_arena_selector.tooltip_text = str(ARENA_CATALOG.options()[index].description)
 	for key in _arena_buttons:
 		var selected: bool = key == _arena_variant
 		var button: Button = _arena_buttons[key]
