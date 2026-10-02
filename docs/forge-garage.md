@@ -6,6 +6,11 @@ Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est d
 
 ## Ce qui fonctionne
 
+- L'entrée montre l'atelier entier, quatre postes de modules et un râtelier distinct pour les armes.
+  Cliquer le rangement ou son étiquette ouvre son catalogue avec un travelling de caméra.
+  **ATELIER** ou Échap depuis un catalogue ramène à la vue générale. **MODULES** retrouve la dernière catégorie.
+- Les dix-huit modules ont une cartouche provisoire à leur emplacement, avec l'icône du catalogue,
+  un boîtier métallique et un repère de couleur par famille. Les assets définitifs peuvent remplacer ces cartouches.
 - Atelier 3D local : établi, panneau d'outils, verrière, casiers, câbles et plateforme grillagée.
 - Vrai robot du combat, animation d'attente, trois châssis avec leurs couleurs et statistiques.
 - Salut et échauffement joués occasionnellement, avec un repos variable de huit à quatorze secondes
@@ -15,14 +20,22 @@ Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est d
   Le relâchement conserve l'angle choisi ; le bras reste au repos pendant la manipulation et tant que le robot est tourné.
   Une inspection manuelle remet le robot dans la position prévue pour l'intervention du bras.
 - Blaster, shotgun, Mekatana et Longshot réellement attachés au squelette ; choix des quatre catégories de modules.
-  La zone des armes utilise une grille de deux colonnes quand plus de deux armes sont disponibles.
-- Le clic change le brouillon et son aperçu. **SAUVEGARDER** transmet le build au combat après le travail du bras ; **TESTER** ouvre le terrain d'entraînement sans enregistrer le brouillon.
-- Pyroboots et Bio Injector ont des accessoires 3D légers sur le vrai squelette, avec zoom et trois secondes de travail ciblé au clic. Voir [robot-module-visuals.md](robot-module-visuals.md).
+  Les armes et les modules utilisent une liste compacte à une colonne, avec le bouton **ÉQUIPER** sous les choix.
+  Le survol conserve la sélection ; un double-clic équipe directement le choix visé.
+- Le clic sur une ligne de module ou d'arme ouvre sa fiche et sa démonstration. Pour les cinq modules modélisés et les quatre armes, **ÉQUIPER** lance la prise sur le rangement,
+  le transport par la pince, l'alignement et la fixation sur le squelette du robot. Le brouillon change à la fixation.
+  **TERMINER** accélère cette séquence ; Échap avant la fixation annule la pose sans changer le brouillon.
+  **SAUVEGARDER** transmet le build au combat après son contrôle ; **TESTER** ouvre l'entraînement sans enregistrer.
+- Pyroboots, Bio Injector, Panier Roquettes, Magnetic Field et Réacteur auxiliaire retrouvent leurs vrais accessoires compacts à la fixation.
+  Les autres modules sont appliqués directement au brouillon sans installer de pièce factice sur le robot.
+  Pendant l'alignement d'une arme, l'ancienne est masquée ; une annulation avant fixation la restaure.
+  Voir [robot-module-visuals.md](robot-module-visuals.md).
 - Fiches d'information des armes accessibles sans modifier l'équipement sélectionné.
 - Choix d'arène exposé quand la variante d'arène est disponible dans le projet.
 - Bras industriel à quatre articulations : approche, scanner, retrait et repos.
-  La sauvegarde anime le bras durant cinq secondes. La sélection d'un accessoire physique compte trois secondes de travail après son approche.
-  Les changements d'équipement et la rotation annulent proprement l'intervention ciblée.
+  La sauvegarde anime le bras durant cinq secondes. La pose d'un module dure environ sept secondes,
+  avec un socle mobile et plusieurs cadrages continus. Le catalogue et la rotation sont suspendus pendant la pose.
+  Quitter ou masquer le garage libère le bras, la caméra et la pièce transportée.
 - Monde 3D séparé de l'arène. Le rendu et les animations sont suspendus quand le garage est caché.
 - Éclairage chaud, contre-éclairage froid, poussière discrète et profondeur de champ sur le décor.
 
@@ -31,6 +44,9 @@ Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est d
 `scripts/forge_garage.gd` construit l'interface et émet les choix d'équipement.
 `scripts/forge_garage_stage.gd` gère le monde, la caméra, le robot et ses armes.
 `scripts/forge_service_arm.gd` pilote le clip Blender et les étincelles.
+`scripts/forge_module_stations.gd` construit les rangements et leurs cartouches partagées.
+`scripts/forge_weapon_rack.gd` présente les quatre vrais modèles d'armes sur leurs supports.
+`scripts/forge_module_installation.gd` pilote les articulations, la prise, le transport, les ancrages et la caméra de pose.
 `scripts/game_flow.gd` assure l'entrée, la sauvegarde, le retour et le lancement du duel.
 
 Le décor et le bras sont produits localement par `tools/build_forge_garage.py`, avec Blender 4.5.13 LTS.
@@ -44,7 +60,27 @@ Le bras emploie une hiérarchie rigide avec des pivots de rotation et une animat
 plutôt qu'une vidéo ou une image déformée. Son outil suit réellement les articulations dans l'espace.
 Godot retire le suffixe `_cycle` à l'import ; le contrôleur reconnaît aussi le clip importé `service`.
 
-## Vérification du jalon
+## Vérification des postes physiques
+
+`tools/test_forge_module_stations.gd` vérifie les quatre rangements et leurs dix-huit cartouches,
+les 27 combinaisons équipement physique/châssis, la continuité des articulations et de la pièce transportée,
+son maintien rigide dans la pince, le changement du brouillon uniquement à la fixation,
+les annulations, le bouton **TERMINER** et la propriété exclusive du bras.
+Les vrais clics sur les postes, les cartes et **ÉQUIPER**, leurs cadrages à 960×540, 1280×720
+et 2340×1080, la sauvegarde isolée et le lancement de l'essai passent les 1 876 contrôles.
+Le mode `-- --runtime` vérifie également la pose complète avec les trames natives du moteur et de vraies entrées GUI.
+
+Les tests du garage, des gros plans, de la sauvegarde, du parcours de jeu, de la navigation
+et des démonstrations restent valides avec le nouveau parcours de sélection.
+Les tests ne remplacent pas les sauvegardes personnelles par leur brouillon.
+Les captures de `tools/capture_forge_module_stations.gd` proviennent du rendu Vulkan Mobile réel
+et sont conservées dans `captures/forge-module-stations/`. Son mode `-- --movie`, avec Godot Movie Maker,
+enregistre le déplacement vers un poste, la pose et le retour à l'atelier.
+`tools/capture_forge_equipment_selection.gd` capture l'atelier, la liste de mobilité, le râtelier et le robot équipé en 1280×720 et 960×540 dans `captures/forge-equipment-selection/`.
+
+Cette vérification concerne le PC. Le rendu, les performances et le confort sur un véritable appareil Android restent à contrôler.
+
+## Vérification du jalon initial
 
 La version destinée à `main` a été importée et testée dans un checkout propre, sans les autres chantiers locaux.
 Six tests Godot produisent leur résultat PASS : `test_forge_garage`, `test_robot_forge`, `test_weapon_forge`,
@@ -83,9 +119,8 @@ Ce jalon établit le parcours jouable et l'animation réelle. Le décor reste un
 la richesse des surfaces, les accessoires, la composition du bras et la finition des panneaux doivent encore progresser
 pour atteindre la maquette. Les trois châssis réutilisent le modèle actuel, avec leurs variations existantes.
 
-Les prochaines passes peuvent ajouter une mise en scène de remplacement des armes, une pose spécifique du robot pendant
-l'intervention, des mouvements de caméra et des effets audio. Le clip actuel suit une trajectoire préparée ; il n'emploie
-pas de cinématique inverse adaptative pour toucher toutes les pièces ou accompagner un robot tournant librement.
+La pose des modules utilise maintenant les articulations du bras et un socle mobile pour rejoindre chaque rangement,
+avec des déplacements de caméra. Les cinq accessoires définitifs et le remplacement des armes depuis leur râtelier sont intégrés.
 Les performances sur Android et le confort tactile restent à vérifier sur un véritable appareil.
 
 ## Démonstrations en entraînement

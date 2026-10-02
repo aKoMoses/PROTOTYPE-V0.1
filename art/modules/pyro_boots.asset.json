@@ -1,0 +1,19 @@
+{
+  "asset": "pyro_boots",
+  "triangles": 3064,
+  "material_batches": 7,
+  "bytes": 1176872,
+  "sha256": "bc0fd943e69cb04a6f13bd9f7e7df5927071bc1b5adc0e3ae0ecfe73b42860b8",
+  "blender_bounds_min": [
+    -0.04984131455421448,
+    -0.05400000885128975,
+    -0.07258445024490356
+  ],
+  "blender_bounds_max": [
+    0.05200018361210823,
+    0.003000013530254364,
+    0.07629191130399704
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/pyro_boots.blend"
+}

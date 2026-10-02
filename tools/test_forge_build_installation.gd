@@ -30,18 +30,21 @@ func _run() -> void:
 	garage.stage.set_process(false)
 	garage.focus.set_process(false)
 	garage.installation.set_process(false)
+	garage.module_installation.set_process(false)
 	var saves := [0]
 	garage.build_saved.connect(func(_equipment: Dictionary) -> void: saves[0] += 1)
 	check(garage.find_child("GarageScanner", true, false) == null, "aucun bouton Scanner")
-	check(garage._module_options.columns == 2 and garage._module_options.get_child_count() == 6, "six passifs visibles en deux colonnes")
+	check(garage._hub_mode and garage._module_options == null and not garage._module_panel.visible, "le garage ouvre les rangements sans catalogue imposé")
+	garage._open_modules("passive")
+	check(garage._module_options.columns == 1 and garage._module_options.get_child_count() == 6, "six passifs visibles dans une liste compacte")
 	check(garage._training_demo.get_global_rect().position.x > garage._module_panel.get_global_rect().end.x, "la video est dans la fiche a droite")
 	for button in garage._choices.passive.values():
 		var icon: Control = button.get_node("EquipmentIcon")
-		check(Rect2(Vector2.ZERO, button.size).encloses(icon.get_rect()) and icon.get_rect().end.y < 91, "icone contenue au-dessus du nom")
+		check(Rect2(Vector2.ZERO, button.size).encloses(icon.get_rect()) and icon.get_rect().end.x <= 72, "icone contenue à gauche du nom")
 	for category in ["robot", "weapon", "offensive", "defensive", "mobility", "passive"]:
 		var options: Array = garage._options(category)
 		var id: String = options.back()
-		garage._select_equipment(category, id)
+		equip(garage, category, id)
 		check(garage.loadout[category] == id and LOADOUT.load_local(OLD_PATH) == original, "le choix reste un brouillon : " + category)
 		check(garage._detail_description.text == LOADOUT.category_description(id), "la fiche affiche le vrai effet : " + id)
 	var expected: Dictionary = garage.loadout.duplicate(true)
@@ -75,7 +78,7 @@ func _run() -> void:
 	garage._duplicate_build()
 	garage._name_input.text = "BASTION"
 	garage._finish_rename()
-	garage._select_equipment("weapon", "shotgun")
+	equip(garage, "weapon", "shotgun")
 	garage._save_build()
 	garage.installation.set_process(false)
 	for frame in 301:
@@ -104,7 +107,7 @@ func _run() -> void:
 	garage.library_path = failed_path
 	for chassis in LOADOUT.ROBOTS:
 		garage._select_equipment("robot", chassis)
-		garage._select_equipment("mobility", "bio_injector" if chassis == "polyvalent" else "pyro_boots")
+		equip(garage, "mobility", "bio_injector" if chassis == "polyvalent" else "pyro_boots")
 		garage._save_build()
 		garage.installation.set_process(false)
 		for frame in 301:
@@ -142,3 +145,23 @@ func check(condition: bool, description: String) -> void:
 	checks += 1
 	if not condition:
 		failures.append(description)
+
+
+func equip(garage: Control, category: String, identifier: String) -> void:
+	if category == "robot":
+		garage._select_equipment(category, identifier)
+		return
+	garage._open_station(category)
+	var before: Dictionary = garage.loadout.duplicate(true)
+	(garage._choices[category][identifier] as Button).pressed.emit()
+	check(garage.loadout == before and not garage.module_installation.active, "la carte reste un aperçu : " + identifier)
+	if str(before[category]) != identifier:
+		garage._equip_preview()
+		garage.module_installation.set_process(false)
+		if category == "weapon" or identifier in garage.module_installation.REAL_MODULES:
+			check(garage.module_installation.active and garage.loadout == before, "Équiper attend la fixation : " + identifier)
+			garage.module_installation.finish_now()
+		else:
+			check(not garage.module_installation.active, "un équipement sans modèle s'équipe sans fausse pièce : " + identifier)
+	check(str(garage.loadout[category]) == identifier and not garage.module_installation.active, "l'équipement rejoint le brouillon : " + identifier)
+	garage.focus.set_process(false)

@@ -1,0 +1,19 @@
+{
+  "asset": "rocket_basket",
+  "triangles": 4004,
+  "material_batches": 3,
+  "bytes": 678444,
+  "sha256": "bf9bdcc10bad55d1148ef3cb29190c3a807313acd1ad518059d4d9c050388493",
+  "blender_bounds_min": [
+    -0.0949999988079071,
+    -0.04200000315904617,
+    -0.07500000298023224
+  ],
+  "blender_bounds_max": [
+    0.0949999988079071,
+    0.00800000037997961,
+    0.07500000298023224
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/rocket_basket.blend"
+}

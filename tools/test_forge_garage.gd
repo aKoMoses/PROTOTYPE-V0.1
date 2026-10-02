@@ -39,10 +39,10 @@ func _initialize() -> void:
 	check(stage.robot_animator.is_playing(), "robot anime dans le garage")
 	check(stage.weapon_attachment != null and stage.weapon_socket != null, "arme attachee a la main du vrai squelette")
 	for button in garage.get("_nav").values():
-		check(button.size == Vector2(133, 41), "onglet compact au-dessus du catalogue")
+		check(button.size == Vector2(133, 36), "onglet compact dans l'entête du garage")
 	for button in garage.weapon_buttons.values():
 		var icon := button.get_child(0) as Control
-		check(icon.size.x <= button.size.x and icon.size.y < button.size.y - 24, "icone d'arme contenue dans sa carte")
+		check(Rect2(Vector2.ZERO, button.size).encloses(icon.get_rect()), "icone d'arme contenue dans sa ligne")
 		check(button.get_rect().end.x <= 1245 and button.get_rect().end.y < 615, "chaque arme reste visible au-dessus de JOUER")
 	check((garage.get("_health") as Label).text.ends_with("PV"), "PV dans le bandeau compact sous le robot")
 	check(not stage.automatic_service_enabled, "le bras attend Sauvegarder")
@@ -83,19 +83,48 @@ func _initialize() -> void:
 		check(flow.get("loadout").offensive == before.offensive, "module preserve au changement de robot")
 	check(not arm.active, "changement de chassis remet le bras en position sure")
 	check(CHASSIS_PAINT.PAINT_SHADER.code == shared_shader_code, "shader de camouflage du combat preserve")
+	garage._navigate("ARMES")
+	check(garage.focus.station_category == "weapon" and stage.weapon_rack.items.size() == LOADOUT.WEAPONS.size(), "ARMES ouvre le ratelier distinct avec les quatre vrais modeles")
 	for identifier in LOADOUT.WEAPONS:
+		var weapon_before: Dictionary = garage.loadout.duplicate(true)
+		var stage_weapon_before: String = stage.weapon_id
 		(garage.weapon_buttons[identifier] as Button).pressed.emit()
-		check(stage.weapon_id == identifier and garage.loadout.weapon == identifier and LOADOUT.load_local() == saved_before, "choix d'arme en brouillon : " + identifier)
+		check(garage._preview_id == identifier and garage.loadout == weapon_before and stage.weapon_id == stage_weapon_before and not garage.module_installation.active, "la ligne montre l'arme sans changer le brouillon : " + identifier)
+		garage.equip_button.pressed.emit()
+		if str(weapon_before.weapon) == identifier:
+			check(not garage.module_installation.active and garage.loadout == weapon_before, "arme deja installee ne relance pas le bras : " + identifier)
+		else:
+			check(garage.module_installation.active and garage.loadout == weapon_before, "Equiper attend la fixation de l'arme avant le brouillon : " + identifier)
+			garage.module_installation.finish_now()
+		check(stage.weapon_id == identifier and garage.loadout.weapon == identifier and LOADOUT.load_local() == saved_before, "choix d'arme en brouillon apres le transport : " + identifier)
 		var model := stage.weapon_socket.get_child(0).get_child(0) as Node3D
 		check(model.scene_file_path == stage.WEAPON_MODELS[identifier].resource_path, "bon modele 3D dans la main : " + identifier)
 		var box: AABB = stage.weapon_socket.global_transform * stage.call("_bounds", stage.weapon_socket)
 		check(box.size.length() > 0.7 and box.size.length() < 2.1, "taille coherente de chaque arme : " + identifier)
 	(garage.weapon_buttons["shotgun"] as Button).pressed.emit()
+	garage.equip_button.pressed.emit()
+	if garage.module_installation.active:
+		garage.module_installation.finish_now()
 	check(stage.weapon_id == "shotgun" and garage.loadout.weapon == "shotgun", "vrai shotgun et selection en brouillon")
+	var module_baseline: Dictionary = garage.loadout.duplicate(true)
+	module_baseline.defensive = "magnetic_field"
+	garage.restore_draft({"loadout": module_baseline, "name": garage.build_name, "id": garage.build_id})
 	garage.call("_open_modules", "defensive")
 	var picker: GridContainer = garage.get("_module_options")
-	(picker.get_child(1) as Button).pressed.emit()
-	check(garage.loadout.defensive == "static_shield" and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "module selectionne sans ecraser le build actif")
+	check(picker.columns == 1, "modules presentes en liste lisible")
+	var generic_before: Dictionary = garage.loadout.duplicate(true)
+	(garage._choices.defensive["static_shield"] as Button).pressed.emit()
+	check(garage.loadout == generic_before and not garage.module_installation.active, "aperçu du bouclier conserve le brouillon")
+	garage.equip_button.pressed.emit()
+	check(garage.loadout.defensive == "static_shield" and not garage.module_installation.active and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "choix sans modele applique directement sans transport ni sauvegarde")
+	var defense := "magnetic_field"
+	var draft_before: Dictionary = garage.loadout.duplicate(true)
+	(garage._choices.defensive[defense] as Button).pressed.emit()
+	check(garage.loadout == draft_before and not garage.module_installation.active, "la carte affiche le module sans l'équiper")
+	garage.equip_button.pressed.emit()
+	check(garage.module_installation.active and garage.loadout == draft_before, "Équiper lance le bras avant de modifier le brouillon")
+	garage.module_installation.finish_now()
+	check(garage.loadout.defensive == defense and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "module fixé sans écraser le build actif")
 	garage.call("_save_build")
 	check(not garage.get("_ui").visible, "l'interface disparait pour l'installation")
 	garage.installation.set_process(false)
@@ -162,12 +191,13 @@ func check_robot_rotation(garage: Control, stage) -> void:
 	await mouse_motion(Vector2(510, 60), Vector2(160, 0), true)
 	await mouse_button(Vector2(510, 60), false)
 	check(is_equal_approx(stage.robot.rotation.y, rotated_angle), "cliquer le decor ne fait pas tourner le robot")
-	var button: Button = garage.module_buttons["offensive"]
+	var button: Button = garage.station_buttons["offensive"]
 	var button_point: Vector2 = button.get_global_rect().get_center()
 	await mouse_button(button_point, true)
 	await mouse_motion(button_point + Vector2(12, 0), Vector2(12, 0), true)
 	await mouse_button(button_point + Vector2(12, 0), false)
 	check(is_equal_approx(stage.robot.rotation.y, rotated_angle), "les boutons restent utilisables sans declencher la rotation")
+	garage._show_garage(false)
 	garage.get("_module_panel").hide()
 	point = stage.camera.unproject_position(original_position + Vector3(0, 1.5, 0)) * stage.size / Vector2(stage.viewport.size)
 	await mouse_button(point, true)

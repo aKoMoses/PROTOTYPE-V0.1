@@ -15,6 +15,8 @@ const EQUIPMENT_FOCUS := preload("res://scripts/forge_garage_focus.gd")
 const TRAINING_DEMO := preload("res://scripts/forge_training_demo.gd")
 const INSTALLATION := preload("res://scripts/forge_build_installation.gd")
 const MODULE_INSTALLATION := preload("res://scripts/forge_module_installation.gd")
+const MODULE_STATIONS := preload("res://scripts/forge_module_stations.gd")
+const WEAPON_RACK := preload("res://scripts/forge_weapon_rack.gd")
 const LIBRARY := preload("res://scripts/garage_build_library.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const DATA := preload("res://scripts/combat_data.gd")
@@ -84,6 +86,21 @@ var _touch_index := -1
 var _save_and_play := false
 var _installation_controls: Control
 var _installation_status: Label
+var station_buttons: Dictionary = {}
+var equip_button: Button
+var _detail_panel: Panel
+var _garage_return: Button
+var _hub_caption: Label
+var _hub_mode := true
+var _preview_category := "passive"
+var _preview_id := ""
+var _cinema: Control
+var _cinema_phase: Label
+var _cinema_title: Label
+var _cinema_progress: ProgressBar
+var _catalog_tween: Tween
+var _catalog_title: Label
+var _presets: OptionButton
 
 
 func _ready() -> void:
@@ -106,6 +123,12 @@ func _ready() -> void:
 	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(stage)
 	stage.camera.position -= stage.camera.global_basis.x * 0.58
+	stage.module_stations = MODULE_STATIONS.new()
+	stage.module_stations.configure(stage)
+	stage.world.add_child(stage.module_stations)
+	stage.weapon_rack = WEAPON_RACK.new()
+	stage.weapon_rack.configure(stage)
+	stage.world.add_child(stage.weapon_rack)
 	_build_interface()
 	focus = EQUIPMENT_FOCUS.new()
 	focus.name = "EquipmentFocus"
@@ -121,17 +144,24 @@ func _ready() -> void:
 	module_installation.name = "ModuleInstallation"
 	module_installation.configure(stage, focus)
 	add_child(module_installation)
+	module_installation.mounted.connect(_module_mounted)
+	module_installation.completed.connect(_module_completed)
+	module_installation.cancelled.connect(_module_cancelled)
 	resized.connect(_layout)
 	visibility_changed.connect(_sync_visibility)
 	_layout()
 	_refresh()
-	_open_modules("passive")
+	_show_garage(false)
 	_sync_visibility()
 
 
 func _process(delta: float) -> void:
 	if installation != null and installation.active and _installation_status != null:
 		_installation_status.text = "Installation · %.1f / 5 s" % installation.elapsed
+	_update_station_buttons()
+	if module_installation != null and module_installation.active:
+		_cinema_phase.text = {"approach": "MISE EN POSITION", "pickup": "PRISE AU RÂTELIER" if module_installation.category == "weapon" else "SAISIE DU MODULE", "lift": "LEVAGE", "carry": "TRANSFERT VERS LE ROBOT", "align": "ALIGNEMENT", "work": "VERROUILLAGE", "release": "ÉQUIPEMENT FIXÉ", "return": "RETRAIT DU BRAS"}.get(module_installation.phase, "INSTALLATION")
+		_cinema_progress.value = clampf(module_installation.elapsed / module_installation.DURATION, 0.0, 1.0)
 	if _notice_time > 0:
 		_notice_time -= delta
 		if _notice_time <= 0:
@@ -139,8 +169,25 @@ func _process(delta: float) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if not is_visible_in_tree() or installation.active:
+	if not is_visible_in_tree() or installation.active or module_installation.active:
 		return
+	if _hub_mode:
+		var pointer := Vector2.ZERO
+		var pressed := false
+		if event is InputEventMouseMotion:
+			_highlight_station(_pick_station(event.position))
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			pointer = event.position
+			pressed = event.pressed
+		elif event is InputEventScreenTouch:
+			pointer = event.position
+			pressed = event.pressed
+		if pressed:
+			var selected := _pick_station(pointer)
+			if not selected.is_empty():
+				_open_station(selected)
+				accept_event()
+				return
 	if event is InputEventScreenTouch:
 		if event.pressed and _touch_index == -1 and stage.is_robot_at_position(event.position):
 			module_installation.cancel(false)
@@ -199,6 +246,26 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				_rename_panel.hide()
 			else:
 				back_requested.emit()
+		get_viewport().set_input_as_handled()
+
+
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or not event is InputEventKey or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_ESCAPE:
+		if installation != null and installation.active:
+			get_viewport().set_input_as_handled()
+			return
+		if module_installation != null and module_installation.active:
+			module_installation.cancel()
+		elif _training_demo != null and _training_demo._viewer.visible:
+			_training_demo.close_enlarged()
+		elif _rename_panel.visible:
+			_rename_panel.hide()
+		elif not _hub_mode:
+			_show_garage()
+		else:
+			back_requested.emit()
 		get_viewport().set_input_as_handled()
 
 
@@ -264,22 +331,79 @@ func _choose_arena(identifier: String) -> void:
 
 
 func _select_equipment(category: String, identifier: String) -> void:
-	if installation.active:
+	if installation.active or module_installation.active:
 		return
-	module_installation.cancel(false)
+	if str(loadout.get(category, "")) == identifier:
+		return
+	if category == "weapon" or identifier in MODULE_INSTALLATION.REAL_MODULES:
+		if category in CATEGORY_TITLES:
+			_module_category = category
+		_stop_robot_rotation()
+		_training_demo.close_enlarged()
+		if module_installation.begin(identifier, category):
+			_ui.set_meta("preview_rect", Rect2(80, 100, 1120, 490))
+			_ui.hide()
+			_cinema.show()
+			_cinema_phase.text = "PRISE EN CHARGE"
+			_cinema_title.text = "INSTALLATION  /  " + LOADOUT.display_name(identifier)
+			_cinema_progress.value = 0.0
+		else:
+			_notice("Le bras n’a pas pu rejoindre cet équipement.")
+		return
 	loadout[category] = identifier
 	loadout = LOADOUT.sanitize(loadout)
 	_refresh()
 	_show_detail(category, identifier)
-	if category == "mobility" and identifier in ["pyro_boots", "bio_injector"]:
-		module_installation.begin(identifier)
-	else:
+	if category == "robot":
 		focus.preview_equipment(category, identifier)
 	equipment_selected.emit(category, str(loadout[category]))
 
 
+func _preview_equipment(category: String, identifier: String) -> void:
+	if category in CATEGORY_TITLES or category == "weapon":
+		_show_detail(category, identifier)
+	else:
+		_select_equipment(category, identifier)
+
+
+func _equip_preview() -> void:
+	if not _preview_id.is_empty():
+		_select_equipment(_preview_category, _preview_id)
+
+
+func _module_mounted(category: String, identifier: String) -> void:
+	loadout[category] = identifier
+	loadout = LOADOUT.sanitize(loadout)
+	_refresh()
+	equipment_selected.emit(category, str(loadout[category]))
+
+
+func _module_completed(identifier: String) -> void:
+	_cinema.hide()
+	_ui.show()
+	var kind: String = module_installation.category
+	_open_station(kind)
+	_show_detail(kind, identifier)
+	_notice(LOADOUT.display_name(identifier) + " installé")
+
+
+func _module_cancelled() -> void:
+	if _cinema != null:
+		_cinema.hide()
+		_ui.show()
+		_ui.set_meta("preview_rect", Rect2(40, 105, 1200, 450) if _hub_mode else Rect2(346, 132, 628, 469))
+		if is_visible_in_tree():
+			if _hub_mode:
+				focus.show_garage()
+			else:
+				if _category == "robot":
+					focus.show_overview()
+				else:
+					focus.show_station(_category)
+
+
 func _save_build() -> void:
-	if installation.active:
+	if installation.active or module_installation.active:
 		return
 	module_installation.cancel()
 	_finish_rename()
@@ -345,7 +469,7 @@ func _cancel_save() -> void:
 
 
 func _test_build() -> void:
-	if not installation.active:
+	if not installation.active and not module_installation.active:
 		module_installation.cancel()
 		_finish_rename()
 		test_requested.emit(loadout.duplicate(true))
@@ -366,6 +490,8 @@ func _sync_visibility() -> void:
 			module_installation.cancel(false)
 		if installation != null:
 			installation.cancel()
+	elif focus != null and module_installation != null and not module_installation.active:
+		_show_garage(false)
 
 
 func _layout() -> void:
@@ -379,6 +505,10 @@ func _layout() -> void:
 		_installation_controls.scale = _ui.scale
 		_installation_controls.position = _ui.position
 		_installation_controls.size = DESIGN_SIZE
+	if _cinema != null:
+		_cinema.scale = _ui.scale
+		_cinema.position = _ui.position
+		_cinema.size = DESIGN_SIZE
 	if focus != null:
 		focus.fit_layout()
 
@@ -437,25 +567,31 @@ func _build_interface() -> void:
 	_ui = Control.new()
 	_ui.name = "GarageInterface"
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ui.set_meta("preview_rect", Rect2(455, 75, 520, 530))
+	_ui.set_meta("preview_rect", Rect2(346, 132, 628, 469))
 	add_child(_ui)
 	_panel(Vector2.ZERO, Vector2(1280, 58))
-	_ui.add_child(_label("GARAGE", Vector2(24, 6), Vector2(239, 48), 40, CREAM, true))
-	_button("JOUER", Vector2(284, 11), Vector2(116, 36), _request_back)
-	_button("GARAGE", Vector2(408, 11), Vector2(124, 36), func() -> void: pass, true)
+	_ui.add_child(_label("FORGE", Vector2(24, 6), Vector2(239, 48), 40, CREAM, true))
+	_button("‹", Vector2(221, 11), Vector2(39, 36), _request_back).tooltip_text = "Retour au menu"
 	_header_name = _label(build_name, Vector2(974, 16), Vector2(244, 28), 18, CREAM, true)
 	_header_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_header_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_ui.add_child(_header_name)
 	_button("✎", Vector2(1230, 12), Vector2(32, 32), _rename_build)
-	_module_panel = _panel(Vector2(0, 65), Vector2(451, 583))
+	_module_panel = _panel(Vector2(16, 76), Vector2(320, 574), true)
 	for index in 3:
 		var title: String = ["ROBOT", "ARMES", "MODULES"][index]
-		_nav[title] = _button(title, Vector2(14 + index * 142, 74), Vector2(133, 41), _navigate.bind(title), title == "MODULES")
+		_nav[title] = _button(title, Vector2(278 + index * 142, 11), Vector2(133, 36), _navigate.bind(title), title == "MODULES")
+	_garage_return = _button("‹  ATELIER", Vector2(30, 90), Vector2(140, 40), _show_garage)
+	_catalog_title = _label("", Vector2(181, 96), Vector2(141, 29), 14, AMBER, true)
+	_catalog_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ui.add_child(_catalog_title)
+	_hub_caption = _label("CHOISISSEZ UN POSTE", Vector2(453, 77), Vector2(374, 28), 15, CREAM, true)
+	_hub_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ui.add_child(_hub_caption)
 	for index in 4:
 		var category: String = ["offensive", "defensive", "mobility", "passive"][index]
-		var button := _button(CATEGORY_TITLES[category], Vector2(14 + index * 107, 128), Vector2(107, 32), _open_modules.bind(category))
-		button.add_theme_font_size_override("font_size", 11)
+		var button := _button(CATEGORY_TITLES[category], Vector2(354 + index * 154, 76), Vector2(145, 44), _open_modules.bind(category))
+		button.add_theme_font_size_override("font_size", 13)
 		module_buttons[category] = button
 	for category in ["robot", "weapon", "offensive", "defensive", "mobility", "passive"]:
 		_build_catalog(category)
@@ -463,9 +599,11 @@ func _build_interface() -> void:
 	_build_footer()
 	_build_rename_panel()
 	_build_experience_controls()
+	_build_station_interface()
+	_build_cinematic_interface()
 	for index in 3:
 		var id: String = ["classic", "hazards", "test"][index]
-		var button := _button(["CLASSIQUE", "PIÉGÉE", "MAP TEST"][index], Vector2(536 + index * 109, 11), Vector2(103, 36), _choose_arena.bind(id))
+		var button := _button(["CLASSIQUE", "PIÉGÉE", "MAP TEST"][index], Vector2(713 + index * 117, 11), Vector2(109, 36), _choose_arena.bind(id))
 		button.add_theme_font_size_override("font_size", 11)
 		if id == "test":
 			button.tooltip_text = "Arène de 30 × 30 m • plateformes à 2,4 m • accès nord et sud"
@@ -474,8 +612,8 @@ func _build_interface() -> void:
 	_arena_selector.name = "ArenaSelector"
 	_arena_selector.fit_to_longest_item = false
 	_arena_selector.clip_text = true
-	_arena_selector.position = Vector2(536, 11)
-	_arena_selector.size = Vector2(424, 36)
+	_arena_selector.position = Vector2(713, 11)
+	_arena_selector.size = Vector2(247, 36)
 	_arena_selector.add_theme_font_size_override("font_size", 12)
 	_arena_selector.add_theme_color_override("font_color", CREAM)
 	_arena_selector.add_theme_stylebox_override("normal", _style(false))
@@ -495,43 +633,40 @@ func _options(category: String) -> Array:
 
 func _build_catalog(category: String) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.position = Vector2(17, 174)
-	grid.size = Vector2(417, 447)
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.columns = 1
+	grid.position = Vector2(30, 150)
+	grid.size = Vector2(292, 414)
+	grid.add_theme_constant_override("v_separation", 6)
 	_ui.add_child(grid)
 	_grids[category] = grid
 	_choices[category] = {}
 	for identifier in _options(category):
 		var button := Button.new()
 		button.name = "Garage%s" % str(identifier).to_pascal_case()
-		button.custom_minimum_size = Vector2(202, 141)
+		button.custom_minimum_size = Vector2(292, 64)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.tooltip_text = LOADOUT.category_description(identifier)
 		for state in ["normal", "hover", "pressed", "focus"]:
 			button.add_theme_stylebox_override(state, _style(state != "normal"))
-		button.pressed.connect(_select_equipment.bind(category, str(identifier)))
-		button.mouse_entered.connect(_show_detail.bind(category, str(identifier)))
-		button.focus_entered.connect(_show_detail.bind(category, str(identifier)))
+		button.pressed.connect(_preview_equipment.bind(category, str(identifier)))
+		button.gui_input.connect(_card_input.bind(category, str(identifier)))
 		grid.add_child(button)
 		var icon := TextureRect.new()
 		icon.name = "EquipmentIcon"
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.texture = _icons.get_icon(identifier)
-		icon.position = Vector2(31, 8)
-		icon.size = Vector2(140, 79)
+		icon.position = Vector2(8, 9)
+		icon.size = Vector2(56, 44)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(icon)
-		icon.set_deferred("size", Vector2(140, 79))
-		var title := _label(LOADOUT.display_name(identifier).replace("RÉACTEUR AUXILIAIRE", "RÉACTEUR AUX."), Vector2(8, 91), Vector2(186, 21), 13, CREAM, true)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon.set_deferred("size", Vector2(56, 44))
+		var title := _label(LOADOUT.display_name(identifier).replace("RÉACTEUR AUXILIAIRE", "RÉACTEUR AUX."), Vector2(72, 8), Vector2(189, 22), 14, CREAM, true)
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.add_child(title)
-		var tag := _label(str(TAGS.get(identifier, "")), Vector2(8, 117), Vector2(186, 19), 12)
-		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var tag := _label(str(TAGS.get(identifier, "")), Vector2(72, 33), Vector2(209, 21), 13)
 		button.add_child(tag)
-		var selected := _label("✓", Vector2(175, 7), Vector2(20, 22), 20, AMBER, true)
+		var selected := _label("✓", Vector2(267, 7), Vector2(20, 22), 18, AMBER, true)
 		selected.name = "Selected"
 		button.add_child(selected)
 		_choices[category][identifier] = button
@@ -542,38 +677,49 @@ func _build_catalog(category: String) -> void:
 	grid.hide()
 
 
+func _card_input(event: InputEvent, category: String, identifier: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.double_click:
+		_preview_equipment(category, identifier)
+		_select_equipment(category, identifier)
+		get_viewport().set_input_as_handled()
+
+
 func _build_detail() -> void:
-	var panel := _panel(Vector2(988, 78), Vector2(275, 557), true)
+	var panel := _panel(Vector2(986, 76), Vector2(278, 574), true)
+	_detail_panel = panel
 	panel.name = "EquipmentDetail"
 	_detail_icon = TextureRect.new()
-	_detail_icon.position = Vector2(34, 13)
-	_detail_icon.size = Vector2(207, 144)
+	_detail_icon.position = Vector2(18, 15)
+	_detail_icon.size = Vector2(96, 54)
 	_detail_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_detail_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_detail_icon)
-	_detail_title = _label("", Vector2(18, 173), Vector2(239, 52), 21, CREAM, true)
+	_detail_title = _label("", Vector2(18, 83), Vector2(242, 56), 20, CREAM, true)
 	_detail_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel.add_child(_detail_title)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(18, 235)
-	scroll.size = Vector2(239, 115)
+	scroll.position = Vector2(18, 151)
+	scroll.size = Vector2(242, 172)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
-	_detail_description = _label("", Vector2.ZERO, Vector2(224, 115), 16)
-	_detail_description.custom_minimum_size.x = 222
+	_detail_description = _label("", Vector2.ZERO, Vector2(228, 172), 16)
+	_detail_description.custom_minimum_size.x = 226
 	_detail_description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_description.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(_detail_description)
-	_detail_stats = _label("", Vector2(18, 365), Vector2(239, 35), 13, CYAN)
+	_detail_stats = _label("", Vector2(18, 337), Vector2(242, 43), 14, CYAN)
 	_detail_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_stats.max_lines_visible = 2
 	_detail_stats.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_detail_stats.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_child(_detail_stats)
+	equip_button = _button("ÉQUIPER  ›", Vector2(30, 592), Vector2(292, 52), _equip_preview, true)
+	equip_button.name = "EquipModule"
+	equip_button.tooltip_text = "Équiper le choix sélectionné · double-clic sur une ligne pour équiper directement"
 	_training_demo = TRAINING_DEMO.new()
-	_training_demo.position = Vector2(18, 409)
+	_training_demo.position = Vector2(18, 404)
 	_training_demo.size = Vector2(239, 147)
 	_training_demo.thumbnail_rect = Rect2(1, 1, 237, 133)
 	panel.add_child(_training_demo)
@@ -595,7 +741,7 @@ func _build_detail() -> void:
 	var video_caption := _label("VOIR EN ACTION", Vector2(0, 137), Vector2(239, 19), 13, CREAM, true)
 	video_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_training_demo.add_child(video_caption)
-	_missing_demo = _label("Démonstration indisponible", Vector2(18, 433), Vector2(239, 70), 14, Color("#baa989"))
+	_missing_demo = _label("", Vector2(18, 425), Vector2(239, 70), 14, Color("#baa989"))
 	_missing_demo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_missing_demo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	panel.add_child(_missing_demo)
@@ -643,6 +789,7 @@ func _build_footer() -> void:
 
 func _build_experience_controls() -> void:
 	var presets := OptionButton.new()
+	_presets = presets
 	presets.name = "RecommendedBuilds"
 	presets.position = Vector2(477, 561)
 	presets.size = Vector2(438, 37)
@@ -766,9 +913,147 @@ func _notice(text: String) -> void:
 	_notice_time = 3.5
 
 
+func _build_station_interface() -> void:
+	for index in 5:
+		var category: String = ["offensive", "defensive", "passive", "mobility", "weapon"][index]
+		var title: String = "RÂTELIER D’ARMES" if category == "weapon" else CATEGORY_TITLES[category]
+		var button := _button("%s   ›" % title, Vector2.ZERO, Vector2(184, 44), _open_station.bind(category))
+		button.name = "Station_" + category
+		button.add_theme_font_size_override("font_size", 13)
+		button.tooltip_text = "Choisir une arme" if category == "weapon" else "Choisir un module " + title.to_lower()
+		button.mouse_entered.connect(_highlight_station.bind(category))
+		button.focus_entered.connect(_highlight_station.bind(category))
+		station_buttons[category] = button
+
+
+func _build_cinematic_interface() -> void:
+	_cinema = Control.new()
+	_cinema.name = "ModuleInstallationOverlay"
+	_cinema.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_cinema)
+	for y in [0.0, 628.0]:
+		var bar := ColorRect.new()
+		bar.position = Vector2(0, y)
+		bar.size = Vector2(1280, 92)
+		bar.color = Color(0.02, 0.025, 0.025, 0.92)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_cinema.add_child(bar)
+	_cinema_title = _label("INSTALLATION", Vector2(36, 22), Vector2(1100, 28), 20, CREAM, true)
+	_cinema.add_child(_cinema_title)
+	_cinema_phase = _label("", Vector2(36, 646), Vector2(800, 28), 18, CREAM, true)
+	_cinema.add_child(_cinema_phase)
+	_cinema_progress = ProgressBar.new()
+	_cinema_progress.position = Vector2(36, 688)
+	_cinema_progress.size = Vector2(1208, 3)
+	_cinema_progress.max_value = 1.0
+	_cinema_progress.show_percentage = false
+	_cinema_progress.add_theme_font_size_override("font_size", 1)
+	_cinema_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = AMBER
+	_cinema_progress.add_theme_stylebox_override("fill", fill)
+	var empty := StyleBoxFlat.new()
+	empty.bg_color = Color(0.25, 0.24, 0.21)
+	_cinema_progress.add_theme_stylebox_override("background", empty)
+	_cinema.add_child(_cinema_progress)
+	_cinema_progress.set_deferred("size", Vector2(1208, 3))
+	var skip := _button("TERMINER  ›", Vector2(1054, 638), Vector2(190, 40), func() -> void: module_installation.finish_now())
+	skip.reparent(_cinema, false)
+	skip.position = Vector2(1054, 638)
+	_cinema.hide()
+
+
+func _update_station_buttons() -> void:
+	if stage == null or stage.camera == null or _ui == null:
+		return
+	var placed: Array[Rect2] = []
+	for category in station_buttons:
+		var button: Button = station_buttons[category]
+		button.visible = _hub_mode and not module_installation.active
+		if not button.visible:
+			continue
+		var provider = stage.weapon_rack if category == "weapon" else stage.module_stations
+		var point: Vector3 = provider.anchor(category)
+		if stage.camera.is_position_behind(point):
+			button.hide()
+			continue
+		var screen: Vector2 = stage.camera.unproject_position(point) * size / Vector2(stage.viewport.size)
+		button.position = (screen - _ui.position) / _ui.scale - Vector2(button.size.x * 0.5, 48)
+		button.position.x = clampf(button.position.x, 18, 1262 - button.size.x)
+		button.position.y = clampf(button.position.y, 113, 556)
+		for attempt in 5:
+			var overlaps := false
+			for rect in placed:
+				if rect.grow(3.0).intersects(button.get_rect()):
+					button.position.y = rect.end.y + 8.0 if rect.end.y + 8.0 <= 556.0 else rect.position.y - button.size.y - 8.0
+					overlaps = true
+					break
+			if not overlaps:
+				break
+		placed.append(button.get_rect())
+		var highlighted: bool = provider.selected_category == category
+		if bool(button.get_meta("highlighted", false)) != highlighted:
+			button.add_theme_stylebox_override("normal", _style(highlighted))
+			button.set_meta("highlighted", highlighted)
+
+
+func _show_garage(animated: bool = true) -> void:
+	if installation != null and installation.active:
+		return
+	if module_installation != null and module_installation.active:
+		module_installation.cancel(false)
+	_hub_mode = true
+	_module_panel.hide()
+	_catalog_title.hide()
+	equip_button.hide()
+	_presets.show()
+	_detail_panel.hide()
+	_garage_return.hide()
+	_hub_caption.show()
+	for category in _grids:
+		(_grids[category] as Control).hide()
+	for button in module_buttons.values():
+		button.hide()
+	_ui.set_meta("preview_rect", Rect2(40, 105, 1200, 450))
+	for title in _nav:
+		(_nav[title] as Button).add_theme_stylebox_override("normal", _style(title == "MODULES"))
+	if focus != null:
+		focus.set_process(is_visible_in_tree())
+		focus.show_garage(animated)
+	_highlight_station("")
+	_update_station_buttons()
+
+
 func _open_modules(category: String) -> void:
+	if not CATEGORY_TITLES.has(category) or installation.active or module_installation.active:
+		return
 	_module_category = category
-	_navigate("MODULES")
+	_show_catalog(category)
+	focus.show_station(category)
+
+
+func _open_weapon_rack() -> void:
+	if installation.active or module_installation.active:
+		return
+	_show_catalog("weapon")
+	focus.show_station("weapon")
+
+
+func _open_station(category: String) -> void:
+	if category == "weapon":
+		_open_weapon_rack()
+	else:
+		_open_modules(category)
+
+
+func _pick_station(point: Vector2) -> String:
+	var rack_hit: String = stage.weapon_rack.pick(point)
+	return rack_hit if not rack_hit.is_empty() else stage.module_stations.pick(point)
+
+
+func _highlight_station(category: String) -> void:
+	stage.module_stations.highlight(category if category != "weapon" else "")
+	stage.weapon_rack.highlight(category if category == "weapon" else "")
 
 
 func _open_weapon_info(identifier: String) -> void:
@@ -776,28 +1061,63 @@ func _open_weapon_info(identifier: String) -> void:
 
 
 func _navigate(title: String) -> void:
-	if installation != null and installation.active:
+	if installation != null and installation.active or module_installation != null and module_installation.active:
 		return
-	if module_installation != null:
-		module_installation.cancel(false)
-	_category = "robot" if title == "ROBOT" else ("weapon" if title == "ARMES" else _module_category)
+	if title == "MODULES":
+		_open_modules(_module_category)
+		return
+	if title == "ARMES":
+		_open_weapon_rack()
+		return
+	_show_catalog("robot")
+	focus.show_overview()
+
+
+func _show_catalog(kind: String) -> void:
+	_hub_mode = false
+	_category = kind
+	_module_panel.show()
+	_catalog_title.show()
+	_catalog_title.text = "CHÂSSIS" if kind == "robot" else ("ARMES" if kind == "weapon" else CATEGORY_TITLES[kind])
+	_presets.hide()
+	_detail_panel.show()
+	_garage_return.show()
+	_hub_caption.hide()
+	_ui.set_meta("preview_rect", Rect2(346, 132, 628, 469))
+	_update_station_buttons()
 	for category in _grids:
 		(_grids[category] as Control).visible = category == _category
 	_module_options = _grids[_category]
 	for category in module_buttons:
 		var button: Button = module_buttons[category]
-		button.visible = title == "MODULES"
+		button.visible = _category in CATEGORY_TITLES
 		button.add_theme_stylebox_override("normal", _style(category == _category))
 	for key in _nav:
-		(_nav[key] as Button).add_theme_stylebox_override("normal", _style(key == title))
+		(_nav[key] as Button).add_theme_stylebox_override("normal", _style(key == ("ROBOT" if _category == "robot" else ("ARMES" if _category == "weapon" else "MODULES"))))
 	_show_detail(_category, str(loadout[_category]))
-	if focus != null:
-		focus.show_overview(false)
+	if _catalog_tween != null and _catalog_tween.is_valid():
+		_catalog_tween.kill()
+	_detail_panel.modulate.a = 0.0
+	_module_panel.modulate.a = 0.0
+	_module_options.modulate.a = 0.0
+	_catalog_tween = create_tween().set_parallel(true)
+	_catalog_tween.tween_property(_detail_panel, "modulate:a", 1.0, 0.3)
+	_catalog_tween.tween_property(_module_panel, "modulate:a", 1.0, 0.3)
+	_catalog_tween.tween_property(_module_options, "modulate:a", 1.0, 0.3)
 
 
 func _show_detail(category: String, identifier: String) -> void:
-	if installation != null and installation.active:
+	if installation != null and installation.active or module_installation != null and module_installation.active:
 		return
+	_preview_category = category
+	_preview_id = identifier
+	stage.module_stations.highlight_item(identifier if category in CATEGORY_TITLES else "")
+	if stage.weapon_rack.has_method("highlight_item"):
+		stage.weapon_rack.highlight_item(identifier if category == "weapon" else "")
+	equip_button.visible = not _hub_mode and (category in CATEGORY_TITLES or category == "weapon")
+	equip_button.position.y = minf(592.0, 162.0 + _options(category).size() * 70.0)
+	equip_button.disabled = str(loadout.get(category, "")) == identifier
+	equip_button.text = "INSTALLÉ  ✓" if equip_button.disabled else "ÉQUIPER  ›"
 	_detail_icon.texture = _icons.get_icon(identifier)
 	_detail_title.text = LOADOUT.display_name(identifier)
 	_detail_description.text = LOADOUT.category_description(identifier)
@@ -806,6 +1126,11 @@ func _show_detail(category: String, identifier: String) -> void:
 	_detail_stats.tooltip_text = LOADOUT.stat_line(identifier)
 	_training_demo.show_equipment(identifier)
 	_missing_demo.visible = category != "robot" and not _training_demo.visible
+	for kind in _choices:
+		for id in _choices[kind]:
+			var button: Button = _choices[kind][id]
+			var previewed: bool = kind == category and id == identifier
+			button.add_theme_stylebox_override("normal", _style(previewed))
 
 
 func _stat_summary(identifier: String) -> String:
@@ -834,5 +1159,7 @@ func _refresh() -> void:
 		stage.set_chassis(id)
 	if stage.weapon_id != str(loadout.weapon):
 		stage.set_weapon(str(loadout.weapon))
-	stage.set_mobility_module(str(loadout.mobility))
+	stage.set_equipped_modules(loadout)
+	if module_installation != null and not module_installation.active:
+		module_installation.sync_loadout(loadout)
 	_refresh_build_names()

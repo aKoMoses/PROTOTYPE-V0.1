@@ -1,0 +1,84 @@
+{
+	"frames": [
+		{
+			"category": "passive",
+			"file": "hub-1280.png",
+			"preview": "auxiliary_reactor",
+			"size": [
+				1280,
+				720
+			]
+		},
+		{
+			"category": "mobility",
+			"file": "modules-mobility-1280.png",
+			"preview": "bio_injector",
+			"size": [
+				1280,
+				720
+			]
+		},
+		{
+			"category": "weapon",
+			"file": "weapon-rack-1280.png",
+			"preview": "longshot",
+			"size": [
+				1280,
+				720
+			]
+		},
+		{
+			"category": "robot",
+			"file": "robot-kit-1280.png",
+			"preview": "polyvalent",
+			"size": [
+				1280,
+				720
+			]
+		},
+		{
+			"category": "robot",
+			"file": "hub-960.png",
+			"preview": "polyvalent",
+			"size": [
+				960,
+				540
+			]
+		},
+		{
+			"category": "mobility",
+			"file": "modules-mobility-960.png",
+			"preview": "bio_injector",
+			"size": [
+				960,
+				540
+			]
+		},
+		{
+			"category": "weapon",
+			"file": "weapon-rack-960.png",
+			"preview": "longshot",
+			"size": [
+				960,
+				540
+			]
+		},
+		{
+			"category": "robot",
+			"file": "robot-kit-960.png",
+			"preview": "polyvalent",
+			"size": [
+				960,
+				540
+			]
+		}
+	],
+	"loadout": {
+		"defensive": "magnetic_field",
+		"mobility": "pyro_boots",
+		"offensive": "rocket_basket",
+		"passive": "auxiliary_reactor",
+		"robot": "polyvalent",
+		"weapon": "blaster"
+	}
+}
