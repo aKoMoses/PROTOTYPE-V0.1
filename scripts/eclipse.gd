@@ -15,6 +15,7 @@ var _completed_serial := 0
 var _action_token := 0
 var _touch_vector := Vector2.ZERO
 var _has_touch_vector := false
+var _requested_destination := Vector3.ZERO
 var _old_layer := 0
 var _old_mask := 0
 var _old_visible := true
@@ -74,10 +75,13 @@ func update_aim(actor: CharacterBody3D) -> void:
 		if stick.length() > 0.15:
 			offset = actor.call("_camera_relative_direction", stick) * max_range * stick.length()
 	offset.y = 0.0
-	destination = actor.global_position + offset.limit_length(max_range)
+	_requested_destination = actor.global_position + offset.limit_length(max_range)
+	destination = resolve_destination(actor, _requested_destination)
 	if offset.length_squared() > 0.01:
 		actor.call("_set_aim_direction", offset.normalized())
-	var valid := fits(actor, destination)
+	var valid := destination.is_finite()
+	if not valid:
+		destination = _requested_destination
 	var color := TINT if valid else Color("#ff635d")
 	_range_ring.global_position = actor.global_position + Vector3.UP * 0.045
 	_target_ring.global_position = destination + Vector3.UP * 0.08
@@ -93,15 +97,21 @@ func release(actor: CharacterBody3D) -> bool:
 	if not aiming:
 		return false
 	update_aim(actor)
-	var at := destination
+	var at := _requested_destination
 	var accepted := bool(actor.call("_perform_eclipse", at))
 	if not accepted:
 		cancel(actor)
 	return accepted
 
 
-func depart(actor: CharacterBody3D, at: Vector3) -> bool:
-	if travelling or not fits(actor, at) or actor.call("_action_incapacitated") or actor.get("_dash_active") or actor.get("_pelto_pull_active") or not actor.call("_module_ready", "eclipse"):
+func depart(actor: CharacterBody3D, at: Vector3, from_snapshot: bool = false) -> bool:
+	if travelling or not at.is_finite() or absf(at.y - actor.global_position.y) > 0.1 or actor.call("_action_incapacitated") or actor.get("_dash_active") or actor.get("_pelto_pull_active") or not actor.call("_module_ready", "eclipse"):
+		return false
+	# Validate the requested cast, not the exit: obstacles can extend its range.
+	if not from_snapshot and at.distance_to(actor.global_position) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05:
+		return false
+	var arrival := resolve_destination(actor, at)
+	if not arrival.is_finite():
 		return false
 	if not aiming:
 		_action_token = int(actor.call("_try_begin_module_action", "eclipse"))
@@ -112,7 +122,7 @@ func depart(actor: CharacterBody3D, at: Vector3) -> bool:
 	_free_visuals()
 	serial += 1
 	origin = actor.global_position
-	destination = at
+	destination = arrival
 	destination.y = origin.y
 	remaining = float(DATA.MODULE_DEFINITIONS.eclipse.travel_duration)
 	travelling = true
@@ -151,8 +161,10 @@ func update(actor: CharacterBody3D, delta: float) -> void:
 func arrive(actor: CharacterBody3D) -> void:
 	if not travelling:
 		return
-	var accepted := fits(actor, destination)
-	actor.global_position = destination if accepted else origin
+	var arrival := resolve_destination(actor, destination)
+	var accepted := arrival.is_finite()
+	actor.global_position = arrival if accepted else origin
+	destination = actor.global_position
 	_completed_serial = serial
 	_restore_body(actor)
 	_free_visuals()
@@ -193,8 +205,8 @@ func _free_visuals() -> void:
 	_particles.clear()
 
 
-static func fits(actor: CharacterBody3D, at: Vector3) -> bool:
-	if not at.is_finite() or absf(at.y - actor.global_position.y) > 0.1 or at.distance_to(actor.global_position) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05:
+static func fits(actor: CharacterBody3D, at: Vector3, check_range: bool = true) -> bool:
+	if not at.is_finite() or absf(at.y - actor.global_position.y) > 0.1 or (check_range and at.distance_to(actor.global_position) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05):
 		return false
 	# Use each arena's actual outer playable extent, with room for the body.
 	var scene := actor.get_tree().current_scene
@@ -210,12 +222,142 @@ static func fits(actor: CharacterBody3D, at: Vector3) -> bool:
 		query.shape = child.shape
 		query.transform = child.global_transform
 		query.transform.origin += at - actor.global_position
+		# Floor contact is valid: leave a small clearance for the physics query.
+		# The actor still arrives at ground height and solid cover stays blocking.
+		query.transform.origin.y += 0.02
 		query.collision_mask = 1 | 2 | 8
 		query.margin = 0.0
 		query.exclude = [actor.get_rid()]
 		if not actor.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
 			return false
 	return true
+
+
+static func resolve_destination(actor: CharacterBody3D, at: Vector3) -> Vector3:
+	if not at.is_finite() or absf(at.y - actor.global_position.y) > 0.1:
+		return Vector3.INF
+	if fits(actor, at, false):
+		return at
+	# Project onto all obstacle faces, then examine the nearest candidates first.
+	# Repeating this for overlaps also handles adjoining cover and corners.
+	var pending: Array[Vector3] = [at]
+	var visited: Dictionary = {}
+	var best := Vector3.INF
+	var best_distance := INF
+	for iteration in range(256):
+		if pending.is_empty():
+			break
+		pending.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(at) < b.distance_squared_to(at))
+		var candidate: Vector3 = pending.pop_front()
+		var key := candidate.snapped(Vector3.ONE * 0.001)
+		if visited.has(key) or candidate.distance_squared_to(at) > best_distance:
+			continue
+		visited[key] = true
+		if fits(actor, candidate, false):
+			best = candidate
+			best_distance = candidate.distance_squared_to(at)
+			continue
+		for child in actor.get_children():
+			if not child is CollisionShape3D or child.shape == null or child.disabled:
+				continue
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = child.shape
+			query.transform = child.global_transform
+			query.transform.origin += candidate - actor.global_position
+			query.transform.origin.y += 0.02
+			query.collision_mask = 1 | 2 | 8
+			query.margin = 0.0
+			query.exclude = [actor.get_rid()]
+			for hit in actor.get_world_3d().direct_space_state.intersect_shape(query, 64):
+				var body := hit.collider as CollisionObject3D
+				if body == null:
+					continue
+				var owner := body.shape_find_owner(int(hit.shape))
+				var collision := body.shape_owner_get_owner(owner) as CollisionShape3D
+				if collision == null or collision.shape == null:
+					continue
+				_append_obstacle_exits(actor, candidate, collision, pending)
+	if best.is_finite():
+		return best
+	# Non-box collision shapes use a physics-checked radial fallback.
+	for index in range(96):
+		var angle := TAU * float(index) / 96.0
+		var direction := Vector3(cos(angle), 0.0, sin(angle))
+		var distance := 0.1
+		var blocked_distance := 0.0
+		while distance <= 128.0:
+			var candidate := at + direction * distance
+			if fits(actor, candidate, false):
+				for refinement in range(14):
+					var middle := (blocked_distance + distance) * 0.5
+					if fits(actor, at + direction * middle, false):
+						distance = middle
+					else:
+						blocked_distance = middle
+				candidate = at + direction * distance
+				if candidate.distance_squared_to(at) < best_distance:
+					best = candidate
+					best_distance = candidate.distance_squared_to(at)
+				break
+			blocked_distance = distance
+			distance *= 2.0
+	return best
+
+
+static func _append_obstacle_exits(actor: CharacterBody3D, at: Vector3, collision: CollisionShape3D, pending: Array[Vector3]) -> void:
+	if collision.shape is CylinderShape3D or collision.shape is CapsuleShape3D or collision.shape is SphereShape3D:
+		if absf(collision.global_basis.y.normalized().dot(Vector3.UP)) < 0.999 or absf(collision.global_basis.x.length() - collision.global_basis.z.length()) > 0.001:
+			return
+		var radius: float = collision.shape.radius * collision.global_basis.x.length()
+		var offset := at - collision.global_position
+		offset.y = 0.0
+		var directions: Array[Vector3] = []
+		if offset.length_squared() > 0.000001:
+			directions.append(offset.normalized())
+		for index in range(16):
+			var angle := TAU * float(index) / 16.0
+			directions.append(Vector3(cos(angle), 0.0, sin(angle)))
+		for outward in directions:
+			var candidate := collision.global_position + outward * (radius + _body_support(actor, outward) + 0.015)
+			candidate.y = at.y
+			pending.append(candidate)
+		return
+	var shape := collision.shape as BoxShape3D
+	if shape == null or absf(collision.global_basis.y.normalized().dot(Vector3.UP)) < 0.999:
+		return
+	var half := shape.size * 0.5
+	for axis in [Vector3.RIGHT, Vector3.BACK]:
+		var normal: Vector3 = (collision.global_basis * axis).normalized()
+		for sign_value in [-1.0, 1.0]:
+			var outward: Vector3 = normal * sign_value
+			var face: Vector3 = collision.global_transform * (axis * half * sign_value)
+			var clearance := outward.dot(face - at) + _body_support(actor, outward) + 0.015
+			pending.append(at + outward * clearance)
+	# Outside a box corner, the capsule can leave diagonally at a shorter distance.
+	var local := collision.to_local(at)
+	local.y = 0.0
+	var closest := collision.to_global(local.clamp(-half, half))
+	var offset := at - closest
+	offset.y = 0.0
+	if offset.length_squared() > 0.000001:
+		var outward := offset.normalized()
+		pending.append(at + outward * (_body_support(actor, outward) - offset.length() + 0.015))
+
+
+static func _body_support(actor: CharacterBody3D, direction: Vector3) -> float:
+	var support := 0.0
+	for child in actor.get_children():
+		if not child is CollisionShape3D or child.shape == null or child.disabled:
+			continue
+		var local: Vector3 = child.global_basis.transposed() * direction
+		var shape_support: float
+		if child.shape is CapsuleShape3D:
+			shape_support = child.shape.radius * local.length() + maxf(0.0, child.shape.height * 0.5 - child.shape.radius) * absf(local.y)
+		else:
+			var bounds: AABB = child.shape.get_debug_mesh().get_aabb()
+			shape_support = local.dot(bounds.get_center()) + local.abs().dot(bounds.size * 0.5)
+		support = maxf(support, direction.dot(child.global_position - actor.global_position) + shape_support)
+	return support
 
 
 func snapshot() -> Dictionary:
@@ -247,7 +389,7 @@ func receive_snapshot(actor: CharacterBody3D, value: Dictionary) -> void:
 		actor.global_position = start
 		actor.set("_replaying", true)
 		actor.get("_module_cooldowns").erase("eclipse")
-		depart(actor, at)
+		depart(actor, at, true)
 		actor.set("_replaying", false)
 	serial = revision
 	remaining = time_left

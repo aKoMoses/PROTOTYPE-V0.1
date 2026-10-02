@@ -232,9 +232,10 @@ func set_weapon(identifier: String) -> void:
 	_refresh_attachment()
 
 
-func set_counter_pose(active: bool) -> void:
+func set_counter_pose(active: bool, weight: float = 1.0) -> void:
 	if pose_solver != null:
 		pose_solver.counter_guard = active
+		pose_solver.counter_weight = clampf(weight, 0.0, 1.0)
 
 
 func set_mekatana_pose(step: int, phase: String, progress: float) -> void:

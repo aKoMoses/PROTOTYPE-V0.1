@@ -26,9 +26,16 @@ Le rayon correspond à deux diamètres de la capsule du joueur (rayon 0,55 m). L
 - `scripts/player.gd`, `mekatana_attack.gd`, `fulguro_punch.gd`, `target_dummy.gd` : verrouillage d'action et raccordement aux impacts réels. Blaster, Shotgun, Longshot et chaque coup de Mekatana utilisent un payload commun à toute l'attaque émise. Fulguro contré ne projette pas. Pelto, burn et les dégâts secondaires contournent la garde. Un contrôle incompatible l'interrompt.
 - `scripts/duel_bot_equipment.gd`, `training_bot.gd`, `bot_build_presets.gd` : sélection de COUNTER, menaces observées avec perception retardée et erreur, suspension des prochains tirs face à une garde visible et priorité à l'exploitation de SURCHARGE.
 - `scripts/network_player.gd`, `network_match.gd` : autorité hôte, réplication des phases et de la charge, événement visuel d'explosion. Une réplique ne peut pas attribuer une réussite ou appliquer l'explosion.
-- `scripts/game_flow.gd`, `player_visual_rig.gd`, `player_aim_modifier.gd`, `enemy_droid_visual.gd`, `enemy_droid_pose.gd`, `game_sfx.gd` : état du HUD, posture de garde, énergie sur l'arme, contour et flash courts, son métallique. Aucun système de particules ou éclairage supplémentaire n'est nécessaire.
+- `scripts/game_flow.gd`, `player_visual_rig.gd`, `player_aim_modifier.gd`, `enemy_droid_visual.gd`, `enemy_droid_pose.gd`, `game_sfx.gd` : état du HUD, posture de garde progressive et son métallique.
+- `scripts/counter_visual.gd` : garde cyan segmentée à 360°, anneau de durée sur fond sombre, onde de blocage et éclat de particules, énergie dorée pulsée autour de l'arme et explosion de Surcharge. Les matériaux non éclairés restent lisibles sans bloom ; les éclats ponctuels utilisent 16 ou 20 particules CPU et sont libérés après 0,4 s.
 
 Une charge est consommée à l'émission, conservée sur l'attaque en vol et résolue une seule fois au premier impact ennemi accepté. Tous les plombs d'une décharge partagent cet état, mais leurs dégâts principaux restent distincts. Le défenseur retient l'identifiant de la décharge interceptée pour neutraliser ses autres plombs sans protéger les autres cibles. Mort, réinitialisation et changement d'équipement effacent les états.
+
+## Lisibilité du Counter (1er octobre 2026)
+
+La posture se met en place pendant les 0,08 s de préparation, puis revient progressivement au repos pendant la récupération. Les panneaux et le compte à rebours circulaire apparaissent uniquement pendant la protection effective. Un blocage les retire immédiatement et affiche brièvement « BLOQUÉ ! / TIR RENFORCÉ », avant « SURCHARGE / TIR RENFORCÉ » avec sa durée restante. Le halo doré suit l'arme et disparaît à l'émission ou à l'expiration. Les mêmes repères sont appliqués aux répliques réseau, sans rejouer l'éclat sur des snapshots identiques.
+
+Les suites Counter (53 contrôles), armes et réplication (52) et `tools/test_counter_visual.gd` (16) passent. Les captures `guard`, `guard-gameplay`, `intercept`, `surcharge` et `explosion` sont vérifiées en OpenGL dans la scène réelle ; la capture de garde utilise aussi la caméra normale de combat. Le coût sur appareil Android reste à mesurer.
 
 ## Vérifications exécutées
 

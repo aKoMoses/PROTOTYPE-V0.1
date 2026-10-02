@@ -84,14 +84,17 @@ func _physics_process(delta: float) -> void:
 	if replica:
 		_update_visual()
 		return
-	var target := _nearest_target()
+	var definition: Dictionary = DATA.MODULE_DEFINITIONS.rocket_basket
+	# Keep the launch cone visible before progressively engaging guidance/search.
+	var guidance := smoothstep(float(definition.homing_delay), float(definition.homing_delay) + float(definition.homing_ramp), _age)
+	var target := _nearest_target() if guidance > 0.0 else null
 	var desired := direction
 	if target != null:
 		desired = (target.global_position + Vector3.UP * 0.9 - global_position).normalized()
 	else:
 		# Stay airborne and keep scanning even when the last enemy disappears.
-		desired = direction.rotated(Vector3.UP, delta * 2.0)
-	var turn := float(DATA.MODULE_DEFINITIONS.rocket_basket.turn_rate) * delta
+		desired = direction.rotated(Vector3.UP, delta * 2.0 * guidance)
+	var turn := float(definition.turn_rate) * guidance * delta
 	var angle := direction.angle_to(desired)
 	if angle > 0.0001:
 		direction = direction.slerp(desired, minf(1.0, turn / angle)).normalized()

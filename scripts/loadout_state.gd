@@ -5,6 +5,7 @@ extends RefCounted
 ## The combat scripts remain the source of truth for numbers and behavior.
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const PASSIVE_RULES := preload("res://scripts/passive_state.gd")
 const SAVE_PATH := "user://prototype0_loadout.cfg"
 
 const ROBOTS := ["agile", "polyvalent", "puissant"]
@@ -102,14 +103,21 @@ static func display_name(identifier: String) -> String:
 static func category_description(identifier: String) -> String:
 	var data: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	match identifier:
+		"baroud":
+			return "Une dernière chance de riposter. Le premier coup mortel déclenche une jauge de %d PV qui se vide et absorbe les dégâts reçus pendant %.1f s maximum. Tu meurs à la fin du baroud. Une seule fois par vie." % [int(PASSIVE_RULES.BAROUD_MAX_HEALTH), PASSIVE_RULES.BAROUD_DURATION]
+		"omnivamp":
+			return "Soigne-toi en infligeant des dégâts : tu récupères en PV %d %% des dégâts réellement retirés aux ennemis. Plus tu touches, plus tu récupères de vie, sans dépasser tes PV maximum." % roundi(PASSIVE_RULES.OMNIVAMP_RATE * 100.0)
 		"auxiliary_reactor":
-			return "Impact direct d’arme : −%.2f s au cooldown offensif actif, une fois par attaque et toutes les %.2f s. Aucun crédit accumulé." % [float(data.reduction), float(data.interval)]
+			return "Recharge ton module offensif en touchant l’ennemi avec ton arme. Chaque attaque retire %.2f s à sa recharge en cours, au maximum une fois toutes les %.2f s. Une salve compte une seule fois. Aucun bonus conservé si le module est déjà prêt." % [float(data.reduction), float(data.interval)]
 		"tracker":
-			return "%d attaques d’arme distinctes sur la même cible, espacées de %.0f s maximum : SPOTTED %.0f s. Aucun cumul pendant cette révélation." % [int(data.hits), float(data.gap), float(data.duration)]
+			return "Garde la pression sur la même cible : après %d attaques d’arme distinctes, elle est révélée (SPOTTED) pendant %.0f s, même à couvert. Laisse au maximum %.0f s entre deux touches. Changer de cible recommence le suivi ; les touches ne prolongent pas la révélation." % [int(data.hits), float(data.duration), float(data.gap)]
 		"alternator":
-			return "Impact direct offensif : prochaine attaque d’arme +%d %% de dégâts directs, à exécuter sous %.0f s. Une fois par activation, consommé même si elle rate." % [roundi(float(data.damage_bonus) * 100.0), float(data.duration)]
+			return "Enchaîne module et arme : toucher un ennemi avec ton module offensif renforce ta prochaine attaque d’arme de %d %%. Tire ou frappe dans les %.0f s. Le bonus est utilisé même si tu rates. Une seule charge par utilisation du module ; les brûlures ne l’activent pas." % [roundi(float(data.damage_bonus) * 100.0), float(data.duration)]
 		"inertia":
-			return "Fin de dash réussi : prochaine attaque d’arme sous %.1f s applique SLOW %d %% pendant %.0f s. Consommé même si elle rate." % [float(data.window), int(data.slow_percent), float(data.slow_duration)]
+			return "Termine un dash de mobilité, puis tire ou frappe dans les %.1f s : ta prochaine attaque ralentit les ennemis touchés de %d %% pendant %.0f s. Le bonus est utilisé même si tu rates. Un dash interrompu, une téléportation ou le déplacement d’un coup d’arme ne l’active pas." % [float(data.window), int(data.slow_percent), float(data.slow_duration)]
+		"longshot":
+			var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
+			return "Fusil précis : de %.0f à %.0f m parcourus par le projectile, les dégâts augmentent progressivement jusqu’à +%d %%. Chaque cinquième tir est amélioré." % [float(weapon.distance_start), float(weapon.distance_max), roundi((float(weapon.distance_multiplier_max) - 1.0) * 100.0)]
 	var descriptions := {
 		"rocket_basket": "5 roquettes autoguidées destructibles, 40 PV chacune. Cast 0,3 s, vitesse −15 %. Chaque impact : SLOW +5 % pendant 3 s. Les 5 sur une cible : BURN et cooldown −40 %. Détruites contre les murs ; recherche continue. Nom provisoire.",
 		"agile": "Déplacements rapides, châssis léger et moins de PV.",
@@ -117,7 +125,6 @@ static func category_description(identifier: String) -> String:
 		"puissant": "Châssis renforcé : plus de PV, déplacement plus lent.",
 		"blaster": "Tir précis ou tir chargé jusqu’à 50 dégâts.",
 		"shotgun": "6 plombs coniques, 3 salves, recharge automatique.",
-		"longshot": "Fusil précis : dégâts croissants avec la distance. Chaque cinquième tir est amélioré.",
 		"mekatana": "Katana électrique : trois cleaves avec dash croissant. Enchaîner sous 2,5 s ; les touches précédentes renforcent les dégâts sur la même cible.",
 		"javelin": "Maintiens pour charger un trident électrique (max 1,74 s). La cible touchée est marquée et SPOTTED ; réappuie pour te téléporter devant elle.",
 		"fulguro_punch": "Poing incandescent : maintenir pour amplifier portée et dégâts, puis relâcher.",
@@ -130,8 +137,6 @@ static func category_description(identifier: String) -> String:
 		"bio_injector": "Buff 3 s : déplacement et attaques accélérés.",
 		"eclipse": "Maintenir pour choisir une destination, relâcher pour disparaître en particules. Intangible pendant le trajet ; explosion à l'arrivée qui brûle les cibles touchées et accorde un bouclier si elle touche un ennemi. Nom provisoire.",
 		"permutation": "Échange les positions avec l'ennemi à l'arrivée d'une ombre électrique traversant les obstacles. Aucun cast ennemi interrompu ; vitesse +35 % et bouclier de 150 points pendant 3 s après réussite.",
-		"baroud": "Premier coup létal : jauge de survie temporaire.",
-		"omnivamp": "Récupère 15 % des dégâts effectivement infligés.",
 	}
 	return str(descriptions.get(identifier, "Équipement Prototype 0."))
 

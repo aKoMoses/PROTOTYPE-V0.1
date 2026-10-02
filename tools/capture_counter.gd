@@ -1,6 +1,7 @@
 extends SceneTree
 
 const COUNTER := preload("res://scripts/counter.gd")
+var visual: PlayerVisualRig
 
 
 func _initialize() -> void:
@@ -8,9 +9,13 @@ func _initialize() -> void:
 
 
 func save_capture(file_name: String) -> void:
-	await process_frame
-	await process_frame
-	await process_frame
+	for frame in range(3):
+		await process_frame
+		visual.update_visual_state(Vector3.ZERO, Vector3.RIGHT, 0.0, 5.0, 1.0 / 60.0)
+		visual.animation_tree.advance(1.0 / 60.0)
+		visual.skeleton.advance(1.0 / 60.0)
+		await visual.skeleton.skeleton_updated
+		COUNTER.component(visual.get_parent())._sync_energy_position()
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://captures/counter"))
 	root.get_texture().get_image().save_png("res://captures/counter/" + file_name + ".png")
@@ -24,6 +29,7 @@ func run() -> void:
 	var flow := scene.get_node("Interface")
 	var loadout: Dictionary = flow.get("loadout").duplicate()
 	loadout.defensive = "counter"
+	loadout.weapon = "blaster"
 	flow.set("loadout", loadout)
 	flow.call("_start_duel")
 	flow.call("_begin_live_round")
@@ -34,7 +40,10 @@ func run() -> void:
 	player.position = Vector3(-1.8, 0, 17)
 	target.position = Vector3(1.8, 0, 17)
 	player.call("_set_aim_direction", Vector3.RIGHT)
-	player.get("_visual_rig").call("update_visual_state", Vector3.ZERO, Vector3.RIGHT, 0.0, 5.0, 1.0, true)
+	visual = player.get("_visual_rig")
+	visual.animation_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	visual.skeleton.modifier_callback_mode_process = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_MANUAL
+	visual.set_aim_enabled(true, true)
 	var rig := scene.get_node("CameraRig")
 	rig.set_process(false)
 	rig.set_physics_process(false)
@@ -45,12 +54,23 @@ func run() -> void:
 	player.call("_perform_counter")
 	var guard := COUNTER.component(player)
 	guard.update(0.08)
+	guard.update(0.16)
 	await save_capture("guard")
+	# Check readability at the normal combat camera, including the short window.
+	var close_view := camera.global_transform
+	camera.position = Vector3(0.0, 20.5, 17.5)
+	rig.global_position = player.global_position + Vector3.RIGHT * 1.6
+	camera.look_at(rig.global_position + Vector3.UP * 0.45, Vector3.UP)
+	await save_capture("guard-gameplay")
+	camera.global_transform = close_view
 	guard.intercept({"id": "capture", "counter_trigger": true})
-	guard.update(0.12)
+	await create_timer(0.07).timeout
+	await save_capture("intercept")
+	guard.update(0.45)
 	await save_capture("surcharge")
 	var attack: Dictionary = player.call("emit_passive_weapon")
 	COUNTER.impact(target, 20, "player", "capture_boost", attack.counter_attack, target.global_position + Vector3.UP * 0.85)
+	await create_timer(0.05).timeout
 	await save_capture("explosion")
 	print("COUNTER CAPTURE: PASS")
 	quit(0)

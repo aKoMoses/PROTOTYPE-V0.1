@@ -410,9 +410,10 @@ func clear_pelto_pose() -> void:
 		aim_modifier.clear_pelto_pose()
 
 
-func set_counter_pose(active: bool) -> void:
+func set_counter_pose(active: bool, weight: float = 1.0) -> void:
 	if aim_modifier != null:
 		aim_modifier.counter_guard = active
+		aim_modifier.counter_weight = clampf(weight, 0.0, 1.0)
 
 
 func set_mekatana_pose(step: int, phase: String, progress: float) -> void:

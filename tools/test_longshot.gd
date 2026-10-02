@@ -143,7 +143,7 @@ func _test_damage_and_flight() -> void:
 		_check(absf(_probe.total_damage - expected) < 0.03, "absolute normal damage %.2f at %.0f m" % [expected, distance])
 		_check(_probe.total_damage >= previous_damage, "damage progression is monotonic")
 		previous_damage = _probe.total_damage
-	_check(is_equal_approx(previous_damage, 63.0), "long-range damage stays capped at 63")
+	_check(is_equal_approx(previous_damage, 81.0), "long-range damage stays capped at 81")
 	await _reset_fixture()
 	_player._longshot_state.shots_fired = 4
 	var enhanced := await _fire()
@@ -152,7 +152,7 @@ func _test_damage_and_flight() -> void:
 		_player.position = Vector3(-60, 0, 60)
 		await create_timer(0.5).timeout
 		_check(bool(enhanced.enhanced) and _probe.hit_count == 1, "fifth long-range shot remains one projectile and one hit")
-		_check(absf(_probe.total_damage - 88.2) < 0.03, "enhanced maximum is 88.2 damage after shooter relocation")
+		_check(absf(_probe.total_damage - 113.4) < 0.03, "enhanced maximum is 113.4 damage after shooter relocation")
 
 
 func _test_emitted_cycle() -> void:
@@ -363,7 +363,7 @@ func _test_survival_upgrade() -> void:
 		_probe.position = Vector3(shot.origin) + Vector3(shot.direction) * 22.1
 		_player.position = Vector3(60, 0, 60)
 		await create_timer(0.5).timeout
-		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 78.75) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
+		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 101.25) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
 		_check(_legacy_projectiles == previous_legacy and _probe.status_applications == 0, "Survival LONGSHOT adds no Blaster secondary projectile or burn")
 	_player.apply_loadout(_loadout())
 

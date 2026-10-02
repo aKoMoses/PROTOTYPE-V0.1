@@ -11,6 +11,7 @@ const MEKATANA_VISUAL := preload("res://scripts/mekatana_visual.gd")
 
 var aiming := false
 var counter_guard := false
+var counter_weight := 1.0
 var carrying := false
 var spine_index := -1
 var spine_basis := Basis.IDENTITY
@@ -112,9 +113,10 @@ func _process_modification_with_delta(delta: float) -> void:
 	if counter_guard:
 		cancel_shot()
 		_set_global_basis(rig_skeleton, spine_index, spine_basis)
-		_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -18.0)
-		_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, 28.0)
-		_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 52.0)
+		_rotate_global_axis(rig_skeleton, spine2_index, Vector3.RIGHT, -8.0 * counter_weight)
+		_rotate_global_axis(rig_skeleton, right_shoulder_index, Vector3.UP, -24.0 * counter_weight)
+		_rotate_global_axis(rig_skeleton, right_arm_index, Vector3.RIGHT, 38.0 * counter_weight)
+		_rotate_global_axis(rig_skeleton, right_forearm_index, Vector3.RIGHT, 65.0 * counter_weight)
 		last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
 		if support_enabled:
 			_solve_support_arm(rig_skeleton)

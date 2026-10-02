@@ -65,6 +65,16 @@ func _run() -> void:
 	var cooldowns := {"rocket_basket": 10.0}
 	var rockets := BASKET.launch(caster, Vector3.FORWARD, "test", "salve1", cooldowns)
 	check(rockets.size() == 5, "Cinq roquettes par activation")
+	var headings: Array[Vector3] = []
+	for projectile in rockets:
+		headings.append(projectile.direction)
+	check(headings[0].angle_to(headings[4]) > deg_to_rad(55.0), "Le départ ouvre un cône de 60 degrés")
+	check(headings[2].is_equal_approx(Vector3.FORWARD), "La roquette centrale conserve la visée")
+	await frames(12)
+	for index in range(rockets.size()):
+		check(is_instance_valid(rockets[index]) and rockets[index].direction.is_equal_approx(headings[index]), "Le guidage ne referme pas le cône dès le départ")
+	for index in range(rockets.size() - 1):
+		check(rockets[index].global_position.distance_to(rockets[index + 1].global_position) > 0.30, "Les roquettes s'écartent malgré une cible commune")
 	await frames(100)
 	check(is_equal_approx(enemy.get_health(), 900.0), "Cinq vrais impacts infligent 100 dégâts")
 	check(is_equal_approx(enemy.combat_state.get_slow_percent(), 25.0), "Les cinq slows s'additionnent à 25 %")
@@ -99,11 +109,24 @@ func _run() -> void:
 	await frames(80)
 	check(enemy.get_health() == 1000.0, "Aucune roquette ne traverse un mur fin")
 	check(get_nodes_in_group(ROCKET.GROUP).is_empty(), "Collision murale détruit les cinq roquettes")
+	wall.global_position.z = -0.4
+	await frames(2)
+	BASKET.launch(caster, Vector3.FORWARD, "test", "close_wall", cooldowns)
+	await frames(12)
+	check(get_nodes_in_group(ROCKET.GROUP).is_empty(), "Les collisions restent actives pendant l'ouverture du cône")
 	wall.queue_free()
 	await frames(2)
 	caster.targets.clear()
 	enemy.global_position = Vector3(100, 0, 100)
-	rockets = BASKET.launch(caster, Vector3.FORWARD, "test", "scan", cooldowns)
+	var diagonal := Vector3(1, 0, -1).normalized()
+	rockets = BASKET.launch(caster, diagonal, "test", "scan", cooldowns)
+	headings.clear()
+	for projectile in rockets:
+		headings.append(projectile.direction)
+	check(headings[2].is_equal_approx(diagonal), "Le cône suit aussi une visée diagonale")
+	await frames(12)
+	for index in range(rockets.size()):
+		check(rockets[index].direction.is_equal_approx(headings[index]), "Sans cible, la recherche respecte aussi l'ouverture initiale")
 	await frames(100)
 	check(get_nodes_in_group(ROCKET.GROUP).size() == 5, "Sans cible les roquettes continuent de rechercher")
 	var first: Node3D = rockets[0]

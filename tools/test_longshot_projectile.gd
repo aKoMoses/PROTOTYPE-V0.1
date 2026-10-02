@@ -3,6 +3,7 @@ extends SceneTree
 const STATE := preload("res://scripts/longshot_state.gd")
 const PROJECTILE := preload("res://scripts/longshot_projectile.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const LOADOUT := preload("res://scripts/loadout_state.gd")
 
 var _failures: Array[String] = []
 var _checks := 0
@@ -48,11 +49,16 @@ func _test_state() -> void:
 	var base := float(definition.damage)
 	_check(is_equal_approx(STATE.damage_at_distance(0.0, false), base), "contact damage equals base")
 	_check(is_equal_approx(STATE.distance_multiplier(start), 1.0), "distance bonus starts continuously")
-	_check(is_equal_approx(STATE.distance_multiplier((start + maximum) * 0.5), 1.375), "medium distance uses linear progression")
-	_check(is_equal_approx(STATE.distance_multiplier(maximum), 1.75), "maximum distance reaches 1.75")
-	_check(is_equal_approx(STATE.distance_multiplier(maximum + 100.0), 1.75), "distance bonus remains capped")
-	_check(is_equal_approx(STATE.damage_at_distance(maximum, true), base * 2.45), "enhanced maximum combines both multipliers")
-	_check(is_equal_approx(STATE.damage_at_distance(maximum, true, definition, 2.0), base * 4.9), "power scales base once")
+	_check(is_equal_approx(STATE.damage_at_distance(-10.0, false), base), "negative distance cannot reduce base damage")
+	_check(is_equal_approx(STATE.damage_at_distance(start - 0.001, false), base), "short-range damage remains unchanged")
+	_check(is_equal_approx(STATE.distance_multiplier((start + maximum) * 0.5), 1.625), "medium distance uses linear progression")
+	_check(is_equal_approx(STATE.distance_multiplier(maximum), 2.25), "maximum distance reaches 2.25")
+	_check(is_equal_approx(STATE.distance_multiplier(maximum + 100.0), 2.25), "distance bonus remains capped")
+	_check(is_equal_approx(STATE.damage_at_distance(maximum, true), base * 3.15), "enhanced maximum combines both multipliers")
+	_check(is_equal_approx(STATE.damage_at_distance(maximum, true, definition, 2.0), base * 6.3), "power scales base once")
+	_check(LOADOUT.stat_line("longshot").begins_with("36–81 dégâts"), "Forge stat line displays current distance damage")
+	var description := LOADOUT.category_description("longshot")
+	_check(description.contains("6 à 18 m") and description.contains("+125 %") and description.contains("projectile"), "Forge explains travelled distance and increased bonus")
 	_check(absf(STATE.distance_multiplier(start + 0.001) - STATE.distance_multiplier(start)) < 0.001, "progression has no damage step")
 
 
