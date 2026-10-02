@@ -117,6 +117,7 @@ var _selection_markers: Dictionary = {}
 var _arena_buttons: Dictionary = {}
 var _arena_variant := "classic"
 var _arena_selector: OptionButton
+var _solo_arena_selector: OptionButton
 var _hud_labels: Dictionary = {}
 var _countdown_overlay: Control
 var _precombat_overlay: Control
@@ -577,6 +578,16 @@ func _build_solo_setup() -> void:
 	_solo_setup.add_child(content)
 	content.add_child(_label("DUEL SOLO", 30, CREAM))
 	content.add_child(_label("Même adversaire jusqu’à la fin du match. Premier à 3.", 15, MUTED))
+	_solo_arena_selector = OptionButton.new()
+	_solo_arena_selector.name = "SoloArenaSelector"
+	_solo_arena_selector.custom_minimum_size.y = 44
+	_solo_arena_selector.fit_to_longest_item = false
+	for choice in ARENA_CATALOG.options():
+		_solo_arena_selector.add_item("ARÈNE · " + str(choice.title))
+		_solo_arena_selector.set_item_metadata(_solo_arena_selector.item_count - 1, str(choice.id))
+	_solo_arena_selector.item_selected.connect(func(index: int) -> void:
+		_select_arena(str(_solo_arena_selector.get_item_metadata(index))))
+	content.add_child(_solo_arena_selector)
 	var difficulty := OptionButton.new()
 	difficulty.name = "SoloDifficulty"
 	difficulty.custom_minimum_size.y = 44
@@ -609,7 +620,7 @@ func _build_solo_setup() -> void:
 		_store_solo_options()
 	)
 	badge.tooltip_text = "Duelliste : gagner un duel. Technicien : réussir les 3 défis. Survivant : finir la survie. Maître d’arsenal : finir avec les 4 armes."
-	content.add_child(_button("COMBATTRE", _launch_solo, 340))
+	content.add_child(_button("CHOISIR MON LOADOUT", _launch_solo, 340))
 	content.add_child(_button("RETOUR", _close_solo_setup, 340))
 	_solo_setup.hide()
 	_skip_intro = _button("PASSER LA PRÉSENTATION", _skip_precombat, 260)
@@ -632,6 +643,7 @@ func _store_solo_options() -> void:
 
 func _open_solo_setup() -> void:
 	_solo_options = EXPERIENCE.read()
+	_select_arena(_arena_variant)
 	var badge: OptionButton = _solo_setup.find_child("MasteryBadge", true, false)
 	badge.clear()
 	for id in _solo_options.unlocked:
@@ -651,7 +663,7 @@ func _close_solo_setup() -> void:
 
 func _launch_solo() -> void:
 	_close_solo_setup()
-	_start_duel()
+	_open_equipment()
 
 
 func _skip_precombat() -> void:
@@ -868,11 +880,13 @@ func _on_garage_arena_selected(value: String) -> void:
 func _select_arena(value: String) -> void:
 	_arena_variant = ARENA_CATALOG.sanitize(value)
 	get_tree().set_meta("selected_duel_arena", _arena_variant)
-	if _arena_selector != null:
-		for index in _arena_selector.item_count:
-			if str(_arena_selector.get_item_metadata(index)) == _arena_variant:
-				_arena_selector.select(index)
-				_arena_selector.tooltip_text = str(ARENA_CATALOG.options()[index].description)
+	for selector in [_arena_selector, _solo_arena_selector]:
+		if selector == null:
+			continue
+		for index in selector.item_count:
+			if str(selector.get_item_metadata(index)) == _arena_variant:
+				selector.select(index)
+				selector.tooltip_text = str(ARENA_CATALOG.options()[index].description)
 	for key in _arena_buttons:
 		var selected: bool = key == _arena_variant
 		var button: Button = _arena_buttons[key]
