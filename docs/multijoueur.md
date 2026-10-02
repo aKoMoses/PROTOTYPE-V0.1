@@ -33,12 +33,29 @@ mettre la clé privée dans un commit ou un message public.
    **REJOINDRE**.
 3. Le créateur clique sur **LANCER LE MATCH** lorsque le salon indique 2/2.
 
+Un salon dont le protocole ou les règles de combat diffèrent affiche
+**Version différente du jeu** et ne peut pas être rejoint. Installez la même
+version sur les deux appareils, que ce soit PC–PC ou PC–Android.
+
+Les boutons évitent les doubles créations et doubles entrées. Après une
+connexion bloquée, **RÉESSAYER** permet de repartir. Un lancement attend la
+confirmation des deux joueurs ; après 25 secondes sans confirmation, il
+revient au salon ou propose de le rejoindre à nouveau.
+
 Les deux joueurs utilisent le contrôleur du robot joueur et leur équipement de
-la forge. Les tirs du Blaster et du Shotgun, la charge, le rechargement, le Javelin,
+la forge. Les tirs du Blaster et du Shotgun, la charge, le rechargement,
 le Javelin et sa téléportation, les protections, le dash et les effets sont
 reproduits chez l'autre joueur. Le HUD habituel conserve les PV, les munitions,
-les modules et leurs délais. **QUITTER** ramène au salon ; le match en ligne ne
-se met pas en pause avec Échap.
+les modules et leurs délais. Les trois sorts restent visibles pendant le
+combat, même si la disposition personnelle les masquait ; cette disposition
+est restaurée en quittant. Le passif et les PV suivent le combattant réseau.
+La charge du Fulguro Punch et la traction du Pelto Smash sont également
+reproduites et résolues par l'hôte.
+
+À la fin du match, **REVANCHE** attend l'accord des deux joueurs, puis remet
+à zéro le score, les PV et les délais. **RETOUR AU SALON** ramène les deux
+joueurs dans le même salon et permet de relancer le duel. **QUITTER** quitte
+le salon ; le match en ligne ne se met pas en pause avec Échap.
 
 ## Résolution du combat
 
@@ -56,7 +73,7 @@ collisions. Il n'y a pas encore de compensation de latence ni de correction
 complète du mouvement : une connexion lente peut donc décaler la perception
 d'un impact ou d'une protection.
 
-## Vérification du 29 septembre 2026
+## Vérification du 2 octobre 2026
 
 `tools/test_network_combat.gd` vérifie les collisions réelles, les protections,
 les effets, le Javelin, le dash, les munitions, les doublons et l'autorité des PV
@@ -66,9 +83,23 @@ dans deux processus. Ajouter `--network-local-test` aux arguments utilisateur
 permet de refaire le même scénario sur le réseau local.
 
 Deux instances Godot sur ce PC ont réussi le scénario via GD-Sync : attaque de
-chaque joueur, stase, mur magnétique, Javelin, dash, PV confirmés, résultat, remise
-à zéro de la manche suivante, égalité et retour au salon. La capture rendue
-`captures/network_multiplayer.png` montre les deux robots et le HUD en ligne.
-Les contrôles du duel solo, de l'entraînement et des passifs passent également.
-Un essai sur les deux appareils depuis les deux logements reste à faire, ainsi
-que la vérification tactile sur Android.
+chaque joueur, stase, mur magnétique, Javelin, dash, PV confirmés, match complet,
+égalité, revanche acceptée des deux côtés, Fulguro Punch, Pelto Smash et retour
+au même salon. Le scénario inclut des dégâts létaux injectés par l'hôte pour
+vérifier toutes les transitions de manches et la fin des deux matchs.
+Les résultats sont `NETWORK GAME TEST: PASS [host]` (56 contrôles) et
+`NETWORK GAME TEST: PASS [guest]` (47 contrôles).
+
+`tools/test_network_reliability.gd` vérifie les appuis répétés, les versions
+incompatibles, les relances de chargement, les délais expirés, les anciennes
+demandes et le nettoyage. Les tests de combat, Longshot et Mekatana passent.
+`tools/test_network_hud.gd` vérifie les trois sorts avec une disposition qui
+les masque au départ, les changements de taille, la revanche et la restauration
+des panneaux. Les captures PC et aperçu tactile sont dans
+`captures/multi-spell-bar-pc.png` et `captures/multi-spell-bar-touch.png`.
+
+Ces vérifications utilisent deux processus locaux connectés au service en
+ligne. Un essai PC–PC depuis deux logements et un essai PC–Android sur un vrai
+téléphone restent à faire, notamment pour les contrôles tactiles et la latence.
+L'aperçu tactile sur PC ne remplace pas cet essai Android. Les modifications
+de cette passe sont locales tant qu'une nouvelle version n'est pas publiée.

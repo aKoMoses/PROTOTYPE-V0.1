@@ -133,6 +133,9 @@ func _update_movement(delta: float) -> void:
 		if _fulguro_projection_active:
 			_update_fulguro_projection(delta)
 			return
+		if _pelto_pull_active:
+			_update_pelto_pull(delta)
+			return
 		var melee_owns_movement := _update_mekatana_attack(delta)
 		if _dash_active and not melee_owns_movement:
 			_update_dash(delta)
@@ -143,6 +146,8 @@ func _get_actual_move_velocity() -> Vector3:
 		return Vector3.ZERO
 	if remote_controlled and (_stasis_remaining > 0.0 or combat_state.is_stunned() or is_real_dead()):
 		return Vector3.ZERO
+	if _pelto_pull_active:
+		return _pelto_pull_direction * _pelto_pull_speed
 	return remote_velocity if remote_controlled and not _fulguro_projection_active and not _dash_active and not _mekatana_movement_owned else super._get_actual_move_velocity()
 
 
@@ -341,6 +346,49 @@ func _perform_pelto_smash(aim_held: bool = false) -> void:
 	super._perform_pelto_smash(aim_held)
 	if serial != _pelto_attack_serial:
 		_notify("pelto_begin", {"held": aim_held})
+
+
+func _begin_fulguro_charge() -> void:
+	var serial := _fulguro_attack_serial
+	super._begin_fulguro_charge()
+	if serial != _fulguro_attack_serial:
+		_notify("fulguro_begin")
+
+
+func _release_fulguro_charge() -> void:
+	var releasing := is_fulguro_charging() and not _fulguro_release_requested
+	super._release_fulguro_charge()
+	if releasing:
+		_notify("fulguro_release")
+
+
+func _cancel_fulguro_attack(reason: String = "") -> void:
+	var active := _fulguro_phase != ""
+	super._cancel_fulguro_attack(reason)
+	if active:
+		_notify("fulguro_cancel")
+
+
+func _resolve_fulguro_strike() -> void:
+	if authoritative:
+		super._resolve_fulguro_strike()
+	else:
+		_fulguro_hit_resolved = true
+
+
+func start_pelto_pull(direction: Vector3, distance: float, duration: float, source_id: String = "", attack_id: String = "") -> void:
+	if not authoritative:
+		return
+	super.start_pelto_pull(direction, distance, duration, source_id, attack_id)
+	if _pelto_pull_active:
+		_permutation_revision += 1
+
+
+func _cancel_pelto_pull() -> void:
+	var was_active := _pelto_pull_active
+	super._cancel_pelto_pull()
+	if authoritative and was_active:
+		_permutation_revision += 1
 
 
 func _release_pelto_aim() -> void:
@@ -547,8 +595,6 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		cancel_touch_fire()
 		_replaying = false
 		return
-	if not visual_only and ((_stasis_remaining > 0.0 and action != "stasis_exit") or combat_state.is_stunned()):
-		return
 	if action == "stasis_exit":
 		_replaying = visual_only
 		if visual_only:
@@ -559,6 +605,8 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		elif _defensive_module_id == "static_shield" and _stasis_remaining > 0.0:
 			_perform_static_shield()
 		_replaying = false
+		return
+	if not visual_only and (_stasis_remaining > 0.0 or combat_state.is_stunned()):
 		return
 	_replaying = visual_only
 	if visual_only:
@@ -610,6 +658,11 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 				_perform_pelto_smash(bool(data.get("held", false)))
 		"pelto_release": _release_pelto_aim()
 		"pelto_cancel": _cancel_pelto_smash()
+		"fulguro_begin":
+			if _offensive_module_id == "fulguro_punch":
+				_begin_fulguro_charge()
+		"fulguro_release": _release_fulguro_charge()
+		"fulguro_cancel": _cancel_fulguro_attack()
 		"permutation": _perform_permutation()
 		"eclipse":
 			var destination: Variant = data.get("destination")
@@ -636,6 +689,7 @@ func network_snapshot() -> Dictionary:
 	return {"rockets": ROCKET_BASKET.snapshot(self), "counter": _counter.snapshot(),"combat": combat_state.snapshot(), "position": global_position, "aim": aim_direction,
 		"projector_passive": _projector_passive_remaining,
 		"knockback": {"active": _fulguro_projection_active, "direction": _fulguro_projection_direction, "distance": _fulguro_projection_distance_remaining, "time": _fulguro_projection_time_remaining},
+		"pull": {"active": _pelto_pull_active, "direction": _pelto_pull_direction, "distance": _pelto_pull_distance_remaining, "time": _pelto_pull_time_remaining},
 		"eclipse": _eclipse.snapshot(),
 		"javelin_mark_duration": _javelin_active_mark_duration, "javelin_recast_range": _javelin_active_recast_range,
 		"relocation": _permutation_revision, "permutation_speed": _permutation_speed_remaining,
@@ -672,6 +726,18 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 			global_position = value.get("position", global_position)
 		elif _fulguro_projection_active:
 			_cancel_fulguro_projection()
+			global_position = value.get("position", global_position)
+	if value.has("pull"):
+		var pull: Dictionary = value.pull
+		if bool(pull.get("active", false)):
+			_pelto_pull_active = true
+			_pelto_pull_direction = pull.direction
+			_pelto_pull_distance_remaining = maxf(0.0, float(pull.distance))
+			_pelto_pull_time_remaining = maxf(0.001, float(pull.time))
+			_pelto_pull_speed = _pelto_pull_distance_remaining / _pelto_pull_time_remaining
+			global_position = value.get("position", global_position)
+		elif _pelto_pull_active:
+			_cancel_pelto_pull()
 			global_position = value.get("position", global_position)
 	if remote_controlled or controls_confirmed:
 		_eclipse.receive_snapshot(self, value.get("eclipse", {}))
