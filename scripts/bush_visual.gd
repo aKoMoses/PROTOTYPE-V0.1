@@ -1,7 +1,7 @@
 extends Node3D
 
 const FOLIAGE_SHADER: Shader = preload("res://scripts/bush_foliage.gdshader")
-const BLADE_COUNT := 154
+const BLADE_COUNT := 126
 const FOOTPRINT_SEGMENTS := 48
 const GOLDEN_ANGLE := 2.39996323
 
@@ -104,7 +104,8 @@ func _create_foliage(random: RandomNumberGenerator) -> void:
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
-	var palette: Array[Color] = [Color("#73784a"), Color("#8b8b50"), Color("#9a9656"), Color("#aca15c"), Color("#7d814d")]
+	var palette: Array[Color] = [Color("#788357"), Color("#939268"), Color("#a39c70"), Color("#b2a477"), Color("#6c7c5b")]
+	var clump_phase := random.randf_range(0.0, TAU)
 	for blade_index in range(BLADE_COUNT):
 		# Sunflower distribution covers the whole circular hiding volume. Shorter
 		# rim leaves and taller inner tufts form an organic, readable high-grass mass.
@@ -112,21 +113,24 @@ func _create_foliage(random: RandomNumberGenerator) -> void:
 		var angle := float(blade_index) * GOLDEN_ANGLE + random.randf_range(-0.11, 0.11)
 		var radial := _radius * fraction * 0.94
 		var base := Vector3(cos(angle) * radial, 0.0, sin(angle) * radial)
-		var blade_height := _height * random.randf_range(0.68, 0.96) * lerpf(1.0, 0.69, pow(fraction, 3.0))
+		# Three loose tufts replace the uniform cone. The footprint and hiding
+		# volume remain the same, with tall inner leaves and a shorter readable rim.
+		var tuft := 0.5 + 0.5 * sin(angle * 3.0 + clump_phase)
+		var blade_height := _height * random.randf_range(0.54, 0.98) * lerpf(0.80, 1.0, tuft) * lerpf(1.0, 0.69, pow(fraction, 3.0))
 		var heading := angle + random.randf_range(-1.4, 1.4)
 		var direction := Vector3(cos(heading), 0.0, sin(heading))
 		var side := Vector3(-sin(heading), 0.0, cos(heading))
-		var lean := random.randf_range(0.12, 0.34) * _radius
-		var width := random.randf_range(0.065, 0.11) * _radius
-		var leaf_color: Color = palette[blade_index % palette.size()]
+		var lean := minf(random.randf_range(0.20, 0.54) * _radius, _radius - radial)
+		var width := random.randf_range(0.047, 0.10) * _radius
+		var leaf_color: Color = palette[random.randi_range(0, palette.size() - 1)]
 		if blade_index % 13 == 0:
 			leaf_color = Color("#b2a36a")
 		var points: Array[Vector3] = []
-		var levels := [0.0, 0.34, 0.72, 1.0]
-		var widths := [0.38, 1.0, 0.67, 0.0]
+		var levels := [0.0, 0.36, 0.76, 1.0]
+		var widths := [0.28, 1.0, 0.48, 0.0]
 		for level in range(4):
 			var t := float(levels[level])
-			var centre := base + Vector3.UP * blade_height * t + direction * lean * t * t
+			var centre := base + Vector3.UP * blade_height * (t - 0.12 * t * t * t) + direction * lean * t * t
 			var half_width := width * float(widths[level])
 			points.append(centre - side * half_width)
 			points.append(centre + direction * width * 0.30 * sin(t * PI))
@@ -150,7 +154,7 @@ func _create_foliage(random: RandomNumberGenerator) -> void:
 	foliage.name = "LayeredHighGrass"
 	foliage.mesh = mesh
 	foliage.extra_cull_margin = 0.45
-	foliage.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	foliage.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	_foliage_material = ShaderMaterial.new()
 	_foliage_material.shader = FOLIAGE_SHADER
 	_foliage_material.set_shader_parameter("wind_phase", random.randf_range(0.0, TAU))

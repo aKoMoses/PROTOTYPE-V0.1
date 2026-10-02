@@ -1,6 +1,7 @@
 extends StaticBody3D
 
 const KNOCKBACK := preload("res://scripts/knockback_motion.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 const COUNTER := preload("res://scripts/counter.gd")
 
@@ -237,6 +238,8 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 
 
 func apply_stun(duration: float, source_id: String = "") -> void:
+	if combat_state == null or not combat_state.can_receive_stun(duration):
+		return
 	var guard := COUNTER.component(self)
 	if duration > 0.0 and guard != null:
 		guard.cancel()
@@ -437,7 +440,7 @@ func _update_fulguro_projection(delta: float) -> void:
 	var result := FULGURO.sweep_static_body(self, _fulguro_projection_direction * step_distance, radius, height)
 	var travel: Vector3 = result.get("travel", Vector3.ZERO)
 	global_position += travel
-	global_position.y = 0.0
+	ARENA_TRAVERSAL.snap(self)
 	_fulguro_projection_distance_remaining = maxf(0.0, _fulguro_projection_distance_remaining - travel.length())
 	_fulguro_projection_time_remaining = maxf(0.0, _fulguro_projection_time_remaining - available_time)
 	_fulguro_projection_speed = KNOCKBACK.speed(_fulguro_projection_distance_remaining, _fulguro_projection_time_remaining)
@@ -502,7 +505,7 @@ func _update_pelto_pull(delta: float) -> void:
 	var result := FULGURO.sweep_static_body(self, _pelto_pull_direction * step_distance, get_fulguro_hit_radius(), 1.8 * maxf(0.1, absf(scale.y)))
 	var travel: Vector3 = result.get("travel", Vector3.ZERO)
 	global_position += travel
-	global_position.y = 0.0
+	ARENA_TRAVERSAL.snap(self)
 	_pelto_pull_distance_remaining = maxf(0.0, _pelto_pull_distance_remaining - travel.length())
 	_pelto_pull_time_remaining = maxf(0.0, _pelto_pull_time_remaining - available_time)
 	if bool(result.get("collided", false)) or _pelto_pull_distance_remaining <= 0.001 or _pelto_pull_time_remaining <= 0.001:

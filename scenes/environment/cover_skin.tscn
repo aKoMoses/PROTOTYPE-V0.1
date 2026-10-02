@@ -2,9 +2,9 @@
 
 [ext_resource type="ArrayMesh" path="res://art/environment/families/cover_skin_mesh.tres" id="1_8ih1x"]
 
-[node name="SalvageCoverA" type="Node3D" unique_id=1146261093]
+[node name="SalvageCoverA" type="Node3D" unique_id=1965848818]
 metadata/authored_unit_bounds = AABB(-0.5, -0.5, -0.5, 1, 1, 1)
 metadata/visual_only = true
 
-[node name="BakedArmorAndHardware" type="MeshInstance3D" parent="." unique_id=1588556989]
+[node name="BakedArmorAndHardware" type="MeshInstance3D" parent="." unique_id=949891261]
 mesh = ExtResource("1_8ih1x")

@@ -11,6 +11,9 @@ signal shield_changed(current: float, remaining: float)
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const SLOW_EPSILON := 0.001
+const STUN_REPEAT_WINDOW := 2.0
+const STUN_RECOVERY_GRACE := 0.18
+const STUN_MAX_EXTENSION := 0.35
 
 var max_health: float
 var health: float
@@ -23,6 +26,10 @@ var _slow_effects: Array = []
 var _processed_attack_ids: Dictionary = {}
 var _dead := false
 var _burn_serial := 0
+var _stun_chain_until := 0.0
+var _stun_recovery_until := 0.0
+var _stun_continuous_limit := 0.0
+var _stun_repeats := 0
 
 
 func _init(health_max: float = COMBAT_DATA.MAX_HEALTH) -> void:
@@ -39,6 +46,10 @@ func reset() -> void:
 	_slow_effects.clear()
 	_processed_attack_ids.clear()
 	_burn_serial = 0
+	_stun_chain_until = 0.0
+	_stun_recovery_until = 0.0
+	_stun_continuous_limit = 0.0
+	_stun_repeats = 0
 	health_changed.emit(health, max_health)
 	for effect_type in [COMBAT_DATA.EFFECT_BURN, COMBAT_DATA.EFFECT_SLOW, COMBAT_DATA.EFFECT_STUN, COMBAT_DATA.EFFECT_SPOTTED]:
 		effect_changed.emit(effect_type, false)
@@ -138,8 +149,34 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 	effect_changed.emit(COMBAT_DATA.EFFECT_SLOW, true)
 
 
+func cleanse_burn_and_slow() -> void:
+	# Purify only these ailments; shields, visibility and attack deduplication survive.
+	if _effects.erase(COMBAT_DATA.EFFECT_BURN):
+		effect_changed.emit(COMBAT_DATA.EFFECT_BURN, false)
+	if not _slow_effects.is_empty():
+		_slow_effects.clear()
+		effect_changed.emit(COMBAT_DATA.EFFECT_SLOW, false)
+
+
 func apply_stun(duration: float, source_id: String = "") -> void:
-	_apply_single_timed_effect(COMBAT_DATA.EFFECT_STUN, duration, source_id)
+	if not can_receive_stun(duration):
+		return
+	if simulation_time >= _stun_chain_until:
+		_stun_repeats = 0
+	var adjusted := duration * pow(0.5, mini(_stun_repeats, 2))
+	var existing_end := simulation_time + get_remaining(COMBAT_DATA.EFFECT_STUN)
+	if not is_stunned():
+		_stun_continuous_limit = simulation_time + adjusted + STUN_MAX_EXTENSION
+	var end_time := minf(maxf(existing_end, simulation_time + adjusted), _stun_continuous_limit)
+	_effects[COMBAT_DATA.EFFECT_STUN] = {"end_time": end_time, "source_id": source_id}
+	_stun_repeats += 1
+	_stun_chain_until = end_time + STUN_REPEAT_WINDOW
+	_stun_recovery_until = end_time + STUN_RECOVERY_GRACE
+	effect_changed.emit(COMBAT_DATA.EFFECT_STUN, true)
+
+
+func can_receive_stun(duration: float) -> bool:
+	return not _dead and duration > 0.0 and (is_stunned() or simulation_time >= _stun_recovery_until - SLOW_EPSILON)
 
 
 func apply_spotted(duration: float, source_id: String = "") -> void:

@@ -73,9 +73,16 @@ func _draw() -> void:
 		if not get_viewport_rect().has_point(screen):
 			continue
 		var point := get_global_transform_with_canvas().affine_inverse() * screen
-		draw_arc(point, 9.0, 0.0, TAU, 16, Color("#bbecdb"), 2.0, true)
-		draw_circle(point, 3.0, Color("#ecfff7"))
-		draw_string(ThemeDB.fallback_font, point + Vector2(-26, -14), "SPOTTED", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#bbecdb"))
+		draw_circle(point, 15.0, Color("#10191bea"))
+		draw_arc(point, 12.0, 0.0, TAU, 32, Color("#bbecdb"), 2.5, true)
+		draw_circle(point, 4.0, Color("#ecfff7"))
+		var remaining := float(target.call("get_spotted_reveal_remaining")) if target.has_method("get_spotted_reveal_remaining") else float(state.get("reveal", 0.0))
+		var caption := "TRAQUÉ %.1f s" % remaining
+		var font := ThemeDB.fallback_font
+		var caption_width := font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var text_point := point + Vector2(-caption_width * 0.5, -20)
+		draw_string_outline(font, text_point, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 5, Color("#10191b"))
+		draw_string(font, text_point, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#bbecdb"))
 
 
 func _background(tint: Color, pulse: float) -> StyleBoxFlat:

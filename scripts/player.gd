@@ -1,5 +1,13 @@
 extends "res://scripts/player/components/player_state.gd"
 
+signal combat_signature_requested(kind: String, target: Node3D, event_id: String)
+
+func present_combat_signature(kind: String, target: Node3D, event_id: String) -> void:
+	combat_signature_requested.emit(kind, target, event_id)
+
+func _on_counter_signature() -> void:
+	present_combat_signature("counter", self, "counter:%d" % _counter.successes)
+
 # Preserve the Player API used by scenes, bots, HUD, network and test tools.
 # Logic lives in focused components; this node owns their shared state and tick.
 const COMPONENT_BLASTER := preload("res://scripts/player/components/blaster.gd")
@@ -63,6 +71,7 @@ func _init() -> void:
 func _ready() -> void:
 	_counter = COUNTER.ensure(self)
 	_counter.finished.connect(_on_counter_finished)
+	_counter.intercepted.connect(_on_counter_signature)
 	add_to_group("permutation_relocation_observers")
 	get_node("/root/GamePreferences").bindings_changed.connect(_refresh_control_bindings)
 	collision_layer = 4
@@ -182,6 +191,7 @@ func _load_weapon_definitions() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_controls_component.advance_input_time(delta)
 	if not _gameplay_enabled:
 		velocity = Vector3.ZERO
 		clear_touch_inputs()
@@ -254,6 +264,7 @@ func _physics_process(delta: float) -> void:
 	_update_shotgun_reload_input()
 	_update_shotgun_reload(delta)
 	_update_attack(cast_locked_before_action_updates)
+	_controls_component.execute_buffered_command()
 	_update_weapon_ambient_motion(delta)
 	_update_shotgun_reload_visual()
 	_update_blaster_charge_visual(delta)
@@ -1162,6 +1173,10 @@ func _on_eclipse_arrived(_origin: Vector3, destination: Vector3) -> void:
 
 func _credit_eclipse_damage(amount: float) -> void:
 	_mobility_modules_component._credit_eclipse_damage(amount)
+
+
+func _credit_pyro_damage(amount: float, target: Node3D) -> void:
+	_on_damage_dealt(amount, target)
 
 
 func _permutation_target() -> Node3D:

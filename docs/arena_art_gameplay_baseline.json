@@ -968,8 +968,8 @@
 	},
 	"camera_rig": {
 		"aim_smoothing_speed": 4.0,
-		"follow_speed": 3.2,
-		"look_ahead_distance": 1.6,
+		"follow_speed": 8.0,
+		"look_ahead_distance": 0.9,
 		"script": "res://scripts/camera_rig.gd"
 	},
 	"kits": [

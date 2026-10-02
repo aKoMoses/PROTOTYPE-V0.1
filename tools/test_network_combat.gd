@@ -69,7 +69,7 @@ func _run() -> void:
 	await physics_frame
 	a.call("receive_action", "blaster", {"ratio": 1.0})
 	await create_timer(0.65).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 980.0), "live host projectile hits once; an uncharged request cannot claim full charge")
+	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.damage), "live host projectile hits once; an uncharged request cannot claim full charge")
 	client.call("receive_snapshot", b.call("network_snapshot"))
 	var client_hp := float(client.call("get_health"))
 	client.call("take_damage", 500.0, "fake", "fake")
@@ -80,7 +80,7 @@ func _run() -> void:
 	_check(float(b.get("_stasis_remaining")) > 0.0, "stasis activated by the host")
 	a.call("receive_action", "blaster", {})
 	await create_timer(0.6).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 980.0), "stasis blocks an actual incoming projectile")
+	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.damage), "stasis blocks an actual incoming projectile")
 	_reset(a, b, "magnetic_field")
 	await physics_frame
 	b.call("_activate_defensive_module")
@@ -145,7 +145,7 @@ func _run() -> void:
 	_check(bool(a.get("_blaster_charge_active")) and is_equal_approx(float(a.get("_blaster_charge_started_at")), charge_started), "host focus loss and app suspension preserve the remote human's authoritative charge clock")
 	a.call("receive_action", "blaster", {})
 	await create_timer(0.65).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 950.0), "remote release after host focus loss still delivers the fully charged 50 damage")
+	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.max_damage), "remote release after host focus loss still delivers full Blaster damage")
 	var local := _actor(scene, "LocalFocusProbe", true, false)
 	local.collision_layer = 0
 	local.set_process(false)

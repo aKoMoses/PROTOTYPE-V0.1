@@ -136,7 +136,7 @@ func _test_held_combo(actor: Node3D, player: Node3D, bot: Node, equipment: Node)
 	if _hits.size() == 3:
 		for index in range(3):
 			_check(int(_hits[index].step) == index, "maintien bot : ordre des coups %d" % index)
-		var expected := [65.0, 90.0, 160.0]
+		var expected := [90.0, 120.0, 240.0]
 		for index in range(3):
 			_check(absf(float(_hits[index].applied) - expected[index]) < 0.01, "bonus bot : coup %d" % (index + 1))
 	_check(not melee.is_busy() and str(equipment.call("get_action_owner")) == "", "fin du maintien libère le cast")
@@ -285,7 +285,7 @@ func _test_no_friendly_fire(actor: Node3D, player: Node3D, bot: Node, equipment:
 	var before := float(player.call("get_health"))
 	_tick(actor, player, bot, equipment)
 	_tick(actor, player, bot, equipment, false, 0.23)
-	_check(is_equal_approx(before - float(player.call("get_health")), 65.0), "cleave du bot atteint le joueur layer 4")
+	_check(is_equal_approx(before - float(player.call("get_health")), 90.0), "cleave du bot atteint le joueur layer 4")
 	_check(friendly.hits == 0 and is_equal_approx(friendly.health, 1000.0), "cleave du bot ignore son voisin allié layer 2")
 	friendly.queue_free()
 	await process_frame

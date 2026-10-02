@@ -5,6 +5,8 @@ extends Node3D
 ## the shot's path from the muzzle, independent of the shooter. Centre travel
 ## controls range and is retained in the collision for diagnostics.
 signal finished(hit: Dictionary, distance: float)
+signal impacted(hit: Dictionary, distance: float)
+signal advanced(start: Vector3, end: Vector3)
 
 const CONTACT_TOLERANCE := 0.0005
 const COLLISION_MARGIN := 0.00001
@@ -22,6 +24,7 @@ var _finished := false
 var _cast: ShapeCast3D
 var _overlap_query: PhysicsShapeQueryParameters3D
 var _excluded: Array[RID] = []
+var _piercing := false
 
 
 func _ready() -> void:
@@ -49,7 +52,7 @@ func _create_cast() -> void:
 	_overlap_query.shape = _cast.shape
 
 
-func configure(direction: Vector3, speed: float, max_range: float, collision_mask: int, excluded: Array[RID], radius: float) -> void:
+func configure(direction: Vector3, speed: float, max_range: float, collision_mask: int, excluded: Array[RID], radius: float, piercing: bool = false) -> void:
 	_create_cast()
 	_direction = direction.normalized() if direction.length_squared() > 0.000001 else Vector3.FORWARD
 	_speed = maxf(0.01, speed)
@@ -63,6 +66,7 @@ func configure(direction: Vector3, speed: float, max_range: float, collision_mas
 	_cast.collision_mask = collision_mask
 	_overlap_query.collision_mask = collision_mask
 	_excluded = excluded.duplicate()
+	_piercing = piercing
 	_overlap_query.exclude = _excluded
 	_cast.clear_exceptions()
 	for excluded_rid in excluded:
@@ -87,26 +91,54 @@ func resolve_muzzle_guard(support: Vector3) -> void:
 func _physics_process(delta: float) -> void:
 	if _finished or not _configured or delta <= 0.0:
 		return
-	var remaining := maxf(0.0, _range - _distance)
-	if remaining <= 0.000001:
-		_finish({})
-		return
-	var step := minf(_speed * delta, remaining)
-	var start := global_position
-	var motion := _direction * step
-	var hit := _sweep(start, motion)
-	if not hit.is_empty():
+	var step := minf(_speed * delta, maxf(0.0, _range - _distance))
+	# Continue the unused part of the same tick after each pierced actor. Walls
+	# are swept again, including thin walls immediately behind the victim.
+	while step > 0.000001 and not _finished:
+		var start := global_position
+		var hit := _sweep(start, _direction * step)
+		if hit.is_empty():
+			global_position = start + _direction * step
+			_distance += step
+			advanced.emit(start, global_position)
+			break
 		var traveled := clampf(float(hit.get("travel", 0.0)), 0.0, step)
 		hit["center_distance"] = _distance + traveled
 		global_position = start + _direction * traveled
-		if not bool(hit.get("started_overlapping", false)):
-			_distance = clampf(_distance + ((hit["position"] as Vector3) - start).dot(_direction), 0.0, _range)
-		_finish(hit)
-		return
-	global_position = start + motion
-	_distance += step
+		var impact_distance := _distance if bool(hit.get("started_overlapping", false)) else clampf(_distance + ((hit["position"] as Vector3) - start).dot(_direction), 0.0, _range)
+		_distance += traveled
+		advanced.emit(start, global_position)
+		var target := _pierce_target(hit)
+		_contact(hit, impact_distance)
+		if not _piercing or target == null or bool(hit.get("stop_piercing", false)):
+			_distance = impact_distance
+			_finish(hit, false)
+			return
+		_exclude_target(target)
+		var contact_rid: RID = hit.get("rid", RID())
+		if contact_rid.is_valid() and not _excluded.has(contact_rid):
+			_excluded.append(contact_rid)
+		step -= traveled
 	if _distance >= _range - 0.000001:
 		_finish({})
+
+
+func _pierce_target(hit: Dictionary) -> Node:
+	var collider := hit.get("collider") as Node
+	if collider is CollisionObject3D and (collider.collision_layer & 1) != 0:
+		return null
+	while collider != null and not collider.has_method("take_damage"):
+		collider = collider.get_parent()
+	if collider != null and collider.is_in_group("prototype0_homing_rockets"):
+		return null
+	return collider
+
+
+func _exclude_target(target: Node) -> void:
+	if target is CollisionObject3D and not _excluded.has(target.get_rid()):
+		_excluded.append(target.get_rid())
+	for child in target.get_children():
+		_exclude_target(child)
 
 
 func _sweep(start: Vector3, motion: Vector3) -> Dictionary:
@@ -202,13 +234,19 @@ func _cast_at(start: Vector3, motion: Vector3) -> Dictionary:
 		"position": _cast.get_collision_point(nearest), "normal": normal.normalized()}
 
 
-func _finish(hit: Dictionary) -> void:
+func _contact(hit: Dictionary, distance: float) -> void:
+	var collider: Object = hit.get("collider")
+	if is_instance_valid(collider) and collider.has_method("projectile_impact"):
+		collider.call("projectile_impact", hit["position"])
+	impacted.emit(hit, distance)
+
+
+func _finish(hit: Dictionary, notify_contact: bool = true) -> void:
 	if _finished:
 		return
 	_finished = true
 	set_physics_process(false)
-	var collider: Object = hit.get("collider")
-	if is_instance_valid(collider) and collider.has_method("projectile_impact"):
-		collider.call("projectile_impact", hit["position"])
+	if notify_contact and not hit.is_empty():
+		_contact(hit, _distance)
 	finished.emit(hit, _distance)
 	queue_free()

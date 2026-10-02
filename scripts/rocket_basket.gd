@@ -15,16 +15,16 @@ static func launch(caster: Node3D, direction: Vector3, source: String, attack_id
 	if caster.has_method("register_offensive_attack"):
 		caster.call("register_offensive_attack", attack_id)
 	var volley := {"hits": {}, "bonus": false, "cooldown": float(definition.cooldown) if cooldown_basis < 0.0 else cooldown_basis}
-	var side := direction.cross(Vector3.UP).normalized()
 	caster.get_node("/root/GameSfx").play_module_event("rocket_launch", caster.global_position)
-	for index in range(int(definition.projectiles)):
+	var count := int(definition.projectiles)
+	for index in range(count):
 		var rocket := ROCKET.new()
 		var id := "%s:%d" % [attack_id, index]
-		rocket.configure(caster, id, direction.rotated(Vector3.UP, deg_to_rad(float(index - 2) * 9.0)))
+		var spread := 2.0 * float(index) / float(maxi(1, count - 1)) - 1.0 if count > 1 else 0.0
+		rocket.configure(caster, id, direction.rotated(Vector3.UP, deg_to_rad(spread * float(definition.launch_half_angle))))
 		caster.get_tree().current_scene.add_child(rocket)
 		# Emit at the actor's center, then fan out; no muzzle can bypass a wall.
 		rocket.global_position = caster.global_position + Vector3.UP * (0.80 + 0.09 * float(index % 2))
-		rocket.direction = (rocket.direction + side * float(index - 2) * 0.02).normalized()
 		rocket.impacted.connect(func(target: Node3D, projectile: Node3D) -> void:
 			var shield_before := PASSIVE_HITS.shield_health(target)
 			var applied := float(target.call("take_damage", float(definition.damage) * damage_multiplier, source, projectile.rocket_id))

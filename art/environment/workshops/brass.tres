@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_steel_albedo.png" id="1_sqagx"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_steel_normal.png" id="2_cft4m"]
+
+[resource]
+resource_name = "Workshop_brass"
+albedo_color = Color(0.5803922, 0.45882353, 0.32941177, 1)
+albedo_texture = ExtResource("1_sqagx")
+metallic = 0.55
+roughness = 0.85
+normal_enabled = true
+normal_scale = 0.32
+normal_texture = ExtResource("2_cft4m")
+uv1_scale = Vector3(0.9, 0.9, 0.9)
+uv1_triplanar = true
+uv1_world_triplanar = true

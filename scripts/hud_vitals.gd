@@ -14,8 +14,13 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(280, 90)
-	var background := ColorRect.new()
-	background.color = Color("#242629df")
+	var background := Panel.new()
+	var shell := StyleBoxFlat.new()
+	shell.bg_color = Color("#20272ae8")
+	shell.border_color = Color("#776b5c")
+	shell.set_border_width_all(1)
+	shell.set_corner_radius_all(6)
+	background.add_theme_stylebox_override("panel", shell)
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
@@ -35,11 +40,11 @@ func _ready() -> void:
 	add_child(_fill)
 	_weapon = _label(14, Color("#42d9e5"), Vector2(12, 58), Vector2(256, 25))
 	add_child(_weapon)
-	for index in 4:
+	for index in 2:
 		var segment := ColorRect.new()
 		segment.name = "LongshotSegment%d" % (index + 1)
-		segment.position = Vector2(12 + index * 66, 82)
-		segment.size = Vector2(58, 4)
+		segment.position = Vector2(12 + index * 132, 82)
+		segment.size = Vector2(124, 4)
 		segment.color = Color("#344a50")
 		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		segment.visible = false
@@ -96,11 +101,11 @@ func _refresh() -> void:
 	if weapon_id == "longshot":
 		var count := int(player.call("get_longshot_cycle_count")) if player.has_method("get_longshot_cycle_count") else 0
 		var ready := bool(player.call("is_longshot_enhanced_ready")) if player.has_method("is_longshot_enhanced_ready") else false
-		_weapon.text = "LONGSHOT   TIR AMÉLIORÉ PRÊT" if ready else "LONGSHOT   PROCHAIN %d / 5" % (count + 1)
-		_weapon.add_theme_color_override("font_color", Color("#b8faff") if ready else Color("#42d9e5"))
+		_weapon.text = "LONGSHOT   EXÉCUTION PRÊTE" if ready else "LONGSHOT   %d / 2 IMPACTS" % count
+		_weapon.add_theme_color_override("font_color", Color("#ffd477") if ready else Color("#42d9e5"))
 		for index in _longshot_segments.size():
 			_longshot_segments[index].visible = true
-			_longshot_segments[index].color = Color("#b8faff") if ready else Color("#42d9e5") if index < count else Color("#344a50")
+			_longshot_segments[index].color = Color("#ffd477") if ready else Color("#42d9e5") if index < count else Color("#344a50")
 		return
 	_weapon.add_theme_color_override("font_color", Color("#42d9e5"))
 	if weapon_id == "mekatana":

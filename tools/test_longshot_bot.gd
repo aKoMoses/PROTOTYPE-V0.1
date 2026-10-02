@@ -90,7 +90,7 @@ func _run() -> void:
 		_check(is_equal_approx(float(projectile.get("_speed")), speed) and is_equal_approx(float(projectile.get("_radius")), radius), "bot fifth projectile has configured speed and radius")
 		var muzzle: Transform3D = body.call("get_training_bot_muzzle_transform")
 		_check(projectile.global_position.distance_to(muzzle.origin) < 0.001, "distance starts at actual bot barrel")
-		projectile.finished.connect(func(hit: Dictionary, distance: float) -> void: impacts.append({"hit": hit, "distance": distance}))
+		projectile.impacted.connect(func(hit: Dictionary, distance: float) -> void: impacts.append({"hit": hit, "distance": distance}))
 		var emitted: int = state.shots_fired
 		equipment.call("_fire", body, probe)
 		_check(state.shots_fired == emitted, "bot recovery rejects duplicate emission")
@@ -105,16 +105,21 @@ func _run() -> void:
 		if not impacts.is_empty():
 			var expected: float = STATE.damage_at_distance(float(impacts.back().distance), enhanced)
 			_check(is_equal_approx(probe.damage_taken - before_damage, expected), "bot damage follows travelled distance after shooter moves")
-	_check(enhanced_ranks == [5, 10, 15], "bot enhanced ranks are exactly 5, 10 and 15")
+	_check(enhanced_ranks == [3, 6, 9, 12, 15], "bot execution follows two successful hits")
+	_check(is_equal_approx(float(equipment.call("get_speed_multiplier")), 1.2), "bot receives speed after a successful hit")
+	state.tick(0.71)
+	_check(is_equal_approx(float(equipment.call("get_speed_multiplier")), 1.0), "bot hit speed expires")
 	# Misses still emit, while module ownership and cancellation never emit.
 	body.position = Vector3.ZERO
 	equipment.set("_last_tick_elapsed", 40.0)
 	equipment.set("next_attack_at", 0.0)
 	equipment.set("_aim_position", Vector3(20, 0, 0))
 	var previous: int = state.shots_fired
+	var previous_hits: int = state.hits
 	equipment.call("_fire", body, probe)
 	_check(state.shots_fired == previous + 1, "bot miss advances cycle")
 	await create_timer(0.6).timeout
+	_check(state.hits == previous_hits, "bot miss preserves earned impacts")
 	equipment.call("set_profile", "shotgun")
 	equipment.call("set_profile", "longshot")
 	_check(state.shots_fired == previous + 1, "bot weapon switch retains instance progression")

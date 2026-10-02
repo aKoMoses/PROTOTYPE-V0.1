@@ -188,10 +188,10 @@ func _test_combo_damage() -> void:
 	for _step in range(3):
 		_strike()
 	_check(_targets[0].hits.size() == 3, "three successful slashes hit the same target exactly three times")
-	_check(is_equal_approx(_damage(_targets[0], 0), 65.0) and is_equal_approx(_damage(_targets[0], 1), 90.0) and is_equal_approx(_damage(_targets[0], 2), 160.0), "same-target full combo deals 65 + 90 + 160")
+	_check(is_equal_approx(_damage(_targets[0], 0), 90.0) and is_equal_approx(_damage(_targets[0], 1), 120.0) and is_equal_approx(_damage(_targets[0], 2), 240.0), "same-target full combo deals 90 + 120 + 240")
 	_check(int(_attack.next_step) == 0, "third slash resets the next step")
 	_strike()
-	_check(is_equal_approx(_damage(_targets[0], 3), 65.0), "a fresh sequence clears all preceding hit bonuses")
+	_check(is_equal_approx(_damage(_targets[0], 3), 90.0), "a fresh sequence clears all preceding hit bonuses")
 
 
 func _test_misses_and_target_history() -> void:
@@ -204,7 +204,7 @@ func _test_misses_and_target_history() -> void:
 	await _sync_physics()
 	_strike()
 	_strike()
-	_check(is_equal_approx(_damage(_targets[0], 0), 75.0) and is_equal_approx(_damage(_targets[0], 1), 125.0), "first missed, second hit: third receives only the intermediate multiplier")
+	_check(is_equal_approx(_damage(_targets[0], 0), 100.0) and is_equal_approx(_damage(_targets[0], 1), 187.5), "first missed, second hit: third receives only the intermediate multiplier")
 	await _reset_fixture()
 	_strike()
 	_targets[0].global_position = Vector3(10.0, 0.0, 10.0)
@@ -213,7 +213,7 @@ func _test_misses_and_target_history() -> void:
 	_targets[0].global_position = Vector3(0.0, 0.0, -1.3)
 	await _sync_physics()
 	_strike()
-	_check(is_equal_approx(_damage(_targets[0], 1), 100.0), "first hit, second missed: third remains at base damage")
+	_check(is_equal_approx(_damage(_targets[0], 1), 150.0), "first hit, second missed: third remains at base damage")
 	await _reset_fixture()
 	_strike()
 	_targets[0].global_position = Vector3(10.0, 0.0, 10.0)
@@ -221,7 +221,7 @@ func _test_misses_and_target_history() -> void:
 	await _sync_physics()
 	_strike()
 	_strike()
-	_check(is_equal_approx(_damage(_targets[1], 0), 75.0) and is_equal_approx(_damage(_targets[1], 1), 125.0), "switching target does not transfer the first target's history")
+	_check(is_equal_approx(_damage(_targets[1], 0), 100.0) and is_equal_approx(_damage(_targets[1], 1), 187.5), "switching target does not transfer the first target's history")
 
 
 func _test_rejected_hit() -> void:
@@ -231,7 +231,7 @@ func _test_rejected_hit() -> void:
 	_targets[0].rejected = false
 	_strike()
 	_strike()
-	_check(_targets[0].hits.size() == 2 and is_equal_approx(_damage(_targets[0], 0), 75.0) and is_equal_approx(_damage(_targets[0], 1), 125.0), "combat-rejected overlap is not recorded as a first hit")
+	_check(_targets[0].hits.size() == 2 and is_equal_approx(_damage(_targets[0], 0), 100.0) and is_equal_approx(_damage(_targets[0], 1), 187.5), "combat-rejected overlap is not recorded as a first hit")
 
 
 func _test_cleave_duplicates() -> void:
@@ -246,7 +246,7 @@ func _test_cleave_duplicates() -> void:
 		for _frame in range(60):
 			_attack.update(1.0 / 60.0)
 	for target in _targets:
-		_check(target.hits.size() == 3 and is_equal_approx(_damage(target, 2), 160.0), "all three cleaves, including vertical third, hit one time per target despite multiple colliders")
+		_check(target.hits.size() == 3 and is_equal_approx(_damage(target, 2), 240.0), "all three cleaves, including vertical third, hit one time per target despite multiple colliders")
 	duplicate.queue_free()
 	await _sync_physics()
 
@@ -260,7 +260,7 @@ func _test_inactive_target_filter() -> void:
 	_targets[0].collision_layer = 4
 	await _sync_physics()
 	_strike()
-	_check(_targets[0].hits.size() == 1 and is_equal_approx(_damage(_targets[0], 0), 75.0), "active player-layer target is eligible and hidden originals add no history")
+	_check(_targets[0].hits.size() == 1 and is_equal_approx(_damage(_targets[0], 0), 100.0), "active player-layer target is eligible and hidden originals add no history")
 
 
 func _test_combo_timing() -> void:
@@ -274,12 +274,12 @@ func _test_combo_timing() -> void:
 	_attack.update(2.25)
 	_check(_attack.start(Vector3.FORWARD) and int(_attack.step) == 1, "second step is accepted just before expiration")
 	_attack.update(0.145)
-	_check(int(_attack.step) == 1 and is_equal_approx(_damage(_targets[0], 1), 90.0), "accepted step retains its rank when preparation finishes after old deadline")
+	_check(int(_attack.step) == 1 and is_equal_approx(_damage(_targets[0], 1), 120.0), "accepted step retains its rank when preparation finishes after old deadline")
 	_attack.update(1.0)
 	_attack.update(2.6)
 	_check(_attack.start(Vector3.FORWARD) and int(_attack.step) == 0, "waiting longer than 2.5 seconds resets to first")
 	_attack.update(1.0)
-	_check(is_equal_approx(_damage(_targets[0], 2), 65.0), "expired sequence clears per-target damage history")
+	_check(is_equal_approx(_damage(_targets[0], 2), 90.0), "expired sequence clears per-target damage history")
 
 
 func _test_active_window_and_direction() -> void:
@@ -290,7 +290,7 @@ func _test_active_window_and_direction() -> void:
 	_check(_targets[0].hits.is_empty() and str(_attack.phase) == "preparation", "preparation applies no damage")
 	_actor.aim_direction = Vector3.BACK
 	_attack.update(0.006)
-	_check(_targets[0].hits.size() == 1 and is_equal_approx(_damage(_targets[0], 0), 65.0), "active damage follows the captured aim despite later reorientation")
+	_check(_targets[0].hits.size() == 1 and is_equal_approx(_damage(_targets[0], 0), 90.0), "active damage follows the captured aim despite later reorientation")
 	_attack.update(0.20)
 	var before := _targets[0].hits.size()
 	_targets[1].global_position = Vector3(0.0, 0.0, -1.3)
@@ -302,7 +302,7 @@ func _test_active_window_and_direction() -> void:
 	await _sync_physics()
 	_check(_attack.start(Vector3.BACK), "next step accepts a new aim")
 	_attack.update(1.0)
-	_check(is_equal_approx(_damage(_targets[0], 1), 90.0), "next swing is independently reoriented")
+	_check(is_equal_approx(_damage(_targets[0], 1), 120.0), "next swing is independently reoriented")
 
 
 func _test_dash_lengths_and_range() -> void:
@@ -319,7 +319,7 @@ func _test_dash_lengths_and_range() -> void:
 		_check(_targets[0].hits.size() == maxi(0, rank - 1), "longer preparation still does not deal damage")
 		_attack.update(float(_attack.definition.active[rank]) + float(_attack.definition.recovery[rank]))
 		_check(_targets[0].hits.size() == rank, "increasing dash reach brings distant target into later melee cleaves")
-	_check(is_equal_approx(_damage(_targets[0], 0), 75.0) and is_equal_approx(_damage(_targets[0], 1), 125.0), "extended reach keeps per-target second-only third bonus")
+	_check(is_equal_approx(_damage(_targets[0], 0), 100.0) and is_equal_approx(_damage(_targets[0], 1), 187.5), "extended reach keeps per-target second-only third bonus")
 
 
 func _wall(at: Vector3, dimensions: Vector3) -> StaticBody3D:
@@ -376,7 +376,7 @@ func _test_cancel() -> void:
 	_strike()
 	_attack.cancel()
 	_strike()
-	_check(is_equal_approx(_damage(_targets[0], 1), 65.0), "cancel clears successful prior hit history")
+	_check(is_equal_approx(_damage(_targets[0], 1), 90.0), "cancel clears successful prior hit history")
 
 
 func _test_loadout_and_hud() -> void:
@@ -386,7 +386,7 @@ func _test_loadout_and_hud() -> void:
 	var path := "user://mekatana_validation_loadout.cfg"
 	_check(LOADOUT.save_local(build, path) and LOADOUT.load_local(path).weapon == "mekatana", "Mekatana selection survives save and reload")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	_check(LOADOUT.display_name("mekatana") == "MEKATANA" and LOADOUT.stat_line("mekatana").contains("65 / 75 / 100"), "equipment description exposes central balancing values")
+	_check(LOADOUT.display_name("mekatana") == "MEKATANA" and LOADOUT.stat_line("mekatana").contains("90 / 100 / 150"), "equipment description exposes central balancing values")
 	var hud := HUD.new()
 	hud.set_player(_actor)
 	root.add_child(hud)
@@ -476,7 +476,7 @@ func _test_player_integration() -> void:
 		player.call("end_touch_fire")
 		await _wait_player_slashes(rank + 1)
 		await create_timer(0.85).timeout
-	_check(_player_steps == [0, 1, 2] and absf(float(target.call("get_health")) - 685.0) < 0.01, "real player and combat state apply the 315-damage full combo to one moving target")
+	_check(_player_steps == [0, 1, 2] and absf(float(target.call("get_health")) - 550.0) < 0.01, "real player and combat state apply the 450-damage full combo to one moving target")
 	_check(get_nodes_in_group("prototype0_gameplay_projectiles").size() == projectile_count and (target.call("get_active_effect_types") as Array).is_empty(), "real Mekatana produces no projectile or electrical gameplay status")
 	await _prepare_player(player, target, controls)
 	controls.visible = true

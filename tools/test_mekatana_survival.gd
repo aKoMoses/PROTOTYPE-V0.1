@@ -56,7 +56,7 @@ func _initialize() -> void:
 	player.call("_perform_mekatana_attack")
 	player.call("_update_mekatana_attack", 0.23)
 	_check(_accepted.size() == 1 and _accepted[0].target == target, "slash réel accepté une fois contre TargetDummy")
-	var expected := 65.0 * 1.25
+	var expected := float(DATA.WEAPON_DEFINITIONS.mekatana.base_damage[0]) * 1.25
 	_check(is_equal_approx(target_before - float(target.call("get_health")), expected), "puissance de survie appliquée au dégât réel")
 	var omnivamp_rate := float(player.get("passive_state").omnivamp_rate)
 	_check(is_equal_approx(float(player.call("get_health")) - health_before, expected * omnivamp_rate), "Omnivamp crédite le dégât accepté une seule fois")

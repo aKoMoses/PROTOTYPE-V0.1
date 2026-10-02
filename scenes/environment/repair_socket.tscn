@@ -1,38 +1,76 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=10 format=3]
 
-[sub_resource type="StandardMaterial3D" id="Paint"]
-albedo_color = Color(0.56, 0.51, 0.40, 1)
-roughness = 0.94
+[ext_resource type="Script" path="res://scripts/environment/repair_socket_presentation.gd" id="1"]
+[ext_resource type="Material" path="res://art/environment/families/steel_frame.tres" id="2"]
 
-[sub_resource type="StandardMaterial3D" id="Steel"]
-albedo_color = Color(0.21, 0.23, 0.22, 1)
-roughness = 0.82
-metallic = 0.3
+[sub_resource type="StandardMaterial3D" id="Teal"]
+albedo_color = Color(0.24, 0.52, 0.47, 1)
+roughness = 0.85
+metallic = 0.08
 
-[sub_resource type="CylinderMesh" id="Foundation"]
-material = SubResource("Paint")
-top_radius = 0.96
-bottom_radius = 0.98
-height = 0.018
-radial_segments = 12
+[sub_resource type="StandardMaterial3D" id="Copper"]
+albedo_color = Color(0.55, 0.37, 0.18, 1)
+roughness = 0.7
+metallic = 0.4
 
-[sub_resource type="TorusMesh" id="Joint"]
-material = SubResource("Steel")
-inner_radius = 0.86
-outer_radius = 0.9
-rings = 12
-ring_segments = 6
+[sub_resource type="StandardMaterial3D" id="Joint"]
+albedo_color = Color(0.19, 0.22, 0.23, 1)
+roughness = 0.93
+
+[sub_resource type="BoxMesh" id="Foundation"]
+material = ExtResource("2")
+size = Vector3(2.18, 0.07, 2.18)
+
+[sub_resource type="BoxMesh" id="Gasket"]
+material = SubResource("Joint")
+size = Vector3(1.8, 0.012, 1.8)
+
+[sub_resource type="BoxMesh" id="Insert"]
+material = SubResource("Teal")
+size = Vector3(1.65, 0.014, 1.65)
+
+[sub_resource type="CylinderMesh" id="Bolt"]
+material = SubResource("Copper")
+top_radius = 0.07
+bottom_radius = 0.075
+height = 0.016
+radial_segments = 6
 
 [node name="RepairSocket" type="Node3D"]
+script = ExtResource("1")
 metadata/visual_only = true
 
 [node name="FlushFoundation" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.011, 0)
+position = Vector3(0, 0.035, 0)
 mesh = SubResource("Foundation")
 cast_shadow = 0
 
-[node name="SteelJoint" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.021, 0)
-scale = Vector3(1, 0.24, 1)
-mesh = SubResource("Joint")
+[node name="RecessedJoint" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.076, 0)
+mesh = SubResource("Gasket")
+cast_shadow = 0
+
+[node name="MedicalEnamel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.085, 0)
+mesh = SubResource("Insert")
+cast_shadow = 0
+
+[node name="NorthWestBolt" type="MeshInstance3D" parent="."]
+position = Vector3(-0.93, 0.078, -0.93)
+mesh = SubResource("Bolt")
+cast_shadow = 0
+
+[node name="NorthEastBolt" type="MeshInstance3D" parent="."]
+position = Vector3(0.93, 0.078, -0.93)
+mesh = SubResource("Bolt")
+cast_shadow = 0
+
+[node name="SouthWestBolt" type="MeshInstance3D" parent="."]
+position = Vector3(-0.93, 0.078, 0.93)
+mesh = SubResource("Bolt")
+cast_shadow = 0
+
+[node name="SouthEastBolt" type="MeshInstance3D" parent="."]
+position = Vector3(0.93, 0.078, 0.93)
+mesh = SubResource("Bolt")
 cast_shadow = 0

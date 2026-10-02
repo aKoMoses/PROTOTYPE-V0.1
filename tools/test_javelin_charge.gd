@@ -25,8 +25,8 @@ func _run() -> void:
 	_player = _scene.get_node("Player")
 	_target = _scene.get_node("TargetDummy")
 	await _test_tap()
-	await _test_power(1.045, 210.0, 12.0, 28.0, 3.75)
-	await _test_power(1.74, 280.0, 16.0, 36.0, 5.0)
+	await _test_power(0.775, 210.0, 12.0, 28.0, 3.75)
+	await _test_power(1.20, 280.0, 16.0, 36.0, 5.0)
 	await _test_extended_recast()
 	await _test_front_recast()
 	await _test_survival_recast()
@@ -97,9 +97,9 @@ func _test_power(seconds: float, damage: float, distance: float, speed: float, m
 	_player.call("begin_touch_action", "offensive")
 	_player.call("_update_javelin_charge", seconds)
 	_check(_shot() == null, "holding emitted before release")
-	if seconds >= 1.74:
+	if seconds >= 1.20:
 		_player.call("_update_javelin_charge", 5.0)
-		_check(_shot() == null and is_equal_approx(float(_player.call("get_javelin_charge_fraction")), 1.0), "max hold is not capped at 1.74 s")
+		_check(_shot() == null and is_equal_approx(float(_player.call("get_javelin_charge_fraction")), 1.0), "max hold is not capped at 1.20 s")
 		var visual: Node = _player.get("_javelin_charge_visual")
 		_check(visual.find_children("TridentProng*", "", true, false).size() == 3, "trident does not have three prongs")
 	_player.call("end_touch_action", "offensive")
@@ -128,7 +128,7 @@ func _test_extended_recast() -> void:
 		blocker.collision_layer = 0
 	await physics_frame
 	_player.call("begin_touch_action", "offensive")
-	_player.call("_update_javelin_charge", 1.74)
+	_player.call("_update_javelin_charge", 1.20)
 	_player.call("end_touch_action", "offensive")
 	_player.call("_update_javelin_charge", 0.0)
 	await _wait_shot()
@@ -172,7 +172,7 @@ func _test_survival_recast() -> void:
 	_player.set("survival_evolution_effects", effects)
 	_player.set("survival_mode", true)
 	_player.call("begin_touch_action", "offensive")
-	_player.call("_update_javelin_charge", 1.74)
+	_player.call("_update_javelin_charge", 1.20)
 	_player.call("end_touch_action", "offensive")
 	_player.call("_update_javelin_charge", 0.0)
 	await _wait_shot()

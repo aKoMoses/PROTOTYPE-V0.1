@@ -97,6 +97,10 @@ func module_hit(activation: String, effective: float) -> void:
 
 
 func dash_finished(admissible: bool) -> void:
+	mobility_finished(admissible)
+
+
+func mobility_finished(admissible: bool = true) -> void:
 	if admissible and not real_dead and passive_id == "inertia":
 		inertia_remaining = float(tuning.window)
 		pulse_remaining = 0.25

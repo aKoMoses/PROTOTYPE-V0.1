@@ -30,6 +30,7 @@ var _left_forearm := -1
 var _left_hand := -1
 var mekatana_equipped := false
 var counter_guard := false
+var counter_weight := 1.0
 var _mekatana_step := 0
 var _mekatana_phase := ""
 var _mekatana_progress := 0.0
@@ -104,8 +105,10 @@ func solve(leg_yaw: float, aim_weight: float, aim_target: Vector3, recoil: float
 	# An idle/passive target still reacts to damage. Recoil needs an armed pose.
 	_apply_impulses(clampf(recoil, 0.0, 1.0) * weight, clampf(hit, 0.0, 1.35))
 	if counter_guard and _right_arm >= 0 and _right_forearm >= 0:
-		_skeleton.set_bone_pose_rotation(_right_arm, _skeleton.get_bone_pose_rotation(_right_arm) * Quaternion(Vector3.RIGHT, deg_to_rad(28.0)))
-		_skeleton.set_bone_pose_rotation(_right_forearm, _skeleton.get_bone_pose_rotation(_right_forearm) * Quaternion(Vector3.RIGHT, deg_to_rad(52.0)))
+		_rotate_axis(_spine2, Vector3.RIGHT, -8.0 * counter_weight)
+		_rotate_axis(_right_shoulder, Vector3.UP, -24.0 * counter_weight)
+		_rotate_axis(_right_arm, Vector3.RIGHT, 38.0 * counter_weight)
+		_rotate_axis(_right_forearm, Vector3.RIGHT, 65.0 * counter_weight)
 		_solve_support_arm(1.0)
 		return
 	if weight <= 0.0 or _spine < 0 or _right_arm < 0 or _right_hand < 0:
@@ -123,13 +126,13 @@ func _apply_impulses(recoil: float, hit: float) -> void:
 	# The shoulder absorbs the recoil; the rigid hand/socket connection never
 	# moves independently. Small torso impulses keep the barrel from pitching up.
 	if _spine2 >= 0:
-		var impulse := Basis(Vector3.FORWARD, deg_to_rad(2.0) * hit)
+		var impulse := Basis(Vector3.FORWARD, deg_to_rad(3.2) * hit)
 		impulse = Basis(Vector3.RIGHT, deg_to_rad(0.65) * recoil) * impulse
 		_set_global_basis(_spine2, impulse * _skeleton.get_bone_global_pose(_spine2).basis)
 	if _right_shoulder >= 0 and recoil > 0.0:
 		var parent := _skeleton.get_bone_parent(_right_shoulder)
 		var parent_basis := _skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
-		var local_offset := parent_basis.inverse() * Vector3(0.0, 0.0, -0.016 * recoil)
+		var local_offset := parent_basis.inverse() * Vector3(0.0, 0.0, -0.024 * recoil)
 		_skeleton.set_bone_pose_position(_right_shoulder, _shoulder_base_position + local_offset)
 
 

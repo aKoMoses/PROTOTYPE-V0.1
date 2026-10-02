@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/workshop_neon_halo.gdshader" id="1_j1hnq"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_j1hnq")
+shader_parameter/neon_color = Color(1, 0.3529412, 0.19607843, 1)

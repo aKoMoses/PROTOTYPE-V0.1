@@ -1,5 +1,6 @@
 class_name FulguroPunch
 extends RefCounted
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
 
@@ -120,6 +121,8 @@ static func resolve_strike(attacker: CollisionObject3D, candidates: Array, locke
 
 
 static func sweep_static_body(body: CollisionObject3D, motion: Vector3, radius: float, height: float) -> Dictionary:
+	if body != null:
+		motion = ARENA_TRAVERSAL.motion(body, motion)
 	var clear_result := {"travel": motion, "collided": false, "collider": null, "normal": Vector3.ZERO, "position": body.global_position + motion}
 	if body == null or motion.length_squared() <= 0.0000001:
 		return clear_result
@@ -137,7 +140,9 @@ static func sweep_static_body(body: CollisionObject3D, motion: Vector3, radius: 
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [body.get_rid()]
+	var excluded: Array[RID] = [body.get_rid()]
+	excluded.append_array(ARENA_TRAVERSAL.exclusions(body))
+	query.exclude = excluded
 	var cast := world.direct_space_state.cast_motion(query)
 	if cast.is_empty() or float(cast[0]) >= 0.999:
 		return clear_result
@@ -154,7 +159,7 @@ static func sweep_static_body(body: CollisionObject3D, motion: Vector3, radius: 
 		ray.collision_mask = 1
 		ray.collide_with_areas = false
 		ray.collide_with_bodies = true
-		ray.exclude = [body.get_rid()]
+		ray.exclude = excluded
 		var hit := world.direct_space_state.intersect_ray(ray)
 		if hit.is_empty():
 			continue

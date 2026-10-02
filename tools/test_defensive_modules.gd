@@ -122,7 +122,7 @@ func _test_static_shield(player: Node) -> void:
 	await create_timer(1.20, true, false, false).timeout
 	if float(player.call("get_stasis_remaining")) > 0.01:
 		_failures.append("Static Shield : stase ne se termine pas")
-	if float(player.call("get_module_cooldown", "static_shield")) < 16.0:
+	if absf(float(player.call("get_module_cooldown", "static_shield")) - (12.0 - 1.65)) > 0.35:
 		_failures.append("Static Shield : cooldown absent ou trop court")
 	player.call("reset_combat_state")
 	player.call("set_weapon", "shotgun")

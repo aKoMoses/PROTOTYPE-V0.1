@@ -71,6 +71,8 @@ func setup() -> bool:
 	var model := packed.instantiate() as Node3D
 	model.name = "DroidGLB"
 	model_axis.add_child(model)
+	preload("res://scripts/robot_surface_polish.gd").apply(model)
+	preload("res://scripts/robot_surface_polish.gd").add_contact(self)
 	skeleton = model.find_child("Skeleton3D", true, false) as Skeleton3D
 	animation_player = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if skeleton == null or animation_player == null:
@@ -232,9 +234,10 @@ func set_weapon(identifier: String) -> void:
 	_refresh_attachment()
 
 
-func set_counter_pose(active: bool) -> void:
+func set_counter_pose(active: bool, weight: float = 1.0) -> void:
 	if pose_solver != null:
 		pose_solver.counter_guard = active
+		pose_solver.counter_weight = clampf(weight, 0.0, 1.0)
 
 
 func set_mekatana_pose(step: int, phase: String, progress: float) -> void:

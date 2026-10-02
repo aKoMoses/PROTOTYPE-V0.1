@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -38,8 +39,8 @@ func _update_pelto_pull(delta: float) -> void:
 	if step_distance <= 0.0001:
 		player._cancel_pelto_pull()
 		return
-	var collision := player.move_and_collide(player._pelto_pull_direction * step_distance)
-	player.global_position.y = 0.0
+	var collision := player.move_and_collide(ARENA_TRAVERSAL.motion(player, player._pelto_pull_direction * step_distance))
+	ARENA_TRAVERSAL.snap(player)
 	var travelled := collision.get_travel().length() if collision != null else step_distance
 	player._pelto_pull_distance_remaining = maxf(0.0, player._pelto_pull_distance_remaining - travelled)
 	player._pelto_pull_time_remaining = maxf(0.0, player._pelto_pull_time_remaining - available_time)

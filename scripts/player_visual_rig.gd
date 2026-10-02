@@ -194,6 +194,7 @@ func install_animated_model(procedural_body: Node3D, model_scale: float = 2.0) -
 	visual_motion.add_child(model_axis_correction)
 	imported_root.name = "ImportedAnimatedModel"
 	model_axis_correction.add_child(imported_root)
+	preload("res://scripts/robot_surface_polish.gd").apply(imported_root, true)
 	skeleton = _find_skeleton(imported_root)
 	animation_player = _find_animation_player(imported_root)
 	if skeleton == null:
@@ -410,9 +411,10 @@ func clear_pelto_pose() -> void:
 		aim_modifier.clear_pelto_pose()
 
 
-func set_counter_pose(active: bool) -> void:
+func set_counter_pose(active: bool, weight: float = 1.0) -> void:
 	if aim_modifier != null:
 		aim_modifier.counter_guard = active
+		aim_modifier.counter_weight = clampf(weight, 0.0, 1.0)
 
 
 func set_mekatana_pose(step: int, phase: String, progress: float) -> void:

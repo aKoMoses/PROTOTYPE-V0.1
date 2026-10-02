@@ -4,10 +4,12 @@ Un seul slot passif, sauvegardé dans le format existant. Valeurs de base centra
 
 | Passif | Effet et valeurs |
 | --- | --- |
-| Réacteur auxiliaire | Impact direct hostile d’arme accepté : −0,25 s au cooldown offensif actif. Intervalle interne 0,75 s, une fois par attaque émise, aucun crédit conservé. |
-| Traqueur | Trois attaques distinctes sur la même cible, intervalle ≤4 s : SPOTTED 3 s. Changer de cible redémarre à une marque ; aucun cumul ni prolongation pendant sa propre révélation. |
-| Alternateur | Impact direct d’un module offensif : prochaine attaque d’arme +15 % de dégâts directs, fenêtre 3 s. Une fois par activation du module. |
-| Inertie | Fin réussie du dash Pyro Boots : prochaine attaque d’arme applique SLOW 20 % pendant 1 s, fenêtre 2,5 s. Les déplacements d’attaque et téléportations sont exclus. |
+| Réacteur auxiliaire | Impact direct hostile d’arme accepté : −0,60 s au cooldown offensif actif. Intervalle interne 0,75 s, une fois par attaque émise, aucun crédit conservé. |
+| Traqueur | Deux attaques distinctes sur la même cible, intervalle ≤4 s : SPOTTED 4 s. Changer de cible redémarre à une marque ; aucun cumul ni prolongation pendant sa propre révélation. |
+| Alternateur | Impact direct d’un module offensif : prochaine attaque d’arme +30 % de dégâts directs, fenêtre 3 s. Une fois par activation du module. |
+| Inertie | Pyro Boots terminé, Bio Injector activé ou arrivée réussie de Permutation/Eclipse : prochaine attaque d’arme applique SLOW 25 % pendant 1,5 s, fenêtre 2,5 s. Les mobilités interrompues, déplacements d’attaque et téléportations Javelin sont exclus. |
+
+Ces valeurs intègrent la [passe de renforcement du 2 octobre](catalogue-renforcement.md).
 
 Alternateur et Inertie sont consommés lors de l’émission réelle, même si l’attaque rate. Une commande refusée ou une préparation annulée conserve le bonus. Chaque projectile conserve les paramètres enregistrés à son émission. Les pellets partagent le contexte d’une salve ; un cleave peut appliquer Inertie à chaque adversaire, une fois par cible.
 

@@ -8,6 +8,8 @@ uniform float wind_strength : hint_range(0.0, 1.0) = 0.65;
 uniform float motion_scale : hint_range(0.0, 1.0) = 1.0;
 uniform float phase = 0.0;
 uniform bool four_corner_pin = false;
+uniform bool gear_banner = false;
+uniform float fabric_aspect = 2.0;
 
 void vertex() {
 	// Banner UV.y=0 is sewn to the fixed header. Canopy boundaries are fixed
@@ -26,6 +28,19 @@ void vertex() {
 
 void fragment() {
 	vec3 weave = texture(canvas_texture, UV).rgb;
-	ALBEDO = weave * canvas_tint.rgb;
+	// Separate the painted insignia from the fabric pigment: multiplying the
+	// cream gear by red canvas made it disappear in the old banner.
+	float crease = sin(UV.x * 28.0 + sin(UV.y * 4.0) * 2.0) * 0.035;
+	ALBEDO = mix(vec3(0.78), weave, 0.25) * canvas_tint.rgb * (1.0 + crease);
+	if (gear_banner) {
+		vec2 p = (UV - vec2(0.5, 0.52)) * vec2(fabric_aspect, 1.0);
+		float radius = length(p);
+		float angle = atan(p.y, p.x);
+		float edge = 0.215 + 0.037 * smoothstep(-0.18, 0.18, cos(angle * 12.0));
+		float gear = (1.0 - smoothstep(edge - 0.007, edge + 0.007, radius))
+			* smoothstep(0.12, 0.13, radius);
+		float rubbed = smoothstep(0.05, 0.22, fract(sin(dot(floor(UV * 320.0), vec2(12.9898, 78.233))) * 43758.5453));
+		ALBEDO = mix(ALBEDO, vec3(0.63, 0.55, 0.40), gear * rubbed * 0.88);
+	}
 	ROUGHNESS = 0.96;
 }

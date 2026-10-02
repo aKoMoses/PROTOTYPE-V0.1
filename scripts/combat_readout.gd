@@ -125,10 +125,10 @@ func set_longshot_cycle(active: bool, count: int, ready: bool) -> void:
 	_show_longshot = active
 	_sync_weapon_badge()
 	_longshot_ready.visible = active and ready
-	var completed := clampi(count, 0, 4)
+	var completed := clampi(count, 0, 2)
 	for index in _longshot_segments.size():
 		_longshot_segments[index].visible = active
-		_longshot_segments[index].color = Color("#b8faff") if ready else Color("#42d9e5") if index < completed else Color("#344a50")
+		_longshot_segments[index].color = Color("#ffd477") if ready else Color("#42d9e5") if index < completed else Color("#344a50")
 
 
 func _sync_weapon_badge() -> void:
@@ -203,9 +203,9 @@ func _build() -> void:
 	plate.name = "MetalPlate"
 	plate.position = Vector2(5, 4)
 	plate.size = Vector2(290, 79)
-	var plate_style := _panel_style(Color("#211d1e"), Color("#a57b50"), 4, 11)
-	plate_style.shadow_color = Color(0.03, 0.02, 0.02, 0.65)
-	plate_style.shadow_size = 5
+	var plate_style := _panel_style(Color("#211d1ef0"), Color("#8b7966"), 2, 7)
+	plate_style.shadow_color = Color(0.03, 0.02, 0.02, 0.45)
+	plate_style.shadow_size = 3
 	plate.add_theme_stylebox_override("panel", plate_style)
 	root.add_child(plate)
 	var header := Panel.new()
@@ -236,7 +236,7 @@ func _build() -> void:
 	var track := Panel.new()
 	track.position = Vector2(13, 45)
 	track.size = Vector2(274, 34)
-	track.add_theme_stylebox_override("panel", _panel_style(Color("#0c1113"), Color("#665346"), 2, 4))
+	track.add_theme_stylebox_override("panel", _panel_style(Color("#0c1113"), Color("#665346"), 1, 3))
 	root.add_child(track)
 	for index in range(SEGMENT_COUNT):
 		var cell := Panel.new()
@@ -253,7 +253,7 @@ func _build() -> void:
 	_badge = Panel.new()
 	_badge.position = Vector2(112, 78)
 	_badge.size = Vector2(76, 25)
-	_badge.add_theme_stylebox_override("panel", _panel_style(Color("#241f1f"), Color("#a57b50"), 2, 5))
+	_badge.add_theme_stylebox_override("panel", _panel_style(Color("#241f1f"), Color("#8b7966"), 1, 4))
 	root.add_child(_badge)
 	_badge_mark = _label("◆", 19, _accent)
 	_badge_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -342,16 +342,16 @@ func _build() -> void:
 	_blaster_progress_tip.size = Vector2(3, 4)
 	_blaster_progress_tip.visible = false
 	_blaster_progress_track.add_child(_blaster_progress_tip)
-	for index in 4:
+	for index in 2:
 		var segment := ColorRect.new()
 		segment.name = "LongshotSegment%d" % (index + 1)
-		segment.position = Vector2(113 + index * 20, 86)
-		segment.size = Vector2(14, 9)
+		segment.position = Vector2(113 + index * 40, 86)
+		segment.size = Vector2(34, 9)
 		segment.color = Color("#344a50")
 		segment.visible = false
 		root.add_child(segment)
 		_longshot_segments.append(segment)
-	_longshot_ready = _label("TIR AMÉLIORÉ PRÊT", 9, Color("#b8faff"))
+	_longshot_ready = _label("EXÉCUTION PRÊTE", 9, Color("#ffd477"))
 	_longshot_ready.name = "LongshotEnhancedReady"
 	_longshot_ready.position = Vector2(86, 96)
 	_longshot_ready.size = Vector2(128, 12)
@@ -361,8 +361,8 @@ func _build() -> void:
 	for bolt_position in [Vector2(12, 12), Vector2(276, 12)]:
 		var bolt := Panel.new()
 		bolt.position = bolt_position
-		bolt.size = Vector2(10, 10)
-		bolt.add_theme_stylebox_override("panel", _panel_style(Color("#d1a670"), Color("#59402d"), 2, 5))
+		bolt.size = Vector2(7, 7)
+		bolt.add_theme_stylebox_override("panel", _panel_style(Color("#9f8b70"), Color("#59402d"), 1, 4))
 		root.add_child(bolt)
 	_sprite = Sprite3D.new()
 	_sprite.name = "HealthBarSprite"

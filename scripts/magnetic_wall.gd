@@ -39,6 +39,37 @@ static func owned_exclusions(context: Node, excluded: Array) -> Array[RID]:
 	return result
 
 
+static func find_placement(actor: CollisionObject3D, direction: Vector3, distance: float, field_width: float, field_height: float, arena_center: Vector3 = Vector3.ZERO) -> Vector3:
+	direction.y = 0.0
+	if direction.length_squared() < 0.001:
+		return Vector3.INF
+	direction = direction.normalized()
+	var side := direction.cross(Vector3.UP)
+	var excluded := owned_exclusions(actor, [actor.get_rid()])
+	for forward in [distance, distance * 0.8, distance * 0.6]:
+		for lateral in [0.0, 0.35, -0.35]:
+			var center := actor.global_position + direction * float(forward) + side * float(lateral)
+			if absf(center.x - arena_center.x) > 23.0 or absf(center.z - arena_center.z) > 23.0:
+				continue
+			var ray := PhysicsRayQueryParameters3D.create(actor.global_position + Vector3.UP * 0.72, center + Vector3.UP * 0.72)
+			ray.collision_mask = 1 | 8
+			ray.collide_with_areas = true
+			ray.exclude = excluded
+			if not actor.get_world_3d().direct_space_state.intersect_ray(ray).is_empty():
+				continue
+			var shape := BoxShape3D.new()
+			shape.size = Vector3(field_width, maxf(0.1, field_height - 0.12), 0.18)
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = shape
+			query.transform = Transform3D(Basis(Vector3.UP, atan2(direction.x, direction.z)), center + Vector3.UP * (field_height * 0.5 + 0.04))
+			query.collision_mask = 1 | 8
+			query.collide_with_areas = true
+			query.exclude = excluded
+			if actor.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
+				return center
+	return Vector3.INF
+
+
 func _ready() -> void:
 	name = "MagneticField"
 	add_to_group(GROUP)

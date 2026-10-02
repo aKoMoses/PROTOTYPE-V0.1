@@ -3,9 +3,14 @@ extends SceneTree
 const STATE := preload("res://scripts/longshot_state.gd")
 const PROJECTILE := preload("res://scripts/longshot_projectile.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const LOADOUT := preload("res://scripts/loadout_state.gd")
 
 var _failures: Array[String] = []
 var _checks := 0
+
+class DamageActor extends StaticBody3D:
+	func take_damage(_amount: float, _source: String = "", _attack_id: String = "") -> float:
+		return _amount
 
 
 func _initialize() -> void:
@@ -24,6 +29,7 @@ func _run() -> void:
 	await _test_multiple_colliders()
 	await _test_range_and_shooter_movement()
 	await _test_magnetic_area()
+	await _test_execution_piercing()
 	for failure in _failures:
 		push_error("LONGSHOT: " + failure)
 	print("LONGSHOT PROJECTILE: %s (%d checks, %d failures)" % ["PASS" if _failures.is_empty() else "FAIL", _checks, _failures.size()])
@@ -38,22 +44,79 @@ func _test_state() -> void:
 	var state := STATE.new()
 	var other := STATE.new()
 	for shot in range(1, 16):
-		_check(state.next_enhanced() == (shot % 5 == 0), "next projectile enhanced exactly at rank %d" % shot)
-		_check(state.commit_shot() == (shot % 5 == 0), "emitted projectile enhanced exactly at rank %d" % shot)
+		var enhanced := shot % 3 == 0
+		_check(state.next_enhanced() == enhanced, "two successful shots prepare execution %d" % shot)
+		_check(state.commit_shot() == enhanced, "execution consumed on emission %d" % shot)
+		state.register_hit(str(shot), enhanced)
+		_check(not state.register_hit(str(shot), enhanced), "piercing victims never count the same shot twice")
 	_check(state.normal_shots() == 0 and other.shots_fired == 0, "cycle wraps and belongs to its weapon instance")
 	state.reset()
 	_check(state.shots_fired == 0 and not state.is_enhanced_ready(), "explicit replacement/death reset clears cycle")
+	state.commit_shot()
+	state.register_hit("one", false)
+	state.commit_shot()
+	_check(state.hits == 1, "miss preserves one acquired impact")
+	_check(is_equal_approx(state.movement_multiplier(), 1.2), "successful hit grants mobility")
+	state.tick(0.71)
+	_check(is_equal_approx(state.movement_multiplier(), 1.0) and state.hits == 1, "speed expires while precision persists")
+	state.reset()
 	var start := float(definition.distance_start)
 	var maximum := float(definition.distance_max)
 	var base := float(definition.damage)
 	_check(is_equal_approx(STATE.damage_at_distance(0.0, false), base), "contact damage equals base")
 	_check(is_equal_approx(STATE.distance_multiplier(start), 1.0), "distance bonus starts continuously")
-	_check(is_equal_approx(STATE.distance_multiplier((start + maximum) * 0.5), 1.375), "medium distance uses linear progression")
-	_check(is_equal_approx(STATE.distance_multiplier(maximum), 1.75), "maximum distance reaches 1.75")
-	_check(is_equal_approx(STATE.distance_multiplier(maximum + 100.0), 1.75), "distance bonus remains capped")
-	_check(is_equal_approx(STATE.damage_at_distance(maximum, true), base * 2.45), "enhanced maximum combines both multipliers")
-	_check(is_equal_approx(STATE.damage_at_distance(maximum, true, definition, 2.0), base * 4.9), "power scales base once")
+	_check(is_equal_approx(STATE.damage_at_distance(-10.0, false), base), "negative distance cannot reduce base damage")
+	_check(is_equal_approx(STATE.damage_at_distance(start - 0.001, false), base), "short-range damage remains unchanged")
+	_check(is_equal_approx(STATE.distance_multiplier((start + maximum) * 0.5), 1.625), "medium distance uses linear progression")
+	_check(is_equal_approx(STATE.distance_multiplier(maximum), 2.25), "maximum distance reaches 2.25")
+	_check(is_equal_approx(STATE.distance_multiplier(maximum + 100.0), 2.25), "distance bonus remains capped")
+	_check(is_equal_approx(STATE.damage_at_distance(maximum, true), base * 4.05), "enhanced maximum combines both multipliers")
+	_check(is_equal_approx(STATE.damage_at_distance(maximum, true, definition, 2.0), base * 8.1), "power scales base once")
+	_check(LOADOUT.stat_line("longshot").begins_with("90–203 dégâts"), "Forge stat line displays current distance damage")
+	var description := LOADOUT.category_description("longshot")
+	_check(description.contains("6 à 18 m") and description.contains("+125 %") and description.contains("projectile"), "Forge explains travelled distance and increased bonus")
 	_check(absf(STATE.distance_multiplier(start + 0.001) - STATE.distance_multiplier(start)) < 0.001, "progression has no damage step")
+
+
+func _test_execution_piercing() -> void:
+	var actors: Array[Node] = []
+	for z in [-4.0, -8.0, -16.0]:
+		var actor := DamageActor.new()
+		actor.position = Vector3(0, 1, z)
+		actor.collision_layer = 2
+		for offset in [0.0, -0.15]:
+			var shape := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(1, 2, 0.2)
+			shape.shape = box
+			shape.position.z = offset
+			actor.add_child(shape)
+		current_scene.add_child(actor)
+		actors.append(actor)
+	var wall := _box(Vector3(0, 1, -12), Vector3(3, 2, 0.012))
+	await _settle()
+	var shot := _shot(Vector3(0, 1, 0), 150, 32, 0.135, [], 3)
+	shot.set("_piercing", true)
+	var contacts: Array[Dictionary] = []
+	shot.impacted.connect(func(hit: Dictionary, distance: float) -> void: contacts.append({"hit": hit, "distance": distance}))
+	var end := _record(shot)
+	shot._physics_process(0.2)
+	_check(contacts.size() == 3, "execution hits two robots and then the wall in one low-frequency step")
+	if contacts.size() == 3:
+		_check(contacts[0].hit.collider == actors[0] and contacts[1].hit.collider == actors[1] and contacts[2].hit.collider == wall, "ordered impacts exclude every shape of a pierced robot")
+		_check(absf(float(contacts[0].distance) - 3.9) < 0.01 and absf(float(contacts[1].distance) - 7.9) < 0.01, "each victim uses its own distance from muzzle")
+	_check(int(end.count) == 1 and end.hit.get("collider") == wall, "execution finishes once at first thin wall, protecting the robot behind it")
+	await process_frame
+	var blocked := _shot(Vector3(0, 1, 0), 150, 32, 0.135, [], 3)
+	blocked.set("_piercing", true)
+	var blocked_contacts: Array = []
+	blocked.impacted.connect(func(hit: Dictionary, _distance: float) -> void:
+		blocked_contacts.append(hit)
+		hit["stop_piercing"] = true)
+	blocked._physics_process(0.2)
+	_check(blocked_contacts.size() == 1, "a rejected damage impact stops execution before later victims")
+	await process_frame
+	await _remove(actors + [wall])
 
 
 func _test_first_collision() -> void:

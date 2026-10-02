@@ -98,6 +98,7 @@ func _run() -> void:
 	await _settle()
 	_check(_player._visual_rig.skeleton != null and _player._longshot_visual.find_child("LongshotGLB", true, false) != null, "real skeletal player carries the imported LONGSHOT")
 	await _test_damage_and_flight()
+	await _test_execution_targets()
 	await _test_emitted_cycle()
 	await _test_rejections_and_cancellation()
 	await _test_instance_lifecycle()
@@ -143,16 +144,16 @@ func _test_damage_and_flight() -> void:
 		_check(absf(_probe.total_damage - expected) < 0.03, "absolute normal damage %.2f at %.0f m" % [expected, distance])
 		_check(_probe.total_damage >= previous_damage, "damage progression is monotonic")
 		previous_damage = _probe.total_damage
-	_check(is_equal_approx(previous_damage, 63.0), "long-range damage stays capped at 63")
+	_check(is_equal_approx(previous_damage, 202.5), "long-range damage stays capped at 202.5")
 	await _reset_fixture()
-	_player._longshot_state.shots_fired = 4
+	_player._longshot_state.hits = 2
 	var enhanced := await _fire()
 	if not bool(enhanced.get("missing", true)):
 		_probe.position = Vector3(enhanced.origin) + Vector3(enhanced.direction) * 22.1
 		_player.position = Vector3(-60, 0, 60)
 		await create_timer(0.5).timeout
-		_check(bool(enhanced.enhanced) and _probe.hit_count == 1, "fifth long-range shot remains one projectile and one hit")
-		_check(absf(_probe.total_damage - 88.2) < 0.03, "enhanced maximum is 88.2 damage after shooter relocation")
+		_check(bool(enhanced.enhanced) and _probe.hit_count == 1, "execution damages each victim only once")
+		_check(absf(_probe.total_damage - 364.5) < 0.03, "execution maximum is 364.5 damage after shooter relocation")
 
 
 func _test_emitted_cycle() -> void:
@@ -161,27 +162,87 @@ func _test_emitted_cycle() -> void:
 	wall.collision_layer = 0
 	await _settle()
 	var enhanced_ranks: Array[int] = []
-	for rank in range(1, 16):
+	for rank in range(1, 7):
 		wall.collision_layer = 1 if rank % 3 == 0 else 0
 		await _settle()
 		var shot := await _fire()
-		_check(_player.get_longshot_shots_fired() == rank, "emission advances cycle despite miss or wall at rank %d" % rank)
-		_check(_player.get_longshot_cycle_count() == rank % 5, "public cycle is real emitted count at rank %d" % rank)
-		_check(_player.is_longshot_enhanced_ready() == (rank % 5 == 4), "ready state advertises the fifth shot at rank %d" % rank)
-		_check(int(_player._longshot_visual.get("_cycle_count")) == rank % 5 and bool(_player._longshot_visual.get("_enhanced_ready")) == (rank % 5 == 4), "weapon core follows authoritative cycle at rank %d" % rank)
-		if not bool(shot.get("missing", true)):
-			if bool(shot.enhanced):
-				enhanced_ranks.append(rank)
-			var expected_speed := 75.0 if bool(shot.enhanced) else 60.0
-			var expected_radius := 0.1125 if bool(shot.enhanced) else 0.075
-			_check(is_equal_approx(float(shot.speed), expected_speed) and is_equal_approx(float(shot.radius), expected_radius), "emitted size and speed match rank %d" % rank)
+		_check(_player.get_longshot_shots_fired() == rank and not bool(shot.get("enhanced", true)), "miss and wall never prepare execution")
 		await create_timer(0.13 if rank % 3 == 0 else 0.01).timeout
 		if rank % 3 == 0:
-			_check(not _last_hit_on(wall).is_empty(), "wall impact still leaves the cycle advanced at rank %d" % rank)
+			_check(not _last_hit_on(wall).is_empty(), "real wall contact is recorded")
+		_check(_player.get_longshot_cycle_count() == 0, "miss or wall leaves precision at zero")
 		await _clear_projectiles()
-	_check(enhanced_ranks == [5, 10, 15], "enhanced projectiles occur at exactly 5, 10 and 15")
 	wall.queue_free()
 	await _settle()
+	await _reset_fixture()
+	for rank in range(1, 10):
+		var shot := await _hit()
+		if bool(shot.get("enhanced", false)):
+			enhanced_ranks.append(rank)
+		var expected_count := rank % 3
+		_check(_player.get_longshot_cycle_count() == expected_count, "successful impacts drive precision at rank %d" % rank)
+		_check(_player.is_longshot_enhanced_ready() == (expected_count == 2), "two hits announce execution")
+		_check(int(_player._longshot_visual.get("_cycle_count")) == expected_count and bool(_player._longshot_visual.get("_enhanced_ready")) == (expected_count == 2), "weapon core follows impact state")
+		_check(is_equal_approx(float(shot.get("speed", 0)), 150.0 if bool(shot.get("enhanced", false)) else 120.0), "configured fast projectile")
+		_check(is_equal_approx(_player.get_current_move_speed(), _player.move_speed * 1.2), "each accepted shot grants speed")
+	_check(enhanced_ranks == [3, 6, 9], "every third successful shot is execution")
+	_player._update_module_cooldowns(0.71)
+	_check(is_equal_approx(_player.get_current_move_speed(), _player.move_speed), "mobility expires after 0.7 seconds")
+	await _reset_fixture()
+	await _hit()
+	await _fire()
+	await _clear_projectiles()
+	_check(_player.get_longshot_cycle_count() == 1, "miss preserves earned impact")
+	_player.set_touch_move_vector(Vector2.RIGHT)
+	_player.set_physics_process(true)
+	await create_timer(0.06).timeout
+	_check(absf(_player.velocity.length() - _player.move_speed * 1.2) < 0.01, "accepted hit boosts real physical movement")
+	_player.set_physics_process(false)
+	_player.set_touch_move_vector(Vector2.ZERO)
+
+
+func _hit() -> Dictionary:
+	var shot := await _fire()
+	if not bool(shot.get("missing", true)):
+		_probe.position = Vector3(shot.origin) + Vector3(shot.direction) * 8.1
+		await create_timer(0.22).timeout
+		_probe.position = Vector3(100, 1.5, 100)
+	await _clear_projectiles()
+	return shot
+
+
+func _test_execution_targets() -> void:
+	await _reset_fixture()
+	var second := DamageProbe.new()
+	var behind := DamageProbe.new()
+	for actor in [second, behind]:
+		actor.collision_layer = 2
+		actor.add_child(_probe.get_child(0).duplicate())
+		current_scene.add_child(actor)
+		actor.position = Vector3(100, 1.5, 100)
+	var wall := _box(Vector3(100, 1.5, 100), Vector3(4, 3, 0.012))
+	_player._longshot_state.hits = 2
+	var shot := await _fire()
+	if not bool(shot.get("missing", true)):
+		var origin: Vector3 = shot.origin
+		var direction: Vector3 = shot.direction
+		_probe.position = origin + direction * 4.1
+		second.position = origin + direction * 8.1
+		wall.position = origin + direction * 12.006
+		behind.position = origin + direction * 16.1
+		await create_timer(0.35).timeout
+		_check(_probe.hit_count == 1 and second.hit_count == 1 and behind.hit_count == 0, "real execution damages both aligned robots once and stops at wall")
+		_check(absf(_probe.total_damage - STATE.damage_at_distance(4.0, true)) < 0.03 and absf(second.total_damage - STATE.damage_at_distance(8.0, true)) < 0.03, "piercing damage uses individual travelled distances")
+		_check(_player.get_longshot_cycle_count() == 0 and _player._longshot_state.speed_remaining > 0.0, "multiple execution victims grant mobility without preparing another execution")
+	for actor in [second, behind, wall]:
+		actor.queue_free()
+	await _reset_fixture()
+	var pending := await _fire()
+	if not bool(pending.get("missing", true)):
+		_probe.position = Vector3(pending.origin) + Vector3(pending.direction) * 22.1
+		_player.reset_longshot_state()
+		await create_timer(0.3).timeout
+		_check(_player.get_longshot_cycle_count() == 0 and _player._longshot_state.speed_remaining == 0.0, "an old in-flight shot cannot grant progress or speed to a replacement instance")
 
 
 func _test_rejections_and_cancellation() -> void:
@@ -223,15 +284,14 @@ func _test_rejections_and_cancellation() -> void:
 
 func _test_instance_lifecycle() -> void:
 	await _reset_fixture()
-	for _shot in range(4):
-		await _fire()
-		await _clear_projectiles()
-	_check(_player.is_longshot_enhanced_ready(), "four real emissions prepare fifth shot")
+	for _shot in range(2):
+		await _hit()
+	_check(_player.is_longshot_enhanced_ready(), "two real hits prepare execution")
 	_player.set_weapon("shotgun")
 	await _settle()
 	_player.set_weapon("longshot")
 	await _settle()
-	_check(_player.get_longshot_cycle_count() == 4 and _player.is_longshot_enhanced_ready(), "same carried instance retains ready state after switch")
+	_check(_player.get_longshot_cycle_count() == 2 and _player.is_longshot_enhanced_ready(), "same carried instance retains ready state after switch")
 	await create_timer(0.3).timeout
 	_check(_player.is_longshot_enhanced_ready(), "progression does not expire between shots")
 	var shot := await _fire()
@@ -347,11 +407,11 @@ func _test_survival_upgrade() -> void:
 	build.evolutions = {}
 	_player.configure_survival_build(build)
 	_check(_player.get_longshot_shots_fired() == before and _player.get_weapon_id() == "longshot", "Survival stat upgrade preserves carried cycle")
-	_check(is_equal_approx(float(_player._longshot_definition.damage), 36.0 * 1.25), "Survival power rank applies damage multiplier once")
-	_check(is_equal_approx(float(_player._longshot_definition.cooldown), 1.05 * 0.864), "Survival tempo rank applies configured cadence multiplier")
+	_check(is_equal_approx(float(_player._longshot_definition.damage), 90.0 * 1.25), "Survival power rank applies damage multiplier once")
+	_check(is_equal_approx(float(_player._longshot_definition.cooldown), 0.85 * 0.864), "Survival tempo rank applies configured cadence multiplier")
 	# Reapplying the same rewards must read base settings instead of compounding.
 	_player.configure_survival_build(build)
-	_check(is_equal_approx(float(_player._longshot_definition.damage), 45.0) and _player.get_longshot_shots_fired() == before, "reapplying Survival upgrades neither compounds power nor resets cycle")
+	_check(is_equal_approx(float(_player._longshot_definition.damage), 112.5) and _player.get_longshot_shots_fired() == before, "reapplying Survival upgrades neither compounds power nor resets cycle")
 	# Generic weapon evolution cannot accidentally route this new weapon through
 	# the Blaster's secondary damage and piercing effects.
 	build.evolutions = {"weapon": true}
@@ -363,7 +423,7 @@ func _test_survival_upgrade() -> void:
 		_probe.position = Vector3(shot.origin) + Vector3(shot.direction) * 22.1
 		_player.position = Vector3(60, 0, 60)
 		await create_timer(0.5).timeout
-		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 78.75) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
+		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 253.125) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
 		_check(_legacy_projectiles == previous_legacy and _probe.status_applications == 0, "Survival LONGSHOT adds no Blaster secondary projectile or burn")
 	_player.apply_loadout(_loadout())
 

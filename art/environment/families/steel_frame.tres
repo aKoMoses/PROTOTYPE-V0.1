@@ -1,8 +1,18 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_steel_albedo.png" id="1_lhs6x"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_steel_normal.png" id="2_xlyln"]
+
 [resource]
 resource_name = "Salvage / steel_frame"
 vertex_color_use_as_albedo = true
-albedo_color = Color(0.20392157, 0.20392157, 0.18431373, 1)
-metallic = 0.7
-roughness = 0.68
+albedo_texture = ExtResource("1_lhs6x")
+metallic = 0.48
+roughness = 0.66
+normal_enabled = true
+normal_scale = 0.5
+normal_texture = ExtResource("2_xlyln")
+uv1_scale = Vector3(0.42, 0.42, 0.42)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5

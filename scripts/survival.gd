@@ -39,6 +39,13 @@ const REWARD_MUSIC_PATH := "res://son-musique/musiques/survie_respiration_loop.w
 const MUSIC_STAGE_VOLUME_DB := [-17.0, -17.0, -15.5]
 const REWARD_MUSIC_LOOP_START_S := 1.25
 const SPAWN_POINTS := [Vector3(-12, 0, -7), Vector3(10, 0, 3), Vector3(12, 0, -7), Vector3(-10, 0, 3), Vector3(0, 0, -9)]
+const DIRECTOR := preload("res://scripts/survival_director.gd")
+const EXPERIENCE := preload("res://scripts/review_preferences.gd")
+const FEEDBACK := preload("res://scripts/combat_feedback.gd")
+var _feedback: Control
+var _threat_label: Label
+var _threat_remaining := 0.0
+var _pending_reward_message := ""
 
 const SYNERGIES := preload("res://scripts/survival_synergies.gd")
 const RUN_STATS := preload("res://scripts/survival_run_stats.gd")
@@ -103,6 +110,7 @@ func _ready() -> void:
 	_build_world()
 	_build_player_and_camera()
 	_build_ui()
+	_feedback = FEEDBACK.attach(self, player, 100.0)
 	player.combat_state.damage_applied.connect(stats.record_received)
 	player.combat_state.healing_applied.connect(stats.record_heal)
 	_synergy_label = _label("", 13, Color("#efba6c"))
@@ -126,6 +134,8 @@ func _process(delta: float) -> void:
 	if _state == "transition" and player.position.x >= 34.0:
 		_enter_factory()
 	if _state == "combat":
+		_threat_remaining = maxf(0.0, _threat_remaining - delta)
+		_threat_label.visible = _threat_remaining > 0.0
 		stats.elapsed += delta
 		if not _reinforcement_roles.is_empty():
 			_reinforcement_remaining = maxf(0.0, _reinforcement_remaining - delta)
@@ -138,6 +148,7 @@ func _process(delta: float) -> void:
 				_repair = null
 	_pause_button.visible = (_state in ["combat", "transition"] or (_hud_editor != null and _hud_editor.visible)) and (_hud_controller == null or bool(_hud_controller.layout.pause.v))
 	if _state == "incoming":
+		_threat_label.visible = true
 		_arrival_remaining = maxf(0.0, _arrival_remaining - delta)
 		_arrival_label.text = "VAGUE %d DANS %.1f s" % [wave, _arrival_remaining]
 		for marker in _arrival_markers:
@@ -151,6 +162,9 @@ func _process(delta: float) -> void:
 			_reward_input_delay = -1.0
 			for card in _reward_overlay.find_children("RewardChoice*", "Button", true, false):
 				(card as Button).disabled = false
+			var reroll := _reward_overlay.find_child("RewardReroll", true, false) as Button
+			if reroll != null:
+				reroll.disabled = progression.rerolls_remaining <= 0
 	_update_spell_bar(build)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -540,6 +554,14 @@ func _build_ui() -> void:
 	_arrival_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_arrival_label.visible = false
 	_hud.add_child(_arrival_label)
+	_threat_label = _label("", 16, Color("#ffe3b2"))
+	_threat_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_threat_label.position = Vector2(-350, 220)
+	_threat_label.size = Vector2(700, 50)
+	_threat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_threat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_threat_label.visible = false
+	_hud.add_child(_threat_label)
 	_build_spell_bar()
 	_touch = Control.new()
 	_touch.name = "TouchControls"
@@ -708,7 +730,18 @@ func _show_reward_choices() -> void:
 	if start_choice:
 		_reward_content.add_child(_label("Réparation après les vagues 3, 6 et 9 · Kits de soin dans l'arène", 12, Color("#9dbab6")))
 		_reward_content.add_child(_button("RETOUR AU MENU", Callable(self, "_return_menu")))
+	else:
+		var reroll := _button("RELANCER LES CARTES · %d restante pour la partie" % progression.rerolls_remaining, _reroll_reward)
+		reroll.name = "RewardReroll"
+		reroll.disabled = _reward_input_delay >= 0.0 or progression.rerolls_remaining <= 0
+		_reward_content.add_child(reroll)
 	_reward_overlay.visible = true
+
+func _reroll_reward() -> void:
+	if _state != "reward" or _reward_input_delay >= 0.0:
+		return
+	if progression.reroll_reward(wave):
+		_show_reward_choices()
 
 func _build_pause_menu() -> void:
 	_pause_overlay = ColorRect.new()
@@ -1106,12 +1139,10 @@ func _start_wave() -> void:
 	_touch.visible = false
 	_arrival_remaining = 2.0
 	_arrival_label.visible = _hud_controller == null or bool(_hud_controller.layout.arrival.v)
-	_incoming_roles.clear()
-	var count: int = [3, 3, 4, 4, 6, 6, 7, 7, 8, 8, 10, 10][wave - 1]
-	for index in range(count):
-		_incoming_roles.append(["chaser", "shooter", "charger"][(wave + index - 1) % 3])
-	if wave == 12:
-		_incoming_roles[count - 1] = "boss"
+	_incoming_roles = DIRECTOR.roles(wave)
+	var count := _incoming_roles.size()
+	_threat_label.text = DIRECTOR.brief(wave)
+	_threat_remaining = 5.0
 	var split := ceili(count * 0.5)
 	_spawn_positions.clear()
 	_reinforcement_positions.clear()
@@ -1147,6 +1178,9 @@ func _begin_wave_combat() -> void:
 	_update_spell_bar(progression.build())
 	_touch.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
 	player.call("set_gameplay_enabled", true)
+	if _pending_reward_message != "":
+		_feedback.announce(_pending_reward_message, Color("#b0f3dd"), 2)
+		_pending_reward_message = ""
 
 func _role_color(role: String) -> Color:
 	return {"chaser": Color("#ee9361"), "shooter": Color("#70d3dc"), "charger": Color("#ee6264"), "boss": Color("#e7b850")}.get(role, Color.WHITE)
@@ -1178,6 +1212,7 @@ func _spawn_enemy(at: Vector3, role: String) -> void:
 	enemy.died.connect(_on_enemy_died.bind(enemy))
 	_enemies.append(enemy)
 	state.damage_applied.connect(stats.record_damage)
+	_feedback.register_target(enemy)
 	if wave in [3, 6, 9] and _enemies.size() == 1:
 		var elite: String = {3: "double_charge", 6: "spread", 9: "shield"}[wave]
 		bot.set("survival_elite", elite)
@@ -1224,6 +1259,7 @@ func _complete_wave() -> void:
 		_show_result(true)
 		return
 	_state = "reward"
+	_threat_label.hide()
 	_set_combat_sound_state(true, true)
 	_spell_bar.visible = false
 	get_tree().paused = true
@@ -1238,6 +1274,8 @@ func _choose_reward(choice: Dictionary) -> void:
 	get_tree().paused = false
 	_leave_reward_music()
 	player.call("configure_survival_build", progression.build())
+	if str(choice.kind) in ["synergy", "evolution"]:
+		_pending_reward_message = "✦ " + str(choice.title) + " · ACTIVÉ"
 	if wave % 3 == 0:
 		player.call("heal", 100.0, "wave_reward")
 	if wave == 6 and arena_center == Vector3.ZERO:
@@ -1263,6 +1301,7 @@ func _show_result(won: bool) -> void:
 	get_tree().paused = true
 	_stop_all_music()
 	_arrival_label.visible = false
+	_threat_label.hide()
 	_synergy_label.visible = false
 	_touch.visible = false
 	if player.survival_synergies != null:
@@ -1273,6 +1312,13 @@ func _show_result(won: bool) -> void:
 	summary.records_path = records_path
 	_ui_layer.add_child(summary)
 	summary.present(stats.snapshot(won, wave, progression.build()))
+	if won:
+		var unlocked := EXPERIENCE.unlock("survival", str(progression.weapon))
+		if not unlocked.is_empty():
+			var names := PackedStringArray()
+			for id in unlocked:
+				names.append(str(EXPERIENCE.BADGES[id]))
+			summary.status.text = "✦ Bannières débloquées : " + " · ".join(names)
 	summary.replay_requested.connect(_restart)
 	summary.menu_requested.connect(_return_menu)
 
@@ -1446,7 +1492,7 @@ func _reward_card_description(choice: Dictionary) -> String:
 		"power":
 			return {
 				"mekatana": "Tes frappes infligent davantage de dégâts, y compris les bonus du combo.",
-				"longshot": "Tes tirs infligent davantage de dégâts, y compris le cinquième.",
+				"longshot": "Tes tirs infligent davantage de dégâts, y compris EXÉCUTION.",
 				"blaster": "Tes tirs infligent davantage de dégâts.",
 				"shotgun": "Tes tirs infligent davantage de dégâts.",
 				"javelin": "Ton javelot inflige davantage de dégâts.",

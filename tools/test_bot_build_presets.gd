@@ -114,8 +114,8 @@ func _test_round_integration() -> void:
 	flow.set("round_number", 2)
 	scene.call("prepare_round", LOADOUT.defaults())
 	var second: Dictionary = scene.call("get_current_bot_build")
-	if str(second.id) == str(initial.id):
-		_failures.append("next round did not refresh archetype")
+	if second != initial:
+		_failures.append("next round changed the opponent before the match ended")
 	flow.set("match_id", 2)
 	flow.set("round_number", 1)
 	scene.call("prepare_round", LOADOUT.defaults())

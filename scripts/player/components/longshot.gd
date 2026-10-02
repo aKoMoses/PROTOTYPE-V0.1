@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -95,6 +96,7 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	var direction: Vector3 = player._visual_rig.get_aim_forward_direction() if player._has_skeletal_weapon_attachment() else player._normalized_aim_direction()
 	direction = direction.normalized()
 	var start := player._longshot_muzzle.global_position if player._longshot_muzzle != null else player.global_position + Vector3.UP * 0.9 + direction * 0.7
+	direction = ARENA_TRAVERSAL.shot_direction(player, start, direction)
 	var definition := player._longshot_definition.duplicate(true)
 	var radius := float(definition["projectile_radius"]) * (float(definition["enhanced_size_multiplier"]) if enhanced else 1.0)
 	var speed := float(definition["projectile_speed"]) * (float(definition["enhanced_speed_multiplier"]) if enhanced else 1.0)
@@ -108,13 +110,14 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	var excluded: Array[RID] = [player.get_rid()]
 	if player.survival_mode and player.survival_evolution_effects != null:
 		excluded.append_array(player.survival_evolution_effects.own_wall_exclusions())
-	projectile.configure(direction, speed, maximum, 1 | 2 | 4 | 8, excluded, radius)
+	projectile.configure(direction, speed, maximum, 1 | 2 | 4 | 8, excluded, radius, enhanced)
 	player._register_projectile_motion(projectile, start, start + direction * maximum, maximum / speed, radius)
 	var shot_id := "longshot:%d:%d" % [player.get_instance_id(), player._longshot_attack_token]
 	var passive_attack: Dictionary = {} if visual_only else player.emit_passive_weapon()
-	projectile.finished.connect(player._on_longshot_projectile_finished.bind(definition, enhanced, shot_id, visual_only, passive_attack))
-	# Progress belongs to this weapon instance; only a successfully created shot commits it.
-	if not visual_only:
+	passive_attack["longshot_generation"] = player._longshot_state.generation
+	projectile.impacted.connect(player._on_longshot_projectile_finished.bind(definition, enhanced, shot_id, visual_only, passive_attack))
+	# Only an emitted authoritative projectile consumes EXÉCUTION.
+	if not visual_only and player.passive_authoritative():
 		player._longshot_state.commit_shot()
 	player._last_projectile_direction = direction
 	player._mark_combat_event()
@@ -122,6 +125,10 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "longshot", 1.0 if enhanced else 0.0)
 		vfx.call("muzzle", player._longshot_muzzle, "longshot", 1.0 if enhanced else 0.0)
+		if enhanced:
+			projectile.advanced.connect(func(from: Vector3, to: Vector3) -> void:
+				if is_instance_valid(vfx):
+					vfx.call("tracer", from, to, radius * 0.65, Color("#ffd477"), 0.18))
 	if player._visual_rig != null:
 		player._visual_rig.play_shot_kick(0.70 if enhanced else 0.25)
 	else:
@@ -131,7 +138,7 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 		sound.play()
 	player._camera_impulse(0.07 if enhanced else 0.045, 0.05 if enhanced else 0.025)
 	if player._attack_label != null:
-		player._attack_label.text = "LONGSHOT  •  TIR AMÉLIORÉ" if enhanced else "LONGSHOT  •  %d / 4" % (shot_number % 5)
+		player._attack_label.text = "LONGSHOT  •  EXÉCUTION" if enhanced else "LONGSHOT  •  %d / 2 IMPACTS" % player._longshot_state.normal_shots()
 	# Check the full physical barrel route without relocating the projectile origin.
 	projectile.resolve_muzzle_guard(player.global_position + Vector3.UP * 0.9)
 	return true
@@ -143,12 +150,21 @@ func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definiti
 	var target := hit.get("collider") as Node
 	while target != null and not target.has_method("take_damage"):
 		target = target.get_parent()
-	if not visual_only and target != null:
+	if not visual_only and player.passive_authoritative() and target != null:
 		var damage: float = PLAYER_STATE.LONGSHOT_STATE.damage_at_distance(distance, enhanced, definition)
+		var shield_before := PLAYER_STATE.PASSIVE_STATE.shield_health(target)
 		var effective: float = player.passive_weapon_damage(target, damage, "player", shot_id, passive_attack, hit.position)
+		var accepted := PLAYER_STATE.PASSIVE_STATE.accepted_damage(target, effective, shield_before)
+		if accepted <= 0.0:
+			hit["stop_piercing"] = true
+		if accepted > 0.0 and not target.is_in_group("prototype0_homing_rockets") and PLAYER_STATE.COUNTER.enemies(player, target) and not player.is_real_dead() and int(passive_attack.get("longshot_generation", -1)) == player._longshot_state.generation:
+			player._longshot_state.register_hit(shot_id, enhanced, definition)
+			player._sync_weapon_readout()
 		if effective > 0.0 and target.has_method("flash_impact"):
 			target.call("flash_impact", enhanced)
-	player._contact_fx(hit, Color("#79efff") if enhanced else Color("#43d5e8"), 1.25 if enhanced else 0.65)
+		if effective > 0.0 and enhanced and not player.is_real_dead() and int(passive_attack.get("longshot_generation", -1)) == player._longshot_state.generation and PLAYER_STATE.COUNTER.enemies(player, target) and not target.is_in_group("prototype0_homing_rockets"):
+			player.call("present_combat_signature", "longshot", target, shot_id)
+	player._contact_fx(hit, Color("#ffd477") if enhanced else Color("#43d5e8"), 1.8 if enhanced else 0.9)
 	if enhanced:
 		var sfx := player.get_node_or_null("/root/GameSfx")
 		if sfx != null:
@@ -168,13 +184,13 @@ func _create_longshot_visual() -> void:
 	player._longshot_shot_audio = AudioStreamPlayer.new()
 	player._longshot_shot_audio.name = "LongshotShotAudio"
 	player._longshot_shot_audio.stream = PLAYER_STATE.BLASTER_SHOT_SOUND
-	player._longshot_shot_audio.pitch_scale = 0.84
+	player._longshot_shot_audio.pitch_scale = 0.80
 	player._longshot_shot_audio.volume_db = -8.0
 	player.add_child(player._longshot_shot_audio)
 	player._longshot_enhanced_audio = AudioStreamPlayer.new()
 	player._longshot_enhanced_audio.name = "LongshotEnhancedAudio"
 	player._longshot_enhanced_audio.stream = PLAYER_STATE.BLASTER_CHARGED_SHOT_SOUND
-	player._longshot_enhanced_audio.pitch_scale = 0.78
+	player._longshot_enhanced_audio.pitch_scale = 0.68
 	player._longshot_enhanced_audio.volume_db = -5.0
 	player.add_child(player._longshot_enhanced_audio)
 

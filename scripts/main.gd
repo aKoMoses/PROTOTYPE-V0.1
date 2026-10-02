@@ -2,6 +2,8 @@ extends Node3D
 
 const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
 const ARENA_HAZARDS := preload("res://scripts/arena_hazards.gd")
+const TEST_ARENA := preload("res://scripts/test_arena.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const CAMERA_RIG_SCRIPT := preload("res://scripts/camera_rig.gd")
 const TARGET_SCRIPT := preload("res://scripts/target_dummy.gd")
@@ -41,6 +43,9 @@ var fog_of_war: Node3D
 var duel_active := false
 var arena_variant := "classic"
 var _arena_hazards: Node3D
+var _classic_arena_nodes: Array[Node3D] = []
+var _classic_blockers: Array[StaticBody3D] = []
+var _test_arena: Node3D
 var _bot_build: Dictionary = {}
 var _ambient_clock := 0.0
 var _flicker_lights: Array[OmniLight3D] = []
@@ -129,7 +134,12 @@ func _ready() -> void:
 	vfx.name = "VFXManager"
 	add_child(vfx)
 	_build_environment()
+	var existing_nodes := get_children()
 	_build_arena()
+	for child in get_children():
+		if child is Node3D and not child in existing_nodes:
+			_classic_arena_nodes.append(child)
+	_classic_blockers.assign(_arena_blockers)
 	_build_player()
 	_build_camera()
 	_build_target()
@@ -148,6 +158,7 @@ func _ready() -> void:
 
 
 func _on_network_match_started(host_id: int, guest_id: int) -> void:
+	set_arena_variant("classic")
 	if _arena_hazards != null:
 		_arena_hazards.call("set_enabled", false)
 	if network_match != null and is_instance_valid(network_match):
@@ -1679,6 +1690,8 @@ func set_menu_mode(menu_mode: bool) -> void:
 
 
 func set_menu_showcase_enabled(value: bool) -> void:
+	if value and arena_variant == "test":
+		set_arena_variant("classic")
 	if DisplayServer.get_name() == "headless":
 		return
 	if _menu_showcase_active == value:
@@ -1761,8 +1774,8 @@ func _set_menu_showcase_clip(clip_index: int) -> void:
 			camera.fov = camera_fovs[clip_index]
 
 
-func start_duel(loadout: Dictionary) -> void:
-	_bot_build_round_key = ""
+func start_duel(loadout: Dictionary, rematch: bool = false) -> void:
+	_bot_build_round_key = str(game_flow.match_id) if rematch and game_flow != null else ""
 	prepare_round(loadout)
 
 
@@ -1774,11 +1787,12 @@ func prepare_round(loadout: Dictionary) -> void:
 		return
 	reset_round_camera()
 	clear_transient_fx()
-	player.position = Vector3(-3.5, 0.0, 17.0)
-	target.position = Vector3(3.5, 0.0, 15.5)
+	player.position = Vector3(-3.5, 0.0, 11.8) if arena_variant == "test" else Vector3(-3.5, 0.0, 17.0)
+	target.position = Vector3(3.5, 0.0, -11.8) if arena_variant == "test" else Vector3(3.5, 0.0, 15.5)
+	target.call("set_training_bot_spawn_position", target.position)
 	target.call("set_duel_mode", true)
-	var round_key := "%d:%d" % [game_flow.match_id if game_flow != null else 0, maxi(1, game_flow.round_number if game_flow != null else 1)]
-	# start_duel and its countdown both prepare the initial round. Draw once.
+	var round_key := str(game_flow.match_id if game_flow != null else 0)
+	# Keep the opponent's identity and build for the whole match, including draws.
 	if _bot_build_current.is_empty() or round_key != _bot_build_round_key:
 		_bot_build_current = _bot_build_presets.next_preset()
 		_bot_build_round_key = round_key
@@ -1843,9 +1857,71 @@ func stop_duel() -> void:
 
 
 func set_arena_variant(value: String) -> void:
-	arena_variant = "hazards" if value == "hazards" else "classic"
+	var next := value if value in ["classic", "hazards", "test"] else "classic"
+	if is_instance_valid(network_match):
+		next = "classic"
+	if next != arena_variant and (next == "test" or arena_variant == "test"):
+		if _test_arena == null:
+			_test_arena = TEST_ARENA.new()
+			_test_arena.name = "TestArena"
+			add_child(_test_arena)
+			_test_arena.call("configure", _classic_arena_nodes, self)
+		var testing := next == "test"
+		for node in _classic_arena_nodes:
+			_set_arena_branch_active(node, not testing)
+		_set_arena_branch_active(_test_arena, testing)
+		var presentation := get_node_or_null("ArenaPresentation") as Node3D
+		if presentation != null:
+			presentation.visible = not testing
+		_arena_blockers.clear()
+		if testing:
+			for body in _test_arena.find_children("*", "StaticBody3D", true, false):
+				if body.get_meta("blocks_navigation", false):
+					_arena_blockers.append(body)
+			_arena_blockers.append_array(_test_arena.get("surfaces"))
+		else:
+			_arena_blockers.assign(_classic_blockers)
+		for surface in _test_arena.get("surfaces"):
+			if testing:
+				player.add_collision_exception_with(surface)
+			else:
+				player.remove_collision_exception_with(surface)
+	arena_variant = next
+	if sight_tracker != null:
+		sight_tracker.call("_cache_obstacles")
+	if player != null:
+		ARENA_TRAVERSAL.snap(player)
+	if target != null:
+		ARENA_TRAVERSAL.snap(target)
 	if _arena_hazards != null:
 		_arena_hazards.call("set_enabled", arena_variant == "hazards" and not is_instance_valid(network_match))
+
+
+func _set_arena_branch_active(node: Node, enabled: bool) -> void:
+	if node is Node3D:
+		if not node.has_meta("arena_visible"):
+			node.set_meta("arena_visible", node.visible)
+		node.visible = node.get_meta("arena_visible") if enabled else false
+	if not node.has_meta("arena_process_mode"):
+		node.set_meta("arena_process_mode", node.process_mode)
+	node.process_mode = node.get_meta("arena_process_mode") if enabled else Node.PROCESS_MODE_DISABLED
+	if node is CollisionObject3D:
+		if not node.has_meta("arena_collision_layer"):
+			node.set_meta("arena_collision_layer", node.collision_layer)
+			node.set_meta("arena_collision_mask", node.collision_mask)
+		node.collision_layer = node.get_meta("arena_collision_layer") if enabled else 0
+		node.collision_mask = node.get_meta("arena_collision_mask") if enabled else 0
+	for group in ["repair_kits", "bush_placeholder"]:
+		var key: String = "arena_group_" + str(group)
+		if node.is_in_group(group):
+			node.set_meta(key, true)
+		if node.get_meta(key, false):
+			if enabled:
+				node.add_to_group(group)
+			else:
+				node.remove_from_group(group)
+	for child in node.get_children():
+		_set_arena_branch_active(child, enabled)
 
 
 func focus_round_winner(player_won: bool) -> void:

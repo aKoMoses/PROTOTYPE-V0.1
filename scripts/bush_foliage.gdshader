@@ -24,8 +24,8 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = COLOR.rgb;
-	ROUGHNESS = 0.96;
-	SPECULAR = 0.12;
+	ROUGHNESS = mix(0.97, 0.84, UV.y);
+	SPECULAR = 0.16;
 	// A little wrapped leaf light keeps the dark roots readable from above.
-	EMISSION = COLOR.rgb * UV.y * 0.055;
+	EMISSION = COLOR.rgb * UV.y * 0.035;
 }

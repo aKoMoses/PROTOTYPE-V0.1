@@ -5,7 +5,7 @@ extends SceneTree
 const ART_DIR := "res://art/environment/families/"
 const SCENE_DIR := "res://scenes/environment/"
 const NAMES := ["paint_cream", "paint_ivory", "steel_frame", "joint_rust", "sand_ochre", "cloth_brick"]
-const COLORS := [Color("#d8c7a5"), Color("#e6d9b6"), Color("#34342f"), Color("#a9633b"), Color("#b4945f"), Color("#833b30")]
+const COLORS := [Color.WHITE, Color("#e7e2d3"), Color.WHITE, Color("#9b603b"), Color("#b99a61"), Color("#884535")]
 var materials: Array[Material] = []
 var batches: Array = []
 
@@ -17,8 +17,18 @@ func _initialize() -> void:
 		material.resource_name = "Salvage / " + NAMES[index]
 		material.albedo_color = COLORS[index]
 		material.vertex_color_use_as_albedo = true
-		material.roughness = [0.86, 0.89, 0.68, 0.96, 0.94, 0.99][index]
-		material.metallic = [0.25, 0.20, 0.70, 0.34, 0.12, 0.0][index]
+		material.roughness = [0.85, 0.88, 0.66, 0.96, 0.94, 0.99][index]
+		material.metallic = [0.08, 0.08, 0.48, 0.18, 0.05, 0.0][index]
+		if index in [0, 1, 2]:
+			var finish := "steel" if index == 2 else "paint"
+			material.albedo_texture = load("res://art/environment/courtyard_%s_albedo.png" % finish)
+			material.normal_enabled = true
+			material.normal_texture = load("res://art/environment/courtyard_%s_normal.png" % finish)
+			material.normal_scale = 0.5
+			material.uv1_triplanar = true
+			material.uv1_world_triplanar = true
+			material.uv1_scale = Vector3(0.42, 0.42, 0.42)
+			material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 		ResourceSaver.save(material, ART_DIR + NAMES[index] + ".tres")
 		materials.append(load(ART_DIR + NAMES[index] + ".tres"))
 	for variant in [0, 1]:
@@ -148,7 +158,14 @@ func _bolt(center: Vector3, axis: int, radius: float, length: float) -> void:
 		point[v] += sin(angle) * radius
 		point[axis] += signf(center[axis]) * length * 0.5
 		front.append(point)
-	_poly(2, front, normal, Color(1.18, 1.14, 1.05))
+	_poly(2, front, normal, Color(1.55, 1.48, 1.25))
+	for index in range(6):
+		var next := (index + 1) % 6
+		var back_a: Vector3 = front[index] - normal * length
+		var back_b: Vector3 = front[next] - normal * length
+		var side_normal: Vector3 = (front[index] + front[next]) * .5 - center
+		side_normal[axis] = 0.0
+		_quad(2, back_a, front[index], front[next], back_b, side_normal.normalized(), Color(.8,.8,.8))
 
 func _top_patch(mat: int, x: float, z: float, width: float, depth: float, y: float, tint := Color.WHITE) -> void:
 	_poly(mat, [Vector3(x-width*.5,y,z-depth*.20), Vector3(x-width*.38,y,z-depth*.5), Vector3(x+width*.21,y,z-depth*.40), Vector3(x+width*.5,y,z+depth*.12), Vector3(x+width*.23,y,z+depth*.50), Vector3(x-width*.39,y,z+depth*.32)], Vector3.UP, tint)
@@ -171,26 +188,30 @@ func _build_skin(variant: int) -> void:
 	for index in range(3):
 		var interval: Array = cap_ranges[index]
 		var x: float = (interval[0] + interval[1]) * .5
-		var cap_mat := 1 if index == 0 else 0
-		if variant == 1 and index == 2:
-			cap_mat = 4
+		# The concept has blue steel lids over warm painted front armor.
+		var cap_mat := 2
 		_box(3, Vector3(x,.460,0), Vector3(interval[1]-interval[0]+.008,.030,.952))
-		_bevel_box(cap_mat, Vector3(x,.478,0), Vector3(interval[1]-interval[0],.022,.930), .007)
+		_bevel_box(cap_mat, Vector3(x,.448,0), Vector3(interval[1]-interval[0],.100,.930), .028, Color(1.12, 1.12, 1.12))
 		for z in [-.385,.385]:
 			for bolt_x in [interval[0]+.033,interval[1]-.033]:
 				_bolt(Vector3(bolt_x,.496,z),1,.009,.006)
 		_top_patch(3, interval[0]+.045, -.388, .071,.024,.4942,Color(.87,.87,.87))
 		_top_patch(3, interval[1]-.062, .370, .080,.026,.4942)
-		_top_patch(4, x+.035, .055, .125,.092,.4942,Color(.88,.88,.88))
-		_top_patch(1, x-.054,-.20,.036,.048,.4943,Color(.95,.95,.95))
+		_top_patch(3, x+.035, .055, .044,.025,.4942,Color(.88,.88,.88))
+		_top_patch(2, x-.054,-.20,.060,.015,.4943,Color(1.45,1.45,1.45))
 	# Raised dark strap ribs retain fast readable silhouettes; their caps are
 	# flush with the collision ceiling and never float above it.
 	for x in [-.168,.152]:
-		_box(2,Vector3(x,.479,0),Vector3(.018,.042,.984))
+		_bevel_box(2,Vector3(x,.476,0),Vector3(.025,.048,.984),.006,Color(1.24,1.24,1.24))
 		for z in [-.440,.440]:
 			_bolt(Vector3(x,.497,z),1,.008,.004)
 	for z in [-.480,.480]:
-		_box(2,Vector3(0,.456,z),Vector3(.992,.037,.036))
+		_bevel_box(2,Vector3(0,.456,z),Vector3(.992,.037,.036),.009,Color(1.18,1.18,1.18))
+	# Chunky folded corner guards catch light above the painted side panels.
+	for x in [-.471,.471]:
+		for z in [-.404,.404]:
+			_bevel_box(2,Vector3(x,.449,z),Vector3(.052,.098,.160),.014,Color(1.24,1.24,1.24))
+			_bolt(Vector3(x,.496,z),1,.011,.006)
 	# Full side armor on both opposing faces. The lower ochre band reads as
 	# settled dust, while isolated chips and seam rust remain directional.
 	for side in [-1.0,1.0]:
@@ -199,18 +220,25 @@ func _build_skin(variant: int) -> void:
 			var interval: Array = cap_ranges[index]
 			var x: float = (interval[0]+interval[1])*.5
 			var face_mat := 0 if (index+variant)%3 != 0 else 1
+			if variant == 1 and index == 2:
+				face_mat = 5
 			_box(3,Vector3(x,.002,z),Vector3(interval[1]-interval[0]+.007,.760,.031))
 			_bevel_box(face_mat,Vector3(x,.007,side*.486),Vector3(interval[1]-interval[0],.727,.016),.006)
 			_box(4,Vector3(x,-.329,side*.4990),Vector3(interval[1]-interval[0]-.018,.040,.001),Color(.8,.8,.8))
 			_face_patch(3,interval[0]+.032,.292,.055,.038,side*.4994)
 			_face_patch(3,interval[1]-.061,-.293,.080,.032,side*.4994,Color(.84,.84,.84))
-			_face_patch(4,x+.047,-.167,.096,.065,side*.4994,Color(.92,.92,.92))
+			_face_patch(3,x+.047,-.167,.032,.022,side*.4994,Color(.92,.92,.92))
 			_face_patch(1,x-.045,.160,.050,.038,side*.4995)
 			for bolt_x in [interval[0]+.025,interval[1]-.025]:
 				for bolt_y in [-.272,.285]:
-					_bolt(Vector3(bolt_x,bolt_y,side*.498),2,.008,.004)
+					_bolt(Vector3(bolt_x,bolt_y,side*.498),2,.013,.004)
+			# Local flaked enamel and rust runs anchor wear to panel corners.
+			for chip in range(7):
+				var cx: float = interval[0] + .018 + float(chip % 3) * .018
+				var cy: float = -.30 + float(chip) * .018
+				_face_patch(3,cx,cy,.009 + float(chip % 2)*.006,.013,side*.4994)
 		for x in [-.485,-.172,.153,.485]:
-			_box(2,Vector3(x,.010,side*.493),Vector3(.018,.795,.014))
+			_box(2,Vector3(x,.010,side*.493),Vector3(.024,.795,.014),Color(1.25,1.25,1.25))
 		# A welded broad diagonal reinforcement is inset into one panel.
 		var brace_x := .32 if variant == 0 else -.32
 		_poly(2,[Vector3(brace_x-.11,-.30,side*.4997),Vector3(brace_x-.07,-.30,side*.4997),Vector3(brace_x+.11,.30,side*.4997),Vector3(brace_x+.07,.30,side*.4997)],Vector3(0,0,side),Color(.88,.87,.84))
@@ -239,7 +267,7 @@ func _build_skin(variant: int) -> void:
 		_box(5,Vector3(-.310,.4965,.270),Vector3(.220,.001,.052),Color(.9,.9,.9))
 	else:
 		_box(3,Vector3(.005,.490,-.005),Vector3(.266,.003,.342),Color(.86,.86,.86),-.25)
-		_box(1,Vector3(.005,.496,-.005),Vector3(.244,.004,.310),Color(.90,.91,.91),-.25)
+		_box(2,Vector3(.005,.496,-.005),Vector3(.244,.004,.310),Color(1.12,1.12,1.12),-.25)
 		# Attached canvas patch drapes inside the sealed armor silhouette;
 		# folded triangles give dry cloth facets and a torn lower edge.
 		_quad(5,Vector3(-.420,.498,.320),Vector3(-.225,.498,.302),Vector3(-.232,.498,.450),Vector3(-.420,.498,.450),Vector3.UP)

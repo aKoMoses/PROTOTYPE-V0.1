@@ -160,7 +160,7 @@ func _update_javelin_charge(delta: float) -> void:
 		player._javelin_charge_visual.look_at(player._javelin_charge_visual.global_position + direction, Vector3.UP)
 		player._javelin_charge_visual.call("set_power", power, lerpf(player._javelin_max_range, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.javelin.charged_range), power))
 	if player._attack_label != null:
-		player._attack_label.text = "JAVELIN  •  %.2f / 1.74 s  •  %s" % [player._javelin_elapsed, "PUISSANCE MAX" if player.get_javelin_charge_fraction() >= 1.0 else "CHARGE"]
+		player._attack_label.text = "JAVELIN  •  %.2f / %.2f s  •  %s" % [player._javelin_elapsed, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max), "PUISSANCE MAX" if player.get_javelin_charge_fraction() >= 1.0 else "CHARGE"]
 	if player._javelin_release_at >= 0.0 and player._javelin_elapsed >= player._javelin_release_at:
 		var action_token := player._javelin_charge_action_token
 		var launch_power: float = player._javelin_power(player._javelin_release_at)
@@ -244,8 +244,9 @@ func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage:
 		if target != null and target.has_method("take_damage") and target.has_method("apply_javelin_mark"):
 			var shield_before := PLAYER_STATE.PASSIVE_STATE.shield_health(target)
 			var applied := float(target.call("take_damage", damage, "player", "javelin:%d" % token))
-			player.on_direct_offensive_hit("javelin:%d" % token, PLAYER_STATE.PASSIVE_STATE.accepted_damage(target, applied, shield_before), target)
-			if applied > 0.0:
+			var accepted := PLAYER_STATE.PASSIVE_STATE.accepted_damage(target, applied, shield_before)
+			player.on_direct_offensive_hit("javelin:%d" % token, accepted, target)
+			if accepted > 0.0:
 				if player.survival_mode and player.survival_evolution_effects != null:
 					player.survival_evolution_effects.javelin_hit(target, target.global_position)
 				if player._survival_evolved("offensive"):
@@ -296,6 +297,12 @@ func _recast_javelin(preferred_destination: Vector3 = Vector3.INF) -> void:
 	player.global_position = destination
 	player.velocity = Vector3.ZERO
 	player._set_aim_direction((target.global_position - destination).normalized())
+	player._begin_weapon_aim()
+	# A successful approach briefly holds the marked foe for a manual follow-up.
+	var target_protected := bool(target.get_meta("duel_static_shield", false)) or (target.has_method("get_stasis_remaining") and float(target.call("get_stasis_remaining")) > 0.0)
+	if player.passive_authoritative() and not target_protected and target.has_method("apply_slow"):
+		var definition: Dictionary = PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.javelin
+		target.call("apply_slow", float(definition.recast_slow_duration), float(definition.recast_slow_percent), "javelin_recast:%d" % player.get_instance_id())
 	if player.survival_synergies != null:
 		player.survival_synergies.teleport_trail(teleport_origin, destination)
 	if player.survival_mode and player.survival_evolution_effects != null:

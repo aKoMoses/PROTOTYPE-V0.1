@@ -102,6 +102,6 @@ func _run() -> void:
 		vfx.call("projectile_visual", projectile, "longshot", 1.0 if enhanced else 0.0)
 		var sheath := projectile.get_node("ProjectileSheath") as MeshInstance3D
 		diameters.append(sheath.mesh.get_aabb().size.x * sheath.scale.x)
-	_check(is_equal_approx(diameters[0], 0.15) and is_equal_approx(diameters[1], 0.225), "visual projectile diameters match .15/.225 collision diameters")
+	_check(is_equal_approx(diameters[0], 0.18) and is_equal_approx(diameters[1], 0.27), "visual projectile diameters match .18/.27 collision diameters")
 	print("LONGSHOT PRESENTATION %s: %d failures" % ["PASS" if failures.is_empty() else "FAIL", failures.size()])
 	quit(0 if failures.is_empty() else 1)

@@ -235,6 +235,8 @@ func _apply_hit(target: Node, returning: bool) -> void:
 	if returning:
 		if target.has_method("start_pelto_pull"):
 			target.call("start_pelto_pull", -direction, float(_definition.pull_distance), float(_definition.pull_duration), source_id, "%s:pull" % attack_id)
+		if target.has_method("apply_slow"):
+			target.call("apply_slow", float(_definition.return_slow_duration), float(_definition.return_slow_percent), "%s:pelto_return" % source_id)
 	else:
 		if target.has_method("apply_slow"):
 			target.call("apply_slow", float(_definition.outbound_slow_duration), float(_definition.outbound_slow_percent), "%s:pelto_smash" % source_id)

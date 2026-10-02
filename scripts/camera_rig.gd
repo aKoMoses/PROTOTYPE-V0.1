@@ -1,13 +1,16 @@
 extends Node3D
 
-@export var follow_speed := 3.2
+@export var follow_speed := 8.0
 @export var aim_smoothing_speed := 4.0
-@export var look_ahead_distance := 1.6
+@export var look_ahead_distance := 0.9
+@export var max_aim_pan_speed := 1.8
 
 var _target: Node3D
 var _camera: Camera3D
 var _follow_offset := Vector3.ZERO
 var _smoothed_aim := Vector3.ZERO
+var _follow_position := Vector3.ZERO
+var _aim_offset := Vector3.ZERO
 var _shake_time := 0.0
 var _shake_strength := 0.0
 var _focus_target: Node3D
@@ -26,6 +29,8 @@ func set_target(target: Node3D) -> void:
 	reset_focus()
 	_target = target
 	global_position = target.global_position + _follow_offset
+	_follow_position = global_position
+	_aim_offset = Vector3.ZERO
 	if "aim_direction" in _target:
 		_smoothed_aim = _target.aim_direction
 	_resolve_camera()
@@ -42,11 +47,14 @@ func set_follow_offset(offset: Vector3, snap: bool = false) -> void:
 	_smoothed_aim = target_aim
 	global_position = _target.global_position + target_aim * look_ahead_distance + _follow_offset
 	global_position.y = 0.0
+	_follow_position = _target.global_position + _follow_offset
+	_follow_position.y = 0.0
+	_aim_offset = target_aim * look_ahead_distance
 	_aim_camera()
 
 
 func _process(delta: float) -> void:
-	if _target == null:
+	if not is_instance_valid(_target):
 		return
 	_resolve_camera()
 	if _focus_target != null and is_instance_valid(_focus_target):
@@ -65,9 +73,13 @@ func _process(delta: float) -> void:
 	if "aim_direction" in _target:
 		target_aim = _target.aim_direction
 	_smoothed_aim = _smoothed_aim.lerp(target_aim, 1.0 - exp(-aim_smoothing_speed * delta))
-	var desired := _target.global_position + _smoothed_aim * look_ahead_distance + _follow_offset
+	var desired := _target.global_position + _follow_offset
 	desired.y = 0.0
-	global_position = global_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
+	_follow_position = _follow_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
+	# Aim panning has its own bounded speed; body follow never inherits shake.
+	var desired_aim_offset := _smoothed_aim * look_ahead_distance
+	_aim_offset = _aim_offset.move_toward(desired_aim_offset, max_aim_pan_speed * delta)
+	global_position = _follow_position + _aim_offset
 	if _shake_time > 0.0:
 		_shake_time -= delta
 		var shake_offset := Vector3(randf_range(-1.0, 1.0), randf_range(-0.5, 0.5), randf_range(-1.0, 1.0)) * _shake_strength
@@ -103,6 +115,7 @@ func focus_on_winner(winner: Node3D) -> void:
 func reset_focus() -> void:
 	_focus_target = null
 	_focus_time = 0.0
+	_follow_position = global_position - _aim_offset
 	_resolve_camera()
 	if _camera != null:
 		_camera.position = Vector3(0.0, 20.5, 17.5)

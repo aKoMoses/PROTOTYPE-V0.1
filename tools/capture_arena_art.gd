@@ -4,6 +4,7 @@ extends SceneTree
 ## are overridden. Positions and aim are fixed; HUD, visibility and actor rigs run.
 ## Usage: -- <output-directory> <prefix> [center|north|west|south|east|all]
 ## Optional: low, combat, mobile, baseline=<metrics.json>.
+## review uses fewer frames for visual inspection; its timings are not a benchmark.
 ## Output includes PNGs and metrics; baseline verifies actual camera invariance.
 
 const POSITIONS := {
@@ -12,6 +13,7 @@ const POSITIONS := {
 	"west": Vector3(-24.0, 0.0, 0.0),
 	"south": Vector3(0.0, 0.0, 24.0),
 	"east": Vector3(24.0, 0.0, 0.0),
+	"concept": Vector3(0.0, 0.0, 17.0),
 }
 const SAMPLE_FRAMES := 60
 
@@ -36,6 +38,11 @@ func _run() -> void:
 			return
 	if args.has("mobile"):
 		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	var main_script := load("res://scripts/main.gd") as Script
+	if main_script == null or not main_script.can_instantiate():
+		push_error("Arena capture stopped: the shared gameplay scripts must compile first")
+		quit(2)
+		return
 	var scene := load("res://scenes/main.tscn").instantiate() as Node3D
 	root.add_child(scene)
 	current_scene = scene
@@ -117,10 +124,22 @@ func _run() -> void:
 		target.call("_update_visibility_presentation", 0.0)
 		player.call("_update_world_ui_anchor")
 		flow.call("_update_hud")
-		for _frame in range(30):
+		if args.has("clean"):
+			# Optional art review only; gameplay camera and simulation are unchanged.
+			for canvas in scene.find_children("*", "CanvasLayer", true, false):
+				(canvas as CanvasLayer).visible = false
+			for label in scene.find_children("*", "Label3D", true, false):
+				(label as Label3D).visible = false
+			for readout in scene.find_children("*HealthReadout", "Node3D", true, false):
+				(readout as Node3D).visible = false
+			for mesh in player.find_children("*", "MeshInstance3D", true, false):
+				if mesh.mesh is TorusMesh and mesh.mesh.inner_radius > 0.7 and mesh.position.y < 0.1:
+					(mesh as MeshInstance3D).visible = false
+		var sample_frames := 8 if args.has("review") else SAMPLE_FRAMES
+		for _frame in range(10 if args.has("review") else 30):
 			await process_frame
 		var totals := {"fps": 0.0, "process_ms": 0.0, "physics_ms": 0.0, "draw_calls": 0.0, "primitives": 0.0, "render_cpu_ms": 0.0, "render_gpu_ms": 0.0}
-		for _frame in range(SAMPLE_FRAMES):
+		for _frame in range(sample_frames):
 			await process_frame
 			totals.fps += Performance.get_monitor(Performance.TIME_FPS)
 			totals.process_ms += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
@@ -131,7 +150,7 @@ func _run() -> void:
 				totals.render_cpu_ms += float(RenderingServer.call("viewport_get_measured_render_time_cpu", root.get_viewport_rid()))
 				totals.render_gpu_ms += float(RenderingServer.call("viewport_get_measured_render_time_gpu", root.get_viewport_rid()))
 		for key in totals.keys():
-			totals[key] /= SAMPLE_FRAMES
+			totals[key] /= sample_frames
 		if args.has("combat"):
 			target.call("apply_spotted", 5.0, "arena_capture")
 			target.call("apply_burn", 3.5, 20.0, "arena_capture")

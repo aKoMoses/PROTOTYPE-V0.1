@@ -13,9 +13,13 @@ use local scale `(size.z, size.y, size.x)`. Keep the existing StaticBody3D and
 CollisionShape3D. Clear the old mesh's material override when assigning this
 ArrayMesh, otherwise its six authored materials will be replaced.
 
-The meshes need no runtime generator, shader, texture import or external asset.
-The resources have crisp flat normals, shared materials and vertex colors for
-controlled wear. Each family uses fewer than 1,600 triangles and six surfaces.
+The meshes need no runtime generator. Their shared painted-enamel and blue steel
+materials use the authored `courtyard_*_albedo.png` and `courtyard_*_normal.png`
+textures from the parent directory, with world-space triplanar projection,
+mipmaps and S3TC/ETC2 compression. The resources have crisp flat normals,
+shared materials and vertex colors for controlled wear. The October concept pass
+uses 2,692 / 2,674 triangles and six surfaces, with thicker beveled steel lids,
+folded corner guards and hexagonal fasteners with side faces.
 The backing hull and gasket layers are recessed beneath the painted plates.
 Keep these depth gaps when editing: near-coplanar armor layers created stripe
 moire at gameplay distances on the Mobile perspective camera.

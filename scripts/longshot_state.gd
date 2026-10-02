@@ -1,18 +1,22 @@
 class_name LongshotState
 extends RefCounted
 
-## One cycle per carried weapon instance. Input and cooldowns never advance it.
+## Two successful normal shots prepare EXECUTION. Misses preserve progress.
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 
 var shots_fired: int = 0
+var hits: int = 0
+var speed_remaining := 0.0
+var generation := 0
+var _credited_shots: Dictionary = {}
 
 
 func normal_shots() -> int:
-	return posmod(shots_fired, 5)
+	return hits
 
 
 func is_enhanced_ready() -> bool:
-	return normal_shots() == 4
+	return hits >= 2
 
 
 func next_enhanced() -> bool:
@@ -22,11 +26,39 @@ func next_enhanced() -> bool:
 func commit_shot() -> bool:
 	var enhanced := next_enhanced()
 	shots_fired += 1
+	if enhanced:
+		hits = 0
 	return enhanced
+
+
+func register_hit(shot_id: String, enhanced: bool, definition: Dictionary = {}) -> bool:
+	if _credited_shots.has(shot_id):
+		return false
+	_credited_shots[shot_id] = true
+	# Bound history without dropping any of the recent in-flight attacks.
+	if _credited_shots.size() > 64:
+		_credited_shots.erase(_credited_shots.keys()[0])
+	if not enhanced:
+		hits = mini(2, hits + 1)
+	var settings: Dictionary = definition if not definition.is_empty() else COMBAT_DATA.WEAPON_DEFINITIONS.longshot
+	speed_remaining = float(settings.hit_speed_duration)
+	return true
+
+
+func tick(delta: float) -> void:
+	speed_remaining = maxf(0.0, speed_remaining - delta)
+
+
+func movement_multiplier() -> float:
+	return float(COMBAT_DATA.WEAPON_DEFINITIONS.longshot.hit_speed_multiplier) if speed_remaining > 0.0 else 1.0
 
 
 func reset() -> void:
 	shots_fired = 0
+	hits = 0
+	speed_remaining = 0.0
+	generation += 1
+	_credited_shots.clear()
 
 
 static func distance_multiplier(distance: float, definition: Dictionary = {}) -> float:

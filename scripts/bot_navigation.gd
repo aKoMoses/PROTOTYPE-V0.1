@@ -7,6 +7,7 @@ extends RefCounted
 ## controller's swept collision check; this helper never teleports an actor.
 
 const CELL_SIZE := 1.0
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 const CLEARANCE_MARGIN := 0.14
 const DEPARTURE_MARGIN := 0.04
 const ROUTE_REFRESH_SECONDS := 0.80
@@ -199,6 +200,9 @@ func _geometry_revision(body: CollisionObject3D, force: bool = false) -> int:
 func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	if body == null or not is_instance_valid(body) or not body.is_inside_tree() or body.get_world_3d() == null or arena_limit < 1.0:
 		return {}
+	var terrain := ARENA_TRAVERSAL.terrain(body)
+	if terrain != null:
+		arena_limit = minf(arena_limit, float(terrain.call("navigation_extent")))
 	var collision: CollisionShape3D
 	for child in body.get_children():
 		if child is CollisionShape3D and not (child as CollisionShape3D).disabled:
@@ -213,7 +217,9 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	query.collision_mask = 1
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	query.exclude = [body.get_rid()]
+	var excluded: Array[RID] = [body.get_rid()]
+	excluded.append_array(ARENA_TRAVERSAL.exclusions(body))
+	query.exclude = excluded
 	# Godot's motion sweep does not expand all shape types by query.margin.
 	# Inflate the actual query resource so occupancy and sweeps agree at corners.
 	query.margin = 0.0
@@ -227,6 +233,8 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	var offset := collision.global_position - body.global_position
 	var revision := _geometry_revision(body)
 	var key := "%s/%s/%s/%.2f/%s/%s" % [body.get_world_3d().get_rid().get_id(), revision, shape_signature, arena_limit, offset, arena_center]
+	if terrain != null:
+		key += "/terrain:%d" % terrain.get_instance_id()
 	if not _shared_grids.has(key):
 		if _shared_grids.size() >= MAX_SHARED_GRIDS:
 			var oldest_key := ""
@@ -246,9 +254,9 @@ func _context(body: CollisionObject3D, arena_limit: float) -> Dictionary:
 	departure_query.transform = collision.global_transform
 	departure_query.collision_mask = 1
 	departure_query.collide_with_areas = false
-	departure_query.exclude = [body.get_rid()]
+	departure_query.exclude = excluded
 	departure_query.margin = DEPARTURE_MARGIN
-	return {"key": key, "query": query, "departure_query": departure_query, "offset": offset, "space": body.get_world_3d().direct_space_state, "limit": arena_limit, "center": arena_center, "size": int(floor(arena_limit * 2.0 / CELL_SIZE)) + 1, "grid": grid}
+	return {"key": key, "query": query, "departure_query": departure_query, "offset": offset, "space": body.get_world_3d().direct_space_state, "limit": arena_limit, "center": arena_center, "size": int(floor(arena_limit * 2.0 / CELL_SIZE)) + 1, "grid": grid, "terrain": ARENA_TRAVERSAL.terrain(body)}
 
 
 func _clearance_shape(original: Shape3D) -> Shape3D:
@@ -289,20 +297,40 @@ func _point_clear(context: Dictionary, point: Vector3) -> bool:
 	var local := point - (context.center as Vector3)
 	if absf(local.x) > float(context.limit) or absf(local.z) > float(context.limit):
 		return false
+	var terrain: Node3D = context.terrain
+	if terrain != null and not bool(terrain.call("segment_walkable", point, point)):
+		return false
 	var query: PhysicsShapeQueryParameters3D = context.query
-	query.transform.origin = point + (context.offset as Vector3)
+	query.transform.origin = _surface_point(context, point) + (context.offset as Vector3)
 	query.motion = Vector3.ZERO
 	return (context.space as PhysicsDirectSpaceState3D).intersect_shape(query, 1).is_empty()
 
 
 func _physical_point_clear(context: Dictionary, point: Vector3) -> bool:
 	var query: PhysicsShapeQueryParameters3D = context.departure_query
-	query.transform.origin = point + (context.offset as Vector3)
+	query.transform.origin = _surface_point(context, point) + (context.offset as Vector3)
 	query.motion = Vector3.ZERO
 	return (context.space as PhysicsDirectSpaceState3D).intersect_shape(query, 1).is_empty()
 
 
 func _segment_clear(context: Dictionary, origin: Vector3, destination: Vector3) -> bool:
+	var surface: Node3D = context.terrain
+	if surface != null:
+		if not bool(surface.call("segment_walkable", origin, destination)):
+			return false
+		var steps := maxi(1, ceili(origin.distance_to(destination) / 0.4))
+		var height_query: PhysicsShapeQueryParameters3D = context.departure_query
+		for index in range(steps):
+			var start := _surface_point(context, origin.lerp(destination, float(index) / steps))
+			var end := _surface_point(context, origin.lerp(destination, float(index + 1) / steps))
+			height_query.transform.origin = start + (context.offset as Vector3)
+			height_query.motion = end - start
+			if not (context.space as PhysicsDirectSpaceState3D).intersect_shape(height_query, 1).is_empty():
+				return false
+			var cast := (context.space as PhysicsDirectSpaceState3D).cast_motion(height_query)
+			if cast.size() < 2 or cast[0] < 0.999:
+				return false
+		return true
 	var local := destination - (context.center as Vector3)
 	if absf(local.x) > float(context.limit) or absf(local.z) > float(context.limit):
 		return false
@@ -322,6 +350,13 @@ func _segment_clear(context: Dictionary, origin: Vector3, destination: Vector3) 
 	query.motion = destination - origin
 	var sweep := (context.space as PhysicsDirectSpaceState3D).cast_motion(query)
 	return sweep.size() >= 2 and sweep[0] >= 0.999
+
+
+func _surface_point(context: Dictionary, point: Vector3) -> Vector3:
+	var surface: Node3D = context.terrain
+	if surface != null:
+		point.y = float(surface.call("height_at", point))
+	return point
 
 
 func _cell_clear(context: Dictionary, cell: Vector2i) -> bool:

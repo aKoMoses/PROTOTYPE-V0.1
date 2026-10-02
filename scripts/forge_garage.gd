@@ -21,6 +21,7 @@ const ICONS := preload("res://scripts/equipment_icons.gd")
 const DISPLAY_FONT := preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const BODY_FONT := preload("res://addons/GD-Sync/UI/Fonts/Outfit-Regular.ttf")
 const DESIGN_SIZE := Vector2(1280, 720)
+const EXPERIENCE := preload("res://scripts/review_preferences.gd")
 const AMBER := Color("#f5b844")
 const CREAM := Color("#eee5ce")
 const CYAN := Color("#69e0e8")
@@ -77,6 +78,9 @@ var _name_input: LineEdit
 var _notice_time := 0.0
 var _rotating_robot := false
 var _touch_index := -1
+var _save_and_play := false
+var _installation_controls: Control
+var _installation_status: Label
 
 
 func _ready() -> void:
@@ -123,6 +127,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if installation != null and installation.active and _installation_status != null:
+		_installation_status.text = "Installation · %.1f / 5 s" % installation.elapsed
 	if _notice_time > 0:
 		_notice_time -= delta
 		if _notice_time <= 0:
@@ -274,10 +280,28 @@ func _save_build() -> void:
 		return
 	_save_button.disabled = true
 	_ui.hide()
+	_installation_controls.show()
+	if bool(EXPERIENCE.read().quick):
+		call_deferred("_skip_installation")
+
+
+func _save_then_play() -> void:
+	if installation.active:
+		return
+	_save_and_play = true
+	_save_build()
+	if not installation.active:
+		_save_and_play = false
+
+
+func _skip_installation() -> void:
+	if installation.active:
+		installation.advance(INSTALLATION.DURATION)
 
 
 func _finish_save() -> void:
-	if LIBRARY.save_local(_pending_library, library_path, legacy_save_path):
+	var saved := LIBRARY.save_local(_pending_library, library_path, legacy_save_path)
+	if saved:
 		_library = _pending_library
 		build_id = str(_library.active)
 		for entry in _library.builds:
@@ -291,14 +315,21 @@ func _finish_save() -> void:
 		_notice("Sauvegarde impossible. Réessaie.")
 	_pending_library = {}
 	_ui.show()
+	_installation_controls.hide()
 	_save_button.disabled = false
 	_refresh()
 	_show_detail(_category, str(loadout[_category]))
+	var launch := _save_and_play and saved
+	_save_and_play = false
+	if launch:
+		start_requested.emit()
 
 
 func _cancel_save() -> void:
 	_pending_library = {}
+	_save_and_play = false
 	_ui.show()
+	_installation_controls.hide()
 	_save_button.disabled = false
 
 
@@ -333,6 +364,10 @@ func _layout() -> void:
 	_ui.scale = Vector2.ONE * ratio
 	_ui.position = (size - DESIGN_SIZE * ratio) * 0.5
 	_ui.size = DESIGN_SIZE
+	if _installation_controls != null:
+		_installation_controls.scale = _ui.scale
+		_installation_controls.position = _ui.position
+		_installation_controls.size = DESIGN_SIZE
 	if focus != null:
 		focus.fit_layout()
 
@@ -416,10 +451,13 @@ func _build_interface() -> void:
 	_build_detail()
 	_build_footer()
 	_build_rename_panel()
-	for index in 2:
-		var id: String = ["classic", "hazards"][index]
-		var button := _button(["CLASSIQUE", "PIÉGÉE"][index], Vector2(536 + index * 117, 11), Vector2(109, 36), _choose_arena.bind(id))
+	_build_experience_controls()
+	for index in 3:
+		var id: String = ["classic", "hazards", "test"][index]
+		var button := _button(["CLASSIQUE", "PIÉGÉE", "MAP TEST"][index], Vector2(536 + index * 109, 11), Vector2(103, 36), _choose_arena.bind(id))
 		button.add_theme_font_size_override("font_size", 11)
+		if id == "test":
+			button.tooltip_text = "Arène de 30 × 30 m • plateformes à 2,4 m • accès nord et sud"
 		arena_buttons[id] = button
 	set_arena_options(false)
 
@@ -562,9 +600,10 @@ func _build_footer() -> void:
 	_button("✎", Vector2(285, 666), Vector2(35, 40), _rename_build).tooltip_text = "Renommer le build"
 	_button("+", Vector2(326, 666), Vector2(35, 40), _new_build).tooltip_text = "Créer un nouveau build"
 	_button("⧉", Vector2(367, 666), Vector2(35, 40), _duplicate_build).tooltip_text = "Dupliquer le build"
-	_status = _label("", Vector2(416, 675), Vector2(315, 24), 14, CYAN)
+	_status = _label("", Vector2(416, 675), Vector2(238, 24), 13, CYAN)
 	_ui.add_child(_status)
-	_button("TESTER", Vector2(919, 665), Vector2(139, 42), _test_build)
+	_button("TESTER", Vector2(664, 665), Vector2(122, 42), _test_build)
+	_button("SAUVER ET JOUER", Vector2(795, 665), Vector2(267, 42), _save_then_play, true).name = "GarageSaveAndPlay"
 	_save_button = _button("SAUVEGARDER", Vector2(1074, 665), Vector2(190, 42), _save_build, true)
 	_save_button.name = "GarageSave"
 	_save_button.add_theme_color_override("font_color", Color("#292017"))
@@ -573,6 +612,44 @@ func _build_footer() -> void:
 		style.bg_color = AMBER if state == "normal" else Color("#ffd484")
 		style.border_color = Color("#ffdf93")
 		_save_button.add_theme_stylebox_override(state, style)
+
+
+func _build_experience_controls() -> void:
+	var presets := OptionButton.new()
+	presets.name = "RecommendedBuilds"
+	presets.position = Vector2(477, 561)
+	presets.size = Vector2(438, 37)
+	presets.add_item("BUILDS CONSEILLÉS · nouveau brouillon")
+	presets.set_item_disabled(0, true)
+	for title in EXPERIENCE.PRESETS:
+		presets.add_item(title)
+	presets.item_selected.connect(func(index: int) -> void:
+		if installation.active or index < 1:
+			return
+		module_installation.cancel()
+		build_id = ""
+		build_name = str(EXPERIENCE.PRESETS.keys()[index - 1])
+		loadout = EXPERIENCE.PRESETS[build_name].duplicate(true)
+		_refresh()
+		_show_detail(_category, str(loadout[_category]))
+		_notice("Build conseillé · tester ou sauvegarder")
+		presets.select(0)
+	)
+	_ui.add_child(presets)
+	_installation_controls = Control.new()
+	_installation_controls.name = "InstallationControls"
+	_installation_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_installation_controls)
+	_installation_status = _label("Installation", Vector2(650, 669), Vector2(350, 35), 18, CYAN)
+	_installation_controls.add_child(_installation_status)
+	var skip := Button.new()
+	skip.name = "SkipInstallation"
+	skip.text = "PASSER"
+	skip.position = Vector2(1060, 660)
+	skip.size = Vector2(204, 47)
+	skip.pressed.connect(_skip_installation)
+	_installation_controls.add_child(skip)
+	_installation_controls.hide()
 
 
 func _build_rename_panel() -> void:

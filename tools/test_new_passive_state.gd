@@ -41,10 +41,10 @@ func _test_reactor(a: Node, b: Node) -> void:
 	var state := PASSIVE.new()
 	state.configure("auxiliary_reactor")
 	var volley := state.emit_weapon()
-	check(is_equal_approx(state.weapon_hit(a, 10.0, volley, 5.0), 0.25), "Reactor: active cooldown")
+	check(is_equal_approx(state.weapon_hit(a, 10.0, volley, 5.0), 0.60), "Reactor: active cooldown")
 	state.process(1.0)
 	check(state.weapon_hit(b, 10.0, volley, 4.0) == 0.0, "Reactor: one proc per multi-target volley")
-	check(state.weapon_hit(a, 10.0, state.emit_weapon(), 4.0) == 0.25, "Reactor: interval expires")
+	check(state.weapon_hit(a, 10.0, state.emit_weapon(), 4.0) == 0.60, "Reactor: interval expires")
 	check(state.weapon_hit(a, 10.0, state.emit_weapon(), 4.0) == 0.0, "Reactor: interval blocks new attacks")
 	state.process(0.75)
 	var ready_hit := state.emit_weapon()
@@ -70,24 +70,26 @@ func _test_tracker(a: Target, b: Target) -> void:
 	check(state.tracker_count == 1, "Tracker: repeated collision cannot restart old attack")
 	state.process(4.01)
 	check(state.tracker_count == 0, "Tracker: gap expiry")
-	a.state.apply_spotted(6.0, "other")
-	for hit in 3:
+	a.state.apply_spotted(8.0, "other")
+	for hit in 2:
 		state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
-	check(state.tracker_count == 0 and state.reveal_remaining() == 3.0, "Tracker: three distinct attacks reveal and reset")
-	check(a.state.get_remaining("SPOTTED") >= 6.0, "Tracker: longer SPOTTED preserved")
+	check(state.tracker_count == 0 and state.reveal_remaining() == 6.0, "Tracker: two distinct attacks reveal and reset")
+	check(a.state.get_remaining("SPOTTED") >= 8.0, "Tracker: longer SPOTTED preserved")
 	state.process(1.0)
 	state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
-	check(state.tracker_count == 0 and state.reveal_remaining() == 2.0, "Tracker: no accumulation or extension while revealed")
-	state.process(2.01)
+	check(state.tracker_count == 0 and state.reveal_remaining() == 5.0, "Tracker: no accumulation or extension while revealed")
+	state.process(5.01)
 	state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
 	check(state.tracker_count == 1, "Tracker: new sequence after own reveal expiry")
 	state.process(3.0) # A miss does not call weapon_hit and does not erase progress.
 	check(state.tracker_count == 1, "Tracker: missed input keeps gap running")
 	state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
-	check(state.tracker_count == 2, "Tracker: successful hit refreshes gap")
+	check(state.reveal_remaining() == 6.0, "Tracker: second successful hit reveals")
+	state.reset()
+	state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
 	state.process(4.0)
 	state.weapon_hit(a, 10.0, state.emit_weapon(), 0.0)
-	check(state.reveal_remaining() == 3.0, "Tracker: exactly four seconds remains admissible")
+	check(state.reveal_remaining() == 6.0, "Tracker: exactly four seconds remains admissible")
 
 
 func _test_alternator() -> void:
@@ -103,9 +105,9 @@ func _test_alternator() -> void:
 	# No emission on rejected/cancelled input.
 	check(state.alternator_remaining > 0.0, "Alternator: rejected input preserves readiness")
 	var shot := state.emit_weapon()
-	check(is_equal_approx(float(shot.multiplier), 1.15) and state.alternator_remaining == 0.0, "Alternator: emission consumes bonus")
+	check(is_equal_approx(float(shot.multiplier), 1.30) and state.alternator_remaining == 0.0, "Alternator: emission consumes bonus")
 	state.process(4.0)
-	check(is_equal_approx(float(shot.multiplier), 1.15), "Alternator: in-flight bonus frozen")
+	check(is_equal_approx(float(shot.multiplier), 1.30), "Alternator: in-flight bonus frozen")
 	state.module_hit("wave:1", 10.0)
 	check(state.alternator_remaining == 0.0, "Alternator: consumed activation never rearms")
 	state.register_module("wave:2")
@@ -138,8 +140,8 @@ func _test_inertia(a: Target, b: Target) -> void:
 	state.weapon_hit(a, 10.0, shot, 0.0)
 	check(a.state.get_slow_percent() == 50.0, "Inertia: stronger slow preserved")
 	state.weapon_hit(b, 10.0, shot, 0.0)
-	check(b.state.get_slow_percent() == 20.0, "Inertia: cleave applies to every accepted target")
-	b.state.update(0.8)
+	check(b.state.get_slow_percent() == 25.0, "Inertia: cleave applies to every accepted target")
+	b.state.update(1.3)
 	state.weapon_hit(b, 10.0, shot, 0.0)
 	check(b.state.get_remaining("SLOW") < 0.21, "Inertia: repeated pellet does not refresh slow")
 	state.dash_finished(true)
@@ -153,7 +155,7 @@ func _test_inertia(a: Target, b: Target) -> void:
 	state.real_dead = true
 	state.clear_triggers()
 	state.weapon_hit(b, 10.0, frozen, 0.0)
-	check(b.state.get_slow_percent() == 20.0, "Inertia: emitted effect is frozen across expiry and owner death")
+	check(b.state.get_slow_percent() == 25.0, "Inertia: emitted effect is frozen across expiry and owner death")
 
 
 func _test_lifecycle(a: Node) -> void:

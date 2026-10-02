@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -162,7 +163,7 @@ func _emit_shotgun_salvo(token: int, salvo: Dictionary) -> void:
 	visual_start = player._safe_projectile_origin(visual_start)
 	player._create_muzzle_burst(visual_start, player._shotgun_attack_direction, Color("#ff9d4e"), 1.35, player._shotgun_muzzle)
 	# Spread is symmetric around the evaluated barrel/aim axis, at every range.
-	var center_direction := player._shotgun_attack_direction
+	var center_direction := ARENA_TRAVERSAL.shot_direction(player, visual_start, player._shotgun_attack_direction)
 	for index in range(player._shotgun_pellet_angles.size()):
 		var angle := deg_to_rad(float(player._shotgun_pellet_angles[index]))
 		var direction := center_direction.rotated(Vector3.UP, angle).normalized()
@@ -248,6 +249,7 @@ func _resolve_shotgun_projectile(salvo: Dictionary, index: int, did_hit: bool, t
 		target.call("take_damage", bonus, "player", bonus_id)
 		target.call("apply_burn", PLAYER_STATE.COMBAT_DATA.BURN_DURATION, PLAYER_STATE.COMBAT_DATA.BURN_DAMAGE_PER_SECOND * float(salvo.get("damage_scale", 1.0)), "player:" + str(salvo.get("source", "shotgun")))
 		target.call("flash_impact", true)
+		player.call("present_combat_signature", "shotgun", target, bonus_id)
 
 
 func _shotgun_damage_at_distance(distance: float) -> float:

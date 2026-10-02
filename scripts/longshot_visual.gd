@@ -17,7 +17,7 @@ func _ready() -> void:
 
 
 func set_cycle(count: int, ready: bool) -> void:
-	_cycle_count = clampi(count, 0, 4)
+	_cycle_count = clampi(count, 0, 2)
 	_enhanced_ready = ready
 	_refresh_energy()
 	set_process(ready)
@@ -32,9 +32,10 @@ func _process(delta: float) -> void:
 func _refresh_energy() -> void:
 	if _energy_material == null:
 		return
-	var progression := float(_cycle_count) / 4.0
+	var progression := float(_cycle_count) / 2.0
 	_energy_material.emission_energy_multiplier = 1.2 + progression * 1.15
 	_energy_material.albedo_color = Color("#298f9e").lerp(Color("#74edff"), progression)
 	if _enhanced_ready:
 		_energy_material.emission_energy_multiplier = 3.0 + sin(_clock * 5.0) * 0.30
-		_energy_material.albedo_color = Color("#b8faff")
+		_energy_material.albedo_color = Color("#ffd477")
+	_energy_material.emission = _energy_material.albedo_color

@@ -57,6 +57,8 @@ func run() -> void:
 		await emit_weapon(weapon)
 		check(float(target.call("get_health")) == 1000, "real emitted %s intercepted" % weapon)
 		check(enemy_guard.successes == successes + 1, "real %s triggers once" % weapon)
+		if weapon == "longshot":
+			check(int(player.call("get_longshot_cycle_count")) == 0 and player.get("_longshot_state").speed_remaining == 0.0, "counter grants neither precision nor hit mobility")
 		check(not target.get("combat_state").has_effect(DATA.EFFECT_BURN), "intercepted %s adds no burn" % weapon)
 		weapon_prepare(weapon)
 		if weapon == "mekatana":
@@ -77,6 +79,7 @@ func run() -> void:
 		await emit_weapon(weapon)
 		check(guard.surcharge_remaining == 0 and guard.explosions == count, "missed %s loses reward without explosion" % weapon)
 	await test_charged_and_obstacle()
+	await test_execution_guard()
 	await test_multiple_cleave()
 	await test_three_fingers()
 	await test_network_guard()
@@ -105,8 +108,8 @@ func test_multiple_cleave() -> void:
 	melee.start(Vector3.FORWARD)
 	melee.update(0.23)
 	check(guard.explosions == explosions_before + 1, "real two-target cleave emits one explosion")
-	check(is_equal_approx(float(target.call("get_health")), 925), "cleave direct target receives one primary and one secondary hit")
-	check(is_equal_approx(other.health, 925), "cleave second enemy receives secondary damage only once (health %.1f)" % other.health)
+	check(is_equal_approx(float(target.call("get_health")), 830), "cleave direct target receives one primary and one secondary hit")
+	check(is_equal_approx(other.health, 830), "cleave second enemy receives secondary damage only once (health %.1f)" % other.health)
 	melee.cancel()
 	melee = null
 	other.queue_free()
@@ -119,13 +122,13 @@ func test_charged_and_obstacle() -> void:
 	guard.surcharge_remaining = 3.0
 	player.call("_fire_blaster_projectile", 50.0, 1.0, Vector3.FORWARD)
 	await create_timer(0.4).timeout
-	check(is_equal_approx(float(target.call("get_health")), 940.0), "fully charged blaster adds only fixed 10")
+	check(is_equal_approx(float(target.call("get_health")), 870.0), "fully charged blaster adds only fixed 80")
 	weapon_prepare("longshot")
-	player.get("_longshot_state").shots_fired = 4
+	player.get("_longshot_state").hits = 2
 	await physics_frame
 	guard.surcharge_remaining = 3.0
 	await emit_weapon("longshot")
-	check(is_equal_approx(float(target.call("get_health")), 939.6), "enhanced Longshot adds only fixed 10")
+	check(is_equal_approx(float(target.call("get_health")), 1000.0 - float(DATA.WEAPON_DEFINITIONS.longshot.damage) * float(DATA.WEAPON_DEFINITIONS.longshot.enhanced_damage_multiplier) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "execution Longshot adds fixed surcharge once")
 	weapon_prepare("blaster")
 	var wall := StaticBody3D.new()
 	wall.collision_layer = 1
@@ -144,6 +147,29 @@ func test_charged_and_obstacle() -> void:
 	check(guard.surcharge_remaining == 0 and guard.explosions == explosions_before, "real wall collision consumes reward without explosion")
 	check(float(target.call("get_health")) == 1000, "wall-stopped boosted projectile deals no damage")
 	wall.queue_free()
+	await process_frame
+
+
+func test_execution_guard() -> void:
+	var enemy_guard := weapon_prepare("longshot")
+	var behind := CleaveProbe.new()
+	behind.collision_layer = 2
+	var collision := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(2, 3, 0.5)
+	collision.shape = box
+	behind.add_child(collision)
+	scene.add_child(behind)
+	behind.position = Vector3(0, 1, -6)
+	await physics_frame
+	await physics_frame
+	player.get("_longshot_state").hits = 2
+	enemy_guard.begin()
+	enemy_guard.update(0.08)
+	await emit_weapon("longshot")
+	check(float(target.call("get_health")) == 1000 and behind.health == 1000, "real Counter stops execution before the next victim")
+	check(int(player.call("get_longshot_cycle_count")) == 0 and player.get("_longshot_state").speed_remaining == 0.0, "blocked execution is consumed and grants no mobility")
+	behind.queue_free()
 	await process_frame
 
 
@@ -216,7 +242,7 @@ func test_network_guard() -> void:
 	check(not client_guard.intercept(attack), "replica cannot award success independently")
 	host.call("receive_action", "blaster", {})
 	await create_timer(0.35).timeout
-	check(is_equal_approx(float(enemy.call("get_health")), 970), "network return weapon applies 20 plus fixed 10")
+	check(is_equal_approx(float(enemy.call("get_health")), 1000.0 - float(DATA.WEAPON_DEFINITIONS.blaster.damage) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "network return weapon applies primary plus fixed surcharge")
 	check(float(host.call("get_surcharge_remaining")) == 0, "network host consumes reward once")
 	client.call("receive_snapshot", host.call("network_snapshot"))
 	check(float(client.call("get_surcharge_remaining")) == 0, "consumption replicated")

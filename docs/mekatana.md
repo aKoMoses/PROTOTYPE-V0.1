@@ -8,16 +8,16 @@ Les valeurs partagées joueur/bots se trouvent dans `CombatData.WEAPON_DEFINITIO
 
 | Réglage | Coup 1 | Coup 2 | Coup 3 |
 |---|---:|---:|---:|
-| Dégâts de base | 65 | 75 | 100 |
+| Dégâts de base | 90 | 100 | 150 |
 | Préparation avec dash | 0,12 s | 0,14 s | 0,18 s |
 | Slash actif | 0,10 s | 0,10 s | 0,13 s |
-| Récupération | 0,20 s | 0,23 s | 0,48 s |
+| Récupération | 0,20 s | 0,23 s | 0,35 s |
 | Distance de dash | 1,30 m | 1,90 m | 2,60 m |
 | Largeur du cleave | 2,30 m | 2,30 m | 2,50 m |
 
 La lame frappe à 2 m depuis la position réellement atteinte ; les dashes augmentent progressivement l'engagement, jusqu'à 4,6 m au troisième coup. Les trois distances de dash ont été doublées. La hauteur du cleave est de 1,8 m. Le troisième mouvement vertical conserve une zone large.
 
-Le coup 2 inflige ×1,20 uniquement à une cible touchée au coup 1. Le coup 3 inflige ×1,25 à une cible touchée au coup 2, ou ×1,60 si les deux premiers l'ont touchée. Les deux bonus du troisième sont exclusifs. Un combo intégral inflige 65 + 90 + 160 = 315 dégâts, soit 31,5 % des 1 000 PV du robot polyvalent. Le cycle complet prend 1,68 s hors interruptions et reste exposé pendant ses préparations et récupérations.
+Le coup 2 inflige ×1,20 uniquement à une cible touchée au coup 1. Le coup 3 inflige ×1,25 à une cible touchée au coup 2, ou ×1,60 si les deux premiers l'ont touchée. Les deux bonus du troisième sont exclusifs. Depuis la [passe du 2 octobre](catalogue-renforcement.md), un combo intégral inflige 90 + 120 + 240 = 450 dégâts, soit 45 % des 1 000 PV du robot polyvalent. Le cycle complet prend 1,55 s hors interruptions et reste exposé pendant ses préparations et récupérations.
 
 L'historique appartient à chaque cible et séquence. Seuls des dégâts acceptés par le combat le remplissent ; annulation, expiration, changement d'arme, mort et reset le vident. Aucun effet STUN, SLOW, BURN ni projectile n'est ajouté.
 
@@ -39,7 +39,7 @@ Les bots utilisent le même combo, adaptent leur distance au dash du prochain co
 
 En survie, les améliorations Puissance augmentent les dégâts, et Rythme raccourcit la récupération ; la préparation et la durée active restent lisibles. Le Mekatana conserve la progression générique sans évolution spéciale ajoutée.
 
-## Validation
+## Validation initiale, avant la passe du 2 octobre
 
 Vérifications réalisées avec Godot **4.7.2.stable.official.ed1daf0bf**, avec un APPDATA de test isolé sous `.godot` pour préserver les sauvegardes personnelles.
 

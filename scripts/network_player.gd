@@ -85,6 +85,16 @@ func _uses_local_feedback() -> bool:
 	return not remote_controlled
 
 
+func present_combat_signature(kind: String, target: Node3D, event_id: String) -> void:
+	# A visual projectile or a guest request cannot claim a successful action.
+	if not authoritative or not is_instance_valid(target) or not _gameplay_enabled:
+		return
+	if target != self and target.has_method("is_visible_to") and not bool(target.call("is_visible_to", self)):
+		return
+	super.present_combat_signature(kind, target, event_id)
+	_notify("combat_signature", {"kind": kind, "event_id": event_id, "target_self": target == self})
+
+
 func _mark_combat_event() -> void:
 	if not remote_controlled:
 		super._mark_combat_event()
@@ -168,6 +178,8 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if attack_id != "":
 		_network_hits[attack_id] = true
 	var effective := super.take_damage(amount, source_id, attack_id)
+	if effective > 0.0 and attack_id.ends_with(":wall") and "fulguro" in attack_id and is_instance_valid(opponent):
+		opponent.call("present_combat_signature", "fulguro_punch", self, attack_id)
 	if effective > 0.0 and source_id != "surcharge" and is_instance_valid(opponent):
 		opponent.call("_on_damage_dealt", effective)
 	return effective
@@ -305,7 +317,7 @@ func _play_network_longshot(data: Dictionary) -> void:
 		if not _gameplay_enabled or is_real_dead():
 			return
 	# The reliable event is visual only. Snapshots own the cycle, so a snapshot
-	# arriving first cannot turn this into a second fifth shot.
+	# arriving first cannot consume EXÉCUTION a second time.
 	_spawn_longshot_projectile(bool(data.get("enhanced", false)), int(data.get("shot_number", 1)), true)
 
 
@@ -411,6 +423,8 @@ func _perform_static_shield() -> void:
 	super._perform_static_shield()
 	if _stasis_remaining > previous:
 		_notify("defensive")
+	elif previous > 0.0 and _stasis_remaining <= 0.0:
+		_notify("stasis_exit")
 
 
 func _perform_counter() -> bool:
@@ -441,6 +455,11 @@ func _perform_bio_injector() -> void:
 
 func _credit_eclipse_damage(_amount: float) -> void:
 	# Network victim.take_damage already credits its opponent's omnivamp.
+	pass
+
+
+func _credit_pyro_damage(_amount: float, _target: Node3D) -> void:
+	# The authoritative victim already credited the departure hit.
 	pass
 
 
@@ -528,7 +547,18 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		cancel_touch_fire()
 		_replaying = false
 		return
-	if not visual_only and (_stasis_remaining > 0.0 or combat_state.is_stunned()):
+	if not visual_only and ((_stasis_remaining > 0.0 and action != "stasis_exit") or combat_state.is_stunned()):
+		return
+	if action == "stasis_exit":
+		_replaying = visual_only
+		if visual_only:
+			_stasis_remaining = 0.0
+			if is_instance_valid(_stasis_visual):
+				_stasis_visual.queue_free()
+			_stasis_visual = null
+		elif _defensive_module_id == "static_shield" and _stasis_remaining > 0.0:
+			_perform_static_shield()
+		_replaying = false
 		return
 	_replaying = visual_only
 	if visual_only:
@@ -564,7 +594,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 		"mekatana": _perform_mekatana_attack()
 		"longshot":
 			if not visual_only:
-				# Host determines the fifth shot from its own instance, never client data.
+				# Host determines EXÉCUTION from successful hits, never client data.
 				_perform_longshot_attack()
 		"longshot_fired":
 			if visual_only:
@@ -613,6 +643,8 @@ func network_snapshot() -> Dictionary:
 		"velocity": _get_actual_move_velocity(), "weapon": _weapon_id,
 		"cooldowns": _module_cooldowns.duplicate(), "ammo": _shotgun_ammo,
 		"longshot_shots": _longshot_state.shots_fired,
+		"longshot_hits": _longshot_state.hits,
+		"longshot_speed": _longshot_state.speed_remaining,
 		"longshot_recovery": maxf(0.0, _longshot_next_attack_ready_at - Time.get_ticks_msec() / 1000.0),
 		"reload": _shotgun_reload_remaining, "stasis": _stasis_remaining, "bio": _bio_remaining,
 		"baroud_active": passive_state.baroud_active, "baroud_used": passive_state.baroud_used,
@@ -697,6 +729,8 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 		_shotgun_reload_remaining = float(value.reload)
 		_shotgun_reloading = _shotgun_reload_remaining > 0.0
 		_longshot_state.shots_fired = maxi(0, int(value.get("longshot_shots", 0)))
+		_longshot_state.hits = clampi(int(value.get("longshot_hits", 0)), 0, 2)
+		_longshot_state.speed_remaining = clampf(float(value.get("longshot_speed", 0.0)), 0.0, float(COMBAT_DATA.WEAPON_DEFINITIONS.longshot.hit_speed_duration))
 		_longshot_next_attack_ready_at = Time.get_ticks_msec() / 1000.0 + maxf(0.0, float(value.get("longshot_recovery", 0.0)))
 		_sync_weapon_readout()
 		if is_instance_valid(_magnetic_wall) and get_module_cooldown("magnetic_field") <= 0.0:

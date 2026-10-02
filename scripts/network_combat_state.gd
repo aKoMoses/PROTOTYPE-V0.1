@@ -29,7 +29,9 @@ func snapshot() -> Dictionary:
 	var slows := _slow_effects.duplicate(true)
 	for slow in slows:
 		slow.end_time = maxf(0.0, float(slow.end_time) - simulation_time)
-	return {"health": health, "maximum": max_health, "dead": _dead, "effects": effects, "slows": slows, "shield_health": shield_health, "shield_remaining": shield_remaining}
+	return {"health": health, "maximum": max_health, "dead": _dead, "effects": effects, "slows": slows, "shield_health": shield_health, "shield_remaining": shield_remaining,
+		"stun_repeats": _stun_repeats, "stun_chain": maxf(0.0, _stun_chain_until - simulation_time),
+		"stun_recovery": maxf(0.0, _stun_recovery_until - simulation_time), "stun_limit": maxf(0.0, _stun_continuous_limit - simulation_time)}
 
 
 func receive_snapshot(value: Dictionary) -> void:
@@ -39,6 +41,10 @@ func receive_snapshot(value: Dictionary) -> void:
 	max_health = float(value.maximum)
 	health = float(value.health)
 	_dead = bool(value.dead)
+	_stun_repeats = int(value.get("stun_repeats", 0))
+	_stun_chain_until = simulation_time + float(value.get("stun_chain", 0.0))
+	_stun_recovery_until = simulation_time + float(value.get("stun_recovery", 0.0))
+	_stun_continuous_limit = simulation_time + float(value.get("stun_limit", 0.0))
 	shield_health = maxf(0.0, float(value.get("shield_health", 0.0))) if not _dead else 0.0
 	shield_remaining = maxf(0.0, float(value.get("shield_remaining", 0.0))) if shield_health > 0.0 else 0.0
 	if shield_remaining <= 0.0:

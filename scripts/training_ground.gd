@@ -18,6 +18,10 @@ const HUD_CONTROLLER := preload("res://scripts/hud_layout_controller.gd")
 const HUD_EDITOR := preload("res://scripts/hud_editor.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
+const FEEDBACK := preload("res://scripts/combat_feedback.gd")
+const CHALLENGES := preload("res://scripts/training_challenges.gd")
+var _feedback: Control
+var _challenges: Control
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const CREAM := Color("#f3ddbb")
 const MUTED := Color("#bda995")
@@ -90,6 +94,13 @@ func _ready() -> void:
 	_apply_loadout()
 	_apply_options()
 	_update_status()
+	_feedback = FEEDBACK.attach(self, player, 185.0)
+	for dummy in get_training_targets():
+		_feedback.register_target(dummy)
+	_challenges = CHALLENGES.new()
+	_challenges.name = "TrainingChallenges"
+	_challenges.configure(self, _feedback)
+	_ui_layer.add_child(_challenges)
 
 func _process(_delta: float) -> void:
 	if _spell_bar != null and player != null and not _menu.visible:
@@ -297,6 +308,8 @@ func _spawn_dummy(kind: String, at: Vector3, size: float) -> StaticBody3D:
 	dummy.connect("died", _on_dummy_died.bind(dummy))
 	if _meter != null:
 		_register_meter_target(dummy)
+	if _feedback != null:
+		_feedback.register_target(dummy)
 	return dummy
 
 func _register_meter_target(dummy: StaticBody3D) -> void:
@@ -469,6 +482,7 @@ func _build_ui() -> void:
 	options_column.add_child(HSeparator.new())
 	options_column.add_child(_button("SOIGNER  F9", _heal_player, "warm", 48))
 	options_column.add_child(_button("50 % PV  F10", _half_health, "warm", 48))
+	options_column.add_child(_button("DÉFIS GUIDÉS", func() -> void: _challenges.open(), "primary", 44))
 	var keyboard_hint := _label("Flèches + Entrée : naviguer.\nTab ou Échap : reprendre.", 14)
 	keyboard_hint.add_theme_color_override("font_color", Color("#aebfc1"))
 	options_column.add_child(keyboard_hint)
@@ -754,6 +768,8 @@ func _on_loadout_selected(index: int, category: String, choices: Array) -> void:
 	_apply_loadout()
 
 func _apply_loadout() -> void:
+	if _challenges != null and _challenges.active != "":
+		_challenges.stop()
 	_loadout = LOADOUT.sanitize(_loadout)
 	if _garage_test_session:
 		var draft: Dictionary = get_tree().get_meta("garage_return_draft", {})
@@ -778,7 +794,10 @@ func _apply_options() -> void:
 		_style_button(button, "selected" if active else "secondary")
 	_update_status()
 
-func _reset_trial() -> void:
+func _reset_trial(for_challenge: bool = false) -> void:
+	if not for_challenge and _challenges != null and _challenges.active != "":
+		_challenges.retry()
+		return
 	_set_combat_sound_state(_menu.visible, true)
 	var vfx := get_node_or_null("VFXManager")
 	if vfx != null:
@@ -956,6 +975,8 @@ func _toggle_menu() -> void:
 	_update_status()
 
 func _return_to_main_menu() -> void:
+	if _challenges != null:
+		_challenges.stop()
 	_set_combat_sound_state(false, true)
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
@@ -987,6 +1008,8 @@ func _update_status() -> void:
 		_status.text += "  •  F5 pour réapparaître"
 
 func _start_tool(mode: String) -> void:
+	if _challenges != null:
+		_challenges.stop()
 	if _menu.visible:
 		_toggle_menu()
 	_tool_mode = mode
@@ -1004,6 +1027,8 @@ func _cancel_tool() -> void:
 	_update_status()
 
 func _remove_all_fixed() -> void:
+	if _challenges != null:
+		_challenges.stop()
 	for dummy in _fixed_targets:
 		if is_instance_valid(dummy):
 			_meter.call("unregister_target", dummy)
@@ -1015,6 +1040,9 @@ func _input(event: InputEvent) -> void:
 	if _hud_editor != null and _hud_editor.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode in [KEY_TAB, KEY_ESCAPE] and _challenges != null and _challenges.close_chooser():
+			get_viewport().set_input_as_handled()
+			return
 		match event.keycode:
 			KEY_TAB:
 				_toggle_menu()

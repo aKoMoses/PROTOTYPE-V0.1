@@ -68,6 +68,8 @@ func configure(main: Node3D, host_id: int, guest_id: int) -> void:
 	_player.call("apply_loadout", _flow.get("loadout"))
 	_flow.set("player", _player)
 	_flow.set("target", _target)
+	_flow.get("_combat_feedback").call("bind_actor", _player)
+	_flow.get("_combat_feedback").call("register_target", _target)
 	_touch.call("set_player", _player)
 	_main.get_node("CameraRig").call("set_target", _player)
 	_retarget_vision(_player, _target, true)
@@ -186,6 +188,7 @@ func _on_round_prepared(number: int, host_score: int, guest_score: int) -> void:
 	_host_score = host_score
 	_guest_score = guest_score
 	_phase = "countdown"
+	_flow.get("_combat_feedback").call("reset_round")
 	_last_request = 0
 	_request_sequence = 0
 	_last_pose = 0
@@ -286,6 +289,11 @@ func _on_action_received(event: Dictionary) -> void:
 	if _is_host() or _phase != "live" or not _valid_pose(event) or int(event.get("sequence", 0)) <= _last_event:
 		return
 	_last_event = int(event.sequence)
+	if str(event.action) == "combat_signature":
+		if int(event.peer) == _session.local_peer_id():
+			var victim: Node3D = _player if bool(event.data.get("target_self", false)) else _target
+			_flow.get("_combat_feedback").call("_signature_success", str(event.data.get("kind", "")), victim, str(event.data.get("event_id", "")))
+		return
 	if str(event.action) in ["counter_explosion", "rocket_end"]:
 		var counter_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
 		counter_owner.call("receive_action", str(event.action), event.data, true)
@@ -368,6 +376,8 @@ func _cleanup_actors() -> void:
 	_touch.call("set_player", _original_player)
 	_flow.set("player", _original_player)
 	_flow.set("target", _original_target)
+	_flow.get("_combat_feedback").call("bind_actor", _original_player)
+	_flow.get("_combat_feedback").call("register_target", _original_target)
 	_original_player.collision_layer = 4
 	_original_player.show()
 	_original_target.collision_layer = 2

@@ -1,8 +1,19 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_albedo.png" id="1_oa6cw"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_normal.png" id="2_jmwrd"]
+
 [resource]
 resource_name = "Salvage / paint_ivory"
 vertex_color_use_as_albedo = true
-albedo_color = Color(0.9019608, 0.8509804, 0.7137255, 1)
-metallic = 0.2
-roughness = 0.89
+albedo_color = Color(0.90588236, 0.8862745, 0.827451, 1)
+albedo_texture = ExtResource("1_oa6cw")
+metallic = 0.08
+roughness = 0.88
+normal_enabled = true
+normal_scale = 0.5
+normal_texture = ExtResource("2_jmwrd")
+uv1_scale = Vector3(0.42, 0.42, 0.42)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5

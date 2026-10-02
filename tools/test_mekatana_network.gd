@@ -86,7 +86,7 @@ func _run() -> void:
 	match_controller.call("_set_remote_pose", {"position": Vector3(20.0, 0.0, 0.0), "aim": Vector3.BACK})
 	_check(_host.global_position.is_equal_approx(active_position) and Vector3(_host.get("aim_direction")).is_equal_approx(Vector3.RIGHT), "active slash also keeps the accepted remote pose locked")
 	_host.call("_update_movement", 0.02)
-	_check(is_equal_approx(float(_target.call("get_health")), 935.0), "host alone applies the first 65-damage melee hit")
+	_check(is_equal_approx(float(_target.call("get_health")), 910.0), "host alone applies the first 90-damage melee hit")
 	_host.call("_update_movement", 0.5)
 	for rank in [1, 2]:
 		_target.global_position = _host.global_position + Vector3.RIGHT * (float(attack.definition.dash_distance[rank]) + 1.4)
@@ -95,7 +95,7 @@ func _run() -> void:
 		_host.call("receive_action", "mekatana", {"step": 0})
 		_check(int(attack.step) == rank, "host retains its authoritative combo rank despite client rank data")
 		_host.call("_update_movement", 1.0)
-	_check(is_equal_approx(float(_target.call("get_health")), 685.0), "authoritative network actor resolves all per-target multipliers")
+	_check(is_equal_approx(float(_target.call("get_health")), 550.0), "authoritative network actor resolves all per-target multipliers")
 	match_controller.free()
 	await _reset()
 	_target.global_position = _replica.global_position + Vector3.RIGHT * 4.0
@@ -155,6 +155,8 @@ func _run() -> void:
 	_scene.queue_free()
 	await process_frame
 	await process_frame
+	root.get_node("GameSfx").call("clear")
+	await create_timer(0.20).timeout
 	attack = null
 	replica_attack = null
 	if _failures.is_empty():

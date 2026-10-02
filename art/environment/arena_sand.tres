@@ -1,10 +1,13 @@
-[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" load_steps=5 format=3]
 
 [ext_resource type="Texture2D" path="res://art/environment/arena_sand_atlas.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/environment/arena_concrete_normal.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_concrete_detail.png" id="3"]
+[ext_resource type="Shader" path="res://shaders/courtyard_ground.gdshader" id="4"]
 
 [resource]
-albedo_texture = ExtResource("1")
-roughness = 0.96
-metallic_specular = 0.18
-texture_filter = 5
-texture_repeat = false
+shader = ExtResource("4")
+shader_parameter/layout_albedo = ExtResource("1")
+shader_parameter/surface_normal = ExtResource("2")
+shader_parameter/concrete_detail = ExtResource("3")
+shader_parameter/detail_strength = 0.72

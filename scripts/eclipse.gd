@@ -3,6 +3,7 @@ extends RefCounted
 ## Destination selection and particle-only transit. The actor stays at its
 ## departure point until arrival; its body and all attached visuals disappear.
 const DATA := preload("res://scripts/combat_data.gd")
+const TERRAIN := preload("res://scripts/arena_traversal.gd")
 const TINT := Color("#a996ff")
 var aiming := false
 var travelling := false
@@ -15,6 +16,7 @@ var _completed_serial := 0
 var _action_token := 0
 var _touch_vector := Vector2.ZERO
 var _has_touch_vector := false
+var _requested_destination := Vector3.ZERO
 var _old_layer := 0
 var _old_mask := 0
 var _old_visible := true
@@ -25,6 +27,8 @@ var _target_disc: MeshInstance3D
 var _caption: Label3D
 var _flight: Node3D
 var _particles: Array[MeshInstance3D] = []
+var _range_center := Vector3.INF
+var _target_center := Vector3.INF
 
 
 func begin(actor: CharacterBody3D, from_touch: bool = false) -> bool:
@@ -68,20 +72,26 @@ func update_aim(actor: CharacterBody3D) -> void:
 				var distance := (actor.global_position.y - start.y) / ray.y
 				if distance > 0.0:
 					offset = start + ray * distance - actor.global_position
+					if TERRAIN.terrain(actor) != null:
+						offset = pointer_destination(actor, start, ray) - actor.global_position
 	var sticks := Input.get_connected_joypads()
 	if not touch_owned and not sticks.is_empty():
 		var stick := Vector2(Input.get_joy_axis(sticks[0], JOY_AXIS_RIGHT_X), Input.get_joy_axis(sticks[0], JOY_AXIS_RIGHT_Y)).limit_length(1.0)
 		if stick.length() > 0.15:
 			offset = actor.call("_camera_relative_direction", stick) * max_range * stick.length()
 	offset.y = 0.0
-	destination = actor.global_position + offset.limit_length(max_range)
+	_requested_destination = surface_destination(actor, actor.global_position + offset.limit_length(max_range))
+	destination = resolve_destination(actor, _requested_destination)
 	if offset.length_squared() > 0.01:
 		actor.call("_set_aim_direction", offset.normalized())
-	var valid := fits(actor, destination)
+	var valid := destination.is_finite()
+	if not valid:
+		destination = _requested_destination
 	var color := TINT if valid else Color("#ff635d")
 	_range_ring.global_position = actor.global_position + Vector3.UP * 0.045
 	_target_ring.global_position = destination + Vector3.UP * 0.08
 	_target_disc.global_position = destination + Vector3.UP * 0.06
+	_update_surface_preview(actor)
 	_caption.global_position = destination + Vector3.UP * 0.75
 	_caption.text = "ÉCLIPSE · RELÂCHER" if valid else "ARRIVÉE BLOQUÉE"
 	_caption.modulate = color
@@ -93,15 +103,21 @@ func release(actor: CharacterBody3D) -> bool:
 	if not aiming:
 		return false
 	update_aim(actor)
-	var at := destination
+	var at := _requested_destination
 	var accepted := bool(actor.call("_perform_eclipse", at))
 	if not accepted:
 		cancel(actor)
 	return accepted
 
 
-func depart(actor: CharacterBody3D, at: Vector3) -> bool:
-	if travelling or not fits(actor, at) or actor.call("_action_incapacitated") or actor.get("_dash_active") or actor.get("_pelto_pull_active") or not actor.call("_module_ready", "eclipse"):
+func depart(actor: CharacterBody3D, at: Vector3, from_snapshot: bool = false) -> bool:
+	if travelling or not at.is_finite() or (TERRAIN.terrain(actor) == null and absf(at.y - actor.global_position.y) > 0.1) or actor.call("_action_incapacitated") or actor.get("_dash_active") or actor.get("_pelto_pull_active") or not actor.call("_module_ready", "eclipse"):
+		return false
+	# Validate the requested cast, not the exit: obstacles can extend its range.
+	if not from_snapshot and cast_distance(actor, at) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05:
+		return false
+	var arrival := resolve_destination(actor, at)
+	if not arrival.is_finite():
 		return false
 	if not aiming:
 		_action_token = int(actor.call("_try_begin_module_action", "eclipse"))
@@ -112,8 +128,7 @@ func depart(actor: CharacterBody3D, at: Vector3) -> bool:
 	_free_visuals()
 	serial += 1
 	origin = actor.global_position
-	destination = at
-	destination.y = origin.y
+	destination = arrival
 	remaining = float(DATA.MODULE_DEFINITIONS.eclipse.travel_duration)
 	travelling = true
 	_old_layer = actor.collision_layer
@@ -151,8 +166,10 @@ func update(actor: CharacterBody3D, delta: float) -> void:
 func arrive(actor: CharacterBody3D) -> void:
 	if not travelling:
 		return
-	var accepted := fits(actor, destination)
-	actor.global_position = destination if accepted else origin
+	var arrival := resolve_destination(actor, destination)
+	var accepted := arrival.is_finite()
+	actor.global_position = arrival if accepted else origin
+	destination = actor.global_position
 	_completed_serial = serial
 	_restore_body(actor)
 	_free_visuals()
@@ -193,14 +210,18 @@ func _free_visuals() -> void:
 	_particles.clear()
 
 
-static func fits(actor: CharacterBody3D, at: Vector3) -> bool:
-	if not at.is_finite() or absf(at.y - actor.global_position.y) > 0.1 or at.distance_to(actor.global_position) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05:
+static func fits(actor: CharacterBody3D, at: Vector3, check_range: bool = true) -> bool:
+	if not at.is_finite() or (TERRAIN.terrain(actor) == null and absf(at.y - actor.global_position.y) > 0.1) or (check_range and cast_distance(actor, at) > float(DATA.MODULE_DEFINITIONS.eclipse.max_range) + 0.05):
 		return false
+	at = surface_destination(actor, at)
 	# Use each arena's actual outer playable extent, with room for the body.
 	var scene := actor.get_tree().current_scene
 	var constants: Dictionary = scene.get_script().get_script_constant_map() if scene != null and scene.get_script() != null else {}
 	var extent_x := float(constants.get("MAP_HALF_WIDTH", constants.get("ARENA_HALF_EXTENT", constants.get("ARENA_HALF", 23.0)))) - 1.0
 	var extent_z := float(constants.get("MAP_HALF_DEPTH", extent_x + 1.0)) - 1.0
+	if TERRAIN.terrain(actor) != null:
+		extent_x = 13.4
+		extent_z = 13.4
 	if absf(at.x) > extent_x or absf(at.z) > extent_z:
 		return false
 	for child in actor.get_children():
@@ -210,12 +231,219 @@ static func fits(actor: CharacterBody3D, at: Vector3) -> bool:
 		query.shape = child.shape
 		query.transform = child.global_transform
 		query.transform.origin += at - actor.global_position
+		# Floor contact is valid: leave a small clearance for the physics query.
+		# The actor still arrives at ground height and solid cover stays blocking.
+		query.transform.origin.y += 0.02
 		query.collision_mask = 1 | 2 | 8
 		query.margin = 0.0
-		query.exclude = [actor.get_rid()]
+		query.exclude = terrain_exclusions(actor)
 		if not actor.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
 			return false
 	return true
+
+
+static func resolve_destination(actor: CharacterBody3D, at: Vector3) -> Vector3:
+	if not at.is_finite() or (TERRAIN.terrain(actor) == null and absf(at.y - actor.global_position.y) > 0.1):
+		return Vector3.INF
+	at = surface_destination(actor, at)
+	if fits(actor, at, false):
+		return at
+	# Project onto all obstacle faces, then examine the nearest candidates first.
+	# Repeating this for overlaps also handles adjoining cover and corners.
+	var pending: Array[Vector3] = [at]
+	var visited: Dictionary = {}
+	var best := Vector3.INF
+	var best_distance := INF
+	for iteration in range(256):
+		if pending.is_empty():
+			break
+		pending.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(at) < b.distance_squared_to(at))
+		var candidate: Vector3 = surface_destination(actor, pending.pop_front())
+		var key := candidate.snapped(Vector3.ONE * 0.001)
+		if visited.has(key) or candidate.distance_squared_to(at) > best_distance:
+			continue
+		visited[key] = true
+		if fits(actor, candidate, false):
+			best = candidate
+			best_distance = candidate.distance_squared_to(at)
+			continue
+		for child in actor.get_children():
+			if not child is CollisionShape3D or child.shape == null or child.disabled:
+				continue
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = child.shape
+			query.transform = child.global_transform
+			query.transform.origin += candidate - actor.global_position
+			query.transform.origin.y += 0.02
+			query.collision_mask = 1 | 2 | 8
+			query.margin = 0.0
+			query.exclude = terrain_exclusions(actor)
+			for hit in actor.get_world_3d().direct_space_state.intersect_shape(query, 64):
+				var body := hit.collider as CollisionObject3D
+				if body == null:
+					continue
+				var owner := body.shape_find_owner(int(hit.shape))
+				var collision := body.shape_owner_get_owner(owner) as CollisionShape3D
+				if collision == null or collision.shape == null:
+					continue
+				_append_obstacle_exits(actor, candidate, collision, pending)
+	if best.is_finite():
+		return best
+	# Non-box collision shapes use a physics-checked radial fallback.
+	for index in range(96):
+		var angle := TAU * float(index) / 96.0
+		var direction := Vector3(cos(angle), 0.0, sin(angle))
+		var distance := 0.1
+		var blocked_distance := 0.0
+		while distance <= 128.0:
+			var candidate := surface_destination(actor, at + direction * distance)
+			if fits(actor, candidate, false):
+				for refinement in range(14):
+					var middle := (blocked_distance + distance) * 0.5
+					if fits(actor, at + direction * middle, false):
+						distance = middle
+					else:
+						blocked_distance = middle
+				candidate = surface_destination(actor, at + direction * distance)
+				if candidate.distance_squared_to(at) < best_distance:
+					best = candidate
+					best_distance = candidate.distance_squared_to(at)
+				break
+			blocked_distance = distance
+			distance *= 2.0
+	return best
+
+
+static func _append_obstacle_exits(actor: CharacterBody3D, at: Vector3, collision: CollisionShape3D, pending: Array[Vector3]) -> void:
+	if collision.shape is CylinderShape3D or collision.shape is CapsuleShape3D or collision.shape is SphereShape3D:
+		if absf(collision.global_basis.y.normalized().dot(Vector3.UP)) < 0.999 or absf(collision.global_basis.x.length() - collision.global_basis.z.length()) > 0.001:
+			return
+		var radius: float = collision.shape.radius * collision.global_basis.x.length()
+		var offset := at - collision.global_position
+		offset.y = 0.0
+		var directions: Array[Vector3] = []
+		if offset.length_squared() > 0.000001:
+			directions.append(offset.normalized())
+		for index in range(16):
+			var angle := TAU * float(index) / 16.0
+			directions.append(Vector3(cos(angle), 0.0, sin(angle)))
+		for outward in directions:
+			var candidate := collision.global_position + outward * (radius + _body_support(actor, outward) + 0.015)
+			candidate.y = at.y
+			pending.append(candidate)
+		return
+	var shape := collision.shape as BoxShape3D
+	if shape == null or absf(collision.global_basis.y.normalized().dot(Vector3.UP)) < 0.999:
+		return
+	var half := shape.size * 0.5
+	for axis in [Vector3.RIGHT, Vector3.BACK]:
+		var normal: Vector3 = (collision.global_basis * axis).normalized()
+		for sign_value in [-1.0, 1.0]:
+			var outward: Vector3 = normal * sign_value
+			var face: Vector3 = collision.global_transform * (axis * half * sign_value)
+			var clearance := outward.dot(face - at) + _body_support(actor, outward) + 0.015
+			pending.append(at + outward * clearance)
+	# Outside a box corner, the capsule can leave diagonally at a shorter distance.
+	var local := collision.to_local(at)
+	local.y = 0.0
+	var closest := collision.to_global(local.clamp(-half, half))
+	var offset := at - closest
+	offset.y = 0.0
+	if offset.length_squared() > 0.000001:
+		var outward := offset.normalized()
+		pending.append(at + outward * (_body_support(actor, outward) - offset.length() + 0.015))
+
+
+static func _body_support(actor: CharacterBody3D, direction: Vector3) -> float:
+	var support := 0.0
+	for child in actor.get_children():
+		if not child is CollisionShape3D or child.shape == null or child.disabled:
+			continue
+		var local: Vector3 = child.global_basis.transposed() * direction
+		var shape_support: float
+		if child.shape is CapsuleShape3D:
+			shape_support = child.shape.radius * local.length() + maxf(0.0, child.shape.height * 0.5 - child.shape.radius) * absf(local.y)
+		else:
+			var bounds: AABB = child.shape.get_debug_mesh().get_aabb()
+			shape_support = local.dot(bounds.get_center()) + local.abs().dot(bounds.size * 0.5)
+		support = maxf(support, direction.dot(child.global_position - actor.global_position) + shape_support)
+	return support
+
+
+static func surface_destination(actor: CharacterBody3D, at: Vector3) -> Vector3:
+	if at.is_finite() and TERRAIN.terrain(actor) != null:
+		at.y = TERRAIN.height(actor, at)
+	return at
+
+
+static func cast_distance(actor: CharacterBody3D, at: Vector3) -> float:
+	if TERRAIN.terrain(actor) != null:
+		return Vector2(at.x - actor.global_position.x, at.z - actor.global_position.z).length()
+	return at.distance_to(actor.global_position)
+
+
+static func terrain_exclusions(actor: CharacterBody3D) -> Array[RID]:
+	var excluded: Array[RID] = [actor.get_rid()]
+	excluded.append_array(TERRAIN.exclusions(actor))
+	return excluded
+
+
+static func pointer_destination(actor: CharacterBody3D, start: Vector3, ray: Vector3) -> Vector3:
+	var at := start + ray * maxf(0.0, -start.y / ray.y)
+	var surface := TERRAIN.terrain(actor)
+	if surface != null:
+		var excluded: Array[RID] = [actor.get_rid()]
+		# Ignore cover tops: the selector addresses walkable decks and the floor.
+		for body in actor.get_tree().current_scene.get("_arena_blockers"):
+			if not body in surface.get("surfaces"):
+				excluded.append(body.get_rid())
+		var query := PhysicsRayQueryParameters3D.create(start, at + ray * 0.05, 1, excluded)
+		var hit := actor.get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			at = hit.position
+	return surface_destination(actor, at)
+
+
+func _update_surface_preview(actor: CharacterBody3D) -> void:
+	if TERRAIN.terrain(actor) == null:
+		return
+	# Mesh vertices live in world coordinates and follow every traversed level.
+	_range_ring.global_position = Vector3.ZERO
+	_target_ring.global_position = Vector3.ZERO
+	_target_disc.global_position = Vector3.ZERO
+	if not _range_center.is_finite() or _range_center.distance_squared_to(actor.global_position) > 0.0004:
+		_range_center = actor.global_position
+		_range_ring.mesh = surface_circle(actor, _range_center, float(DATA.MODULE_DEFINITIONS.eclipse.max_range), false, 0.045)
+	if not _target_center.is_finite() or _target_center.distance_squared_to(destination) > 0.0004:
+		_target_center = destination
+		var radius := float(DATA.MODULE_DEFINITIONS.eclipse.explosion_radius)
+		_target_ring.mesh = surface_circle(actor, destination, radius, false, 0.08)
+		_target_disc.mesh = surface_circle(actor, destination, radius, true, 0.06)
+
+
+static func surface_circle(actor: CharacterBody3D, center: Vector3, radius: float, filled: bool, lift: float) -> ArrayMesh:
+	var builder := SurfaceTool.new()
+	builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segments := clampi(ceili(TAU * radius / 0.2), 64, 384)
+	var bands := maxi(1, ceili(radius / 0.35)) if filled else 1
+	for band in range(bands):
+		var inner := radius * float(band) / bands if filled else radius - 0.035
+		var outer := radius * float(band + 1) / bands if filled else radius + 0.035
+		for index in range(segments):
+			var angle_a := TAU * float(index) / segments
+			var angle_b := TAU * float(index + 1) / segments
+			var a := surface_destination(actor, center + Vector3(cos(angle_a) * inner, 0, sin(angle_a) * inner)) + Vector3.UP * lift
+			var b := surface_destination(actor, center + Vector3(cos(angle_a) * outer, 0, sin(angle_a) * outer)) + Vector3.UP * lift
+			var c := surface_destination(actor, center + Vector3(cos(angle_b) * outer, 0, sin(angle_b) * outer)) + Vector3.UP * lift
+			var d := surface_destination(actor, center + Vector3(cos(angle_b) * inner, 0, sin(angle_b) * inner)) + Vector3.UP * lift
+			for triangle in [[a, b, c], [a, c, d]]:
+				# Leave a gap at vertical ledges instead of stretching a diagonal veil.
+				if maxf(triangle[0].y, maxf(triangle[1].y, triangle[2].y)) - minf(triangle[0].y, minf(triangle[1].y, triangle[2].y)) > 0.25:
+					continue
+				for point in triangle:
+					builder.set_normal(Vector3.UP)
+					builder.add_vertex(point)
+	return builder.commit()
 
 
 func snapshot() -> Dictionary:
@@ -247,7 +475,7 @@ func receive_snapshot(actor: CharacterBody3D, value: Dictionary) -> void:
 		actor.global_position = start
 		actor.set("_replaying", true)
 		actor.get("_module_cooldowns").erase("eclipse")
-		depart(actor, at)
+		depart(actor, at, true)
 		actor.set("_replaying", false)
 	serial = revision
 	remaining = time_left
@@ -279,6 +507,8 @@ static func ring(parent: Node3D, radius: float, alpha: float) -> MeshInstance3D:
 
 
 func _build_preview(actor: CharacterBody3D) -> void:
+	_range_center = Vector3.INF
+	_target_center = Vector3.INF
 	_preview = Node3D.new()
 	_preview.name = "EclipseDestinationPreview"
 	actor.get_tree().current_scene.add_child(_preview)

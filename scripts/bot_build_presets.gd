@@ -7,7 +7,7 @@ extends RefCounted
 
 const PRESETS := [
 	{
-		"id": "marksman", "name": "TIREUR", "style": "Placement lointain et cinquième tir renforcé",
+		"id": "marksman", "name": "TIREUR", "style": "Placement lointain, deux impacts puis EXÉCUTION traversante",
 		"weapon": "longshot", "offensive": "javelin",
 		"defensive": ["magnetic_field"], "mobility": ["pyro_boots"], "passive": ["omnivamp", "auxiliary_reactor", "tracker", "alternator", "inertia"],
 		"personality": {"aggression": 0.43, "caution": 0.82, "ideal_range": 17.5, "strafe_period": 1.75, "flank_bias": 0.77, "heal_threshold": 0.60},

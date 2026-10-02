@@ -116,7 +116,10 @@ func run() -> void:
 	prepare(player)
 	var wall := blocker(arena, Vector3(4, 0, 0))
 	await physics_frame
-	check(not player._perform_eclipse(Vector3(4, 0, 0)) and player.get_module_cooldown("eclipse") == 0.0, "destination obstruée acceptée")
+	check(player._perform_eclipse(Vector3(4, 0, 0)), "destination obstruée ne rejoint pas une sortie libre")
+	player._eclipse.update(player, 0.3)
+	check(player._eclipse.fits(player, player.global_position, false) and absf(player.global_position.x - 4.0) > 0.8, "sortie de l'obstacle laisse le corps coincé")
+	prepare(player)
 	check(not player._perform_eclipse(Vector3(13, 0, 0)) and not player._perform_eclipse(Vector3.INF), "portée / coordonnées non finies acceptées")
 	wall.queue_free()
 	await physics_frame
@@ -138,7 +141,7 @@ func run() -> void:
 	wall = blocker(arena, Vector3(4, 0, 0))
 	await physics_frame
 	player._eclipse.update(player, 0.3)
-	check(player.global_position == Vector3.ZERO and player.visible, "arrivée occupée pendant le trajet : joueur coincé")
+	check(player.global_position != Vector3.ZERO and player.visible and player._eclipse.fits(player, player.global_position, false), "obstacle tardif ne rejoint pas une sortie libre")
 	wall.queue_free()
 	prepare(player)
 	await physics_frame

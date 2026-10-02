@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -170,7 +171,7 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	player._action_gate.release(action_token)
 	if player._blaster_action_token == action_token:
 		player._blaster_action_token = 0
-	# The fire lock is governed solely by the 0.45 s cooldown. Projectile travel
+	# The fire lock is governed solely by the weapon cooldown. Projectile travel
 	# may continue visually beyond that window without blocking the next shot.
 	player._blaster_attack_busy = false
 	if player._attack_label != null:
@@ -207,6 +208,7 @@ func _play_blaster_recoil(charge_ratio: float) -> void:
 
 
 func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3, passive_attack: Dictionary = {}) -> void:
+	shot_direction = ARENA_TRAVERSAL.shot_direction(player, start, shot_direction)
 	var projectile := PLAYER_STATE.LIVE_PROJECTILE.new()
 	projectile.name = "BlasterProjectile"
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE

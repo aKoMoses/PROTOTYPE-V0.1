@@ -1,0 +1,54 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_0.res" id="1_v6aky"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_1.res" id="2_y0o4r"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_2.res" id="3_05u33"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_3.res" id="4_cxnfq"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_4.res" id="5_gwnll"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_5.res" id="6_m8bh3"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_6.res" id="7_sfslk"]
+[ext_resource type="ArrayMesh" path="res://art/environment/courtyard_edges_7.res" id="8_72dfe"]
+
+[node name="CourtyardEdges" type="Node3D" unique_id=1078190410]
+metadata/visual_only = true
+metadata/short_tuft_count = 180
+
+[node name="DryTufts0" type="MeshInstance3D" parent="." unique_id=632396470]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("1_v6aky")
+
+[node name="DryTufts1" type="MeshInstance3D" parent="." unique_id=1959014221]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("2_y0o4r")
+
+[node name="DryTufts2" type="MeshInstance3D" parent="." unique_id=936437519]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("3_05u33")
+
+[node name="DryTufts3" type="MeshInstance3D" parent="." unique_id=1884771037]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("4_cxnfq")
+
+[node name="GroundChips4" type="MeshInstance3D" parent="." unique_id=1474408712]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("5_gwnll")
+
+[node name="GroundChips5" type="MeshInstance3D" parent="." unique_id=1133829404]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("6_m8bh3")
+
+[node name="GroundChips6" type="MeshInstance3D" parent="." unique_id=2112825727]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("7_sfslk")
+
+[node name="GroundChips7" type="MeshInstance3D" parent="." unique_id=246041221]
+cast_shadow = 0
+extra_cull_margin = 0.08
+mesh = ExtResource("8_72dfe")

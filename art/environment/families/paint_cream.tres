@@ -1,8 +1,18 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_albedo.png" id="1_h83b8"]
+[ext_resource type="Texture2D" path="res://art/environment/courtyard_paint_normal.png" id="2_rwipy"]
+
 [resource]
 resource_name = "Salvage / paint_cream"
 vertex_color_use_as_albedo = true
-albedo_color = Color(0.84705883, 0.78039217, 0.64705884, 1)
-metallic = 0.25
-roughness = 0.86
+albedo_texture = ExtResource("1_h83b8")
+metallic = 0.08
+roughness = 0.85
+normal_enabled = true
+normal_scale = 0.5
+normal_texture = ExtResource("2_rwipy")
+uv1_scale = Vector3(0.42, 0.42, 0.42)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5

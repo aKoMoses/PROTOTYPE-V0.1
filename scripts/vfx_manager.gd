@@ -2,6 +2,9 @@ extends Node3D
 ## Presentation only: no collision, damage, gameplay timers or combat random state.
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const ASSETS := preload("res://scripts/vfx_assets.gd")
+const SMOKE_SHADER := preload("res://shaders/vfx_smoke.gdshader")
+const SURFACE_SHADER := preload("res://shaders/vfx_surface_wave.gdshader")
 
 enum Quality { LOW, NORMAL }
 @export var quality: Quality = Quality.NORMAL
@@ -28,6 +31,14 @@ func _ready() -> void:
 	_rng.randomize()
 	# Follow skeleton modifiers and weapon recoil when updating attached flashes.
 	process_priority = 100
+	# Build once before combat, rather than paying for textures on the first hit.
+	for variant in range(3):
+		ASSETS.texture("smoke", variant)
+		ASSETS.texture("decal", variant)
+	for style in ["spark", "energy", "debris", "dust"]:
+		ASSETS.particle_mesh(style)
+		_particle_ramp(style)
+		_particle_curve(style)
 	for critical in [false, true]:
 		var material := _material(Color("#ffd7a3") if critical else Color("#9bc8d1"))
 		material.albedo_color.a = 0.18 if critical else 0.12
@@ -42,21 +53,36 @@ func _process(delta: float) -> void:
 		if effect.age >= effect.life or not _follow_attachment(effect):
 			_release(index)
 			continue
+		if effect.age < 0.0:
+			node.visible = false
+			continue
+		node.visible = true
 		if node is GPUParticles3D:
+			if effect.pending_start:
+				node.restart()
+				node.emitting = true
+				effect.pending_start = false
 			continue
 		var progress: float = effect.age / effect.life
+		if effect.kind in ["smoke", "surface_wave"]:
+			var shader_material := node.material_override as ShaderMaterial
+			shader_material.set_shader_parameter("progress", progress)
+			if effect.kind == "smoke":
+				node.position += effect.drift * delta
+				node.scale = effect.size * (0.65 + progress * 1.65)
+			continue
 		var material: StandardMaterial3D = node.material_override
 		var fade: float = 1.0 - progress
 		if effect.kind == "decal":
 			fade = 1.0 - smoothstep(0.65, 1.0, progress)
-		elif effect.kind == "shotgun_trail":
+		elif effect.kind in ["shotgun_trail", "plasma_trail", "needle_trail"]:
 			if effect.attachment != null:
 				var projectile: Node3D = effect.attachment.get_ref()
-				var length := minf(0.95, projectile.global_position.distance_to(effect.origin))
-				node.scale = Vector3(0.13, 0.09, maxf(length, 0.001))
+				var length := minf(effect.trail_length, projectile.global_position.distance_to(effect.origin))
+				node.scale = Vector3(effect.size.x, effect.size.y, maxf(length, 0.001))
 				fade = 1.0
 		elif effect.kind == "shotgun_flame":
-			node.scale *= Vector3.ONE * (0.75 + sin(progress * PI) * 0.35)
+			node.scale = effect.size * (0.75 + sin(progress * PI) * 0.35)
 			fade = 1.0 - smoothstep(0.16, 1.0, progress)
 		elif effect.kind == "shotgun_pressure":
 			node.position += effect.drift * delta
@@ -66,14 +92,11 @@ func _process(delta: float) -> void:
 			node.position += effect.drift * delta
 			node.scale = effect.size * Vector3(1.0 - progress, 1.0 - progress, 1.0 + progress * 0.5)
 			fade = pow(1.0 - progress, 1.5)
-		elif effect.kind == "smoke":
-			node.position += effect.drift * delta
-			node.scale = effect.size * (1.0 + progress * 1.3)
 		elif effect.kind == "ring":
 			var expansion := 1.0 - pow(1.0 - progress, 3.0)
 			node.scale = effect.size * (0.42 + expansion * 1.58)
 			fade = 1.0 - smoothstep(0.42, 1.0, progress)
-		elif effect.kind in ["muzzle", "tracer", "flash"]:
+		elif effect.kind in ["muzzle", "tracer", "flash", "precision_flash"]:
 			fade = 1.0 - smoothstep(0.34, 1.0, progress)
 		material.albedo_color.a = effect.alpha * fade
 	for key in _hits.keys():
@@ -97,8 +120,8 @@ func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 	var life := muzzle_lifetime + (0.014 if charge > 0.6 else 0.0)
 	if weapon == "longshot":
 		color = Color("#55e5f2") if charge < 0.5 else Color("#a7f5ff")
-		length = 0.58 if charge < 0.5 else 0.78
-		radius = 0.15 if charge < 0.5 else 0.225
+		length = 0.85 if charge < 0.5 else 1.1
+		radius = 0.095 if charge < 0.5 else 0.14
 	var variation := _rng.randf_range(0.92, 1.08)
 	for core in [false, true]:
 		var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
@@ -106,6 +129,10 @@ func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
 		effect.attachment = weakref(socket)
 		effect.offset = Vector3(0.0, 0.0, -length * 0.5)
 		effect.size = Vector3(radius, radius, length) * variation * (Vector3(0.38, 0.38, 0.82) if core else Vector3.ONE)
+		if weapon == "longshot":
+			effect.node.mesh = _mesh("needle_muzzle")
+		else:
+			effect.node.mesh = _mesh("muzzle")
 		effect.node.scale = effect.size
 		_follow_attachment(effect)
 	var direction := -socket.global_basis.z.normalized()
@@ -128,20 +155,22 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 	var color := Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.74)
 	var core := MeshInstance3D.new()
 	core.name = "ProjectileCore"
-	core.mesh = _mesh("tracer")
+	core.mesh = _mesh("blaster_plasma")
 	var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
 	core.material_override = _material(core_color, 0.98, true)
-	core.scale = Vector3(0.050 if enemy else 0.060, 0.050 if enemy else 0.060, 0.72) * size_multiplier
+	# Smooth, shorter plasma with about 23% more width than the faceted bolt.
+	core.scale = Vector3(0.040 if enemy else 0.048, 0.040 if enemy else 0.048, 0.32) * size_multiplier
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(core)
 	var sheath := MeshInstance3D.new()
 	sheath.name = "ProjectileSheath"
 	sheath.mesh = core.mesh
 	sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
-	sheath.scale = core.scale * Vector3(2.10, 2.10, 1.28)
-	sheath.position.z = 0.10 * size_multiplier
+	sheath.scale = core.scale * Vector3(2.10, 2.10, 1.16)
+	sheath.position.z = 0.035 * size_multiplier
 	sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(sheath)
+	_attach_trail(parent, "plasma_trail", color, Vector2(0.085, 0.070) * size_multiplier, lerpf(0.48, 0.72, power), 0.055)
 
 
 func _shotgun_muzzle(socket: Node3D) -> void:
@@ -161,7 +190,7 @@ func _shotgun_muzzle(socket: Node3D) -> void:
 	pressure.node.scale = pressure.size * 0.35
 	pressure.drift = direction * 3.4
 	burst(socket.global_position + direction * 0.12, direction, Color("#ffd18a"), 9, 5.0, 0.22, 0.036, 28.0)
-	_smoke(socket.global_position + direction * 0.25, direction, 0.30, 0.36, Color("#525052"))
+	_smoke(socket.global_position + direction * 0.25, direction, 0.42, 0.52, Color("#525052"), 0.055)
 
 
 func _shotgun_projectile(projectile: Node3D) -> void:
@@ -174,19 +203,25 @@ func _shotgun_projectile(projectile: Node3D) -> void:
 	core.position.z = 0.12
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	projectile.add_child(core)
-	var trail := _mesh_effect("shotgun_trail", Color("#ff9b38"), 2.0, 0.72)
+	_attach_trail(projectile, "shotgun_trail", Color("#ff9b38"), Vector2(0.13, 0.09), 0.95, 0.065)
+
+
+func _attach_trail(projectile: Node3D, kind: String, color: Color, width: Vector2, length: float, fade_time: float) -> void:
+	# Starts at zero length and only occupies space already crossed by the shot.
+	var trail := _mesh_effect(kind, color, 4.0, 0.62)
 	trail.attachment = weakref(projectile)
 	trail.origin = projectile.global_position
-	trail.size = Vector3(0.13, 0.09, 0.001)
+	trail.size = Vector3(width.x, width.y, 0.001)
+	trail.trail_length = length
 	_follow_attachment(trail)
 	if projectile.has_signal("finished"):
 		projectile.connect("finished", func(_hit: Dictionary, _distance: float) -> void:
 			if _active.has(trail):
 				_follow_attachment(trail)
-				trail.node.scale.z = maxf(0.001, minf(0.95, projectile.global_position.distance_to(trail.origin)))
+				trail.node.scale.z = maxf(0.001, minf(length, projectile.global_position.distance_to(trail.origin)))
 				trail.attachment = null
 				trail.age = 0.0
-				trail.life = 0.065
+				trail.life = fade_time
 		)
 
 
@@ -211,8 +246,8 @@ func _longshot_projectile_visual(parent: Node3D, enhanced: bool) -> void:
 	var definition: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
 	var fallback_radius := float(definition["projectile_radius"]) * (float(definition["enhanced_size_multiplier"]) if enhanced else 1.0)
 	var diameter := maxf(0.002, float(parent.get_meta("ai_projectile_radius", fallback_radius)) * 2.0)
-	var length := 1.05 if enhanced else 0.70
-	var color := Color("#8af3ff") if enhanced else Color("#45dbe9")
+	var length := 1.65 if enhanced else 0.85
+	var color := Color("#ffd477") if enhanced else Color("#45dbe9")
 	for core in [false, true]:
 		var mesh := MeshInstance3D.new()
 		mesh.name = "ProjectileCore" if core else "ProjectileSheath"
@@ -226,6 +261,18 @@ func _longshot_projectile_visual(parent: Node3D, enhanced: bool) -> void:
 		mesh.position.z = 0.0 if core else length * 0.12
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		parent.add_child(mesh)
+	if not enhanced:
+		_attach_trail(parent, "needle_trail", color, Vector2(diameter * 0.6, diameter * 0.45), 0.68, 0.045)
+	if parent.has_signal("impacted"):
+		parent.connect("impacted", func(hit: Dictionary, _distance: float) -> void:
+			if hit.is_empty():
+				return
+			var normal: Vector3 = hit.get("normal", Vector3.UP)
+			var stamp := _mesh_effect("precision_flash", color.lerp(Color.WHITE, 0.55), 0.095 if enhanced else 0.065, 0.88)
+			stamp.node.position = hit.position + normal * 0.026
+			stamp.node.basis = _surface_basis(normal)
+			stamp.node.scale = Vector3(1.05, 1.0, 0.78) if enhanced else Vector3(0.68, 1.0, 0.52)
+		)
 
 
 func tracer(start: Vector3, end: Vector3, width: float = 0.026, color: Color = Color("#b9e9ed"), lifetime: float = 0.065) -> void:
@@ -254,32 +301,41 @@ func impact(position: Vector3, normal: Vector3, surface: String = "metal", power
 	var is_robot := surface == "robot"
 	var is_shield := surface == "shield"
 	var flash_color := Color("#fff0cf") if is_metal else (color.lerp(Color.WHITE, 0.62) if is_robot or is_shield else Color("#c6cfce"))
-	var flash := _mesh_effect("flash", flash_color, 0.090 + (0.025 if strength > 1.3 else 0.0), 0.94)
+	var flash := _mesh_effect("flash", flash_color, 0.065 + (0.015 if strength > 1.3 else 0.0), 0.94)
 	flash.node.position = contact
 	flash.node.basis = _surface_basis(n)
-	flash.node.scale = Vector3(0.48, 0.060, 0.48) * strength
+	var readable := _readable_scale(contact, 0.62 * strength)
+	flash.node.scale = Vector3(0.62, 0.060, 0.62) * strength * readable
 	if is_shield:
-		var ripple := _mesh_effect("ring", color, 0.16, 0.50)
-		ripple.node.position = contact
+		var ripple := _acquire("surface_wave", 0.32)
+		ripple.node.position = contact + n * 0.012
 		ripple.node.basis = _surface_basis(n)
-		ripple.size = Vector3.ONE * 0.38 * strength
-		ripple.node.scale = ripple.size
-		burst(contact, n, color, 4, 2.0, 0.16, 0.030)
+		ripple.node.scale = Vector3.ONE * 1.15 * strength
+		var wave_material := ripple.node.material_override as ShaderMaterial
+		wave_material.set_shader_parameter("tint", Color(color, 0.68))
+		wave_material.set_shader_parameter("progress", 0.0)
+		burst(contact, n, color, 5, 2.5, 0.24, 0.065, 62.0, "energy")
 	elif is_robot:
-		burst(contact, n, color.lerp(Color.WHITE, 0.34), int(7 * strength), 4.5, 0.22, 0.040, 62.0)
+		burst(contact, n, color.lerp(Color.WHITE, 0.34), int(6 * strength), 4.5, 0.24, 0.050, 62.0, "energy")
+		if strength > 1.3 and quality == Quality.NORMAL:
+			burst(contact, n, Color("#8b8073"), 3, 2.2, 0.34, 0.09, 65.0, "debris", 0.025)
 		var robot_ripple := _mesh_effect("ring", color, 0.14 if strength < 1.3 else 0.19, 0.42)
 		robot_ripple.node.position = contact
 		robot_ripple.node.basis = _surface_basis(n)
 		robot_ripple.size = Vector3.ONE * (0.22 + strength * 0.08)
 		robot_ripple.node.scale = robot_ripple.size
 	elif is_metal:
-		burst(contact, n, Color("#ffbd6f"), int(9 * strength), 5.4, 0.24, 0.045, 62.0)
+		burst(contact, n, Color("#ffbd6f"), int(7 * strength), 5.4, 0.26, 0.060, 62.0)
+		if quality == Quality.NORMAL:
+			burst(contact, n, Color("#80786c"), 3, 2.4, 0.38, 0.10, 65.0, "debris", 0.025)
 		decal(position, n, 0.18 * strength, Color("#101316"))
-		_smoke(contact, n, 0.13 * strength, 0.32, Color("#343a3e"))
+		_smoke(contact, n, 0.52 * strength, 0.60, Color("#343a3e"), 0.055)
 	else:
-		burst(contact, n, Color("#7d8583"), int(5 * strength), 1.9, 0.31, 0.085, 72.0)
+		burst(contact, n, Color("#95897a"), int(4 * strength), 1.9, 0.32, 0.11, 72.0, "debris")
+		if quality == Quality.NORMAL:
+			burst(contact, n, Color(0.48, 0.43, 0.36, 0.28), 3, 0.7, 0.48, 0.22, 70.0, "dust", 0.035)
 		decal(position, n, 0.24 * strength, Color("#242729"))
-		_smoke(contact, n, 0.19 * strength, 0.38, Color("#555d5c"))
+		_smoke(contact, n, 0.66 * strength, 0.66, Color("#71675c"), 0.060)
 	if not is_shield and not is_robot:
 		if strength > 1.3:
 			var ripple := _mesh_effect("ring", flash_color, 0.15, 0.26)
@@ -289,7 +345,7 @@ func impact(position: Vector3, normal: Vector3, surface: String = "metal", power
 			ripple.node.scale = ripple.size
 
 
-func burst(origin: Vector3, normal: Vector3, color: Color, amount: int = 8, speed: float = 4.0, lifetime: float = 0.25, size: float = 0.045, spread: float = 55.0) -> void:
+func burst(origin: Vector3, normal: Vector3, color: Color, amount: int = 8, speed: float = 4.0, lifetime: float = 0.25, size: float = 0.045, spread: float = 55.0, style: String = "spark", delay: float = 0.0) -> void:
 	var effect := _acquire("particle", clampf(lifetime, 0.06, 0.65) + 0.06)
 	var particles: GPUParticles3D = effect.node
 	particles.position = origin
@@ -304,11 +360,23 @@ func burst(origin: Vector3, normal: Vector3, color: Color, amount: int = 8, spee
 	material.initial_velocity_max = speed
 	material.scale_min = size * 0.65
 	material.scale_max = size * 1.2
-	material.angular_velocity_min = -8.0
-	material.angular_velocity_max = 8.0
+	material.particle_flag_align_y = style == "spark"
+	material.angular_velocity_min = -100.0 if style == "debris" else -8.0
+	material.angular_velocity_max = 100.0 if style == "debris" else 8.0
+	material.damping_min = 1.5 if style == "spark" else 2.8
+	material.damping_max = 3.0 if style == "spark" else 4.5
+	material.color_ramp = _particle_ramp(style)
+	material.scale_curve = _particle_curve(style)
 	material.color = color
-	particles.restart()
-	particles.emitting = true
+	particles.draw_pass_1 = ASSETS.particle_mesh(style)
+	effect.style = style
+	effect.age = -maxf(0.0, delay)
+	effect.pending_start = delay > 0.0
+	particles.visible = delay <= 0.0
+	particles.emitting = false
+	if delay <= 0.0:
+		particles.restart()
+		particles.emitting = true
 
 
 func decal(position: Vector3, normal: Vector3, radius: float = 0.12, tint: Color = Color("#17191b")) -> void:
@@ -318,6 +386,7 @@ func decal(position: Vector3, normal: Vector3, radius: float = 0.12, tint: Color
 	effect.node.position = position + normal.normalized() * 0.022
 	effect.node.basis = _surface_basis(normal).rotated(normal.normalized(), _rng.randf_range(-PI, PI))
 	effect.node.scale = Vector3(radius * _rng.randf_range(1.55, 2.25), 1.0, radius * _rng.randf_range(1.35, 2.05))
+	(effect.node.material_override as StandardMaterial3D).albedo_texture = ASSETS.texture("decal", _rng.randi_range(0, 2))
 
 
 func hit_flash(actor: Node3D, critical: bool = false) -> void:
@@ -327,7 +396,7 @@ func hit_flash(actor: Node3D, critical: bool = false) -> void:
 	if not _hits.has(key):
 		var meshes: Array[Dictionary] = []
 		for child in actor.find_children("*", "MeshInstance3D", true, false):
-			if child.is_visible_in_tree():
+			if child.is_visible_in_tree() and not child.get_meta("ignore_hit_flash", false):
 				meshes.append({"mesh": weakref(child), "original": child.material_overlay})
 		_hits[key] = {"meshes": meshes, "remaining": 0.0}
 	_hits[key].remaining = hit_flash_duration + (0.015 if critical else 0.0)
@@ -343,6 +412,10 @@ func surface_for(collider: Node) -> String:
 	if collider.has_meta("vfx_surface"):
 		return str(collider.get_meta("vfx_surface"))
 	if collider.has_method("take_damage"):
+		if collider.has_method("get_stasis_remaining") and float(collider.call("get_stasis_remaining")) > 0.0:
+			return "shield"
+		if bool(collider.get_meta("duel_static_shield", false)):
+			return "shield"
 		return "robot"
 	if collider is Area3D:
 		return "shield"
@@ -368,14 +441,36 @@ func get_debug_counts() -> Dictionary:
 	return counts
 
 
-func _smoke(origin: Vector3, normal: Vector3, size: float, lifetime: float, color: Color = Color("#9a9fa0")) -> void:
+func _smoke(origin: Vector3, normal: Vector3, size: float, lifetime: float, color: Color = Color("#9a9fa0"), delay: float = 0.0) -> void:
 	if quality == Quality.LOW:
 		return
-	var effect := _mesh_effect("smoke", color, lifetime, 0.24)
-	effect.node.position = origin
+	var primary_count := 0
+	for active_effect in _active:
+		if _category(active_effect.kind) == "effect":
+			primary_count += 1
+	if primary_count >= _limit("effect") - 4:
+		return
+	var effect := _acquire("smoke", lifetime)
+	effect.node.position = origin + normal * 0.06 + Vector3.UP * 0.12
 	effect.size = Vector3.ONE * size
-	effect.node.scale = effect.size
-	effect.drift = normal * 0.22 + Vector3.UP * 0.28
+	effect.node.scale = effect.size * 0.65
+	effect.drift = normal * 0.28 + Vector3.UP * 0.34
+	effect.age = -maxf(0.0, delay)
+	effect.node.visible = delay <= 0.0
+	var material := effect.node.material_override as ShaderMaterial
+	material.set_shader_parameter("tint", Color(color, 0.48))
+	material.set_shader_parameter("puff_texture", ASSETS.texture("smoke", _rng.randi_range(0, 2)))
+	material.set_shader_parameter("spin", _rng.randf_range(-PI, PI))
+	material.set_shader_parameter("progress", 0.0)
+
+
+func _readable_scale(position: Vector3, diameter: float) -> float:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null or camera.is_position_behind(position):
+		return 1.0
+	var pixels := camera.unproject_position(position).distance_to(camera.unproject_position(position + camera.global_basis.x * diameter))
+	# Only the contact flash gets a screen-size floor, bounded to avoid giant VFX.
+	return clampf(9.0 / maxf(pixels, 1.0), 1.0, 1.55)
 
 
 func _mesh_effect(kind: String, color: Color, lifetime: float, alpha: float = 0.92) -> Dictionary:
@@ -395,7 +490,7 @@ func _acquire(kind: String, lifetime: float) -> Dictionary:
 	for index in range(_active.size()):
 		if _category(_active[index].kind) == category:
 			count += 1
-			if oldest < 0:
+			if oldest < 0 or _priority(_active[index].kind) < _priority(_active[oldest].kind):
 				oldest = index
 	if count >= limit and oldest >= 0:
 		_release(oldest)
@@ -404,7 +499,7 @@ func _acquire(kind: String, lifetime: float) -> Dictionary:
 	var node: Node3D = _pool[kind].pop_back() if not _pool[kind].is_empty() else _make_node(kind)
 	node.transform = Transform3D.IDENTITY
 	node.visible = true
-	var effect := {"node": node, "kind": kind, "age": 0.0, "life": maxf(lifetime, 0.01), "alpha": 1.0, "attachment": null, "offset": Vector3.ZERO, "size": Vector3.ONE, "drift": Vector3.ZERO}
+	var effect := {"node": node, "kind": kind, "age": 0.0, "life": maxf(lifetime, 0.01), "alpha": 1.0, "attachment": null, "offset": Vector3.ZERO, "size": Vector3.ONE, "drift": Vector3.ZERO, "pending_start": false, "trail_length": 0.95}
 	_active.append(effect)
 	return effect
 
@@ -428,6 +523,14 @@ func _release(index: int) -> void:
 
 func _category(kind: String) -> String:
 	return kind if kind in ["decal", "particle"] else "effect"
+
+
+func _priority(kind: String) -> int:
+	if kind in ["smoke", "shotgun_spark", "shotgun_pressure"]:
+		return 0
+	if kind in ["ring", "surface_wave"]:
+		return 1
+	return 2
 
 
 func _limit(category: String) -> int:
@@ -481,22 +584,25 @@ func _make_node(kind: String) -> Node3D:
 		scale_curve.curve = curve
 		process.scale_curve = scale_curve
 		particles.process_material = process
-		var shard := BoxMesh.new()
-		shard.size = Vector3(0.5, 0.5, 2.0)
-		var material := _material(Color.WHITE)
-		material.vertex_color_use_as_albedo = true
-		shard.material = material
-		particles.draw_pass_1 = shard
+		particles.draw_pass_1 = ASSETS.particle_mesh("spark")
 		node = particles
+	elif kind in ["smoke", "surface_wave"]:
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = _mesh(kind)
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var material := ShaderMaterial.new()
+		material.shader = SMOKE_SHADER if kind == "smoke" else SURFACE_SHADER
+		mesh.material_override = material
+		node = mesh
 	else:
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = _mesh(kind)
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var additive := kind in ["muzzle", "tracer", "flash", "ring", "shotgun_flame", "shotgun_pressure", "shotgun_trail", "shotgun_spark"]
+		var additive := kind in ["muzzle", "tracer", "flash", "precision_flash", "ring", "shotgun_flame", "shotgun_pressure", "shotgun_trail", "plasma_trail", "needle_trail", "shotgun_spark"]
 		var material := _material(Color.WHITE, 0.92, additive)
 		if additive:
 			material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		if kind == "shotgun_trail":
+		if kind in ["shotgun_trail", "plasma_trail", "needle_trail"]:
 			material.vertex_color_use_as_albedo = true
 		if kind in ["decal", "smoke"]:
 			material.emission_enabled = false
@@ -515,7 +621,7 @@ func _mesh(kind: String) -> Mesh:
 	if _meshes.has(kind):
 		return _meshes[kind]
 	var mesh: Mesh
-	if kind == "decal":
+	if kind in ["decal", "surface_wave"]:
 		mesh = PlaneMesh.new()
 		mesh.size = Vector2.ONE
 	elif kind == "smoke":
@@ -532,10 +638,20 @@ func _mesh(kind: String) -> Mesh:
 		mesh = _faceted_bolt_mesh([Vector2(0.08, 0.50), Vector2(0.46, 0.34), Vector2(0.46, -0.34), Vector2(0.08, -0.50)])
 	elif kind == "shotgun_flame":
 		mesh = _faceted_bolt_mesh([Vector2(0.10, 0.50), Vector2(0.42, 0.28), Vector2(0.50, 0.06), Vector2(0.22, -0.10), Vector2(0.31, -0.28), Vector2(0.0, -0.50)])
-	elif kind == "shotgun_trail":
-		mesh = _shotgun_trail_mesh()
+	elif kind == "needle_muzzle":
+		mesh = _faceted_bolt_mesh([Vector2(0.0, 0.50), Vector2(0.38, -0.12), Vector2(0.0, -0.50)])
+	elif kind in ["shotgun_trail", "plasma_trail", "needle_trail"]:
+		mesh = _shotgun_trail_mesh(kind)
 	elif kind == "flash":
 		mesh = _impact_star_mesh()
+	elif kind == "precision_flash":
+		mesh = _precision_mesh()
+	elif kind == "blaster_plasma":
+		mesh = SphereMesh.new()
+		mesh.radius = 0.5
+		mesh.height = 1.0
+		mesh.radial_segments = 24
+		mesh.rings = 12
 	else:
 		mesh = SphereMesh.new()
 		mesh.radius = 0.5
@@ -559,24 +675,32 @@ func _material(color: Color, alpha: float = 0.92, additive: bool = false) -> Sta
 
 
 func _texture(kind: String) -> Texture2D:
-	if _textures.has(kind):
-		return _textures[kind]
-	var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	for y in range(64):
-		for x in range(64):
-			var uv := (Vector2(x, y) - Vector2(31.5, 31.5)) / 31.5
-			var noise := 0.76 + 0.16 * sin(float(x * 17 + y * 31)) + 0.08 * sin(float(x * 7 - y * 13))
-			var alpha := pow(maxf(0.0, 1.0 - uv.length()), 1.7) * noise
-			if kind == "decal":
-				var angle := atan2(uv.y, uv.x)
-				var radius := uv.length()
-				var edge := 0.70 + sin(angle * 5.0) * 0.10 + sin(angle * 11.0 + 0.8) * 0.055
-				var crater := 1.0 - smoothstep(edge * 0.42, edge, radius)
-				var cracks := pow(maxf(0.0, cos(angle * 7.0 + radius * 17.0)), 18.0) * smoothstep(0.38, 0.78, radius) * (1.0 - smoothstep(0.78, 1.0, radius))
-				alpha = clampf(crater * noise + cracks * 0.72, 0.0, 1.0)
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
-	_textures[kind] = ImageTexture.create_from_image(image)
-	return _textures[kind]
+	return ASSETS.texture(kind)
+
+
+func _particle_ramp(style: String) -> GradientTexture1D:
+	var key := "ramp_" + style
+	if not _textures.has(key):
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.18, 0.62, 1.0])
+		gradient.colors = PackedColorArray([Color.WHITE, Color.WHITE, Color(0.95, 0.62, 0.30, 0.72) if style == "spark" else Color(1.0, 1.0, 1.0, 0.64), Color(1.0, 1.0, 1.0, 0.0)])
+		var ramp := GradientTexture1D.new()
+		ramp.gradient = gradient
+		_textures[key] = ramp
+	return _textures[key]
+
+
+func _particle_curve(style: String) -> CurveTexture:
+	var key := "curve_" + style
+	if not _textures.has(key):
+		var curve := Curve.new()
+		curve.add_point(Vector2(0.0, 0.35 if style == "dust" else 1.0))
+		curve.add_point(Vector2(0.5, 0.85 if style == "dust" else 0.70))
+		curve.add_point(Vector2(1.0, 1.0 if style == "dust" else 0.10))
+		var texture := CurveTexture.new()
+		texture.curve = curve
+		_textures[key] = texture
+	return _textures[key]
 
 
 func _surface_basis(normal: Vector3) -> Basis:
@@ -629,7 +753,21 @@ func _impact_star_mesh() -> ImmediateMesh:
 	return mesh
 
 
-func _shotgun_trail_mesh() -> ImmediateMesh:
+func _precision_mesh() -> ImmediateMesh:
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(8):
+		var a := TAU * index / 8.0
+		var b := TAU * (index + 1) / 8.0
+		var radius_a := 0.50 if index % 2 == 0 else 0.075
+		var radius_b := 0.50 if (index + 1) % 2 == 0 else 0.075
+		for point in [Vector3.ZERO, Vector3(cos(a) * radius_a, 0.0, sin(a) * radius_a), Vector3(cos(b) * radius_b, 0.0, sin(b) * radius_b)]:
+			mesh.surface_add_vertex(point)
+	mesh.surface_end()
+	return mesh
+
+
+func _shotgun_trail_mesh(kind: String = "shotgun_trail") -> ImmediateMesh:
 	var mesh := ImmediateMesh.new()
 	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	for side in range(4):
@@ -640,7 +778,8 @@ func _shotgun_trail_mesh() -> ImmediateMesh:
 		var tail_a := Vector3(cos(a) * 0.04, sin(a) * 0.04, 1.0)
 		var tail_b := Vector3(cos(b) * 0.04, sin(b) * 0.04, 1.0)
 		for point in [front_a, front_b, tail_b, front_a, tail_b, tail_a]:
-			mesh.surface_set_color(Color(1.0, 0.86, 0.60, 1.0) if point.z < 0.5 else Color(1.0, 0.22, 0.03, 0.0))
+			var front := Color(1.0, 0.86, 0.60, 1.0) if kind == "shotgun_trail" else Color.WHITE
+			mesh.surface_set_color(front if point.z < 0.5 else Color(1.0, 1.0, 1.0, 0.0))
 			mesh.surface_add_vertex(point)
 	mesh.surface_end()
 	return mesh

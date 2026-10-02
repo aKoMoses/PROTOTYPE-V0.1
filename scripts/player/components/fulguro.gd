@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -67,8 +68,8 @@ func _update_fulguro_projection(delta: float) -> void:
 	if step_distance <= 0.0001:
 		player._finish_fulguro_projection(false)
 		return
-	var collision := player.move_and_collide(player._fulguro_projection_direction * step_distance)
-	player.global_position.y = 0.0
+	var collision := player.move_and_collide(ARENA_TRAVERSAL.motion(player, player._fulguro_projection_direction * step_distance))
+	ARENA_TRAVERSAL.snap(player)
 	var travelled := step_distance
 	if collision != null:
 		travelled = collision.get_travel().length()

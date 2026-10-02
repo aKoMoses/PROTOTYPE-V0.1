@@ -75,7 +75,12 @@ func run() -> void:
 	check(guard.surcharge_remaining == 0.0, "unspent reward expires")
 	prepare()
 	player.call("_perform_counter")
-	guard.update(0.88)
+	guard.update(float(guard.definition.preparation) + 1.05)
+	check(guard.phase == "guard", "extended guard remains active after the former 0.95 second window")
+	check(COUNTER.impact(player, 20, "test", "late", payload("late"), Vector3.UP) == 0, "late attack intercepted inside extended guard")
+	prepare()
+	player.call("_perform_counter")
+	guard.update(float(guard.definition.preparation) + float(guard.definition.guard_duration))
 	check(guard.phase == "recovery" and guard.surcharge_remaining == 0.0, "empty guard expires without reward")
 	check(COUNTER.impact(player, 20, "test", "expired", payload("expired"), Vector3.UP) == 20, "expired guard unprotected")
 	guard.update(0.20)
@@ -127,7 +132,7 @@ func run() -> void:
 	var explosion_count := guard.explosions
 	for i in range(6):
 		player.call("passive_weapon_damage", target, 20, "player", "boost:%d" % i, attack, target.global_position + Vector3.UP * 0.85)
-	check(absf(before - float(target.call("get_health")) - 130.0) < 0.01, "six primary hits plus only one 10-damage explosion including direct target")
+	check(absf(before - float(target.call("get_health")) - 120.0 - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)) < 0.01, "six primary hits plus only one strengthened explosion including direct target")
 	check(guard.explosions == explosion_count + 1, "one explosion for composed/perforating attack")
 	check(float(player.call("get_health")) == 1000, "owner immune to own explosion")
 	prepare()
@@ -160,6 +165,11 @@ func run() -> void:
 	else:
 		for failure in failures:
 			push_error("COUNTER: " + failure)
+	scene.queue_free()
+	current_scene = null
+	await process_frame
+	root.get_node("GameSfx").call("clear")
+	await create_timer(0.15).timeout
 	quit(0 if failures.is_empty() else 1)
 
 
@@ -197,7 +207,7 @@ func test_inputs() -> void:
 	check(not player.get("_touch_fire_active") and player.get("_touch_fire_requests").is_empty(), "no deferred fire request")
 	check(int(player.call("_try_begin_weapon_action", "blaster")) == 0, "weapon blocked during preparation")
 	check(not player.call("begin_touch_action", "mobility"), "mobility blocked during guard action")
-	guard.update(1.08)
+	guard.update(float(guard.definition.preparation) + float(guard.definition.guard_duration) + float(guard.definition.failure_recovery))
 	player.call("end_touch_fire")
 	check(player.get("_touch_fire_requests").is_empty(), "original touch release cannot fire after recovery")
 	player.call("reset_combat_state")

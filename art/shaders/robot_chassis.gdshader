@@ -55,4 +55,7 @@ void fragment() {
 	ALPHA = visibility_opacity;
 	ROUGHNESS = part_role == 0 ? mix(source_roughness, panel_roughness, metal_mask) : source_roughness;
 	METALLIC = part_role == 0 ? mix(source_metallic, panel_metallic, metal_mask) : source_metallic;
+	RIM = part_role == 0 ? 0.22 : 0.0;
+	RIM_TINT = 0.25;
+	EMISSION = source * cyan * 0.18 * (1.0 - visibility_silhouette);
 }

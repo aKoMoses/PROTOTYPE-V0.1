@@ -15,6 +15,11 @@ func _initialize() -> void:
 
 func _run() -> void:
 	seed(20260930)
+	var main_script := load("res://scripts/main.gd") as Script
+	if main_script == null or not main_script.can_instantiate():
+		push_error("Combat fixture stopped: the shared gameplay scripts must compile first")
+		quit(2)
+		return
 	var scene := load("res://scenes/main.tscn").instantiate() as Node3D
 	root.add_child(scene)
 	current_scene = scene
@@ -54,6 +59,7 @@ func _run() -> void:
 	var initial_health := float(player.call("get_health"))
 	var initial_target_health := float(target.call("get_health"))
 	var initial_bot_elapsed := float(bot.get("_elapsed"))
+	var bot_elapsed_peak := 0.0
 	node_added.connect(_on_node_added)
 	var started := Time.get_ticks_msec()
 	for step in range(STEPS):
@@ -65,6 +71,9 @@ func _run() -> void:
 		player.call("set_touch_aim_vector", Vector2(direction.x, direction.z).normalized())
 		player.call("set_touch_attack_held", step % 42 < 24)
 		await physics_frame
+		# A legitimate round result disables the bot and resets its local clock.
+		# Retain the observed active duration instead of reading the reset at exit.
+		bot_elapsed_peak = maxf(bot_elapsed_peak,float(bot.get("_elapsed"))-initial_bot_elapsed)
 		player_distance += previous_player.distance_to(player.global_position)
 		bot_distance += previous_target.distance_to(target.global_position)
 		previous_player = player.global_position
@@ -86,12 +95,13 @@ func _run() -> void:
 	player.call("clear_touch_inputs")
 	node_added.disconnect(_on_node_added)
 	var shots := int(player.get("_blaster_attack_token")) - initial_shot_token
-	var bot_elapsed := float(bot.get("_elapsed")) - initial_bot_elapsed
+	var bot_elapsed := bot_elapsed_peak
 	_check(player_distance > 2.0, "live touch movement did not traverse the arena")
 	_check(bot_distance > 0.5, "production bot did not navigate during live combat")
 	_check(shots >= 2, "normal attack input did not produce multiple blaster shots")
 	_check(_projectile_nodes > 0 or not seen_projectiles.is_empty(), "no real projectile nodes were observed")
 	_check(bot_elapsed > 4.0 and perceived, "bot simulation/perception did not execute")
+	_check(bool(bot.get("enabled")) or bool(flow.get("_round_resolved")), "bot stopped before a legitimate round result")
 	_check(grounded, "actor height changed during movement")
 	_check(finite_and_bounded, "actor escaped the arena or produced invalid coordinates")
 	_check(not bool(player.call("is_real_dead")) and not bool(target.call("is_real_dead")), "smoke encounter ended before completing movement coverage")
@@ -106,6 +116,7 @@ func _run() -> void:
 		"projectile_nodes_created": _projectile_nodes,
 		"projectiles_sampled": seen_projectiles.size(),
 		"bot_active_seconds": bot_elapsed,
+		"round_resolved": bool(flow.get("_round_resolved")),
 		"bot_perceived_player": perceived,
 		"player_damage": initial_health - float(player.call("get_health")),
 		"target_damage": initial_target_health - float(target.call("get_health")),

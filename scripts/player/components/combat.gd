@@ -418,6 +418,9 @@ func apply_slow(duration: float, percent: float, source_id: String = "") -> void
 func apply_stun(duration: float, source_id: String = "") -> void:
 	if player.is_eclipse_travelling():
 		return
+	if player.combat_state == null or not player.combat_state.can_receive_stun(duration):
+		return
+	player._controls_component.clear_command_buffer()
 	if duration > 0.0:
 		player._cancel_mekatana_attack()
 	if duration > 0.0:

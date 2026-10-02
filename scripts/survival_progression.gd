@@ -22,6 +22,7 @@ var _offers: Dictionary = {}
 var _claimed: Dictionary = {}
 var _last_choice: Dictionary = {}
 var _random := RandomNumberGenerator.new()
+var rerolls_remaining := 1
 
 func _init() -> void:
 	_random.randomize()
@@ -79,6 +80,21 @@ func reward_choices(completed_wave: int) -> Array[Dictionary]:
 
 func _take_random(pool: Array[Dictionary], choices: Array[Dictionary]) -> void:
 	choices.append(pool[_random.randi_range(0, pool.size() - 1)])
+
+func reroll_reward(completed_wave: int) -> bool:
+	if rerolls_remaining <= 0 or _claimed.has(completed_wave):
+		return false
+	var previous := reward_choices(completed_wave).duplicate(true)
+	if previous.is_empty():
+		return false
+	for attempt in 8:
+		_offers.erase(completed_wave)
+		var next := reward_choices(completed_wave)
+		if next.any(func(card: Dictionary) -> bool: return not previous.has(card)):
+			rerolls_remaining -= 1
+			return true
+	_offers[completed_wave] = previous
+	return false
 
 func _power_description(category: String) -> String:
 	var current := int(upgrades[category]["power"])

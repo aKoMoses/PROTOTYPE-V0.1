@@ -86,7 +86,7 @@ func _test_six_of_six(player: Node, target: Node) -> void:
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
 	var health := float(target.call("get_health"))
-	if health > 820.0 or health < 790.0:
+	if health > 748.0 or health < 718.0:
 		_failures.append("6/6 : %.2f PV, dégâts critiques/BURN incohérents" % health)
 	if not (target.call("get_active_effect_types") as Array).has("BURN"):
 		_failures.append("6/6 : BURN absent")
@@ -99,8 +99,8 @@ func _test_four_of_six(player: Node, target: Node) -> void:
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
 	var health := float(target.call("get_health"))
-	if absf(health - 920.0) > 1.2:
-		_failures.append("4/6 : %.2f PV au lieu de 920" % health)
+	if absf(health - 888.0) > 1.2:
+		_failures.append("4/6 : %.2f PV au lieu de 888" % health)
 	if (target.call("get_active_effect_types") as Array).has("BURN"):
 		_failures.append("4/6 : BURN appliqué à tort")
 
@@ -173,7 +173,7 @@ func _test_magazine_and_reload(player: Node, target: Node) -> void:
 		_failures.append("chargeur : recharge automatique non démarrée")
 	await _wait_seconds(1.95)
 	if int(player.call("get_shotgun_ammo")) != 3 or bool(player.call("is_shotgun_reloading")):
-		_failures.append("chargeur : recharge 1,80 s incorrecte")
+		_failures.append("chargeur : recharge 1,40 s incorrecte")
 
 
 func _wait_for_shotgun(player: Node) -> void:

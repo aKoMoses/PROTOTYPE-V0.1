@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Workshop_cyan"
+albedo_color = Color(0.19607843, 0.8352941, 0.87058824, 1)
+roughness = 0.85
+emission_enabled = true
+emission = Color(0.19607843, 0.8352941, 0.87058824, 1)
+emission_energy_multiplier = 1.15

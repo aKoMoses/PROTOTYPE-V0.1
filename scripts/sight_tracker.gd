@@ -30,6 +30,10 @@ var _vision_radius := VISIBILITY_STATE.DEFAULT_VISION_RADIUS
 var _vision_fade_width := VISIBILITY_STATE.DEFAULT_VISION_FADE_WIDTH
 var _clock := 0.0
 var _obstacle_polygons: Array[PackedVector2Array] = []
+var _walkable_polygons: Array[PackedVector2Array] = []
+var _ramp_markers: Array[Dictionary] = []
+var _bush_markers: Array[Dictionary] = []
+var _repair_positions: Array[Vector3] = []
 
 
 class SightPanel extends Control:
@@ -207,8 +211,23 @@ func _update_layout() -> void:
 
 func _cache_obstacles() -> void:
 	_obstacle_polygons.clear()
+	_walkable_polygons.clear()
+	_ramp_markers.clear()
+	_bush_markers.clear()
+	_repair_positions.clear()
 	if not is_instance_valid(_scene):
 		return
+	var test_arena: Node3D = _scene.get_node_or_null("TestArena") if _scene.get("arena_variant") == "test" else null
+	var floors: Array = test_arena.get("surfaces") if test_arena != null else []
+	if test_arena != null:
+		# Cache fixed map features only. Pickup availability and concealed actor
+		# positions never drive these markers, so they cannot act as a radar.
+		for bush in get_tree().get_nodes_in_group("bush_placeholder"):
+			if test_arena.is_ancestor_of(bush):
+				_bush_markers.append({"position": bush.get_meta("bush_center", bush.global_position), "radius": float(bush.get_meta("bush_radius", 0.0))})
+		for kit in get_tree().get_nodes_in_group("repair_kits"):
+			if test_arena.is_ancestor_of(kit):
+				_repair_positions.append(kit.global_position)
 	# Arena geometry is static. Read it once; actor nodes are never enumerated.
 	var blockers: Array = []
 	if "_arena_blockers" in _scene:
@@ -217,18 +236,67 @@ func _cache_obstacles() -> void:
 		if not is_instance_valid(blocker) or bool(blocker.get_meta("invisible_safety_limit", false)):
 			continue
 		for child in blocker.get_children():
-			if not child is CollisionShape3D or not child.shape is BoxShape3D:
+			if not child is CollisionShape3D:
 				continue
-			var shape_size: Vector3 = child.shape.size
 			var polygon := PackedVector2Array()
-			for sign_pair in [Vector2(-1.0, -1.0), Vector2(1.0, -1.0), Vector2(1.0, 1.0), Vector2(-1.0, 1.0)]:
-				var point: Vector3 = child.global_transform * Vector3(sign_pair.x * shape_size.x * 0.5, 0.0, sign_pair.y * shape_size.z * 0.5)
-				polygon.append(Vector2(point.x, point.z))
-			_obstacle_polygons.append(polygon)
+			if child.shape is BoxShape3D:
+				var shape_size: Vector3 = child.shape.size
+				for sign_pair in [Vector2(-1.0, -1.0), Vector2(1.0, -1.0), Vector2(1.0, 1.0), Vector2(-1.0, 1.0)]:
+					var point: Vector3 = child.global_transform * Vector3(sign_pair.x * shape_size.x * 0.5, 0.0, sign_pair.y * shape_size.z * 0.5)
+					polygon.append(Vector2(point.x, point.z))
+			elif child.shape is ConvexPolygonShape3D and floors.has(blocker):
+				var high_points := Vector2.ZERO
+				var high_count := 0
+				var highest := -INF
+				for vertex in child.shape.points:
+					var point: Vector3 = child.global_transform * vertex
+					polygon.append(Vector2(point.x, point.z))
+					if point.y > highest + 0.001:
+						highest = point.y
+						high_points = Vector2.ZERO
+						high_count = 0
+					if absf(point.y - highest) < 0.001:
+						high_points += Vector2(point.x, point.z)
+						high_count += 1
+				polygon = Geometry2D.convex_hull(polygon)
+				if polygon.size() > 1 and polygon[0] == polygon[-1]:
+					polygon.remove_at(polygon.size() - 1)
+				var centre := Vector2.ZERO
+				for point in polygon:
+					centre += point
+				centre /= maxf(1, polygon.size())
+				_ramp_markers.append({"position": Vector3(centre.x, 0, centre.y), "direction": (high_points / maxf(1, high_count) - centre).normalized()})
+			if polygon.size() < 3:
+				continue
+			if floors.has(blocker):
+				_walkable_polygons.append(polygon)
+			else:
+				_obstacle_polygons.append(polygon)
 
 
 func _map_point(world: Vector3, dimensions: Vector2) -> Vector2:
-	return Vector2(world.x + ARENA_HALF_EXTENT, world.z + ARENA_HALF_EXTENT) / (ARENA_HALF_EXTENT * 2.0) * dimensions
+	var extents := _map_half_extents()
+	var rect := _map_rect(dimensions)
+	return (Vector2(world.x, world.z) + extents) / (extents * 2.0) * rect.size + rect.position
+
+
+func _map_extent() -> float:
+	return _map_half_extents().x
+
+
+func _map_half_extents() -> Vector2:
+	if is_instance_valid(_scene) and _scene.get("arena_variant") == "test":
+		var arena := _scene.get_node_or_null("TestArena")
+		if arena != null:
+			return arena.call("map_half_extents")
+	return Vector2.ONE * ARENA_HALF_EXTENT
+
+
+func _map_rect(dimensions: Vector2) -> Rect2:
+	var span := _map_half_extents() * 2.0
+	var scale_factor := minf(dimensions.x / span.x, dimensions.y / span.y)
+	var size := span * scale_factor
+	return Rect2((dimensions - size) * 0.5, size)
 
 
 func _memory_uncertainty() -> float:
@@ -247,12 +315,14 @@ func _dashed_circle(canvas: Control, centre: Vector2, radius: float, tint: Color
 
 func _draw_map(canvas: Control) -> void:
 	var dimensions := canvas.size
-	var pixels_per_unit := dimensions.x / (ARENA_HALF_EXTENT * 2.0)
+	var extent := _map_extent()
+	var map_rect := _map_rect(dimensions)
+	var pixels_per_unit := map_rect.size.x / (extent * 2.0)
 	canvas.draw_rect(Rect2(Vector2.ZERO, dimensions), Color("#182225"))
 	for index in range(1, 6):
-		var offset := dimensions.x * float(index) / 6.0
-		canvas.draw_line(Vector2(offset, 0.0), Vector2(offset, dimensions.y), Color("#8ebbc00c"), 1.0)
-		canvas.draw_line(Vector2(0.0, offset), Vector2(dimensions.x, offset), Color("#8ebbc00c"), 1.0)
+		var offset := map_rect.size * float(index) / 6.0
+		canvas.draw_line(map_rect.position + Vector2(offset.x, 0.0), map_rect.position + Vector2(offset.x, map_rect.size.y), Color("#8ebbc00c"), 1.0)
+		canvas.draw_line(map_rect.position + Vector2(0.0, offset.y), map_rect.position + Vector2(map_rect.size.x, offset.y), Color("#8ebbc00c"), 1.0)
 	var player_point := _map_point(_player_position, dimensions)
 	var inner_radius := maxf(0.0, _vision_radius - _vision_fade_width)
 	# Layered low-opacity discs express the same soft radial boundary as the
@@ -263,14 +333,22 @@ func _draw_map(canvas: Control) -> void:
 	canvas.draw_circle(player_point, inner_radius * pixels_per_unit, Color(CYAN, 0.035))
 	canvas.draw_arc(player_point, inner_radius * pixels_per_unit, 0.0, TAU, 64, Color(CYAN, 0.16), 1.0, true)
 	_dashed_circle(canvas, player_point, _vision_radius * pixels_per_unit, Color(CYAN, 0.25))
+	for polygon in _walkable_polygons:
+		var points := PackedVector2Array()
+		for point in polygon:
+			points.append(_map_point(Vector3(point.x, 0, point.y), dimensions))
+		canvas.draw_colored_polygon(points, Color("#70868c66"))
+		points.append(points[0])
+		canvas.draw_polyline(points, Color("#a4b5b470"), 1.0, true)
 	for polygon in _obstacle_polygons:
 		var points := PackedVector2Array()
 		for point in polygon:
-			points.append((point + Vector2.ONE * ARENA_HALF_EXTENT) / (ARENA_HALF_EXTENT * 2.0) * dimensions)
+			points.append(_map_point(Vector3(point.x, 0, point.y), dimensions))
 		canvas.draw_colored_polygon(points, Color("#485055"))
 		points.append(points[0])
 		canvas.draw_polyline(points, Color("#7f8d903a"), 1.0, true)
-	canvas.draw_rect(Rect2(Vector2.ONE, dimensions - Vector2.ONE * 2.0), Color("#7b929658"), false, 1.0)
+	_draw_landmarks(canvas, pixels_per_unit)
+	canvas.draw_rect(Rect2(map_rect.position + Vector2.ONE, map_rect.size - Vector2.ONE * 2.0), Color("#7b929658"), false, 1.0)
 	if _known:
 		var opponent_point := _map_point(_last_position, dimensions)
 		if _opponent_visible:
@@ -295,3 +373,25 @@ func _draw_map(canvas: Control) -> void:
 	var side := heading.orthogonal()
 	canvas.draw_circle(player_point, 7.0, Color(CYAN, 0.16))
 	canvas.draw_colored_polygon(PackedVector2Array([player_point + heading * 6.0, player_point - heading * 3.0 + side * 3.2, player_point - heading * 3.0 - side * 3.2]), CYAN)
+
+
+func _draw_landmarks(canvas: Control, pixels_per_unit: float) -> void:
+	for bush in _bush_markers:
+		var centre := _map_point(bush.position, canvas.size)
+		var radius := float(bush.radius) * pixels_per_unit
+		canvas.draw_circle(centre, radius, Color("#91a46f50"))
+		canvas.draw_arc(centre, radius, 0, TAU, 24, Color("#a6b989a0"), 1.0, true)
+	for ramp in _ramp_markers:
+		var centre := _map_point(ramp.position, canvas.size)
+		var heading: Vector2 = ramp.direction
+		var tip := centre + heading * 3.8
+		var tint := Color("#d8cfb8bd")
+		canvas.draw_line(centre - heading * 3.8, tip, tint, 1.2, true)
+		for side in [-1.0, 1.0]:
+			canvas.draw_line(tip, tip - heading * 2.8 + heading.orthogonal() * side * 2.4, tint, 1.2, true)
+	for position in _repair_positions:
+		var centre := _map_point(position, canvas.size)
+		canvas.draw_rect(Rect2(centre - Vector2.ONE * 4.5, Vector2.ONE * 9), Color("#172b29"))
+		canvas.draw_rect(Rect2(centre - Vector2.ONE * 4.5, Vector2.ONE * 9), Color("#85b3a7a0"), false, 1.0)
+		canvas.draw_line(centre - Vector2(2.6, 0), centre + Vector2(2.6, 0), Color("#b9d9c4"), 1.8)
+		canvas.draw_line(centre - Vector2(0, 2.6), centre + Vector2(0, 2.6), Color("#b9d9c4"), 1.8)

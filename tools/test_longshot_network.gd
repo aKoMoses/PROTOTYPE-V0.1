@@ -63,18 +63,21 @@ func _run() -> void:
 	_check(int(host.call("get_longshot_shots_fired")) == 1, "host commits one real shot")
 	var fired: Array = recorder.events.filter(func(e: Dictionary) -> bool: return e.action == "longshot_fired" and e.actor == host)
 	_check(fired.size() == 1 and not bool(fired[0].data.enhanced), "host ignores client's enhanced flag")
-	_check(float(target.call("get_health")) < 1000.0 and float(target.call("get_health")) > 940.0, "normal host projectile damages once")
+	_check(float(target.call("get_health")) < 920.0 and float(target.call("get_health")) > 850.0, "normal host projectile damages once")
+	_check(int(host.call("get_longshot_cycle_count")) == 1, "only successful host damage earns an impact")
 	host.call("receive_action", "longshot", {"enhanced": true})
 	await create_timer(0.12).timeout
 	_check(int(host.call("get_longshot_shots_fired")) == 1, "repeated request during recovery is refused")
 	replica.call("receive_snapshot", host.call("network_snapshot"))
 	_check(int(replica.call("get_longshot_shots_fired")) == 1, "authoritative cycle is replicated")
+	_check(int(replica.call("get_longshot_cycle_count")) == 1 and is_equal_approx(float(replica.call("get_current_move_speed")), float(host.call("get_current_move_speed"))), "earned impacts and mobility follow host snapshot")
 	_check(float(replica.get("_longshot_next_attack_ready_at")) > Time.get_ticks_msec() / 1000.0, "remaining recovery is replicated")
 	var replica_hp: float = replica.call("get_health")
 	replica.call("take_damage", 200.0, "fake", "fake_longshot")
 	_check(is_equal_approx(float(replica.call("get_health")), replica_hp), "replica cannot resolve damage")
 	# Snapshot precedes the reliable visual event: never commit the cycle twice.
 	host.get("_longshot_state").shots_fired = 4
+	host.get("_longshot_state").hits = 2
 	replica.call("receive_snapshot", host.call("network_snapshot"))
 	_check(bool(replica.call("is_longshot_enhanced_ready")), "ready state follows host snapshot")
 	replica.call("receive_action", "longshot_fired", {"enhanced": false, "shot_number": 4}, true)
@@ -84,8 +87,8 @@ func _run() -> void:
 	host.call("receive_action", "longshot", {"enhanced": false, "shot_number": 1})
 	await create_timer(0.20).timeout
 	fired = recorder.events.filter(func(e: Dictionary) -> bool: return e.action == "longshot_fired" and e.actor == host)
-	_check(fired.size() == 2 and bool(fired[-1].data.enhanced), "host fifth shot is enhanced even when client denies it")
-	_check(int(host.call("get_longshot_cycle_count")) == 0, "host fifth shot resets the visible segments")
+	_check(fired.size() == 2 and bool(fired[-1].data.enhanced), "host execution ignores client denial")
+	_check(int(host.call("get_longshot_cycle_count")) == 0, "execution consumes impacts and cannot charge itself")
 	replica.call("receive_snapshot", host.call("network_snapshot"))
 	replica.call("receive_action", "longshot_fired", {"enhanced": true, "shot_number": 5}, true)
 	await create_timer(0.15).timeout

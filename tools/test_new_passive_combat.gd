@@ -56,6 +56,8 @@ func _run() -> void:
 	current_scene.queue_free()
 	await process_frame
 	await process_frame
+	root.get_node("GameSfx").call("clear")
+	await create_timer(0.20).timeout
 	quit(0 if failures.is_empty() else 1)
 
 
@@ -95,15 +97,15 @@ func _test_volley() -> void:
 	var volley := salvo()
 	for pellet in 6:
 		player.call("_resolve_shotgun_projectile", volley, pellet, true, target, 2.0)
-	check(is_equal_approx(float(player.call("get_module_cooldown", "javelin")), 4.75), "Real Shotgun: one reactor reduction")
+	check(is_equal_approx(float(player.call("get_module_cooldown", "javelin")), 4.40), "Real Shotgun: one reactor reduction")
 	setup("tracker", "shotgun")
 	volley = salvo()
 	for pellet in 6:
 		player.call("_resolve_shotgun_projectile", volley, pellet, true, target, 2.0)
 	check(int(player.get("passive_state").tracker_count) == 1, "Real Shotgun: one tracker mark; critical and burn excluded")
-	for shot in 2:
+	for shot in 1:
 		hit(player.call("emit_passive_weapon"))
-	check(bool(target.get("combat_state").is_spotted()), "Real combat: third distinct attack reveals")
+	check(bool(target.get("combat_state").is_spotted()), "Real combat: second distinct attack reveals")
 	check(player.call("get_tracker_locations").has(target), "Real combat: source has locator target")
 	setup("alternator", "shotgun")
 	player.call("register_offensive_attack", "boost")
@@ -112,8 +114,8 @@ func _test_volley() -> void:
 	var before := float(target.call("get_health"))
 	for pellet in 6:
 		player.call("_resolve_shotgun_projectile", volley, pellet, true, target, 2.0)
-	var expected := 6.0 * 20.0 * 1.15 * DATA.CRIT_MULTIPLIER
-	check(absf(before - float(target.call("get_health")) - expected) < 0.01, "Real Shotgun: every direct component and critical get exactly +15%")
+	var expected := 6.0 * 28.0 * 1.30 * DATA.CRIT_MULTIPLIER
+	check(absf(before - float(target.call("get_health")) - expected) < 0.01, "Real Shotgun: every direct component and critical get exactly +30%")
 
 
 func _test_offensive() -> void:
@@ -126,7 +128,7 @@ func _test_offensive() -> void:
 	check(float(player.get("passive_state").alternator_remaining) == 3.0, "Real Pelto outbound arms")
 	player.get("passive_state").process(1.0)
 	var attack: Dictionary = player.call("emit_passive_weapon")
-	check(is_equal_approx(float(attack.multiplier), 1.15), "Real module then weapon")
+	check(is_equal_approx(float(attack.multiplier), 1.30), "Real module then weapon")
 	wave.call("_apply_hit", target, true)
 	check(float(player.get("passive_state").alternator_remaining) == 0.0, "Real Pelto return cannot rearm consumed bonus")
 	wave.queue_free()
@@ -178,7 +180,7 @@ func _test_dash() -> void:
 	check(float(player.get("passive_state").inertia_remaining) == 2.5, "Actual completed dash arms")
 	var attack: Dictionary = player.call("emit_passive_weapon")
 	hit(attack)
-	check(float(target.get("combat_state").get_slow_percent()) == 20.0, "Actual next weapon applies configured SLOW")
+	check(float(target.get("combat_state").get_slow_percent()) == 25.0, "Actual next weapon applies configured SLOW")
 	setup("inertia", "mekatana")
 	player.call("_perform_mekatana_attack")
 	player.get("_mekatana_attack").update(0.13)
@@ -222,7 +224,7 @@ func _test_absorbing_shields() -> void:
 	target.get("combat_state").grant_shield(200.0, 5.0)
 	player.get("_module_cooldowns")["javelin"] = 5.0
 	check(hit(player.call("emit_passive_weapon")) == 0.0, "Absorbed direct hit causes no HP loss")
-	check(is_equal_approx(float(player.call("get_module_cooldown", "javelin")), 4.75), "Absorbed direct hit triggers reactor")
+	check(is_equal_approx(float(player.call("get_module_cooldown", "javelin")), 4.40), "Absorbed direct hit triggers reactor")
 	setup("tracker")
 	target.get("combat_state").grant_shield(200.0, 5.0)
 	for shot in 3:
@@ -232,7 +234,7 @@ func _test_absorbing_shields() -> void:
 	target.get("combat_state").grant_shield(200.0, 5.0)
 	player.get("passive_state").dash_finished(true)
 	hit(player.call("emit_passive_weapon"))
-	check(is_equal_approx(float(target.get("combat_state").get_slow_percent()), 20.0), "Absorbed attack applies frozen slow")
+	check(is_equal_approx(float(target.get("combat_state").get_slow_percent()), 25.0), "Absorbed attack applies frozen slow")
 	setup("alternator")
 	target.get("combat_state").grant_shield(500.0, 5.0)
 	var wave: Node3D = load("res://scripts/pelto_smash.gd").new()
@@ -255,10 +257,10 @@ func _test_bots() -> void:
 	var attack: Dictionary = target.call("emit_passive_weapon")
 	for pellet in 6:
 		target.call("passive_weapon_damage", player, 10.0, "duel_bot", "bot_test:%d" % pellet, attack)
-	check(is_equal_approx(float(equipment.call("get_module_cooldown", "javelin")), 3.75), "Bot shares reactor deduplication")
+	check(is_equal_approx(float(equipment.call("get_module_cooldown", "javelin")), 3.40), "Bot shares reactor deduplication")
 	build.passive = "tracker"
 	target.call("set_duel_loadout", build)
-	for shot in 3:
+	for shot in 2:
 		target.call("passive_weapon_damage", player, 10.0, "duel_bot", "tracker_bot:%d" % shot, target.call("emit_passive_weapon"))
 	check(bool(player.get("combat_state").is_spotted()), "Bot tracker shares distinct attack threshold")
 	build.passive = "alternator"
@@ -266,7 +268,7 @@ func _test_bots() -> void:
 	target.call("register_offensive_attack", "bot_module")
 	target.call("on_direct_offensive_hit", "bot_module", 10.0, player)
 	attack = target.call("emit_passive_weapon")
-	check(is_equal_approx(float(attack.multiplier), 1.15), "Bot alternator stamps the same multiplier")
+	check(is_equal_approx(float(attack.multiplier), 1.30), "Bot alternator stamps the same multiplier")
 	build.passive = "inertia"
 	target.call("set_duel_loadout", build)
 	equipment.call("_start_dash", Vector3.RIGHT)

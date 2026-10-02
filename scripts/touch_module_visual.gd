@@ -38,6 +38,10 @@ func update(actor: Node, delta: float, active: bool) -> void:
 			if recovered:
 				flash = READY_FLASH_DURATION
 		var recast := identifier == "javelin" and actor.has_method("get_javelin_recast_fraction") and float(actor.call("get_javelin_recast_fraction")) > 0.0
+		if identifier == "static_shield" and actor.has_method("get_stasis_remaining"):
+			var stasis := float(actor.call("get_stasis_remaining"))
+			var full := float(actor.get("_static_duration"))
+			recast = stasis > 0.0 and full - stasis >= float(COMBAT_DATA.MODULE_DEFINITIONS.static_shield.minimum_duration) - 0.00001
 		var preparing := false
 		for method in ["is_fulguro_charging", "is_pelto_preparing", "is_javelin_charging", "is_eclipse_aiming"]:
 			if actor.has_method(method) and bool(actor.call(method)):
@@ -57,7 +61,7 @@ func draw_button(canvas: Control, action: String, center: Vector2, radius: float
 	var state: Dictionary = states.get(action, {})
 	var identifier := str(state.get("id", ""))
 	var texture: Texture2D = _icons.get_icon(identifier)
-	if bool(state.get("recast", false)):
+	if identifier == "javelin" and bool(state.get("recast", false)):
 		texture = JAVELIN_RECAST_ICON
 	var unavailable := bool(state.get("unavailable", false))
 	var edge := Color("#687780") if unavailable else accent
@@ -83,6 +87,8 @@ func draw_button(canvas: Control, action: String, center: Vector2, radius: float
 		canvas.draw_rect(Rect2(baseline + Vector2(-16, -12) * scale, Vector2(32, 16) * scale), _alpha(Color("#101921"), 0.86 * opacity))
 		_draw_text(canvas, text, baseline, 12 * scale, _alpha(Color("#eef1f2"), opacity))
 	var charges := int(state.get("charges", -1))
+	if identifier == "static_shield" and bool(state.get("recast", false)):
+		_draw_text(canvas, "SORTIR", center + Vector2(0, radius * 0.55), 11 * scale, _alpha(Color.WHITE, opacity))
 	if charges >= 0:
 		for index in range(2):
 			canvas.draw_circle(center + Vector2((float(index) - 0.5) * 13 * scale, radius * 0.75), 3.5 * scale, _alpha(accent if index < charges else Color("#56616b"), opacity))

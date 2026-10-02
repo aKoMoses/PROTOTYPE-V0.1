@@ -256,6 +256,7 @@ func shift_pause_timers(seconds: float) -> void:
 		return
 	player._last_attack_time += seconds
 	player._blaster_next_attack_ready_at += seconds
+	player._longshot_next_attack_ready_at += seconds
 	if player._combo_expires_at > 0.0:
 		player._combo_expires_at += seconds
 	if player._next_attack_ready_at > 0.0:

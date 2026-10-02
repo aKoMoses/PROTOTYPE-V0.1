@@ -42,6 +42,8 @@ const MENU_DISPLAY_FONT: Font = preload("res://art/ui/fonts/RussoOne-Regular.ttf
 const MENU_SETTINGS_ICON: Texture2D = preload("res://art/ui/icons/settings.svg")
 const COUNTDOWN_SECONDS := 3.0
 const PRECOMBAT_SECONDS := 8.0
+const EXPERIENCE := preload("res://scripts/review_preferences.gd")
+const FEEDBACK := preload("res://scripts/combat_feedback.gd")
 const FIGHT_SECONDS := 0.9
 const WINNER_FOCUS_SECONDS := 1.55
 const COUNTDOWN_DIGITS := [
@@ -146,6 +148,14 @@ var _editor_existing_fx: Dictionary = {}
 var _result_actions: Array[Control] = []
 var _navigation_backdrop: TextureRect
 var _touch_scale_label: Label
+var _solo_setup: PanelContainer
+var _solo_backdrop: ColorRect
+var _solo_options: Dictionary
+var _combat_feedback: Control
+var _round_report := ""
+var _match_dealt := 0.0
+var _match_received := 0.0
+var _skip_intro: Button
 
 const BG := Color("#161417")
 const PANEL := Color("#292327")
@@ -199,6 +209,10 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_result_audio.volume_db = -6.0
 	add_child(_result_audio)
 	_build_ui()
+	_solo_options = EXPERIENCE.read()
+	_build_solo_setup()
+	_combat_feedback = FEEDBACK.attach(main, player)
+	_combat_feedback.register_target(target)
 	_setup_hud_editor()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
@@ -210,6 +224,8 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		_forge_garage.call("restore_draft", draft)
 
 func _process(delta: float) -> void:
+	if _skip_intro != null:
+		_skip_intro.visible = current_screen == Screen.COMBAT and round_phase == RoundPhase.COUNTDOWN and not _pause_active and _countdown_remaining > COUNTDOWN_SECONDS
 	if not _pause_active and round_phase == RoundPhase.COUNTDOWN:
 		_countdown_remaining = maxf(0.0, _countdown_remaining - delta)
 		if _countdown_remaining <= 0.0:
@@ -248,6 +264,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _hud_editor != null and _hud_editor.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if _solo_setup != null and _solo_setup.visible:
+			_close_solo_setup()
+			get_viewport().set_input_as_handled()
+			return
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
 		elif current_screen in [Screen.SETTINGS, Screen.EQUIPMENT, Screen.LOBBY]:
@@ -261,6 +281,9 @@ func _notification(what: int) -> void:
 		if main != null and is_instance_valid(main.get("network_match")):
 			return
 		if _hud_editor != null and _hud_editor.visible:
+			return
+		if _solo_setup != null and _solo_setup.visible:
+			_close_solo_setup()
 			return
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
@@ -306,7 +329,7 @@ func _layout_navigation_panels() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	var available := viewport_size - Vector2(32.0, 24.0)
-	for panel in [_menu_panel, _equipment_panel, _pause_panel, _result_panel]:
+	for panel in [_menu_panel, _equipment_panel, _pause_panel, _result_panel, _solo_setup]:
 		if panel == null:
 			continue
 		var design: Vector2 = panel.get_meta("navigation_size", panel.custom_minimum_size)
@@ -406,6 +429,10 @@ func _clear_screen() -> void:
 		child.visible = false
 
 func _show_screen(screen: Screen) -> void:
+	if _solo_setup != null:
+		_close_solo_setup()
+	if _skip_intro != null:
+		_skip_intro.hide()
 	current_screen = screen
 	if screen != Screen.RESULT:
 		_result_audio.stop()
@@ -447,7 +474,7 @@ func _touch_preview_requested() -> bool:
 	return false
 
 func _build_menu() -> void:
-	var panel_size := Vector2(620.0, 600.0)
+	var panel_size := Vector2(620.0, 660.0)
 	_menu_panel = Control.new()
 	_menu_panel.name = "MainMenuPanel"
 	_menu_panel.custom_minimum_size = panel_size
@@ -493,7 +520,7 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(spacer)
-	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_start_duel"), MENU_BUTTON_PRIMARY_TEXTURE, 58.0))
+	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_open_solo_setup"), MENU_BUTTON_PRIMARY_TEXTURE, 58.0))
 	box.add_child(_menu_art_button("GARAGE", Callable(self, "_open_equipment"), MENU_BUTTON_SECONDARY_TEXTURE, 55.0))
 	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
 	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
@@ -501,6 +528,9 @@ func _build_menu() -> void:
 	training_spacer.custom_minimum_size = Vector2(0.0, 10.0)
 	box.add_child(training_spacer)
 	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
+	var tutorial_button := _menu_art_button("Test Tutoriel", Callable(self, "_open_beginner_tutorial"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0)
+	tutorial_button.name = "TestTutorialButton"
+	box.add_child(tutorial_button)
 	_build_menu_settings_shortcut()
 
 
@@ -528,6 +558,106 @@ func _build_menu_settings_shortcut() -> void:
 		_menu_settings_button.add_theme_stylebox_override(state, style)
 	_menu_settings_button.pressed.connect(_open_settings)
 	_screen_root.add_child(_menu_settings_button)
+
+
+func _build_solo_setup() -> void:
+	_solo_backdrop = ColorRect.new()
+	_solo_backdrop.name = "SoloBackdrop"
+	_solo_backdrop.color = Color("#081016b8")
+	_solo_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_screen_root.add_child(_solo_backdrop)
+	_solo_backdrop.hide()
+	_solo_setup = _center_panel(570, 470)
+	_solo_setup.name = "SoloSetup"
+	_screen_root.add_child(_solo_setup)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
+	_solo_setup.add_child(content)
+	content.add_child(_label("DUEL SOLO", 30, CREAM))
+	content.add_child(_label("Même adversaire jusqu’à la fin du match. Premier à 3.", 15, MUTED))
+	var difficulty := OptionButton.new()
+	difficulty.name = "SoloDifficulty"
+	difficulty.custom_minimum_size.y = 44
+	for title in ["FACILE · découverte", "NORMAL · duel", "DIFFICILE · maîtrise"]:
+		difficulty.add_item(title)
+	difficulty.select(["easy", "normal", "hard"].find(str(_solo_options.difficulty)))
+	difficulty.item_selected.connect(func(index: int) -> void:
+		_solo_options.difficulty = ["easy", "normal", "hard"][index]
+		_store_solo_options()
+	)
+	content.add_child(difficulty)
+	for option in [{"key": "quick", "title": "Présentations rapides (Garage et précombat)"}, {"key": "feedback", "title": "Confirmations visuelles des actions réussies"}]:
+		var toggle := CheckButton.new()
+		toggle.name = str(option.key).to_pascal_case() + "Option"
+		toggle.text = str(option.title)
+		toggle.custom_minimum_size.y = 42
+		toggle.button_pressed = bool(_solo_options[option.key])
+		toggle.toggled.connect(func(active: bool) -> void:
+			_solo_options[option.key] = active
+			_store_solo_options()
+		)
+		content.add_child(toggle)
+	content.add_child(_label("BANNIÈRE DE MAÎTRISE · récompense cosmétique", 14, CYAN))
+	var badge := OptionButton.new()
+	badge.name = "MasteryBadge"
+	badge.custom_minimum_size.y = 40
+	content.add_child(badge)
+	badge.item_selected.connect(func(index: int) -> void:
+		_solo_options.badge = badge.get_item_metadata(index)
+		_store_solo_options()
+	)
+	badge.tooltip_text = "Duelliste : gagner un duel. Technicien : réussir les 3 défis. Survivant : finir la survie. Maître d’arsenal : finir avec les 4 armes."
+	content.add_child(_button("COMBATTRE", _launch_solo, 340))
+	content.add_child(_button("RETOUR", _close_solo_setup, 340))
+	_solo_setup.hide()
+	_skip_intro = _button("PASSER LA PRÉSENTATION", _skip_precombat, 260)
+	_skip_intro.name = "SkipPrecombat"
+	_skip_intro.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_skip_intro.position = Vector2(-130, -65)
+	_screen_root.add_child(_skip_intro)
+	_skip_intro.hide()
+
+
+func _store_solo_options() -> void:
+	# Reload mastery first so changing comfort settings never overwrites unlocks.
+	var values := EXPERIENCE.read()
+	for key in ["difficulty", "quick", "feedback", "badge"]:
+		values[key] = _solo_options[key]
+	if EXPERIENCE.write(values) != OK:
+		_status_label.text = "Réglage appliqué pour cette session ; sauvegarde indisponible."
+	_solo_options = values
+
+
+func _open_solo_setup() -> void:
+	_solo_options = EXPERIENCE.read()
+	var badge: OptionButton = _solo_setup.find_child("MasteryBadge", true, false)
+	badge.clear()
+	for id in _solo_options.unlocked:
+		badge.add_item(EXPERIENCE.BADGES[id])
+		badge.set_item_metadata(badge.item_count - 1, id)
+		if id == _solo_options.badge:
+			badge.select(badge.item_count - 1)
+	_solo_setup.show()
+	_solo_backdrop.show()
+	_layout_navigation_panels.call_deferred()
+	_solo_setup.find_child("SoloDifficulty", true, false).grab_focus()
+
+func _close_solo_setup() -> void:
+	_solo_setup.hide()
+	_solo_backdrop.hide()
+
+
+func _launch_solo() -> void:
+	_close_solo_setup()
+	_start_duel()
+
+
+func _skip_precombat() -> void:
+	if current_screen != Screen.COMBAT or round_phase != RoundPhase.COUNTDOWN or _pause_active:
+		return
+	_countdown_remaining = minf(_countdown_remaining, COUNTDOWN_SECONDS)
+	_skip_intro.hide()
+	_update_countdown_overlay()
 
 
 func _build_lobby() -> void:
@@ -659,7 +789,7 @@ func _build_equipment() -> void:
 	var arena_label := _label("ARÈNE", 14, MUTED)
 	arena_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	arenas.add_child(arena_label)
-	for choice in [{"id": "classic", "title": "CLASSIQUE"}, {"id": "hazards", "title": "PIÉGÉE"}]:
+	for choice in [{"id": "classic", "title": "CLASSIQUE"}, {"id": "hazards", "title": "PIÉGÉE"}, {"id": "test", "title": "MAP TEST"}]:
 		var button := _button(str(choice.title), Callable(self, "_select_arena").bind(str(choice.id)), 132)
 		button.custom_minimum_size.y = 38
 		button.add_theme_font_size_override("font_size", 14)
@@ -671,7 +801,7 @@ func _build_equipment() -> void:
 			style.content_margin_right = 12
 			button.add_theme_stylebox_override(state, style)
 		button.name = "Arena%s" % str(choice.id).capitalize()
-		button.tooltip_text = "Même arène, dalles et canons progressifs" if choice.id == "hazards" else "Arène sans pièges"
+		button.tooltip_text = "Arène compacte, plateformes et quatre rampes" if choice.id == "test" else ("Même arène, dalles et canons progressifs" if choice.id == "hazards" else "Arène sans pièges")
 		_arena_buttons[choice.id] = button
 		arenas.add_child(button)
 	header.add_child(arenas)
@@ -703,7 +833,7 @@ func _open_forge_garage() -> void:
 		_forge_garage.connect("arena_selected", _on_garage_arena_selected)
 	_forge_garage.call("set_loadout", loadout)
 	var arena_options := main != null and main.has_method("set_arena_variant")
-	var arena: String = str(main.get("arena_variant")) if arena_options else "classic"
+	var arena: String = _arena_variant if arena_options else "classic"
 	_forge_garage.call("set_arena_options", arena_options, arena)
 	_equipment_panel.hide()
 	_forge_garage.show()
@@ -739,7 +869,7 @@ func _on_garage_arena_selected(value: String) -> void:
 
 
 func _select_arena(value: String) -> void:
-	_arena_variant = "hazards" if value == "hazards" else "classic"
+	_arena_variant = value if value in ["classic", "hazards", "test"] else "classic"
 	for key in _arena_buttons:
 		var selected: bool = key == _arena_variant
 		var button: Button = _arena_buttons[key]
@@ -1339,22 +1469,26 @@ func _build_winner_transition() -> void:
 
 
 func _build_result() -> void:
-	_result_panel = _center_panel(560, 390)
+	_result_panel = _center_panel(600, 490)
 	_screen_root.add_child(_result_panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 15)
 	_result_panel.add_child(box)
 	_hud_labels.result_title = _label("", 40, CREAM)
+	_hud_labels.result_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_hud_labels.result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_hud_labels.result_title)
 	_hud_labels.result_detail = _label("", 16, MUTED)
+	_hud_labels.result_detail.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_hud_labels.result_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_hud_labels.result_detail)
-	var replay := _button("REJOUER", Callable(self, "_restart"), 340)
+	var replay := _button("REVANCHE", Callable(self, "_restart"), 340)
+	var new_opponent := _button("NOUVEL ADVERSAIRE", Callable(self, "_start_duel"), 340)
 	var equipment := _button("MODIFIER L’ÉQUIPEMENT", Callable(self, "_open_equipment"), 340)
 	var menu := _button("RETOUR AU MENU", Callable(self, "_return_menu"), 340)
-	_result_actions = [replay, equipment, menu]
+	_result_actions = [replay, new_opponent, equipment, menu]
 	box.add_child(replay)
+	box.add_child(new_opponent)
 	box.add_child(equipment)
 	box.add_child(menu)
 
@@ -1628,12 +1762,22 @@ func _open_training_ground() -> void:
 	_stop_match_music()
 	get_tree().change_scene_to_file("res://scenes/training_ground.tscn")
 
+func _open_beginner_tutorial() -> void:
+	_end_pause(false)
+	_stop_match_music()
+	get_tree().change_scene_to_file("res://scenes/beginner_tutorial.tscn")
+
 func _open_survival() -> void:
 	_end_pause(false)
 	_stop_match_music()
 	get_tree().change_scene_to_file("res://scenes/survival.tscn")
 
 func _start_duel() -> void:
+	_solo_setup.hide()
+	main.set("bot_difficulty", _solo_options.get("difficulty", "normal"))
+	_combat_feedback.enabled = bool(_solo_options.get("feedback", true))
+	_match_dealt = 0.0
+	_match_received = 0.0
 	if main != null and main.has_method("set_arena_variant"):
 		main.call("set_arena_variant", _arena_variant)
 	loadout = LOADOUT.sanitize(loadout)
@@ -1661,6 +1805,10 @@ func resolve_round(player_dead: bool, target_dead: bool) -> void:
 	if _round_resolved or round_phase != RoundPhase.LIVE:
 		return
 	_round_resolved = true
+	_round_report = _combat_feedback.report()
+	_match_dealt += float(_combat_feedback.dealt)
+	for amount in _combat_feedback.received.values():
+		_match_received += float(amount)
 	_round_result_player_dead = player_dead
 	_round_result_bot_dead = target_dead
 	if player_dead and target_dead:
@@ -1700,11 +1848,14 @@ func _show_round_result() -> void:
 	_hud.visible = true
 	_result_panel.visible = true
 	_update_round_result_label()
+	_layout_navigation_panels.call_deferred()
 
 
 func _begin_round_countdown() -> void:
 	round_phase = RoundPhase.COUNTDOWN
-	_countdown_remaining = PRECOMBAT_SECONDS if round_number == 1 else COUNTDOWN_SECONDS
+	_countdown_remaining = PRECOMBAT_SECONDS if round_number == 1 and not bool(_solo_options.get("quick", false)) else COUNTDOWN_SECONDS
+	if _combat_feedback != null:
+		_combat_feedback.reset_round()
 	_fight_remaining = 0.0
 	_countdown_digit_index = -1
 	_countdown_audio.stop()
@@ -1757,9 +1908,13 @@ func _begin_live_round() -> void:
 	_fight_remaining = 0.0
 	if main != null and main.has_method("activate_round"):
 		main.call("activate_round")
+	_combat_feedback.sync_targets()
 	if touch_controls != null:
 		touch_controls.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 	_update_countdown_overlay()
+	var badge := str(_solo_options.get("badge", "recrue"))
+	if badge != "recrue":
+		_combat_feedback.announce("✦ " + str(EXPERIENCE.BADGES.get(badge, "")), AMBER)
 
 
 func _start_next_round() -> void:
@@ -1794,15 +1949,20 @@ func _show_final_result() -> void:
 	_result_actions[0].grab_focus()
 	_hud_labels.result_title.text = "MATCH GAGNÉ" if player_round_score >= 3 else "MATCH PERDU"
 	_hud_labels.result_title.add_theme_color_override("font_color", GREEN if player_round_score >= 3 else RED)
-	_hud_labels.result_detail.text = "Score final  %d — %d" % [player_round_score, bot_round_score]
+	_hud_labels.result_detail.text = "Score final  %d — %d\n%d dégâts infligés · %d reçus\n%s" % [player_round_score, bot_round_score, roundi(_match_dealt), roundi(_match_received), _round_report]
+	if player_round_score >= 3:
+		var unlocked := EXPERIENCE.unlock("duel")
+		if not unlocked.is_empty():
+			_hud_labels.result_detail.text += "\n✦ Bannière DUELLISTE débloquée"
 	if main != null and main.has_method("set_menu_mode"):
 		main.call("set_menu_mode", true)
+	_layout_navigation_panels.call_deferred()
 
 
 func _update_round_result_label() -> void:
 	if not _hud_labels.has("result_detail") or round_phase != RoundPhase.ROUND_RESULT:
 		return
-	_hud_labels.result_detail.text = "%s\nScore %d — %d\nProchaine manche dans %.1f s" % [result_text, player_round_score, bot_round_score, _round_result_remaining]
+	_hud_labels.result_detail.text = "%s\nScore %d — %d\n%s\nProchaine manche dans %.1f s" % [result_text, player_round_score, bot_round_score, _round_report, _round_result_remaining]
 
 
 func _set_result_actions_visible(visible: bool) -> void:
@@ -1875,6 +2035,8 @@ func _update_pause_labels() -> void:
 
 func _restart() -> void:
 	_end_pause(false)
+	_match_dealt = 0.0
+	_match_received = 0.0
 	match_id += 1
 	player_round_score = 0
 	bot_round_score = 0
@@ -1882,7 +2044,7 @@ func _restart() -> void:
 	_round_resolved = false
 	result_text = ""
 	if main != null and main.has_method("start_duel"):
-		main.call("start_duel", loadout)
+		main.call("start_duel", loadout, true)
 	_show_screen(Screen.COMBAT)
 	_begin_round_countdown()
 	_start_match_music()

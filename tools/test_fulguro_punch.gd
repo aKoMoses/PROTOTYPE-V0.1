@@ -127,7 +127,7 @@ func _test_wall_crush(player: Node, target: Node, scene: Node) -> void:
 	if not bool(target.call("is_stunned")):
 		_failures.append("Écrasement : stun mural absent")
 	var remaining := float(target.get("combat_state").get_remaining("STUN"))
-	if remaining < 0.65 or remaining > 0.76:
+	if remaining < 0.90 or remaining > 1.01:
 		_failures.append("Écrasement : stun restant %.3f s" % remaining)
 	wall.queue_free()
 	await process_frame

@@ -4,6 +4,8 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
+const STASIS_VISUAL := preload("res://scripts/stasis_visual.gd")
 
 var player: PLAYER_STATE
 
@@ -56,11 +58,19 @@ func reset_module_state() -> void:
 
 
 func _update_module_cooldowns(delta: float) -> void:
+	player._longshot_state.tick(delta)
 	player._projector_passive_remaining = maxf(0.0, player._projector_passive_remaining - delta)
 	player._permutation_speed_remaining = maxf(0.0, player._permutation_speed_remaining - delta)
 	var bio_active := player._bio_remaining > 0.0
 	if bio_active:
 		player._bio_remaining = maxf(0.0, player._bio_remaining - delta)
+		if player._uses_local_feedback() and player._bio_remaining <= 1.0 and player._bio_remaining + delta > 1.0:
+			player._spawn_particle_burst(player.global_position + Vector3.UP * 0.85, Color("#ffe6a0"), 12, 0.35, 2.0, 0.10, Vector3.UP, 60.0)
+			if player._attack_label != null:
+				player._attack_label.text = "BIO INJECTOR  •  DERNIÈRE SECONDE"
+		elif player._uses_local_feedback() and player._bio_remaining <= 0.0:
+			if player._attack_label != null:
+				player._attack_label.text = "BIO INJECTOR  •  TERMINÉ"
 	for module_id in player._module_cooldowns.keys():
 		var rate := player._bio_other_cooldown_rate if bio_active and module_id != "bio_injector" else 1.0
 		player._module_cooldowns[module_id] = maxf(0.0, float(player._module_cooldowns[module_id]) - delta * rate)
@@ -124,8 +134,8 @@ func _perform_magnetic_field() -> void:
 		return
 	var direction := player.aim_direction.normalized()
 	var origin := player.global_position
-	var center := origin + direction * player._magnetic_distance
-	if not player._magnetic_placement_valid(origin, center):
+	var center := PLAYER_STATE.MAGNETIC_WALL.find_placement(player, direction, player._magnetic_distance, player._magnetic_width, player._magnetic_height, player.gameplay_arena_center)
+	if not center.is_finite():
 		if player._attack_label != null:
 			player._attack_label.text = "MAGNETIC FIELD  •  PLACEMENT REFUSÉ"
 		return
@@ -184,6 +194,16 @@ func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direc
 
 
 func _perform_static_shield() -> void:
+	if player._stasis_remaining > 0.0:
+		var minimum := float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.static_shield.minimum_duration)
+		if player._static_duration - player._stasis_remaining >= minimum - 0.00001:
+			player._stasis_remaining = 0.0
+			if is_instance_valid(player._stasis_visual):
+				player._stasis_visual.queue_free()
+			player._stasis_visual = null
+			if player._attack_label != null:
+				player._attack_label.text = "STATIC SHIELD  •  SORTIE"
+		return
 	if player._stasis_remaining > 0.0 or player._fulguro_projection_active or not player._module_ready("static_shield") or (player.combat_state != null and player.combat_state.is_stunned()):
 		return
 	var action_token: int = player._try_begin_module_action("static_shield")
@@ -192,6 +212,8 @@ func _perform_static_shield() -> void:
 	player._cancel_pelto_pull()
 	player._mark_combat_event()
 	player._start_module_cooldown("static_shield", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
+	if player.passive_authoritative() and player.combat_state != null:
+		player.combat_state.cleanse_burn_and_slow()
 	if player.survival_mode and player.survival_evolution_effects != null:
 		player.survival_evolution_effects.activate_shield()
 		player._end_module_action(action_token, "static_shield")
@@ -206,7 +228,7 @@ func _perform_static_shield() -> void:
 	if player._dash_active:
 		player._cancel_dash()
 	if player._attack_label != null:
-		player._attack_label.text = "STATIC SHIELD  •  %.1fs" % player._stasis_remaining
+		player._attack_label.text = "STATIC SHIELD  •  PURIFIÉ  •  %.1fs" % player._stasis_remaining
 	player._create_stasis_fx()
 	player._end_module_action(action_token, "static_shield")
 	if player._survival_evolved("defensive"):
@@ -220,24 +242,13 @@ func _perform_static_shield() -> void:
 func _create_stasis_fx() -> void:
 	if is_instance_valid(player._stasis_visual):
 		player._stasis_visual.queue_free()
-	var shield := MeshInstance3D.new()
-	var shield_mesh := SphereMesh.new()
-	shield_mesh.radius = 1.12
-	shield_mesh.height = 2.05
-	shield.mesh = shield_mesh
-	shield.material_override = player._create_fx_material(Color("#b18dff"), 0.22)
-	player.add_child(shield)
-	shield.position = Vector3(0.0, 0.95, 0.0)
+	var shield := STASIS_VISUAL.new()
+	shield.configure(player._static_duration, Callable(player, "get_stasis_remaining"))
 	player._stasis_visual = shield
-	var tween := shield.create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(shield, "scale", Vector3.ONE * 1.12, 0.20)
-	tween.tween_method(Callable(player, "_set_material_alpha").bind(shield.material_override), 0.22, 0.0, player._static_duration)
-	tween.set_parallel(false)
-	tween.tween_callback(func() -> void:
+	player.add_child(shield)
+	shield.tree_exiting.connect(func() -> void:
 		if player._stasis_visual == shield:
 			player._stasis_visual = null
-		shield.queue_free()
 	)
 
 
@@ -254,7 +265,7 @@ func get_current_move_speed() -> float:
 		charge_multiplier *= float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cast_move_multiplier)
 	var evolution_speed: float = player.survival_evolution_effects.movement_multiplier() if player.survival_mode and player.survival_evolution_effects != null else 1.0
 	var permutation_speed := float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.permutation.speed_multiplier) if player._permutation_speed_remaining > 0.0 else 1.0
-	return player.move_speed * (player._bio_speed_multiplier if player._bio_remaining > 0.0 else 1.0) * permutation_speed * slow_multiplier * charge_multiplier * evolution_speed
+	return player.move_speed * (player._bio_speed_multiplier if player._bio_remaining > 0.0 else 1.0) * permutation_speed * slow_multiplier * charge_multiplier * evolution_speed * player._longshot_state.movement_multiplier()
 
 
 func get_attack_speed_multiplier() -> float:
@@ -303,6 +314,10 @@ func _perform_pyro_boots(direction_override: Vector3 = Vector3.ZERO) -> void:
 	if player._attack_label != null:
 		player._attack_label.text = "PYRO BOOTS  •  DASH"
 	player._create_dash_fx(player.global_position)
+	if player.passive_authoritative():
+		var scene := player.get_tree().current_scene
+		var targets: Array = player._survival_targets() if player.survival_mode else scene.call("get_training_targets") if scene.has_method("get_training_targets") else [player._module_target()]
+		PLAYER_STATE.PYRO_BOOTS.departure(player, targets, "player", "pyro:%d:%d:%d" % [player.get_instance_id(), player._visibility_epoch, player._dash_token], Callable(player, "_credit_pyro_damage"))
 	if player.survival_mode and player.survival_evolution_effects != null:
 		player.survival_evolution_effects.dash_started()
 	player.get_node("/root/GameSfx").play_event("pyro_dash")
@@ -318,6 +333,8 @@ func _perform_bio_injector() -> void:
 	player._mark_combat_event()
 	player._start_module_cooldown("bio_injector", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
 	player._bio_remaining = float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+	if player.passive_state != null and player.passive_authoritative():
+		player.passive_state.mobility_finished()
 	if player.survival_mode and player.survival_evolution_effects != null:
 		player.survival_evolution_effects.bio_started()
 	if player._attack_label != null:
@@ -333,14 +350,37 @@ func _perform_bio_injector() -> void:
 func _update_dash(delta: float) -> void:
 	if not player._dash_active:
 		return
-	var remaining := maxf(0.0, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.dash_duration) - player._dash_elapsed)
-	delta = minf(delta, remaining)
+	var remaining_time := maxf(0.0, float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.dash_duration) - player._dash_elapsed)
+	delta = minf(delta, remaining_time)
 	player._dash_elapsed += delta
 	var dash_distance := float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_distance"]) * player._survival_dash_multiplier
 	var dash_duration := float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_duration"])
 	var step := dash_distance * delta / maxf(0.001, dash_duration)
-	var collision := player.move_and_collide(player._dash_direction * step)
-	player.global_position.y = 0.0
+	var collision := player.move_and_collide(ARENA_TRAVERSAL.motion(player, player._dash_direction * step))
+	var blocked := false
+	# Spend only the remaining motion along the wall, never a fresh full step.
+	# A frontal impact still stops; corners allow at most two further contacts.
+	for contact in range(2):
+		if collision == null:
+			break
+		var normal := collision.get_normal()
+		normal.y = 0.0
+		if normal.length_squared() <= 0.001:
+			blocked = true
+			break
+		normal = normal.normalized()
+		var tangent := player._dash_direction.slide(normal)
+		if tangent.length_squared() < 0.16:
+			blocked = true
+			break
+		player._dash_direction = tangent.normalized()
+		var slide_motion := collision.get_remainder().slide(normal)
+		slide_motion.y = 0.0
+		if slide_motion.length_squared() <= 0.000001:
+			break
+		collision = player.move_and_collide(ARENA_TRAVERSAL.motion(player, slide_motion))
+		blocked = collision != null
+	ARENA_TRAVERSAL.snap(player)
 	if player.survival_synergies != null:
 		player.survival_synergies.pyro_step(player.global_position)
 	if player.survival_mode and player.survival_evolution_effects != null:
@@ -350,8 +390,8 @@ func _update_dash(delta: float) -> void:
 		if player._survival_trail_clock >= 0.12:
 			player._survival_trail_clock = 0.0
 			player._survival_area_damage(player.global_position, 1.5, 24.0, "pyro_trail", Color("#ff8a45"))
-	if collision != null or player._dash_elapsed >= dash_duration:
-		player._finish_dash(collision == null)
+	if blocked or player._dash_elapsed >= dash_duration:
+		player._finish_dash(not blocked)
 
 
 func _finish_dash(completed: bool = true) -> void:

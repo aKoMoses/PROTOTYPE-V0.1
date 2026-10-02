@@ -2,6 +2,7 @@ extends SceneTree
 
 const ASPECTS := preload("res://scripts/survival_aspects.gd")
 const PROGRESSION := preload("res://scripts/survival_progression.gd")
+const DATA := preload("res://scripts/combat_data.gd")
 var failures: Array[String] = []
 var scene: Node3D
 var player: Node3D
@@ -144,7 +145,7 @@ func _initialize() -> void:
 	check(targets[1].get_health() < before, "Bélier ouvre un couloir traversant")
 	configure("shotgun", "weapon", "sweeper")
 	check(player._shotgun_pellet_angles.size() == 12, "Éventail ultime contient douze plombs")
-	check(is_equal_approx(player._shotgun_pellet_damage * 12.0, 6.0 * 20.0 * 0.65), "Éventail répartit les dégâts sans doubler la puissance")
+	check(is_equal_approx(player._shotgun_pellet_damage * 12.0, 6.0 * float(DATA.WEAPON_DEFINITIONS.shotgun.pellet_damage) * 0.65), "Éventail répartit les dégâts sans doubler la puissance")
 	# Harpoon recall damages without moving the player; elites cannot be stunned.
 	configure("javelin", "offensive", "harpoon")
 	await physics_frame
@@ -248,7 +249,7 @@ func _initialize() -> void:
 	for index in range(30):
 		effects.damaged_targets[targets[0].get_instance_id()] = true
 		effects.enemy_died(targets[0])
-	check(player._bio_remaining <= 8.001 and player._bio_remaining > 3.0, "éliminations prolongent Survoltage jusqu'à huit secondes")
+	check(is_equal_approx(player._bio_remaining, float(DATA.MODULE_DEFINITIONS.bio_injector.duration) + 5.0), "éliminations prolongent Survoltage de cinq secondes au maximum")
 	configure("bio_injector", "mobility", "metabolism")
 	player.combat_state.health = 500.0
 	player._perform_bio_injector()
@@ -305,7 +306,7 @@ func _initialize() -> void:
 	effects.clear_transients()
 	check(effects.zones.is_empty() and effects.pickups.is_empty() and effects.javelin_anchor == Vector3.INF, "nettoyage entre les vagues")
 	player.apply_loadout({"weapon": "blaster", "defensive": "static_shield"})
-	check(not player.survival_mode and player.survival_evolution_effects == null and player._blaster_damage == 20.0, "retour au Duel rétablit les valeurs et retire les aspects")
+	check(not player.survival_mode and player.survival_evolution_effects == null and player._blaster_damage == CombatData.WEAPON_DEFINITIONS.blaster.damage, "retour au Duel rétablit les valeurs et retire les aspects")
 	player._perform_static_shield()
 	check(player._stasis_remaining > 0.0, "bouclier de Duel garde sa stase")
 	paused = false

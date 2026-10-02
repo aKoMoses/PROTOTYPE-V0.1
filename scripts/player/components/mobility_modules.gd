@@ -34,6 +34,8 @@ func _perform_eclipse(destination: Vector3) -> bool:
 
 
 func _on_eclipse_arrived(_origin: Vector3, destination: Vector3) -> void:
+	if player.passive_state != null and player.passive_authoritative():
+		player.passive_state.mobility_finished()
 	player.on_permutation_relocated()
 	PLAYER_STATE.PERMUTATION.refresh_sweeps(player.get_tree())
 	player.get_node("/root/GameSfx").play_event("javelin_teleport")
@@ -145,6 +147,8 @@ func _permutation_authoritative() -> bool:
 
 func _on_permutation_arrived(_origin: Vector3, _destination: Vector3) -> void:
 	player._permutation_mark = null
+	if player.passive_state != null and player.passive_authoritative():
+		player.passive_state.mobility_finished()
 	player._permutation_speed_remaining = float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.permutation.duration)
 	player.combat_state.grant_shield(float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_amount), float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_duration))
 	if player._attack_label != null:

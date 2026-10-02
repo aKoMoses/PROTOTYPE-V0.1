@@ -1,6 +1,8 @@
 extends Node
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 const JAVELIN_VISUAL := preload("res://scripts/javelin_visual.gd")
+const STASIS_VISUAL := preload("res://scripts/stasis_visual.gd")
 
 const COUNTER := preload("res://scripts/counter.gd")
 var _counter: CounterGuard
@@ -44,6 +46,7 @@ var dash_direction := Vector3.ZERO
 var _generation := 0
 var _shot_serial := 0
 var _decision_serial := 0
+var _pyro_departure_serial := 0
 var _aim_position := Vector3.ZERO
 var _aim_error_angle := 0.0
 var _last_visible_at := -100.0
@@ -108,6 +111,10 @@ func _clear_permutation() -> void:
 func set_profile(value: String) -> void:
 	var weapon := value if value in ["blaster", "shotgun", "mekatana", "longshot"] else "blaster"
 	var retained_longshot_shots: int = longshot_state.shots_fired
+	var retained_longshot_hits: int = longshot_state.hits
+	var retained_longshot_speed: float = longshot_state.speed_remaining
+	var retained_longshot_state_generation: int = longshot_state.generation
+	var retained_longshot_credits: Dictionary = longshot_state._credited_shots.duplicate()
 	var retained_longshot_generation := _longshot_generation
 	var retained_longshot_recovery := _longshot_next_attack_at
 	var close_weapon := weapon in ["shotgun", "mekatana"]
@@ -121,6 +128,10 @@ func set_profile(value: String) -> void:
 	# A selection change equips the existing instance. A full set_loadout or
 	# round reset below replaces it and starts a fresh cycle.
 	longshot_state.shots_fired = retained_longshot_shots
+	longshot_state.hits = retained_longshot_hits
+	longshot_state.speed_remaining = retained_longshot_speed
+	longshot_state.generation = retained_longshot_state_generation
+	longshot_state._credited_shots = retained_longshot_credits
 	_longshot_generation = retained_longshot_generation
 	_longshot_next_attack_at = retained_longshot_recovery
 	_update_readout()
@@ -213,7 +224,7 @@ func get_speed_multiplier() -> float:
 		multiplier *= float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.speed_multiplier)
 	if profile == "blaster" and charge_remaining > 0.0:
 		multiplier *= float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["charge_slow_multiplier"])
-	return multiplier * (_counter.movement_multiplier() if _counter != null else 1.0)
+	return multiplier * (_counter.movement_multiplier() if _counter != null else 1.0) * longshot_state.movement_multiplier()
 
 
 func is_dashing() -> bool:
@@ -339,6 +350,7 @@ func cancel_action(reason: String = "action interrompue") -> void:
 
 
 func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: Node3D, player: Node3D, controller: Node, perception: Dictionary = {}, tuning: Dictionary = {}) -> void:
+	longshot_state.tick(delta)
 	permutation_speed_remaining = maxf(0.0, permutation_speed_remaining - delta)
 	_counter = COUNTER.ensure(body)
 	if not _counter.finished.is_connected(_counter_finished):
@@ -481,7 +493,8 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	if profile == "blaster":
 		var favorable_charge := distance >= 4.5 and distance <= 12.5 and Vector3(perception.get("velocity", Vector3.ZERO)).length() < 6.0 and not bool(perception.get("projectile_threat", false))
 		var long_opening := bool(perception.get("target_reloading", false)) or Vector3(perception.get("velocity", Vector3.ZERO)).length() < 1.5
-		charge_duration = clampf((0.87 if long_opening else 0.66) + randf_range(-0.09, 0.10), 0.50, float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["charge_time"])) if favorable_charge and _counter.surcharge_remaining <= 0.0 and _decision_serial % 4 != 0 else 0.05
+		var full_charge := float(COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]["charge_time"])
+		charge_duration = full_charge * clampf((0.95 if long_opening else 0.70) + randf_range(-0.09, 0.10), 0.50, 1.0) if favorable_charge and _counter.surcharge_remaining <= 0.0 and _decision_serial % 4 != 0 else 0.05
 	elif profile == "longshot":
 		charge_duration = float(COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]["attack_preparation"]) / (float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["attack_speed_multiplier"]) if bio_remaining > 0.0 else 1.0)
 	else:
@@ -566,7 +579,7 @@ func _move_mekatana(motion: Vector3) -> Vector3:
 	var destination := previous + safe
 	destination.x = clampf(destination.x, -27.0, 27.0)
 	destination.z = clampf(destination.z, -27.0, 27.0)
-	destination.y = 0.0
+	destination.y = ARENA_TRAVERSAL.height(_mekatana_body, destination)
 	_mekatana_body.global_position = destination
 	return destination - previous
 
@@ -716,6 +729,7 @@ func _consider_survival_module_use(elapsed: float, distance: float, body: Node3D
 	if mobility_id == "bio_injector" and _module_ready("bio_injector") and bio_remaining <= 0.0 and (escape_needed or flank_trip):
 		if _begin_module_action("bio_injector"):
 			bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+			_runtime_passive().mobility_finished()
 			_start_module_cooldown("bio_injector")
 			_release_module_action("bio_injector")
 			last_module_reason = "accélération vers le soin ou le couvert" if retreating else "accélération pour prendre l'angle"
@@ -789,6 +803,7 @@ func _consider_module_use(elapsed: float, distance: float, body: Node3D, player:
 		if not _begin_module_action("bio_injector"):
 			return false
 		bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+		_runtime_passive().mobility_finished()
 		bio_cooldown = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"])
 		_start_module_cooldown("bio_injector")
 		_release_module_action("bio_injector")
@@ -895,6 +910,7 @@ func _resolve_pending_module(body: Node3D, player: Node3D, controller: Node, vis
 			mark.arrived.connect(func(_origin: Vector3, _destination: Vector3) -> void:
 				_permutation_mark = null
 				permutation_speed_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.duration)
+				_runtime_passive().mobility_finished()
 				body.get("combat_state").grant_shield(float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_amount), float(COMBAT_DATA.MODULE_DEFINITIONS.permutation.shield_duration))
 				_permutation_shield_body = body
 				get_node("/root/GameSfx").play_module_event("permutation_shield", body.global_position)
@@ -932,6 +948,8 @@ func _cancel_weapon_charge(controller: Node, elapsed: float, reason: String) -> 
 
 
 func _activate_static_shield(body: Node3D) -> void:
+	if body.get("combat_state") != null:
+		body.combat_state.cleanse_burn_and_slow()
 	static_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["duration"])
 	body.set_meta("duel_static_shield", true)
 	_start_module_cooldown("static_shield")
@@ -942,18 +960,13 @@ func _activate_static_shield(body: Node3D) -> void:
 	dash_direction = Vector3.ZERO
 	module_remaining = 0.0
 	pending_module = ""
-	var visual := MeshInstance3D.new()
-	visual.name = "BotStaticShield"
-	var mesh := SphereMesh.new()
-	mesh.radius = 1.12
-	mesh.height = 2.05
-	visual.mesh = mesh
-	visual.position = Vector3(0.0, 0.95, 0.0)
-	visual.material_override = _fx_material(Color("#b18dff"), 0.22)
+	var visual := STASIS_VISUAL.new()
+	visual.configure(static_remaining, Callable(self, "_stasis_visual_remaining"))
 	body.add_child(visual)
-	var tween := visual.create_tween()
-	tween.tween_property(visual, "transparency", 1.0, static_remaining)
-	tween.tween_callback(visual.queue_free)
+
+
+func _stasis_visual_remaining() -> float:
+	return static_remaining
 
 
 func _activate_magnetic_field(body: Node3D, toward: Vector3) -> void:
@@ -961,10 +974,13 @@ func _activate_magnetic_field(body: Node3D, toward: Vector3) -> void:
 	direction.y = 0.0
 	direction = direction.normalized() if direction.length_squared() > 0.001 else Vector3.FORWARD
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["magnetic_field"]
+	var center := MAGNETIC_WALL.find_placement(body, direction, float(definition.distance), float(definition.width), float(definition.height))
+	if not center.is_finite():
+		return
 	var wall := MAGNETIC_WALL.new()
 	wall.configure(body, float(definition["width"]), float(definition["height"]), float(definition["duration"]))
 	get_tree().current_scene.add_child(wall)
-	wall.global_position = body.global_position + direction * float(definition["distance"])
+	wall.global_position = center
 	wall.rotation.y = atan2(direction.x, direction.z)
 	_magnetic_wall = wall
 	_start_module_cooldown("magnetic_field")
@@ -1021,7 +1037,7 @@ func _resolve_module_projectile(module_id: String, body: Node3D, player: Node3D,
 	var dealt := float(player.call("take_damage", float(definition["damage"]), "duel_bot", "duel_bot:%s:%d" % [module_id, attack_serial]))
 	on_direct_offensive_hit("duel_bot:%s:%d" % [module_id, attack_serial], PASSIVE_STATE.accepted_damage(player, dealt, shield_before), player)
 	_register_damage(body, dealt)
-	if dealt <= 0.0:
+	if PASSIVE_STATE.accepted_damage(player, dealt, shield_before) <= 0.0:
 		return
 	_javelin_marked_player = player
 	_javelin_mark_remaining = float(definition["mark_duration"])
@@ -1048,6 +1064,11 @@ func _try_javelin_recast(body: Node3D, _player: Node3D, perception: Dictionary, 
 		return false
 	body.global_position = destination
 	_mark_combat_event(body)
+	var target := _javelin_marked_player
+	var target_protected := is_instance_valid(target) and (bool(target.get_meta("duel_static_shield", false)) or (target.has_method("get_stasis_remaining") and float(target.call("get_stasis_remaining")) > 0.0))
+	if is_instance_valid(target) and not target_protected and target.has_method("apply_slow"):
+		var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.javelin
+		target.call("apply_slow", float(definition.recast_slow_duration), float(definition.recast_slow_percent), "javelin_recast:%d" % body.get_instance_id())
 	_javelin_mark_remaining = 0.0
 	_javelin_marked_player = null
 	return true
@@ -1139,7 +1160,7 @@ func advance_dash(body: Node3D, controller: Node, delta: float) -> void:
 	var step := float(definition["dash_distance"]) * minf(delta, dash_remaining) / float(definition["dash_duration"])
 	var safe_step := Vector3(controller.call("_safe_bot_motion", body, dash_direction * step)) if controller != null and controller.has_method("_safe_bot_motion") else _safe_dash_motion(body, dash_direction * step)
 	body.global_position += safe_step
-	body.global_position.y = 0.0
+	ARENA_TRAVERSAL.snap(body)
 	dash_remaining = maxf(0.0, dash_remaining - delta)
 	var blocked := safe_step.length_squared() + 0.0001 < step * step
 	if blocked:
@@ -1180,6 +1201,10 @@ func _start_dash(direction: Vector3, body: Node3D = null) -> void:
 	dash_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["dash_duration"])
 	if is_instance_valid(body):
 		PYRO_BOOTS.new().ignite(body, dash_direction, self)
+		var target := get_tree().current_scene.get_node_or_null("Player") as Node3D
+		if is_instance_valid(target):
+			_pyro_departure_serial += 1
+			PYRO_BOOTS.departure(body, [target], "duel_bot", "bot_pyro:%d:%d:%d" % [body.get_instance_id(), _generation, _pyro_departure_serial], func(applied: float, _target: Node3D) -> void: _register_damage(body, applied))
 	pyro_cooldown = float(COMBAT_DATA.MODULE_DEFINITIONS["pyro_boots"]["cooldown"])
 
 
@@ -1237,6 +1262,7 @@ func _fire(body: Node3D, player: Node3D) -> void:
 
 
 func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, direction: Vector3) -> bool:
+	direction = ARENA_TRAVERSAL.shot_direction(body, muzzle_position, direction)
 	var scene := get_tree().current_scene
 	if scene == null:
 		return false
@@ -1252,7 +1278,7 @@ func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, di
 	projectile.global_position = muzzle_position
 	projectile.look_at(muzzle_position + direction, Vector3.UP)
 	var excluded: Array[RID] = [body.get_rid()]
-	projectile.configure(direction, speed, float(definition.max_range), 1 | 4 | 8, excluded, radius)
+	projectile.configure(direction, speed, float(definition.max_range), 1 | 4 | 8, excluded, radius, enhanced)
 	projectile.set_meta("longshot_enhanced", enhanced)
 	projectile.set_meta("ai_projectile_source", body.get_instance_id())
 	projectile.set_meta("ai_projectile_velocity", direction * speed)
@@ -1260,7 +1286,7 @@ func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, di
 	projectile.set_meta("ai_projectile_radius", radius)
 	var attack_id := "duel_bot:longshot:%d:%d:%d" % [body.get_instance_id(), _longshot_generation, longshot_state.shots_fired + 1]
 	definition["passive_attack"] = emit_passive_weapon()
-	projectile.finished.connect(_resolve_longshot.bind(player, body, enhanced, definition, attack_id, _longshot_generation))
+	projectile.impacted.connect(_resolve_longshot.bind(player, body, enhanced, definition, attack_id, _longshot_generation))
 	# Count only an actual projectile, before an immediate muzzle impact resolves.
 	longshot_state.commit_shot()
 	var recovery := maxf(0.0, float(definition.cooldown) - float(definition.attack_preparation))
@@ -1269,6 +1295,10 @@ func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, di
 	var vfx := scene.get_node_or_null("VFXManager")
 	if vfx != null:
 		vfx.call("projectile_visual", projectile, "longshot", float(enhanced))
+		if enhanced:
+			projectile.advanced.connect(func(from: Vector3, to: Vector3) -> void:
+				if is_instance_valid(vfx):
+					vfx.call("tracer", from, to, radius * 0.65, Color("#ffd477"), 0.18))
 		vfx.call("burst", muzzle_position, direction, Color("#68e9ef"), 5 if enhanced else 3, 3.2, 0.10, 0.035, 30.0)
 	_update_readout()
 	projectile.resolve_muzzle_guard(body.global_position + Vector3.UP * 0.9)
@@ -1291,7 +1321,14 @@ func _resolve_longshot(hit: Dictionary, distance: float, player: Node3D, body: N
 	if collider != player or not player.has_method("take_damage") or not body.has_method("is_duel_mode") or not bool(body.call("is_duel_mode")) or not bool(get_parent().get("enabled")):
 		return
 	var damage: float = LONGSHOT_STATE.damage_at_distance(distance, enhanced, definition)
+	var shield_before := PASSIVE_STATE.shield_health(player)
 	var dealt := passive_weapon_damage(player, damage, "duel_bot", attack_id, definition.get("passive_attack", {}), hit.position)
+	var accepted := PASSIVE_STATE.accepted_damage(player, dealt, shield_before)
+	if accepted <= 0.0:
+		hit["stop_piercing"] = true
+	elif COUNTER.enemies(body, player):
+		longshot_state.register_hit(attack_id, enhanced, definition)
+		_update_readout()
 	_register_damage(body, dealt)
 	if dealt > 0.0 and player.has_method("flash_impact"):
 		player.call("flash_impact", enhanced)
@@ -1304,6 +1341,7 @@ func reset_longshot_cycle() -> void:
 
 
 func _launch_projectile(body: Node3D, player: Node3D, muzzle: Vector3, direction: Vector3, pellet: int, volley: Dictionary) -> void:
+	direction = ARENA_TRAVERSAL.shot_direction(body, muzzle, direction)
 	var scene := get_tree().current_scene
 	if scene == null:
 		return

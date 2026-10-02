@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource path="res://scripts/training_ground.gd" type="Script" id="1_training"]
+[ext_resource path="res://scripts/environment/combat_visual_polish.gd" type="Script" id="2_polish"]
 
 [node name="TrainingGround" type="Node3D"]
 script = ExtResource("1_training")
+
+[node name="CombatVisualPolish" type="Node" parent="."]
+script = ExtResource("2_polish")

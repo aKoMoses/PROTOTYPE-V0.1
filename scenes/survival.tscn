@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource path="res://scripts/survival.gd" type="Script" id="1_survival"]
+[ext_resource path="res://scripts/environment/combat_visual_polish.gd" type="Script" id="2_polish"]
 
 [node name="Survival" type="Node3D"]
 script = ExtResource("1_survival")
+
+[node name="CombatVisualPolish" type="Node" parent="."]
+script = ExtResource("2_polish")

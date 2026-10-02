@@ -4,6 +4,7 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
 
@@ -68,8 +69,10 @@ func _update_mekatana_attack(delta: float) -> bool:
 
 func _move_mekatana_dash(motion: Vector3) -> Vector3:
 	var before := player.global_position
-	player.move_and_collide(motion)
-	player.global_position = Vector3(clampf(player.global_position.x, -27.0, 27.0), 0.0, clampf(player.global_position.z, -27.0, 27.0))
+	player.move_and_collide(ARENA_TRAVERSAL.motion(player, motion))
+	player.global_position.x = clampf(player.global_position.x, -27.0, 27.0)
+	player.global_position.z = clampf(player.global_position.z, -27.0, 27.0)
+	ARENA_TRAVERSAL.snap(player)
 	return player.global_position - before
 
 

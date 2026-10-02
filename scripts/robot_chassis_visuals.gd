@@ -13,7 +13,7 @@ const PROFILES := {
 	"puissant": {
 		"panel_color": Color("#626b73"), "accent_color": Color("#d1a14c"),
 		"fabric_color": Color("#792e34"), "pack_color": Color("#8e754e"),
-		"panel_roughness": 0.84, "panel_metallic": 0.12,
+		"panel_roughness": 0.66, "panel_metallic": 0.20,
 	},
 }
 # Authored tripo_part IDs, inspected against the GLB's bounds and textures.
@@ -68,6 +68,8 @@ func _collect_surfaces(node: Node) -> void:
 func _make_material(source: StandardMaterial3D, role: int, profile: Dictionary) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = PAINT_SHADER
+	material.set_shader_parameter("visibility_opacity", 1.0)
+	material.set_shader_parameter("visibility_silhouette", 0.0)
 	material.set_shader_parameter("base_texture", source.albedo_texture)
 	material.set_shader_parameter("source_tint", source.albedo_color)
 	material.set_shader_parameter("source_roughness", source.roughness)

@@ -215,6 +215,7 @@ func _build_robot() -> void:
 	player._visual_rig.configure_aim_transition(player.aim_raise_time, player.aim_lower_time)
 	var visuals := player._visual_rig.setup_visual_motion()
 	player._robot_visuals = visuals
+	preload("res://scripts/robot_surface_polish.gd").add_contact(visuals)
 	player._world_ui_anchor = Node3D.new()
 	player._world_ui_anchor.name = "WorldUIAnchor"
 	player._world_ui_anchor.top_level = true
@@ -267,12 +268,19 @@ func _build_robot() -> void:
 	player._baroud_bar_fill.visible = false
 
 	var selection_ring := MeshInstance3D.new()
+	selection_ring.name = "PlayerSelectionRing"
 	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = 0.78
+	ring_mesh.inner_radius = 0.895
 	ring_mesh.outer_radius = 0.93
+	ring_mesh.rings = 64
+	ring_mesh.ring_segments = 8
 	selection_ring.mesh = ring_mesh
 	selection_ring.position.y = 0.045
-	selection_ring.material_override = player._material(Color("#bdefff"), 0.3, Color("#56dfff"))
+	var ring_material: StandardMaterial3D = player._material(Color("#65c2ccd9"), 0.8)
+	ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	selection_ring.material_override = ring_material
+	selection_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	visuals.add_child(selection_ring)
 	var procedural_body := Node3D.new()
 	procedural_body.name = "ProceduralRobot"

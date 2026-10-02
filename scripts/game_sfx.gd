@@ -75,9 +75,19 @@ var _bush_transition_ms := -100000
 var _players: Dictionary = {}
 var _last_played_ms: Dictionary = {}
 var _paused := false
+var _signature_streams: Dictionary = {}
+var _signature_voices: Array[AudioStreamPlayer] = []
 
 
 func _ready() -> void:
+	for kind in ["shotgun", "counter", "fulguro_punch", "longshot"]:
+		_signature_streams[kind] = _make_signature_stream(kind)
+	for index in range(4):
+		var voice := AudioStreamPlayer.new()
+		voice.name = "SuccessAccent%d" % index
+		voice.max_polyphony = 1
+		add_child(voice)
+		_signature_voices.append(voice)
 	for event_id in STREAMS:
 		var player := AudioStreamPlayer.new()
 		player.name = event_id.to_pascal_case()
@@ -205,6 +215,8 @@ func play_event(event_id: String) -> void:
 
 func set_paused(value: bool) -> void:
 	_paused = value
+	for voice in _signature_voices:
+		voice.stream_paused = value
 	for voice in _module_voices:
 		voice.stream_paused = value
 	for player: AudioStreamPlayer in _players.values():
@@ -218,6 +230,9 @@ func set_paused(value: bool) -> void:
 func clear() -> void:
 	# The autoload outlives every arena. Retire the old round's voices before
 	# its scene is hidden or replaced, and allow the next round's first event.
+	for voice in _signature_voices:
+		voice.stop()
+		voice.stream_paused = false
 	for voice in _module_voices.duplicate():
 		voice.stop()
 		voice.queue_free()
@@ -264,3 +279,50 @@ func stop_module_voice(voice: AudioStreamPlayer3D) -> void:
 	voice.stop()
 	_module_voices.erase(voice)
 	voice.queue_free()
+
+
+func play_signature(kind: String) -> bool:
+	if _paused or not _signature_streams.has(kind):
+		return false
+	var now := Time.get_ticks_msec()
+	if now - int(_last_played_ms.get("signature", -100000)) < 160:
+		return false
+	for voice in _signature_voices:
+		if voice.playing:
+			continue
+		voice.stream = _signature_streams[kind]
+		voice.volume_db = -17.0 if kind in ["shotgun", "fulguro_punch"] else -20.0
+		voice.play()
+		_last_played_ms["signature"] = now
+		event_played.emit("signature_" + kind)
+		return true
+	return false
+
+
+func _make_signature_stream(kind: String) -> AudioStreamWAV:
+	# Quiet, deterministic accents sit beneath the selected weapon/module WAVs.
+	# Generate once, with attack/release envelopes; no files or random game state.
+	var rate := 22050
+	var duration := 0.24 if kind in ["counter", "longshot"] else 0.16
+	var samples := int(rate * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(samples * 2)
+	for index in range(samples):
+		var time := float(index) / rate
+		var envelope := minf(1.0, time / 0.004) * pow(1.0 - time / duration, 2.5)
+		var value := 0.0
+		match kind:
+			"shotgun":
+				value = sin(TAU * (150.0 * time - 200.0 * time * time)) * 0.75 + sin(TAU * 1300.0 * time) * exp(-time * 80.0) * 0.18
+			"counter":
+				value = (sin(TAU * 740.0 * time) + sin(TAU * 1110.0 * time) * 0.45) * 0.48
+			"fulguro_punch":
+				value = sin(TAU * 73.0 * time) * 0.7 + sin(TAU * 410.0 * time) * exp(-time * 28.0) * 0.23
+			"longshot":
+				value = sin(TAU * 1480.0 * time) * 0.50 + sin(TAU * 2220.0 * time) * 0.16
+		bytes.encode_s16(index * 2, int(clampf(value * envelope, -1.0, 1.0) * 25000.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = rate
+	stream.data = bytes
+	return stream

@@ -5,6 +5,7 @@ extends RefCounted
 ## The combat scripts remain the source of truth for numbers and behavior.
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const PASSIVE_RULES := preload("res://scripts/passive_state.gd")
 const SAVE_PATH := "user://prototype0_loadout.cfg"
 
 const ROBOTS := ["agile", "polyvalent", "puissant"]
@@ -102,36 +103,42 @@ static func display_name(identifier: String) -> String:
 static func category_description(identifier: String) -> String:
 	var data: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS.get(identifier, {})
 	match identifier:
+		"blaster":
+			var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]
+			return "Plasma surpuissant : %d dégâts par tir, jusqu’à %d en maintenant %.2f s. Tire au relâchement ; pleine mobilité pendant la charge." % [int(weapon.damage), int(weapon.max_damage), float(weapon.charge_time)]
+		"baroud":
+			return "Une dernière chance de riposter. Le premier coup mortel déclenche une jauge de %d PV qui se vide et absorbe les dégâts reçus pendant %.1f s maximum. Tu meurs à la fin du baroud. Une seule fois par vie." % [int(PASSIVE_RULES.BAROUD_MAX_HEALTH), PASSIVE_RULES.BAROUD_DURATION]
+		"omnivamp":
+			return "Soigne-toi en infligeant des dégâts : tu récupères en PV %d %% des dégâts réellement retirés aux ennemis. Plus tu touches, plus tu récupères de vie, sans dépasser tes PV maximum." % roundi(PASSIVE_RULES.OMNIVAMP_RATE * 100.0)
 		"auxiliary_reactor":
-			return "Impact direct d’arme : −%.2f s au cooldown offensif actif, une fois par attaque et toutes les %.2f s. Aucun crédit accumulé." % [float(data.reduction), float(data.interval)]
+			return "Recharge ton module offensif en touchant l’ennemi avec ton arme. Chaque attaque retire %.2f s à sa recharge en cours, au maximum une fois toutes les %.2f s. Une salve compte une seule fois. Aucun bonus conservé si le module est déjà prêt." % [float(data.reduction), float(data.interval)]
 		"tracker":
-			return "%d attaques d’arme distinctes sur la même cible, espacées de %.0f s maximum : SPOTTED %.0f s. Aucun cumul pendant cette révélation." % [int(data.hits), float(data.gap), float(data.duration)]
+			return "Garde la pression sur la même cible : après %d attaques d’arme distinctes, elle est révélée (SPOTTED) pendant %.0f s, même à couvert. Laisse au maximum %.0f s entre deux touches. Changer de cible recommence le suivi ; les touches ne prolongent pas la révélation." % [int(data.hits), float(data.duration), float(data.gap)]
 		"alternator":
-			return "Impact direct offensif : prochaine attaque d’arme +%d %% de dégâts directs, à exécuter sous %.0f s. Une fois par activation, consommé même si elle rate." % [roundi(float(data.damage_bonus) * 100.0), float(data.duration)]
+			return "Enchaîne module et arme : toucher un ennemi avec ton module offensif renforce ta prochaine attaque d’arme de %d %%. Tire ou frappe dans les %.0f s. Le bonus est utilisé même si tu rates. Une seule charge par utilisation du module ; les brûlures ne l’activent pas." % [roundi(float(data.damage_bonus) * 100.0), float(data.duration)]
 		"inertia":
-			return "Fin de dash réussi : prochaine attaque d’arme sous %.1f s applique SLOW %d %% pendant %.0f s. Consommé même si elle rate." % [float(data.window), int(data.slow_percent), float(data.slow_duration)]
+			return "Réussis un dash Pyro Boots, active Bio Injector ou termine Permutation / Éclipse, puis tire ou frappe dans les %.1f s : ta prochaine attaque ralentit les ennemis touchés de %d %% pendant %.1f s. Le bonus est utilisé même si tu rates. Un dash interrompu, Javelin et le déplacement d’un coup d’arme ne l’activent pas." % [float(data.window), int(data.slow_percent), float(data.slow_duration)]
+		"longshot":
+			var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
+			return "Fusil précis : de %.0f à %.0f m parcourus par le projectile, les dégâts augmentent jusqu’à +%d %%. Deux tirs qui blessent un ennemi préparent EXÉCUTION : dégâts ×%.1f et traversée des ennemis, arrêt aux murs ou sur une attaque bloquée. Rater conserve les impacts acquis ; EXÉCUTION est consommée au tir. Chaque touche donne +%d %% de vitesse pendant %.1f s." % [float(weapon.distance_start), float(weapon.distance_max), roundi((float(weapon.distance_multiplier_max) - 1.0) * 100.0), float(weapon.enhanced_damage_multiplier), roundi((float(weapon.hit_speed_multiplier) - 1.0) * 100.0), float(weapon.hit_speed_duration)]
 	var descriptions := {
-		"rocket_basket": "5 roquettes autoguidées destructibles, 40 PV chacune. Cast 0,3 s, vitesse −15 %. Chaque impact : SLOW +5 % pendant 3 s. Les 5 sur une cible : BURN et cooldown −40 %. Détruites contre les murs ; recherche continue. Nom provisoire.",
+		"rocket_basket": "5 roquettes autoguidées destructibles, 40 PV chacune. Cast 0,3 s, vitesse −15 %%. Chaque impact : SLOW +%d %% pendant 3 s, jusqu'à %d %% pour ouvrir un tir pendant la poursuite. Les 5 sur une cible : BURN et cooldown −40 %%. Détruites contre les murs ; recherche continue. Nom provisoire." % [int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.slow_percent), int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.slow_percent) * int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.projectiles)],
 		"agile": "Déplacements rapides, châssis léger et moins de PV.",
 		"polyvalent": "Un équilibre entre mobilité et résistance.",
 		"puissant": "Châssis renforcé : plus de PV, déplacement plus lent.",
-		"blaster": "Tir précis ou tir chargé jusqu’à 50 dégâts.",
 		"shotgun": "6 plombs coniques, 3 salves, recharge automatique.",
-		"longshot": "Fusil précis : dégâts croissants avec la distance. Chaque cinquième tir est amélioré.",
 		"mekatana": "Katana électrique : trois cleaves avec dash croissant. Enchaîner sous 2,5 s ; les touches précédentes renforcent les dégâts sur la même cible.",
-		"javelin": "Maintiens pour charger un trident électrique (max 1,74 s). La cible touchée est marquée et SPOTTED ; réappuie pour te téléporter devant elle.",
-		"fulguro_punch": "Poing incandescent : maintenir pour amplifier portée et dégâts, puis relâcher.",
-		"pelto_smash": "Frappe le sol : vague de terre à l’aller, puis retour tractant.",
-		"magnetic_field": "Wall : bloque les adversaires et leurs tirs pendant 2,5 s. Tes tirs traversent.",
+		"javelin": "Maintiens pour charger un trident électrique (max %.2f s). La cible touchée, même sur son bouclier, est marquée et SPOTTED ; réappuie pour te téléporter devant elle, prêt à viser. L'arrivée la ralentit de %d %% pendant %.1f s pour enchaîner une attaque." % [float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.charge_max), int(COMBAT_DATA.MODULE_DEFINITIONS.javelin.recast_slow_percent), float(COMBAT_DATA.MODULE_DEFINITIONS.javelin.recast_slow_duration)],
+		"fulguro_punch": "Poing incandescent : maintenir pour amplifier portée et dégâts, puis relâcher. Projette la cible ; l'écrasement contre un mur ajoute des dégâts et l'étourdit %.1f s pour préparer ton attaque suivante." % float(COMBAT_DATA.MODULE_DEFINITIONS.fulguro_punch.wall_stun),
+		"pelto_smash": "Frappe le sol : vague de terre à l'aller, puis retour tractant. Le retour ralentit de %d %% pendant %.1f s pour garder la cible à portée de ton arme." % [int(COMBAT_DATA.MODULE_DEFINITIONS.pelto_smash.return_slow_percent), float(COMBAT_DATA.MODULE_DEFINITIONS.pelto_smash.return_slow_duration)],
+		"magnetic_field": "Wall : bloque les adversaires et leurs tirs pendant %.1f s. Tes tirs traversent ; le placement s’ajuste près des obstacles." % float(COMBAT_DATA.MODULE_DEFINITIONS.magnetic_field.duration),
 		"counter": "Garde à 360° après 0,08 s. Intercepte une attaque directe ; SURCHARGE renforce la prochaine attaque émise pendant 3 s. Pelto et burn traversent la garde.",
-		"static_shield": "Stase 1,5 s : invulnérable, mais toutes actions bloquées.",
+		"static_shield": "À l'activation, supprime les brûlures et tous les ralentissements. Stase %.1f s : invulnérable, mais toutes actions bloquées. Réappuie après %.1f s pour sortir volontairement. Recharge : %.0f s." % [float(COMBAT_DATA.MODULE_DEFINITIONS.static_shield.duration), float(COMBAT_DATA.MODULE_DEFINITIONS.static_shield.minimum_duration), float(COMBAT_DATA.MODULE_DEFINITIONS.static_shield.cooldown)],
 		"projector": "Après une brève préparation, une onde circulaire repousse progressivement et ralentit les ennemis, plus fortement près du centre. Passif instantané au passage sous 25 % de PV, avec une recharge indépendante de 25 s. Nom provisoire.",
-		"pyro_boots": "2 charges : dash enflammé de 5 m, explosion au départ, arrêt aux obstacles. Recharge : 6 s par charge.",
-		"bio_injector": "Buff 3 s : déplacement et attaques accélérés.",
+		"pyro_boots": "2 charges : dash enflammé de 5 m, explosion au départ (%d dégâts dans %.0f m), arrêt aux obstacles. Recharge : 6 s par charge." % [int(COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.departure_damage), float(COMBAT_DATA.MODULE_DEFINITIONS.pyro_boots.departure_radius)],
+		"bio_injector": "Buff %.0f s : déplacement et attaques accélérés, recharge des autres modules accélérée. Signal visuel durant la dernière seconde." % float(COMBAT_DATA.MODULE_DEFINITIONS.bio_injector.duration),
 		"eclipse": "Maintenir pour choisir une destination, relâcher pour disparaître en particules. Intangible pendant le trajet ; explosion à l'arrivée qui brûle les cibles touchées et accorde un bouclier si elle touche un ennemi. Nom provisoire.",
 		"permutation": "Échange les positions avec l'ennemi à l'arrivée d'une ombre électrique traversant les obstacles. Aucun cast ennemi interrompu ; vitesse +35 % et bouclier de 150 points pendant 3 s après réussite.",
-		"baroud": "Premier coup létal : jauge de survie temporaire.",
-		"omnivamp": "Récupère 15 % des dégâts effectivement infligés.",
 	}
 	return str(descriptions.get(identifier, "Équipement Prototype 0."))
 
@@ -145,7 +152,7 @@ static func stat_line(identifier: String) -> String:
 		if identifier == "longshot":
 			var base := float(weapon.get("damage", 0.0))
 			var distance_bonus := float(weapon.get("distance_multiplier_max", 1.0))
-			return "%d–%d dégâts • 5e tir ×%.2f • portée %.0f m • CD %.2f s" % [roundi(base), roundi(base * distance_bonus), float(weapon.get("enhanced_damage_multiplier", 1.0)), float(weapon.get("max_range", 0.0)), float(weapon.get("cooldown", 0.0))]
+			return "%d–%d dégâts • EXÉCUTION ×%.1f après 2 touches • CD %.2f s" % [roundi(base), roundi(base * distance_bonus), float(weapon.get("enhanced_damage_multiplier", 1.0)), float(weapon.get("cooldown", 0.0))]
 		if identifier == "mekatana":
 			var damage: Array = weapon.get("base_damage", [])
 			var dash: Array = weapon.get("dash_distance", [])
@@ -153,7 +160,7 @@ static func stat_line(identifier: String) -> String:
 				return "MÊLÉE • combo de 3 coups"
 			return "%d / %d / %d dégâts • cleave %.1f m • dash %.2f–%.2f m • combo %.1f s" % [int(damage[0]), int(damage[1]), int(damage[2]), float(weapon.get("melee_range", 0.0)), float(dash[0]), float(dash[2]), float(weapon.get("combo_window", 0.0))]
 		if identifier == "blaster":
-			return "%d–%d dégâts • portée %.0f m • charge %.1f s • CD %.2f s" % [int(weapon.get("damage", 0.0)), int(weapon.get("max_damage", weapon.get("damage", 0.0))), float(weapon.get("max_range", 0.0)), float(weapon.get("charge_time", 0.0)), float(weapon.get("cooldown", 0.0))]
+			return "%d–%d dégâts • portée %.0f m • charge %.2f s • CD %.2f s" % [int(weapon.get("damage", 0.0)), int(weapon.get("max_damage", weapon.get("damage", 0.0))), float(weapon.get("max_range", 0.0)), float(weapon.get("charge_time", 0.0)), float(weapon.get("cooldown", 0.0))]
 		return "%d×%d dégâts • %d salves • portée %.0f m" % [int(weapon.get("pellets_per_shot", 0)), int(weapon.get("pellet_damage", 0.0)), int(weapon.get("magazine_size", 0)), float(weapon.get("max_range", 0.0))]
 	if not module.is_empty():
 		if identifier == "rocket_basket":

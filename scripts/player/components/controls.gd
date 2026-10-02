@@ -4,8 +4,158 @@ extends Node
 # Player owns shared state and keeps the scene/network API.
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
+const INPUT_BUFFER_SECONDS := 0.14
 
 var player: PLAYER_STATE
+var _input_time := 0.0
+var _queued_command: Dictionary = {}
+var _desktop_down_last := false
+
+
+func advance_input_time(delta: float) -> void:
+	_input_time += maxf(0.0, delta)
+	if not _queued_command.is_empty() and _input_time > float(_queued_command.expires):
+		_queued_command.clear()
+
+
+func clear_command_buffer() -> void:
+	_queued_command.clear()
+	_desktop_down_last = false
+
+
+func _queue_command(command: Dictionary) -> bool:
+	if not player._gameplay_enabled or player.is_real_dead():
+		return false
+	command["expires"] = _input_time + INPUT_BUFFER_SECONDS
+	command["weapon"] = player._weapon_id
+	_queued_command = command
+	return true
+
+
+func _module_id(action: String) -> String:
+	return player._offensive_module_id if action == "offensive" else player._defensive_module_id if action == "defensive" else player._mobility_module_id if action == "mobility" else ""
+
+
+func _module_blocked(action: String) -> bool:
+	var module_id := _module_id(action)
+	# The second Static Shield press exits stasis; recasts keep their own rules.
+	if module_id == "static_shield" and player._stasis_remaining > 0.0:
+		return false
+	var recast: bool = module_id == "javelin" and player._has_live_javelin_mark()
+	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame():
+		return true
+	if module_id in ["pyro_boots", "counter", "eclipse"] and player._dash_active:
+		return true
+	if module_id in ["counter", "eclipse"] and player._pelto_pull_active:
+		return true
+	return not recast and not player._module_ready(module_id)
+
+
+func request_module_command(action: String, touch: bool = false, released: bool = false) -> bool:
+	var module_id := _module_id(action)
+	if module_id.is_empty() or not player._gameplay_enabled or player.is_real_dead():
+		return false
+	# A second finger must never release a cast owned by the first one.
+	if player._active_module_id == module_id:
+		return false
+	# Preserve the longer escape buffer during a forced Fulguro displacement.
+	if player._can_buffer_defensive_action():
+		if action == "mobility" and module_id == "pyro_boots":
+			player._buffer_dash()
+			return true
+		if action == "offensive" and module_id == "javelin" and player._has_live_javelin_mark():
+			player._buffer_javelin_recast()
+			return true
+	if touch and bool(_queued_command.get("touch", false)) and str(_queued_command.get("action", "")) == action and not bool(_queued_command.get("released", false)):
+		return false
+	var command := {"type": "module", "action": action, "module": module_id, "touch": touch, "released": released}
+	if _module_blocked(action):
+		return _queue_command(command)
+	_queued_command.clear()
+	return _execute_module_command(command)
+
+
+func _execute_module_command(command: Dictionary) -> bool:
+	var action: String = command.action
+	var touch: bool = command.touch
+	var generation: int = player._action_gate._generation
+	var stasis_before := player._stasis_remaining
+	var recast_accepted := false
+	if action == "offensive":
+		if player._offensive_module_id == "fulguro_punch":
+			player._begin_fulguro_charge()
+			player._desktop_fulguro_charge_held = not touch and player.is_fulguro_charging()
+		elif player._offensive_module_id == "javelin":
+			recast_accepted = player._begin_javelin_charge()
+			if touch and player.is_javelin_charging():
+				player._javelin_module_aim = player.aim_direction.normalized()
+			player._desktop_javelin_charge_held = not touch and player.is_javelin_charging()
+		elif player._offensive_module_id == "pelto_smash":
+			player._perform_pelto_smash(true)
+			player._desktop_pelto_aim_held = not touch and player.is_pelto_preparing()
+		else:
+			player._perform_offensive_module()
+	elif action == "mobility" and player._mobility_module_id == "eclipse":
+		player._eclipse.begin(player, touch)
+	elif action == "defensive":
+		player._activate_defensive_module()
+	elif action == "mobility":
+		player._activate_mobility_module()
+	var accepted: bool = recast_accepted or generation != player._action_gate._generation or player._stasis_remaining < stasis_before
+	if accepted and bool(command.released):
+		end_touch_action(action, touch)
+	return accepted
+
+
+func _weapon_unavailable() -> bool:
+	if player._action_incapacitated() or player._action_gate.is_busy() or player._action_gate.was_claimed_this_frame():
+		return true
+	var now := Time.get_ticks_msec() / 1000.0
+	match player._weapon_id:
+		"blaster": return now < player._blaster_next_attack_ready_at
+		"longshot": return player._longshot_attack_busy or now < player._longshot_next_attack_ready_at
+		"shotgun": return player._shotgun_attack_busy or player._shotgun_reloading or player._shotgun_ammo <= 0
+		"mekatana": return player._mekatana_attack.is_busy() or player._dash_active or player._pelto_pull_active
+	return false
+
+
+func execute_buffered_command() -> void:
+	if _queued_command.is_empty():
+		return
+	if not player._gameplay_enabled or player.is_real_dead() or _input_time > float(_queued_command.expires) or str(_queued_command.weapon) != player._weapon_id:
+		_queued_command.clear()
+		return
+	var command := _queued_command
+	if str(command.type) == "module":
+		if str(command.module) != _module_id(str(command.action)):
+			_queued_command.clear()
+			return
+		if _module_blocked(str(command.action)):
+			return
+		_queued_command = {}
+		_execute_module_command(command)
+		return
+	if _weapon_unavailable():
+		return
+	_queued_command = {}
+	if bool(command.touch) and not bool(command.released):
+		player._touch_attack_rearm_required = false
+		player.begin_touch_fire()
+		return
+	if not bool(command.touch):
+		player._desktop_attack_rearm_required = false
+	player._set_aim_direction(command.direction)
+	match player._weapon_id:
+		"blaster":
+			player._desktop_blaster_tap_buffered = false
+			if not bool(command.touch) and player._desktop_attack_input_held():
+				player._begin_blaster_charge(Time.get_ticks_msec() / 1000.0)
+			else:
+				player._fire_blaster_projectile(player._blaster_damage, 0.0, command.direction)
+		"shotgun": player._perform_shotgun_attack()
+		"longshot": player._perform_longshot_attack()
+		"mekatana": player._perform_mekatana_attack()
 
 
 func _init(controller: PLAYER_STATE) -> void:
@@ -61,9 +211,10 @@ func _update_movement(delta: float) -> void:
 	if player._active_module_id == "rocket_basket":
 		charge_multiplier *= float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.cast_move_multiplier)
 	var evolution_speed: float = player.survival_evolution_effects.movement_multiplier() if player.survival_mode and player.survival_evolution_effects != null else 1.0
-	player.velocity = world_move_direction * player.move_speed * bio_multiplier * permutation_multiplier * slow_multiplier * charge_multiplier * evolution_speed * (player._counter.movement_multiplier() if player._counter != null else 1.0)
+	player.velocity = world_move_direction * player.move_speed * bio_multiplier * permutation_multiplier * slow_multiplier * charge_multiplier * evolution_speed * (player._counter.movement_multiplier() if player._counter != null else 1.0) * player._longshot_state.movement_multiplier()
+	player.velocity = ARENA_TRAVERSAL.motion(player, player.velocity * delta) / maxf(delta, 0.001)
 	player.move_and_slide()
-	player.global_position.y = 0.0
+	ARENA_TRAVERSAL.snap(player)
 
 
 func _get_actual_move_velocity() -> Vector3:
@@ -202,6 +353,7 @@ func get_weapon_aim_preview() -> Dictionary:
 			radius *= float(player._longshot_definition["enhanced_size_multiplier"])
 		maximum = float(player._longshot_definition["max_range"])
 		mask |= 4
+	direction = ARENA_TRAVERSAL.shot_direction(player, start, direction)
 	return {"origin": start, "direction": direction, "range": maximum, "radius": radius,
 		"mask": mask, "exclude": excluded, "support": player.global_position + Vector3.UP * 0.9,
 		"weapon": player._weapon_id}
@@ -283,6 +435,7 @@ func _update_weapon_pose_state(delta: float) -> void:
 
 
 func reset_desktop_inputs() -> void:
+	clear_command_buffer()
 	if player._eclipse.aiming:
 		player._eclipse.cancel(player)
 	player._desktop_mouse_attack_held = false
@@ -318,7 +471,10 @@ func _action_incapacitated() -> bool:
 func _try_begin_weapon_action(action_id: String) -> int:
 	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
 		return 0
-	return player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.WEAPON, action_id)
+	var token: int = player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.WEAPON, action_id)
+	if token != 0 and str(_queued_command.get("type", "")) == "weapon":
+		_queued_command.clear()
+	return token
 
 
 func _try_begin_module_action(module_id: String) -> int:
@@ -331,6 +487,7 @@ func _try_begin_module_action(module_id: String) -> int:
 		action_token = player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.MODULE, module_id)
 	if action_token == 0:
 		return 0
+	_queued_command.clear()
 	player._active_module_action_token = action_token
 	player._active_module_id = module_id
 	player._interrupt_weapon_for_module()
@@ -396,6 +553,7 @@ func _cancel_pending_module_action(reason: String = "") -> void:
 
 
 func _reset_action_ownership() -> void:
+	clear_command_buffer()
 	player._cancel_mekatana_attack()
 	player._longshot_action_token = 0
 	player._action_gate.reset()
@@ -417,6 +575,12 @@ func get_action_owner() -> String:
 
 func _update_attack(force_action_blocked: bool = false) -> void:
 	var desktop_wants_attack: bool = player._desktop_attack_input_held()
+	if not desktop_wants_attack:
+		player._desktop_attack_rearm_required = false
+	var new_press := desktop_wants_attack and not _desktop_down_last
+	_desktop_down_last = desktop_wants_attack
+	if new_press and not player._desktop_attack_rearm_required and _weapon_unavailable():
+		_queue_command({"type": "weapon", "touch": false, "released": false, "direction": player._normalized_aim_direction()})
 	if force_action_blocked or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_incapacitated():
 		player._desktop_blaster_tap_buffered = false
 		if desktop_wants_attack:
@@ -516,6 +680,13 @@ func _update_mobile_blaster_contact(now: float) -> void:
 func _process_touch_fire_request() -> void:
 	if player._touch_fire_requests.is_empty():
 		return
+	var pending: Dictionary = player._touch_fire_requests.front()
+	var now := Time.get_ticks_msec() / 1000.0
+	if now > float(pending.get("expires", now + INPUT_BUFFER_SECONDS)):
+		player._touch_fire_requests.pop_front()
+		return
+	if now < player._blaster_next_attack_ready_at:
+		return
 	var request: Dictionary = player._touch_fire_requests.pop_front()
 	if not player._gameplay_enabled or player.is_real_dead() or player._weapon_id != "blaster":
 		return
@@ -561,58 +732,31 @@ func _update_debug_effects() -> void:
 			player._attack_label.text = "BOT D'ENTRAÎNEMENT : %s" % ("ON" if bot_enabled else "OFF")
 	if not player.survival_mode and player._pressed_action_once("weapon"):
 		player._cycle_weapon()
-	var offensive_down := Input.is_action_pressed("game_offensive")
-	var offensive_was_down := bool(player._debug_key_latches.get("game_offensive", false))
-	player._debug_key_latches["game_offensive"] = offensive_down
-	if player._offensive_module_id == "fulguro_punch":
-		if offensive_down and not offensive_was_down:
-			var was_charging: bool = player.is_fulguro_charging()
-			player._begin_fulguro_charge()
-			player._desktop_fulguro_charge_held = not was_charging and player.is_fulguro_charging()
-		elif not offensive_down and offensive_was_down:
-			player._release_fulguro_charge()
-			player._desktop_fulguro_charge_held = false
-	elif player._offensive_module_id == "javelin":
-		if offensive_down and not offensive_was_down:
-			var was_charging: bool = player.is_javelin_charging()
-			player._begin_javelin_charge()
-			player._desktop_javelin_charge_held = not was_charging and player.is_javelin_charging()
-		elif not offensive_down and offensive_was_down and player._desktop_javelin_charge_held:
-			player._release_javelin_charge()
-			player._desktop_javelin_charge_held = false
-	elif player._offensive_module_id == "pelto_smash":
-		if offensive_down and not offensive_was_down:
-			var previous_serial := player._pelto_attack_serial
-			player._perform_pelto_smash(true)
-			player._desktop_pelto_aim_held = previous_serial != player._pelto_attack_serial
-		elif not offensive_down and offensive_was_down and player._desktop_pelto_aim_held:
-			player._release_pelto_aim()
-			player._desktop_pelto_aim_held = false
-	elif offensive_down and not offensive_was_down:
-		player._perform_offensive_module()
-	if player._pressed_action_once("defensive"):
-		player._activate_defensive_module()
-	if player._mobility_module_id == "eclipse":
-		var mobility_down := Input.is_action_pressed("game_mobility")
-		var mobility_was_down := bool(player._debug_key_latches.get("game_mobility", false))
-		player._debug_key_latches["game_mobility"] = mobility_down
-		if mobility_down and not mobility_was_down:
-			player._eclipse.begin(player)
-		elif not mobility_down and mobility_was_down and player._eclipse.aiming and not player._eclipse.touch_owned:
-			player._eclipse.release(player)
-	elif player._pressed_action_once("mobility"):
-		player._activate_mobility_module()
+	for action in ["offensive", "defensive", "mobility"]:
+		var mapped: String = "game_" + action
+		var down := Input.is_action_pressed(mapped)
+		var was_down := bool(player._debug_key_latches.get(mapped, false))
+		player._debug_key_latches[mapped] = down
+		if down and not was_down:
+			request_module_command(action)
+		elif not down and was_down:
+			end_touch_action(action, false)
+			if action == "offensive":
+				player._desktop_fulguro_charge_held = false
+				player._desktop_javelin_charge_held = false
+				player._desktop_pelto_aim_held = false
 	if not player.survival_mode and player._consume_touch_action("weapon"):
 		player._cycle_weapon()
 	if player._consume_touch_action("offensive"):
-		player._perform_offensive_module()
+		request_module_command("offensive", true, true)
 	if player._consume_touch_action("defensive"):
-		player._activate_defensive_module()
+		request_module_command("defensive", true, true)
 	if player._consume_touch_action("mobility"):
-		player._activate_mobility_module()
+		request_module_command("mobility", true, true)
 
 
 func _refresh_control_bindings() -> void:
+	clear_command_buffer()
 	player._debug_key_latches.clear()
 	player.cancel_touch_fire()
 
@@ -669,6 +813,9 @@ func set_touch_attack_held(value: bool) -> void:
 func begin_touch_fire() -> void:
 	if player._touch_fire_active or not player._gameplay_enabled or player.is_real_dead():
 		return
+	if not player._touch_attack_rearm_required and (player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame()):
+		_queue_command({"type": "weapon", "touch": true, "released": false, "direction": player._normalized_aim_direction()})
+		return
 	if player._touch_attack_rearm_required or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame() or player._action_incapacitated():
 		player._touch_attack_rearm_required = true
 		return
@@ -677,6 +824,8 @@ func begin_touch_fire() -> void:
 	player._touch_fire_charge_started = false
 	player._touch_last_valid_aim_direction = player._normalized_aim_direction()
 	if player._weapon_id in ["shotgun", "longshot", "mekatana"]:
+		if _weapon_unavailable():
+			_queue_command({"type": "weapon", "touch": true, "released": false, "direction": player._normalized_aim_direction()})
 		# Le Shotgun conserve exactement son chemin pressé/maintenu existant.
 		player._touch_attack_held = true
 
@@ -684,6 +833,12 @@ func begin_touch_fire() -> void:
 func end_touch_fire(final_aim: Vector2 = Vector2.ZERO) -> bool:
 	if final_aim.length_squared() > 0.04:
 		player.set_aim_input(final_aim)
+	if str(_queued_command.get("type", "")) == "weapon" and bool(_queued_command.get("touch", false)):
+		_queued_command.released = true
+		_queued_command.direction = player._normalized_aim_direction()
+		player._touch_fire_active = false
+		player._touch_attack_held = false
+		return true
 	if player._touch_attack_rearm_required:
 		player._touch_attack_rearm_required = false
 		player._touch_fire_active = false
@@ -710,12 +865,15 @@ func end_touch_fire(final_aim: Vector2 = Vector2.ZERO) -> bool:
 	player._touch_fire_requests.append({
 		"direction": direction_snapshot.normalized(),
 		"charge_ratio": ratio,
+		"expires": now + INPUT_BUFFER_SECONDS,
 	})
 	player._cancel_blaster_charge()
 	return true
 
 
 func cancel_touch_fire(reason: String = "") -> void:
+	if str(_queued_command.get("type", "")) == "weapon" and bool(_queued_command.get("touch", false)):
+		_queued_command.clear()
 	if player._touch_fire_active and player._weapon_id == "longshot":
 		player._cancel_longshot_attack()
 	player._touch_fire_active = false
@@ -736,33 +894,24 @@ func get_mobile_blaster_input_state() -> StringName:
 
 
 func trigger_touch_action(action: String) -> bool:
-	if player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame():
-		return false
+	if action in ["offensive", "defensive", "mobility"]:
+		if _module_blocked(action):
+			return request_module_command(action, true, true)
 	player._touch_actions[action] = true
 	return true
 
 
 func begin_touch_action(action: String) -> bool:
-	if player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame():
-		return false
-	if action == "mobility" and player._mobility_module_id == "eclipse":
-		return player._eclipse.begin(player, true)
-	if action == "offensive" and player._offensive_module_id == "fulguro_punch":
-		player._begin_fulguro_charge()
-		return player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) and player._active_module_id == "fulguro_punch"
-	if action == "offensive" and player._offensive_module_id == "javelin":
-		var accepted: bool = player._begin_javelin_charge()
-		if accepted and player.is_javelin_charging():
-			player._javelin_module_aim = player.aim_direction.normalized()
-		return accepted
-	if action == "offensive" and player._offensive_module_id == "pelto_smash":
-		player._perform_pelto_smash(true)
-		return player.is_pelto_preparing()
+	if (action == "offensive" and player._offensive_module_id in ["fulguro_punch", "javelin", "pelto_smash"]) or (action == "mobility" and player._mobility_module_id == "eclipse"):
+		return request_module_command(action, true)
 	return player.trigger_touch_action(action)
 
 
-func end_touch_action(action: String) -> void:
-	if action == "mobility" and player._eclipse.aiming and player._eclipse.touch_owned:
+func end_touch_action(action: String, touch: bool = true) -> void:
+	if str(_queued_command.get("type", "")) == "module" and str(_queued_command.get("action", "")) == action:
+		_queued_command.released = true
+		return
+	if action == "mobility" and player._eclipse.aiming and player._eclipse.touch_owned == touch:
 		player._eclipse.release(player)
 	if action == "offensive" and player._offensive_module_id == "pelto_smash":
 		player._release_pelto_aim()
@@ -773,6 +922,9 @@ func end_touch_action(action: String) -> void:
 
 
 func cancel_touch_action(action: String) -> void:
+	if str(_queued_command.get("type", "")) == "module" and str(_queued_command.get("action", "")) == action:
+		_queued_command.clear()
+		return
 	if action == "mobility" and player._eclipse.aiming and player._eclipse.touch_owned:
 		player._eclipse.cancel(player)
 	if action == "offensive" and player._offensive_module_id == "pelto_smash" and player._pelto_aim_held:
@@ -787,6 +939,8 @@ func cancel_touch_action(action: String) -> void:
 
 
 func clear_touch_inputs() -> void:
+	if bool(_queued_command.get("touch", false)):
+		_queued_command.clear()
 	if player._eclipse.aiming and player._eclipse.touch_owned:
 		player._eclipse.cancel(player)
 	if player._touch_fire_active and player._weapon_id == "longshot":

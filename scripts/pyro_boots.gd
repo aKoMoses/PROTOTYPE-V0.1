@@ -5,6 +5,9 @@ extends Node3D
 const PRIMARY := "pyro_boots"
 const RESERVE := "pyro_boots_reserve"
 const LIFETIME := 0.48
+const DATA := preload("res://scripts/combat_data.gd")
+const COUNTER := preload("res://scripts/counter.gd")
+const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
 var _age := 0.0
 var _direction := Vector3.FORWARD
 var _actor: Node3D
@@ -31,6 +34,34 @@ static func recharge_remaining(cooldowns: Dictionary) -> float:
 	var first := maxf(0.0, float(cooldowns.get(PRIMARY, 0.0)))
 	var second := maxf(0.0, float(cooldowns.get(RESERVE, 0.0)))
 	return minf(first, second) if first > 0.0 and second > 0.0 else maxf(first, second)
+
+
+static func departure(actor: Node3D, targets: Array, source: String, attack_id: String, credit: Callable = Callable()) -> void:
+	if actor.has_method("passive_authoritative") and not bool(actor.call("passive_authoritative")):
+		return
+	var definition: Dictionary = DATA.MODULE_DEFINITIONS.pyro_boots
+	var seen := {}
+	for target in targets:
+		if not is_instance_valid(target) or not target is Node3D or not target.has_method("take_damage") or not COUNTER.enemies(actor, target):
+			continue
+		if seen.has(target.get_instance_id()) or actor.global_position.distance_to(target.global_position) > float(definition.departure_radius):
+			continue
+		seen[target.get_instance_id()] = true
+		var query := PhysicsRayQueryParameters3D.create(actor.global_position + Vector3.UP * 0.72, target.global_position + Vector3.UP * 0.72)
+		query.collision_mask = 1 | 8
+		query.collide_with_areas = true
+		var excluded: Array[RID] = []
+		if actor is CollisionObject3D:
+			excluded.append(actor.get_rid())
+		query.exclude = MAGNETIC_WALL.owned_exclusions(actor, excluded)
+		if not actor.get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			continue
+		var applied := float(target.call("take_damage", float(definition.departure_damage), source, attack_id))
+		if applied > 0.0:
+			if credit.is_valid():
+				credit.call(applied, target)
+			if target.has_method("flash_impact"):
+				target.call("flash_impact", false)
 
 
 func ignite(actor: Node3D, direction: Vector3, dash_state: Node) -> void:

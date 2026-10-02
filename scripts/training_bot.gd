@@ -7,6 +7,7 @@ const MAGNETIC_WALL := preload("res://scripts/magnetic_wall.gd")
 const ACTION_GATE := preload("res://scripts/action_gate.gd")
 const AI_PROFILE := preload("res://scripts/bot_ai_profile.gd")
 const BOT_NAVIGATION := preload("res://scripts/bot_navigation.gd")
+const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 const BUSH_STATE := preload("res://scripts/bush_state.gd")
 
 ## Shared bot controller. Duel mode runs three explicit stages: perception,
@@ -1832,7 +1833,7 @@ func _move_bot(bot_body: Node3D, delta: float) -> void:
 	var arena_limit := SURVIVAL_ARENA_LIMIT if survival_role != "" else 27.0
 	bot_body.global_position.x = clampf(bot_body.global_position.x, survival_arena_center.x - arena_limit, survival_arena_center.x + arena_limit)
 	bot_body.global_position.z = clampf(bot_body.global_position.z, survival_arena_center.z - arena_limit, survival_arena_center.z + arena_limit)
-	bot_body.global_position.y = 0.0
+	ARENA_TRAVERSAL.snap(bot_body)
 	if _elapsed >= _progress_anchor_at + PROGRESS_SAMPLE_INTERVAL:
 		var progressed := bot_body.global_position.distance_to(_progress_anchor)
 		var still_has_route := _has_tactical_destination and bot_body.global_position.distance_to(_tactical_destination) > 0.85
@@ -1877,12 +1878,15 @@ func _bot_shape_query(bot_body: Node3D) -> PhysicsShapeQueryParameters3D:
 	query.collision_mask = 1 | 8
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.exclude = MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid()])
+	var excluded := MAGNETIC_WALL.owned_exclusions(self, [bot_body.get_rid()])
+	excluded.append_array(ARENA_TRAVERSAL.exclusions(bot_body))
+	query.exclude = excluded
 	query.margin = BOT_COLLISION_MARGIN
 	return query
 
 
 func _safe_bot_motion(bot_body: Node3D, motion: Vector3) -> Vector3:
+	motion = ARENA_TRAVERSAL.motion(bot_body, motion)
 	var world := bot_body.get_world_3d()
 	if world == null or motion.length_squared() <= 0.000001:
 		return motion
