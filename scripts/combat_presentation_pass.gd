@@ -10,6 +10,8 @@ var _prop_ids: Dictionary = {}
 var _gusts: Array[Dictionary] = []
 var _actors: Array[Node3D] = []
 var _clarified: Dictionary = {}
+var _scan_pending := true
+var _bootstrap_remaining := 2.0
 
 static func install(scene: Node, vfx: Node) -> void:
 	if not is_instance_valid(scene) or scene.has_node("CombatPresentationPass") or not scene.has_node("CameraRig"):
@@ -23,9 +25,39 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	manager.connect("surface_contact", _contact)
 	manager.connect("presentation_cleared", clear)
+	get_tree().node_added.connect(_node_added)
 	_scan()
 
+func _node_added(node: Node) -> void:
+	if not is_inside_tree() or not get_parent().is_ancestor_of(node):
+		return
+	# Garage previews and transient weapon FX cannot introduce scenery props.
+	var ancestor := node.get_parent()
+	while ancestor != null and ancestor != get_parent():
+		if ancestor is Viewport or ancestor is Control:
+			return
+		ancestor = ancestor.get_parent()
+	if node is CollisionObject3D and node.has_method("get_health"):
+		_scan_pending = true
+	elif node is MeshInstance3D:
+		_check_added_mesh(node)
+		# Presentation adapters may replace its material after node_added.
+		_check_deferred_mesh.call_deferred(weakref(node))
+
+func _check_deferred_mesh(reference: WeakRef) -> void:
+	var mesh := reference.get_ref() as MeshInstance3D
+	if is_instance_valid(mesh):
+		_check_added_mesh(mesh)
+
+func _check_added_mesh(node: MeshInstance3D) -> void:
+	if not is_instance_valid(node) or not is_inside_tree() or not node.is_inside_tree():
+		return
+	var material := node.material_override as ShaderMaterial
+	if material != null and material.shader != null and material.shader.resource_path in ["res://scripts/environment/yard_cloth.gdshader", "res://scripts/bush_foliage.gdshader", "res://shaders/stylized_courtyard.gdshader"]:
+		_scan_pending = true
+
 func _scan() -> void:
+	_scan_pending = false
 	var scene := get_parent()
 	var camera_rig := scene.get_node_or_null("CameraRig")
 	observer = camera_rig.get("_target") as Node3D if camera_rig != null else null
@@ -62,10 +94,17 @@ func _scan() -> void:
 		_actors.append(body)
 
 func _process(delta: float) -> void:
+	_bootstrap_remaining = maxf(0.0, _bootstrap_remaining - delta)
 	_scan_clock -= delta
 	if _scan_clock <= 0.0:
 		_scan_clock = 0.5
-		_scan()
+		# Deferred initial finishers can replace materials for a few frames.
+		# Afterwards, rediscover only when relevant world nodes are introduced.
+		if _scan_pending or _bootstrap_remaining > 0.0:
+			_scan()
+		else:
+			var camera_rig := get_parent().get_node_or_null("CameraRig")
+			observer = camera_rig.get("_target") as Node3D if camera_rig != null else null
 		for index in range(_actors.size() - 1, -1, -1):
 			var actor := _actors[index]
 			if not is_instance_valid(actor):
@@ -83,6 +122,8 @@ func _process(delta: float) -> void:
 			_prop_ids.erase(prop.id)
 			_props.remove_at(index)
 			continue
+		if mesh.material_override != prop.material:
+			_scan_pending = true
 		var strength := 0.0
 		for gust in _gusts:
 			strength = maxf(strength, maxf(0.0, 1.0 - mesh.global_position.distance_to(gust.at) / 3.0) * gust.life * gust.power)

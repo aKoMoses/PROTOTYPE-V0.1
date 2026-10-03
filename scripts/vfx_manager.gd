@@ -13,6 +13,8 @@ const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const ASSETS := preload("res://scripts/vfx_assets.gd")
 const SMOKE_SHADER := preload("res://shaders/vfx_smoke.gdshader")
 const SURFACE_SHADER := preload("res://shaders/vfx_surface_wave.gdshader")
+const PELTO_VISUALS := preload("res://scripts/pelto_smash.gd")
+const MAX_IDLE_PROJECTILE_MESHES := 32
 
 enum Quality { LOW, NORMAL }
 @export var quality: Quality = Quality.NORMAL
@@ -32,10 +34,12 @@ var _meshes: Dictionary = {}
 var _textures: Dictionary = {}
 var _hits: Dictionary = {}
 var _hit_materials: Array[StandardMaterial3D] = []
+var _projectile_mesh_pool: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	PELTO_VISUALS.prepare_visual_resources()
 	# Select the existing lightweight scenery/VFX path before adapters install.
 	_apply_device_budget(OS.has_feature("mobile"))
 	_rng.randomize()
@@ -54,6 +58,12 @@ func _ready() -> void:
 		var material := _material(Color("#ffd7a3") if critical else Color("#9bc8d1"))
 		material.albedo_color.a = 0.18 if critical else 0.12
 		_hit_materials.append(material)
+	# Separate from the disposable FX budget: a shot's gameplay owner is never
+	# reclaimed. Prepare two salvos and a few plasma shots before interaction.
+	for kind in ["blaster", "shotgun"]:
+		_projectile_mesh_pool[kind] = []
+		for index in (4 if kind == "blaster" else 12):
+			_projectile_mesh_pool[kind].append(_new_projectile_mesh(kind))
 
 func _apply_device_budget(mobile: bool) -> void:
 	if mobile:
@@ -176,23 +186,16 @@ func projectile_visual(parent: Node3D, weapon: String, charge: float = 0.0) -> v
 	var charge_curve := power * power
 	var size_multiplier := lerpf(1.0, float(COMBAT_DATA.WEAPON_DEFINITIONS.blaster.charged_size_multiplier), power)
 	var color := Color("#ff5b50") if enemy else Color("#52dff4").lerp(Color("#718cff"), charge_curve * 0.74)
-	var core := MeshInstance3D.new()
-	core.name = "ProjectileCore"
-	core.mesh = _mesh("blaster_plasma")
+	var core := _borrow_projectile_mesh(parent, "blaster", "ProjectileCore")
 	var core_color := Color("#ffe0d8") if enemy else Color("#e8fdff")
-	core.material_override = _material(core_color, 0.98, true)
+	_color_projectile_mesh(core, core_color, 0.98)
 	# Smooth, shorter plasma with about 23% more width than the faceted bolt.
 	core.scale = Vector3(0.040 if enemy else 0.048, 0.040 if enemy else 0.048, 0.32) * size_multiplier
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(core)
-	var sheath := MeshInstance3D.new()
-	sheath.name = "ProjectileSheath"
-	sheath.mesh = core.mesh
-	sheath.material_override = _material(color, lerpf(0.28, 0.38, charge_curve), true)
+	var sheath := _borrow_projectile_mesh(parent, "blaster", "ProjectileSheath")
+	_color_projectile_mesh(sheath, color, lerpf(0.28, 0.38, charge_curve))
 	sheath.scale = core.scale * Vector3(2.10, 2.10, 1.16)
 	sheath.position.z = 0.035 * size_multiplier
-	sheath.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(sheath)
+	_recycle_on_projectile_finish(parent, [core, sheath])
 	_attach_trail(parent, "plasma_trail", color, Vector2(0.085, 0.070) * size_multiplier, lerpf(0.48, 0.72, power), 0.055)
 
 
@@ -217,16 +220,68 @@ func _shotgun_muzzle(socket: Node3D) -> void:
 
 
 func _shotgun_projectile(projectile: Node3D) -> void:
-	var core := MeshInstance3D.new()
-	core.name = "ProjectileCore"
-	core.mesh = _mesh("tracer")
-	core.material_override = _material(Color("#fff1cb"), 0.98, true)
+	var core := _borrow_projectile_mesh(projectile, "shotgun", "ProjectileCore")
+	_color_projectile_mesh(core, Color("#fff1cb"), 0.98)
 	# The sweep position is the leading edge; all light stays behind it.
 	core.scale = Vector3(0.085, 0.07, 0.24)
 	core.position.z = 0.12
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	projectile.add_child(core)
+	_recycle_on_projectile_finish(projectile, [core])
 	_attach_trail(projectile, "shotgun_trail", Color("#ff9b38"), Vector2(0.13, 0.09), 0.95, 0.065)
+
+func _new_projectile_mesh(kind: String) -> MeshInstance3D:
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = _mesh("blaster_plasma" if kind == "blaster" else "tracer")
+	mesh.material_override = _material(Color.WHITE, 0.98, true)
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh.set_meta("projectile_visual_kind", kind)
+	mesh.hide()
+	add_child(mesh)
+	return mesh
+
+func _borrow_projectile_mesh(projectile: Node3D, kind: String, label: String) -> MeshInstance3D:
+	var available: Array = _projectile_mesh_pool.get(kind, [])
+	var mesh: MeshInstance3D
+	while not available.is_empty() and not is_instance_valid(mesh):
+		mesh = available.pop_back() as MeshInstance3D
+	if not is_instance_valid(mesh):
+		mesh = _new_projectile_mesh(kind)
+	mesh.reparent(projectile, false)
+	mesh.name = label
+	mesh.transform = Transform3D.IDENTITY
+	mesh.material_overlay = null
+	mesh.show()
+	return mesh
+
+func _color_projectile_mesh(mesh: MeshInstance3D, color: Color, alpha: float) -> void:
+	var material := mesh.material_override as StandardMaterial3D
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.emission = color
+
+func _recycle_on_projectile_finish(projectile: Node3D, meshes: Array) -> void:
+	if projectile.has_signal("finished"):
+		projectile.connect("finished", _return_projectile_meshes.bind(meshes))
+
+func _idle_projectile_mesh_count() -> int:
+	var count := 0
+	for available in _projectile_mesh_pool.values():
+		count += available.size()
+	return count
+
+func _return_projectile_meshes(_hit: Dictionary, _distance: float, meshes: Array) -> void:
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
+	for mesh in meshes:
+		if not is_instance_valid(mesh):
+			continue
+		if _idle_projectile_mesh_count() >= MAX_IDLE_PROJECTILE_MESHES:
+			mesh.queue_free()
+			continue
+		mesh.hide()
+		mesh.reparent(self, false)
+		var kind: String = mesh.get_meta("projectile_visual_kind")
+		if not _projectile_mesh_pool.has(kind):
+			_projectile_mesh_pool[kind] = []
+		_projectile_mesh_pool[kind].append(mesh)
 
 
 func _attach_trail(projectile: Node3D, kind: String, color: Color, width: Vector2, length: float, fade_time: float) -> void:
