@@ -27,9 +27,9 @@ musique et demandé l'intégration. `selection.json` conserve cette sélection e
 les empreintes des sons intégrés. Les associations désirées et interdites sont
 consignées dans `sound-sheet.json`, qui conserve l'état initial de la proposition.
 
-Les trois candidats sont maintenant intégrés localement dans le garage, sur le
+Les trois candidats sont intégrés dans le garage, sur le
 bus Effects, avec arrêt à la fermeture et accents espacés sans concurrence avec
-les installations. Voir `docs/garage-ambience.md`. **Aucune publication**.
+les installations. Voir `docs/garage-ambience.md`.
 `reports/preparation.json` décrit la maquette au moment de sa production et
 conserve donc son ancien état « non intégré ».
 
