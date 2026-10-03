@@ -1,18 +1,17 @@
 extends Node
 ## Shared visual finish for the existing maps. Deferred until the scene and
 ## its art directors are ready; never scans actors, UI or transient combat FX.
-const SURFACE := preload("res://shaders/stylized_salvage.gdshader")
+const MATERIAL_LIBRARY := preload("res://scripts/environment/arena_material_library.gd")
 const FLOOR := preload("res://shaders/stylized_courtyard.gdshader")
 const CONCRETE := preload("res://art/environment/courtyard_concrete_detail.png")
-const PAINT := preload("res://art/environment/courtyard_paint_albedo.png")
-const STEEL := preload("res://art/environment/courtyard_steel_albedo.png")
 const MAP_ROOT := "res://art/environment/map_reference/"
 const ARMOR := preload("res://art/environment/families/paint_cream.tres")
 const BLUE_STEEL := preload("res://art/environment/families/steel_frame.tres")
 const TREAD := preload("res://shaders/workshop_tread_plate.gdshader")
 const SCENES := ["res://scripts/main.gd", "res://scripts/training_ground.gd", "res://scripts/survival.gd"]
 var enabled := true
-var _materials: Dictionary = {}
+var _material_library := MATERIAL_LIBRARY.new()
+var _materials: Dictionary = _material_library.painted_materials
 var _bevels: Dictionary = {}
 var _scenes: Array[WeakRef] = []
 var _secondary_suns: Array[WeakRef] = []
@@ -283,68 +282,7 @@ func _assign_map_floor(mesh: MeshInstance3D, map_id: String, origin: Vector2, sp
 	mesh.set_meta("stylized_finish",true)
 
 func _paint(source: StandardMaterial3D) -> ShaderMaterial:
-	# Glow, translucency, foliage and gameplay markers keep their own pipeline.
-	if source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or source.emission_enabled or source.shading_mode != BaseMaterial3D.SHADING_MODE_PER_PIXEL or source.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED or source.albedo_color.a < 0.99:
-		return null
-	if source.uv1_triplanar and not source.uv1_world_triplanar:
-		return null
-	if source.cull_mode != BaseMaterial3D.CULL_BACK:
-		return null
-	if _materials.has(source):
-		return _materials[source]
-	var finish := ShaderMaterial.new()
-	finish.shader = SURFACE
-	finish.resource_name = "Painted courtyard / " + source.resource_name
-	finish.set_shader_parameter("source_tint", source.albedo_color)
-	finish.set_shader_parameter("vertex_tint", source.vertex_color_use_as_albedo)
-	finish.set_shader_parameter("has_texture", source.albedo_texture != null)
-	finish.set_shader_parameter("world_projection", source.uv1_world_triplanar)
-	finish.set_shader_parameter("texture_scale", source.uv1_scale)
-	finish.set_shader_parameter("texture_offset", source.uv1_offset)
-	if source.albedo_texture != null:
-		var texture_path := source.albedo_texture.resource_path
-		var texture := source.albedo_texture
-		if texture_path.ends_with("metal_cream.svg") or texture_path.ends_with("metal_rust.svg"):
-			texture = PAINT
-		elif texture_path.ends_with("steel_dark.svg"):
-			texture = STEEL
-		finish.set_shader_parameter("color_texture", texture)
-		if texture != source.albedo_texture:
-			finish.set_shader_parameter("world_projection", true)
-			finish.set_shader_parameter("texture_scale", Vector3.ONE * 0.42)
-		var pigment := Color("#c4b79c")
-		if "steel" in texture_path:
-			pigment = Color("#8dabb6")
-			# The supplied steel texture is already dark gunmetal. Retain its
-			# chips while bringing the large lids into the reference's blue-grey.
-			finish.set_shader_parameter("texture_gain", 1.70)
-		elif "rust" in texture_path:
-			pigment = Color("#ae7656")
-		elif "paint" in texture_path or "cream" in texture_path:
-			pigment = Color("#d9c7a4")
-		elif "banner" in texture_path:
-			pigment = Color("#a75a47")
-		elif texture_path.ends_with("courtyard_concrete_detail.png"):
-			finish.set_shader_parameter("texture_gain", 1.50)
-		finish.set_shader_parameter("pigment_color", pigment)
-		finish.set_shader_parameter("pigment_strength", 0.12)
-	else:
-		finish.set_shader_parameter("has_texture", true)
-		finish.set_shader_parameter("normalized_texture", true)
-		finish.set_shader_parameter("color_texture", PAINT)
-		finish.set_shader_parameter("world_projection", true)
-		finish.set_shader_parameter("texture_scale", Vector3.ONE * 0.32)
-	finish.set_shader_parameter("has_relief", source.normal_enabled and source.normal_texture != null)
-	if source.normal_texture != null:
-		finish.set_shader_parameter("relief_texture", source.normal_texture)
-	finish.set_shader_parameter("relief_strength", source.normal_scale * 0.65)
-	finish.set_shader_parameter("surface_roughness", clampf(source.roughness, 0.48, 0.96))
-	finish.set_shader_parameter("surface_metallic", minf(source.metallic, 0.50))
-	# Cloth/dust stay calm and matte; manufactured plates have stronger planes.
-	var soft := "cloth" in source.resource_name or "sand" in source.resource_name
-	finish.set_shader_parameter("sculpt_strength", 0.05 if soft else 0.15)
-	_materials[source] = finish
-	return finish
+	return _material_library.paint(source)
 
 func beveled_box(size: Vector3) -> ArrayMesh:
 	if _bevels.has(size):

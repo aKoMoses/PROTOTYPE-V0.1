@@ -23,6 +23,7 @@ const DATA := preload("res://scripts/combat_data.gd")
 const ICONS := preload("res://scripts/equipment_icons.gd")
 const DISPLAY_FONT := preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const BODY_FONT := preload("res://addons/GD-Sync/UI/Fonts/Outfit-Regular.ttf")
+const RESPONSIVE_LAYOUT := preload("res://scripts/ui/forge_garage_layout.gd")
 const DESIGN_SIZE := Vector2(1280, 720)
 const EXPERIENCE := preload("res://scripts/review_preferences.gd")
 const AMBER := Color("#f5b844")
@@ -77,7 +78,7 @@ var _detail_stats: Label
 var _missing_demo: Label
 var _save_button: Button
 var _build_selector: OptionButton
-var _header_name: Label
+var _build_menu: MenuButton
 var _rename_panel: Panel
 var _name_input: LineEdit
 var _notice_time := 0.0
@@ -86,7 +87,6 @@ var _touch_index := -1
 var _save_and_play := false
 var _installation_controls: Control
 var _installation_status: Label
-var station_buttons: Dictionary = {}
 var equip_button: Button
 var _detail_panel: Panel
 var _garage_return: Button
@@ -101,6 +101,24 @@ var _cinema_progress: ProgressBar
 var _catalog_tween: Tween
 var _catalog_title: Label
 var _presets: OptionButton
+var _view := "hub"
+var _compact_layout := false
+var safe_area_override := Rect2()
+var _header: Panel
+var _header_title: Label
+var _back_button: Button
+var _save_state: Label
+var _family_selector: OptionButton
+var _footer: Panel
+var _stats_panel: Panel
+var _test_button: Button
+var _demo_button: Button
+var _builds_panel: Panel
+var _builds_title: Label
+var _build_actions: Array[Button] = []
+var _equipment_display: Node3D
+var _display_id := ""
+var _arena_enabled := false
 
 
 func _ready() -> void:
@@ -149,6 +167,7 @@ func _ready() -> void:
 	module_installation.cancelled.connect(_module_cancelled)
 	resized.connect(_layout)
 	visibility_changed.connect(_sync_visibility)
+	get_viewport().mouse_exited.connect(_clear_station_hover)
 	_layout()
 	_refresh()
 	_show_garage(false)
@@ -158,7 +177,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if installation != null and installation.active and _installation_status != null:
 		_installation_status.text = "Installation · %.1f / 5 s" % installation.elapsed
-	_update_station_buttons()
 	if module_installation != null and module_installation.active:
 		_cinema_phase.text = {"approach": "MISE EN POSITION", "pickup": "PRISE AU RÂTELIER" if module_installation.category == "weapon" else "SAISIE DU MODULE", "lift": "LEVAGE", "carry": "TRANSFERT VERS LE ROBOT", "align": "ALIGNEMENT", "work": "VERROUILLAGE", "release": "ÉQUIPEMENT FIXÉ", "return": "RETRAIT DU BRAS"}.get(module_installation.phase, "INSTALLATION")
 		_cinema_progress.value = clampf(module_installation.elapsed / module_installation.DURATION, 0.0, 1.0)
@@ -174,9 +192,7 @@ func _gui_input(event: InputEvent) -> void:
 	if _hub_mode:
 		var pointer := Vector2.ZERO
 		var pressed := false
-		if event is InputEventMouseMotion:
-			_highlight_station(_pick_station(event.position))
-		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			pointer = event.position
 			pressed = event.pressed
 		elif event is InputEventScreenTouch:
@@ -189,7 +205,7 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 				return
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch_index == -1 and stage.is_robot_at_position(event.position):
+		if event.pressed and _touch_index == -1 and stage.robot.visible and stage.is_robot_at_position(event.position):
 			module_installation.cancel(false)
 			_touch_index = event.index
 			_rotating_robot = true
@@ -202,7 +218,7 @@ func _gui_input(event: InputEvent) -> void:
 		stage.rotate_robot(event.relative.x * TAU * 2.0 / maxf(size.x, 1.0))
 		accept_event()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION:
-		if event.pressed and stage.is_robot_at_position(event.position):
+		if event.pressed and stage.robot.visible and stage.is_robot_at_position(event.position):
 			module_installation.cancel(false)
 			_rotating_robot = true
 			stage.begin_robot_rotation()
@@ -219,7 +235,7 @@ func _gui_input(event: InputEvent) -> void:
 				_stop_robot_rotation()
 			accept_event()
 		else:
-			mouse_default_cursor_shape = Control.CURSOR_DRAG if stage.is_robot_at_position(event.position) else Control.CURSOR_ARROW
+			mouse_default_cursor_shape = Control.CURSOR_DRAG if stage.is_robot_at_position(event.position) else (Control.CURSOR_POINTING_HAND if _hub_mode and not _pick_station(event.position).is_empty() else Control.CURSOR_ARROW)
 
 
 func _notification(what: int) -> void:
@@ -250,7 +266,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not is_visible_in_tree() or not event is InputEventKey or not event.pressed or event.echo:
+	if not is_visible_in_tree():
+		return
+	if _hub_mode and event is InputEventMouseMotion:
+		# Track leaving a station even when a header/footer control owns the GUI event.
+		_highlight_station(_pick_station(get_global_transform().affine_inverse() * event.position))
+	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_ESCAPE:
 		if installation != null and installation.active:
@@ -262,10 +283,8 @@ func _input(event: InputEvent) -> void:
 			_training_demo.close_enlarged()
 		elif _rename_panel.visible:
 			_rename_panel.hide()
-		elif not _hub_mode:
-			_show_garage()
 		else:
-			back_requested.emit()
+			_request_back()
 		get_viewport().set_input_as_handled()
 
 
@@ -309,13 +328,14 @@ func is_dirty() -> bool:
 
 
 func set_arena_options(enabled: bool, selected: String = "classic") -> void:
+	_arena_enabled = enabled
 	_selected_arena = selected
 	for identifier in arena_buttons:
 		var button: Button = arena_buttons[identifier]
 		button.visible = false
 		button.add_theme_stylebox_override("normal", _style(identifier == selected))
 	if _arena_selector != null:
-		_arena_selector.visible = enabled
+		_arena_selector.visible = enabled and _view == "builds"
 		for index in _arena_selector.item_count:
 			if str(_arena_selector.get_item_metadata(index)) == selected:
 				_arena_selector.select(index)
@@ -336,12 +356,13 @@ func _select_equipment(category: String, identifier: String) -> void:
 	if str(loadout.get(category, "")) == identifier:
 		return
 	if category == "weapon" or identifier in MODULE_INSTALLATION.REAL_MODULES:
+		_hide_equipment_display()
 		if category in CATEGORY_TITLES:
 			_module_category = category
 		_stop_robot_rotation()
 		_training_demo.close_enlarged()
 		if module_installation.begin(identifier, category):
-			_ui.set_meta("preview_rect", Rect2(80, 100, 1120, 490))
+			_ui.set_meta("preview_rect", Rect2(20, 70, _ui.size.x - 40, _ui.size.y - 150))
 			_ui.hide()
 			_cinema.show()
 			_cinema_phase.text = "PRISE EN CHARGE"
@@ -355,13 +376,22 @@ func _select_equipment(category: String, identifier: String) -> void:
 	_refresh()
 	_show_detail(category, identifier)
 	if category == "robot":
-		focus.preview_equipment(category, identifier)
+		if _compact_layout and not _hub_mode:
+			_view = "detail"
+		_layout()
+		_focus_selection()
+	elif category in CATEGORY_TITLES:
+		module_installation.audio.play("lock")
 	equipment_selected.emit(category, str(loadout[category]))
 
 
 func _preview_equipment(category: String, identifier: String) -> void:
 	if category in CATEGORY_TITLES or category == "weapon":
+		if _compact_layout:
+			_view = "detail"
 		_show_detail(category, identifier)
+		_layout()
+		_focus_selection()
 	else:
 		_select_equipment(category, identifier)
 
@@ -383,7 +413,11 @@ func _module_completed(identifier: String) -> void:
 	_ui.show()
 	var kind: String = module_installation.category
 	_open_station(kind)
+	if _compact_layout:
+		_view = "detail"
 	_show_detail(kind, identifier)
+	_layout()
+	_focus_selection()
 	_notice(LOADOUT.display_name(identifier) + " installé")
 
 
@@ -391,15 +425,12 @@ func _module_cancelled() -> void:
 	if _cinema != null:
 		_cinema.hide()
 		_ui.show()
-		_ui.set_meta("preview_rect", Rect2(40, 105, 1200, 450) if _hub_mode else Rect2(346, 132, 628, 469))
+		_layout()
 		if is_visible_in_tree():
 			if _hub_mode:
 				focus.show_garage()
 			else:
-				if _category == "robot":
-					focus.show_overview()
-				else:
-					focus.show_station(_category)
+				_focus_selection()
 
 
 func _save_build() -> void:
@@ -408,6 +439,7 @@ func _save_build() -> void:
 	module_installation.cancel()
 	_finish_rename()
 	_stop_robot_rotation()
+	_hide_equipment_display()
 	_pending_library = LIBRARY.with_build(_library, build_id, build_name, loadout)
 	_training_demo.close_enlarged()
 	if not installation.begin(loadout):
@@ -421,7 +453,10 @@ func _save_build() -> void:
 
 
 func _save_then_play() -> void:
-	if installation.active:
+	if installation.active or module_installation.active:
+		return
+	if not is_dirty():
+		start_requested.emit()
 		return
 	_save_and_play = true
 	_save_build()
@@ -446,8 +481,10 @@ func _finish_save() -> void:
 		_active_loadout = loadout.duplicate(true)
 		build_saved.emit(loadout.duplicate(true))
 		_notice("Build sauvegardé")
+		get_node("/root/UiSfx").play("launch" if _save_and_play else "confirmation")
 	else:
 		_notice("Sauvegarde impossible. Réessaie.")
+		get_node("/root/UiSfx").play("denied")
 	_pending_library = {}
 	_ui.show()
 	_installation_controls.hide()
@@ -455,6 +492,8 @@ func _finish_save() -> void:
 	_refresh()
 	_show_detail(_category, str(loadout[_category]))
 	var launch := _save_and_play and saved
+	_layout()
+	_focus_selection()
 	stage.react_to_installation(saved)
 	_save_and_play = false
 	if launch:
@@ -477,7 +516,16 @@ func _test_build() -> void:
 
 
 func _request_back() -> void:
-	if not installation.active:
+	if installation.active or module_installation.active:
+		return
+	if _rename_panel.visible:
+		_rename_panel.hide()
+	elif _view == "detail" and _compact_layout:
+		_show_catalog(_category)
+		focus.show_station(_category) if _category != "robot" else focus.show_overview()
+	elif not _hub_mode:
+		_show_garage()
+	else:
 		back_requested.emit()
 
 
@@ -487,6 +535,7 @@ func _sync_visibility() -> void:
 	set_process_unhandled_key_input(active)
 	if not active:
 		_stop_robot_rotation()
+		_hide_equipment_display()
 		if module_installation != null:
 			module_installation.cancel(false)
 		if installation != null:
@@ -498,18 +547,7 @@ func _sync_visibility() -> void:
 func _layout() -> void:
 	if _ui == null:
 		return
-	var ratio := minf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
-	_ui.scale = Vector2.ONE * ratio
-	_ui.position = (size - DESIGN_SIZE * ratio) * 0.5
-	_ui.size = DESIGN_SIZE
-	if _installation_controls != null:
-		_installation_controls.scale = _ui.scale
-		_installation_controls.position = _ui.position
-		_installation_controls.size = DESIGN_SIZE
-	if _cinema != null:
-		_cinema.scale = _ui.scale
-		_cinema.position = _ui.position
-		_cinema.size = DESIGN_SIZE
+	RESPONSIVE_LAYOUT.apply(self)
 	if focus != null:
 		focus.fit_layout()
 
@@ -568,31 +606,55 @@ func _build_interface() -> void:
 	_ui = Control.new()
 	_ui.name = "GarageInterface"
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ui.set_meta("preview_rect", Rect2(346, 132, 628, 469))
 	add_child(_ui)
-	_panel(Vector2.ZERO, Vector2(1280, 58))
-	_ui.add_child(_label("FORGE", Vector2(24, 6), Vector2(239, 48), 40, CREAM, true))
-	_button("‹", Vector2(221, 11), Vector2(39, 36), _request_back).tooltip_text = "Retour au menu"
-	_header_name = _label(build_name, Vector2(974, 16), Vector2(244, 28), 18, CREAM, true)
-	_header_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_header_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_ui.add_child(_header_name)
-	_button("✎", Vector2(1230, 12), Vector2(32, 32), _rename_build)
-	_module_panel = _panel(Vector2(16, 76), Vector2(320, 574), true)
-	for index in 3:
-		var title: String = ["ROBOT", "ARMES", "MODULES"][index]
-		_nav[title] = _button(title, Vector2(278 + index * 142, 11), Vector2(133, 36), _navigate.bind(title), title == "MODULES")
-	_garage_return = _button("‹  ATELIER", Vector2(30, 90), Vector2(140, 40), _show_garage)
-	_catalog_title = _label("", Vector2(181, 96), Vector2(141, 29), 14, AMBER, true)
-	_catalog_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_ui.add_child(_catalog_title)
-	_hub_caption = _label("CHOISISSEZ UN POSTE", Vector2(453, 77), Vector2(374, 28), 15, CREAM, true)
-	_hub_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_header = _panel(Vector2.ZERO, Vector2(1280, 64))
+	_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_back_button = _button("‹", Vector2.ZERO, Vector2(48, 48), _request_back)
+	_back_button.name = "GarageBack"
+	_header_title = _label("GARAGE", Vector2.ZERO, Vector2(350, 50), 34, CREAM, true)
+	_ui.add_child(_header_title)
+	_save_state = _label("", Vector2.ZERO, Vector2(220, 30), 14, CYAN, true)
+	_save_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ui.add_child(_save_state)
+	_module_panel = _panel(Vector2.ZERO, Vector2(320, 574))
+	_module_panel.hide()
+	_hub_caption = _label("", Vector2.ZERO, Vector2(250, 32), 20, CREAM, true)
 	_ui.add_child(_hub_caption)
-	for index in 4:
-		var category: String = ["offensive", "defensive", "mobility", "passive"][index]
-		var button := _button(CATEGORY_TITLES[category], Vector2(354 + index * 154, 76), Vector2(145, 44), _open_modules.bind(category))
-		button.add_theme_font_size_override("font_size", 13)
+	for title in ["ARMES", "MODULES", "MES BUILDS"]:
+		var button := _button("", Vector2.ZERO, Vector2(220, 130), _navigate.bind(title))
+		button.name = "Garage" + title.to_pascal_case().replace(" ", "")
+		_nav[title] = button
+		var icon := TextureRect.new()
+		icon.name = "HubIcon"
+		icon.texture = _icons.get_icon("blaster" if title == "ARMES" else ("auxiliary_reactor" if title == "MODULES" else loadout.robot))
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(icon)
+		var label := _label(title, Vector2.ZERO, Vector2(200, 30), 19, CREAM, true)
+		label.name = "HubTitle"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_child(label)
+	_catalog_title = _label("", Vector2.ZERO, Vector2(300, 30), 16, CREAM)
+	_ui.add_child(_catalog_title)
+	_garage_return = _back_button
+	_family_selector = OptionButton.new()
+	_family_selector.name = "EquipmentFamily"
+	_family_selector.fit_to_longest_item = false
+	_family_selector.clip_text = true
+	_family_selector.add_theme_font_override("font", DISPLAY_FONT)
+	_family_selector.add_theme_font_size_override("font_size", 16)
+	for kind in ["weapon", "offensive", "defensive", "mobility", "passive", "robot"]:
+		_family_selector.add_item("ARMES" if kind == "weapon" else ("CHÂSSIS" if kind == "robot" else CATEGORY_TITLES[kind]))
+		_family_selector.set_item_metadata(_family_selector.item_count - 1, kind)
+	_family_selector.item_selected.connect(func(index: int) -> void:
+		_navigate("ROBOT") if str(_family_selector.get_item_metadata(index)) == "robot" else _open_station(str(_family_selector.get_item_metadata(index))))
+	for state in ["normal", "hover", "pressed", "focus"]:
+		_family_selector.add_theme_stylebox_override(state, _style(state != "normal"))
+	_ui.add_child(_family_selector)
+	for category in CATEGORY_TITLES:
+		var button := _button(CATEGORY_TITLES[category], Vector2.ZERO, Vector2(145, 48), _open_modules.bind(category))
+		button.hide()
 		module_buttons[category] = button
 	for category in ["robot", "weapon", "offensive", "defensive", "mobility", "passive"]:
 		_build_catalog(category)
@@ -600,22 +662,16 @@ func _build_interface() -> void:
 	_build_footer()
 	_build_rename_panel()
 	_build_experience_controls()
-	_build_station_interface()
 	_build_cinematic_interface()
-	for index in 3:
-		var id: String = ["classic", "hazards", "test"][index]
-		var button := _button(["CLASSIQUE", "PIÉGÉE", "MAP TEST"][index], Vector2(713 + index * 117, 11), Vector2(109, 36), _choose_arena.bind(id))
-		button.add_theme_font_size_override("font_size", 11)
-		if id == "test":
-			button.tooltip_text = "Arène de 30 × 30 m • plateformes à 2,4 m • accès nord et sud"
+	for id in ["classic", "hazards", "test"]:
+		var button := _button(id, Vector2.ZERO, Vector2(109, 48), _choose_arena.bind(id))
+		button.hide()
 		arena_buttons[id] = button
 	_arena_selector = OptionButton.new()
 	_arena_selector.name = "ArenaSelector"
 	_arena_selector.fit_to_longest_item = false
 	_arena_selector.clip_text = true
-	_arena_selector.position = Vector2(713, 11)
-	_arena_selector.size = Vector2(247, 36)
-	_arena_selector.add_theme_font_size_override("font_size", 12)
+	_arena_selector.add_theme_font_size_override("font_size", 16)
 	_arena_selector.add_theme_color_override("font_color", CREAM)
 	_arena_selector.add_theme_stylebox_override("normal", _style(false))
 	_arena_selector.add_theme_stylebox_override("hover", _style(true))
@@ -624,7 +680,7 @@ func _build_interface() -> void:
 		_arena_selector.set_item_metadata(_arena_selector.item_count - 1, str(choice.id))
 	_arena_selector.item_selected.connect(func(index: int) -> void:
 		_choose_arena(str(_arena_selector.get_item_metadata(index))))
-	_ui.add_child(_arena_selector)
+	_builds_panel.add_child(_arena_selector)
 	set_arena_options(false)
 
 
@@ -634,17 +690,17 @@ func _options(category: String) -> Array:
 
 func _build_catalog(category: String) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 1
-	grid.position = Vector2(30, 150)
-	grid.size = Vector2(292, 414)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.columns = 2
+	grid.name = category.to_pascal_case() + "Catalog"
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("h_separation", 12)
 	_ui.add_child(grid)
 	_grids[category] = grid
 	_choices[category] = {}
 	for identifier in _options(category):
 		var button := Button.new()
 		button.name = "Garage%s" % str(identifier).to_pascal_case()
-		button.custom_minimum_size = Vector2(292, 64)
+		button.custom_minimum_size = Vector2(190, 135)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.tooltip_text = LOADOUT.category_description(identifier)
 		for state in ["normal", "hover", "pressed", "focus"]:
@@ -656,18 +712,19 @@ func _build_catalog(category: String) -> void:
 		icon.name = "EquipmentIcon"
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.texture = _icons.get_icon(identifier)
-		icon.position = Vector2(8, 9)
-		icon.size = Vector2(56, 44)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(icon)
-		icon.set_deferred("size", Vector2(56, 44))
-		var title := _label(LOADOUT.display_name(identifier).replace("RÉACTEUR AUXILIAIRE", "RÉACTEUR AUX."), Vector2(72, 8), Vector2(189, 22), 14, CREAM, true)
+		var title := _label(LOADOUT.display_name(identifier).replace("RÉACTEUR AUXILIAIRE", "RÉACTEUR AUX.").replace("BAROUD D’HONNEUR", "BAROUD"), Vector2.ZERO, Vector2(180, 26), 16, CREAM, true)
+		title.name = "CardTitle"
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.add_child(title)
-		var tag := _label(str(TAGS.get(identifier, "")), Vector2(72, 33), Vector2(209, 21), 13)
+		var tag := _label(str(TAGS.get(identifier, "")), Vector2.ZERO, Vector2(180, 22), 14)
+		tag.name = "CardTag"
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.add_child(tag)
-		var selected := _label("✓", Vector2(267, 7), Vector2(20, 22), 18, AMBER, true)
+		var selected := _label("✓", Vector2.ZERO, Vector2(24, 26), 20, AMBER, true)
 		selected.name = "Selected"
 		button.add_child(selected)
 		_choices[category][identifier] = button
@@ -686,119 +743,134 @@ func _card_input(event: InputEvent, category: String, identifier: String) -> voi
 
 
 func _build_detail() -> void:
-	var panel := _panel(Vector2(986, 76), Vector2(278, 574), true)
-	_detail_panel = panel
-	panel.name = "EquipmentDetail"
+	_detail_panel = _panel(Vector2.ZERO, Vector2(400, 280))
+	_detail_panel.name = "EquipmentDetail"
 	_detail_icon = TextureRect.new()
-	_detail_icon.position = Vector2(18, 15)
-	_detail_icon.size = Vector2(96, 54)
 	_detail_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_detail_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(_detail_icon)
-	_detail_title = _label("", Vector2(18, 83), Vector2(242, 56), 20, CREAM, true)
+	_detail_panel.add_child(_detail_icon)
+	_detail_title = _label("", Vector2.ZERO, Vector2(300, 56), 24, CREAM, true)
 	_detail_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(_detail_title)
+	_detail_panel.add_child(_detail_title)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(18, 151)
-	scroll.size = Vector2(242, 172)
+	scroll.name = "DescriptionScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(scroll)
-	_detail_description = _label("", Vector2.ZERO, Vector2(228, 172), 16)
-	_detail_description.custom_minimum_size.x = 226
+	_detail_panel.add_child(scroll)
+	_detail_description = _label("", Vector2.ZERO, Vector2(300, 100), 17)
 	_detail_description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_description.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(_detail_description)
-	_detail_stats = _label("", Vector2(18, 337), Vector2(242, 43), 14, CYAN)
+	_detail_stats = _label("", Vector2.ZERO, Vector2(300, 40), 15, CYAN)
 	_detail_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_stats.max_lines_visible = 2
 	_detail_stats.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_detail_stats.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.add_child(_detail_stats)
-	equip_button = _button("ÉQUIPER  ›", Vector2(30, 592), Vector2(292, 52), _equip_preview, true)
+	_detail_panel.add_child(_detail_stats)
+	equip_button = _button("INSTALLER", Vector2.ZERO, Vector2(240, 52), _equip_preview, true)
 	equip_button.name = "EquipModule"
-	equip_button.tooltip_text = "Équiper le choix sélectionné · double-clic sur une ligne pour équiper directement"
+	equip_button.reparent(_detail_panel)
+	_primary_style(equip_button)
+	_demo_button = _button("▶  VOIR EN ACTION", Vector2.ZERO, Vector2(240, 48), _open_demo)
+	_demo_button.name = "EquipmentDemo"
+	_demo_button.reparent(_detail_panel)
 	_training_demo = TRAINING_DEMO.new()
-	_training_demo.position = Vector2(18, 404)
+	_training_demo.position = Vector2(-1000, -1000)
 	_training_demo.size = Vector2(239, 147)
-	_training_demo.thumbnail_rect = Rect2(1, 1, 237, 133)
-	panel.add_child(_training_demo)
-	_training_demo.title.hide()
-	var play := Panel.new()
-	play.position = Vector2(97, 46)
-	play.size = Vector2(44, 44)
-	play.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var play_style := _style()
-	play_style.border_color = CREAM
-	play_style.set_border_width_all(2)
-	play_style.set_corner_radius_all(22)
-	play.add_theme_stylebox_override("panel", play_style)
-	_training_demo.thumbnail_overlay = play
-	_training_demo.video.add_child(play)
-	var triangle := _label("▶", Vector2(3, 6), Vector2(40, 33), 22)
-	triangle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	play.add_child(triangle)
-	var video_caption := _label("VOIR EN ACTION", Vector2(0, 137), Vector2(239, 19), 13, CREAM, true)
-	video_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_training_demo.add_child(video_caption)
-	_missing_demo = _label("", Vector2(18, 425), Vector2(239, 70), 14, Color("#baa989"))
-	_missing_demo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_missing_demo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel.add_child(_missing_demo)
+	_ui.add_child(_training_demo)
+	_training_demo.hide()
+	_training_demo._viewer.visibility_changed.connect(func() -> void:
+		if not _training_demo._viewer.visible:
+			_training_demo.hide())
+	_missing_demo = _label("", Vector2.ZERO, Vector2(230, 30), 14)
+	_detail_panel.add_child(_missing_demo)
+	_missing_demo.hide()
+
+
+func _open_demo() -> void:
+	if not TRAINING_DEMO.CLIPS.has(_preview_id):
+		return
+	_training_demo.show()
+	_training_demo.show_enlarged()
+	var unit := _ui.scale.y
+	_training_demo._close_button.size = Vector2(128, 48) * unit
+	_training_demo._close_button.position.y = 4 * unit
+
+
+func _primary_style(button: Button) -> void:
+	button.add_theme_color_override("font_color", Color("#292017"))
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style := _style(true)
+		style.bg_color = Color("#696456") if state == "disabled" else (AMBER if state == "normal" else Color("#ffd484"))
+		style.border_color = Color("#ffdf93")
+		button.add_theme_stylebox_override(state, style)
 
 
 func _build_footer() -> void:
-	var stats := _panel(Vector2(523, 607), Vector2(386, 34))
-	_stat_name = _label("", Vector2(12, 6), Vector2(121, 22), 14, CREAM, true)
-	_health = _label("", Vector2(145, 6), Vector2(103, 22), 14)
-	_speed = _label("", Vector2(270, 6), Vector2(105, 22), 14)
-	stats.add_child(_stat_name)
-	stats.add_child(_health)
-	stats.add_child(_speed)
-	_panel(Vector2(0, 655), Vector2(1280, 65))
-	_button("⚙", Vector2(17, 666), Vector2(39, 39), func() -> void: settings_requested.emit())
+	_stats_panel = _panel(Vector2.ZERO, Vector2(400, 36))
+	_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stat_name = _label("", Vector2.ZERO, Vector2(150, 28), 16, CREAM, true)
+	_health = _label("", Vector2.ZERO, Vector2(100, 26), 15)
+	_speed = _label("", Vector2.ZERO, Vector2(100, 26), 15)
+	for label in [_stat_name, _health, _speed]:
+		_stats_panel.add_child(label)
+	_footer = _panel(Vector2.ZERO, Vector2(1280, 72))
+	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_test_button = _button("TESTER", Vector2.ZERO, Vector2(150, 52), _test_build)
+	_test_button.name = "GarageTest"
+	_save_button = _button("JOUER", Vector2.ZERO, Vector2(240, 52), _save_then_play, true)
+	_save_button.name = "GarageSaveAndPlay"
+	_save_button.tooltip_text = "Sauvegarder le build puis lancer le duel"
+	_primary_style(_save_button)
+	_status = _label("", Vector2.ZERO, Vector2(430, 28), 15, CYAN)
+	_ui.add_child(_status)
+	_builds_panel = _panel(Vector2.ZERO, Vector2(540, 500), true)
+	_builds_panel.name = "BuildLibrary"
+	_builds_title = _label("MES BUILDS", Vector2.ZERO, Vector2(380, 32), 22, CREAM, true)
+	_builds_panel.add_child(_builds_title)
 	_build_selector = OptionButton.new()
 	_build_selector.name = "SavedBuilds"
-	_build_selector.position = Vector2(71, 666)
-	_build_selector.size = Vector2(207, 40)
 	_build_selector.add_theme_font_override("font", DISPLAY_FONT)
-	_build_selector.add_theme_font_size_override("font_size", 16)
+	_build_selector.add_theme_font_size_override("font_size", 18)
 	_build_selector.clip_text = true
 	_build_selector.fit_to_longest_item = false
 	_build_selector.add_theme_color_override("font_color", CREAM)
 	for state in ["normal", "hover", "pressed", "focus"]:
 		_build_selector.add_theme_stylebox_override(state, _style(state != "normal"))
 	_build_selector.item_selected.connect(_select_build)
-	_ui.add_child(_build_selector)
-	_button("✎", Vector2(285, 666), Vector2(35, 40), _rename_build).tooltip_text = "Renommer le build"
-	_button("+", Vector2(326, 666), Vector2(35, 40), _new_build).tooltip_text = "Créer un nouveau build"
-	_button("⧉", Vector2(367, 666), Vector2(35, 40), _duplicate_build).tooltip_text = "Dupliquer le build"
-	_status = _label("", Vector2(416, 675), Vector2(238, 24), 13, CYAN)
-	_ui.add_child(_status)
-	_button("TESTER", Vector2(664, 665), Vector2(122, 42), _test_build)
-	_button("SAUVER ET JOUER", Vector2(795, 665), Vector2(267, 42), _save_then_play, true).name = "GarageSaveAndPlay"
-	_save_button = _button("SAUVEGARDER", Vector2(1074, 665), Vector2(190, 42), _save_build, true)
-	_save_button.name = "GarageSave"
-	_save_button.add_theme_color_override("font_color", Color("#292017"))
-	for state in ["normal", "hover", "pressed", "focus"]:
-		var style := _style(true)
-		style.bg_color = AMBER if state == "normal" else Color("#ffd484")
-		style.border_color = Color("#ffdf93")
-		_save_button.add_theme_stylebox_override(state, style)
+	_builds_panel.add_child(_build_selector)
+	for action in [{"title": "RENOMMER", "callback": _rename_build}, {"title": "NOUVEAU", "callback": _new_build}, {"title": "DUPLIQUER", "callback": _duplicate_build}, {"title": "SAUVEGARDER", "callback": _save_build}]:
+		var button := _button(action.title, Vector2.ZERO, Vector2(200, 48), action.callback)
+		button.reparent(_builds_panel)
+		_build_actions.append(button)
+		if action.title == "SAUVEGARDER":
+			_primary_style(button)
+	var chassis := _button("CHANGER DE CHÂSSIS", Vector2.ZERO, Vector2(280, 48), _navigate.bind("ROBOT"))
+	chassis.name = "ChassisPicker"
+	chassis.reparent(_builds_panel)
+	_nav["ROBOT"] = chassis
+	_build_menu = MenuButton.new()
+	_build_menu.name = "BuildActions"
+	_ui.add_child(_build_menu)
+	var popup := _build_menu.get_popup()
+	for item in ["Renommer", "Créer un build", "Dupliquer", "Sauvegarder"]:
+		popup.add_item(item)
+	popup.id_pressed.connect(_build_action)
+	_build_menu.hide()
 
 
 func _build_experience_controls() -> void:
-	var presets := OptionButton.new()
-	_presets = presets
-	presets.name = "RecommendedBuilds"
-	presets.position = Vector2(477, 561)
-	presets.size = Vector2(438, 37)
-	presets.add_item("BUILDS CONSEILLÉS · nouveau brouillon")
-	presets.set_item_disabled(0, true)
+	_presets = OptionButton.new()
+	_presets.name = "RecommendedBuilds"
+	_presets.fit_to_longest_item = false
+	_presets.clip_text = true
+	_presets.add_theme_font_size_override("font_size", 16)
+	_presets.add_item("BUILDS CONSEILLÉS")
+	_presets.set_item_disabled(0, true)
 	for title in EXPERIENCE.PRESETS:
-		presets.add_item(title)
-	presets.item_selected.connect(func(index: int) -> void:
+		_presets.add_item(title)
+	_presets.item_selected.connect(func(index: int) -> void:
 		if installation.active or index < 1:
 			return
 		module_installation.cancel()
@@ -806,11 +878,9 @@ func _build_experience_controls() -> void:
 		build_name = str(EXPERIENCE.PRESETS.keys()[index - 1])
 		loadout = EXPERIENCE.PRESETS[build_name].duplicate(true)
 		_refresh()
-		_show_detail(_category, str(loadout[_category]))
 		_notice("Build conseillé · tester ou sauvegarder")
-		presets.select(0)
-	)
-	_ui.add_child(presets)
+		_presets.select(0))
+	_builds_panel.add_child(_presets)
 	_installation_controls = Control.new()
 	_installation_controls.name = "InstallationControls"
 	_installation_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -896,7 +966,6 @@ func _select_build(index: int) -> void:
 
 
 func _refresh_build_names() -> void:
-	_header_name.text = build_name + (" •" if is_dirty() else "")
 	_build_selector.clear()
 	var selected := -1
 	for entry in _library.builds:
@@ -907,24 +976,25 @@ func _refresh_build_names() -> void:
 		_build_selector.add_item(build_name)
 		selected = _build_selector.item_count - 1
 	_build_selector.select(selected)
+	_build_selector.set_item_text(selected, build_name + (" •" if is_dirty() else ""))
+	_hub_caption.text = build_name
+	_save_state.text = "BROUILLON •" if is_dirty() else "SAUVEGARDÉ"
+	_save_state.add_theme_color_override("font_color", AMBER if is_dirty() else CYAN)
+
+
+func _build_action(id: int) -> void:
+	if installation.active or module_installation.active:
+		return
+	match id:
+		0: _rename_build()
+		1: _new_build()
+		2: _duplicate_build()
+		3: _save_build()
 
 
 func _notice(text: String) -> void:
 	_status.text = text
 	_notice_time = 3.5
-
-
-func _build_station_interface() -> void:
-	for index in 5:
-		var category: String = ["offensive", "defensive", "passive", "mobility", "weapon"][index]
-		var title: String = "RÂTELIER D’ARMES" if category == "weapon" else CATEGORY_TITLES[category]
-		var button := _button("%s   ›" % title, Vector2.ZERO, Vector2(184, 44), _open_station.bind(category))
-		button.name = "Station_" + category
-		button.add_theme_font_size_override("font_size", 13)
-		button.tooltip_text = "Choisir une arme" if category == "weapon" else "Choisir un module " + title.to_lower()
-		button.mouse_entered.connect(_highlight_station.bind(category))
-		button.focus_entered.connect(_highlight_station.bind(category))
-		station_buttons[category] = button
 
 
 func _build_cinematic_interface() -> void:
@@ -964,65 +1034,21 @@ func _build_cinematic_interface() -> void:
 	_cinema.hide()
 
 
-func _update_station_buttons() -> void:
-	if stage == null or stage.camera == null or _ui == null:
-		return
-	var placed: Array[Rect2] = []
-	for category in station_buttons:
-		var button: Button = station_buttons[category]
-		button.visible = _hub_mode and not module_installation.active
-		if not button.visible:
-			continue
-		var provider = stage.weapon_rack if category == "weapon" else stage.module_stations
-		var point: Vector3 = provider.anchor(category)
-		if stage.camera.is_position_behind(point):
-			button.hide()
-			continue
-		var screen: Vector2 = stage.camera.unproject_position(point) * size / Vector2(stage.viewport.size)
-		button.position = (screen - _ui.position) / _ui.scale - Vector2(button.size.x * 0.5, 48)
-		button.position.x = clampf(button.position.x, 18, 1262 - button.size.x)
-		button.position.y = clampf(button.position.y, 113, 556)
-		for attempt in 5:
-			var overlaps := false
-			for rect in placed:
-				if rect.grow(3.0).intersects(button.get_rect()):
-					button.position.y = rect.end.y + 8.0 if rect.end.y + 8.0 <= 556.0 else rect.position.y - button.size.y - 8.0
-					overlaps = true
-					break
-			if not overlaps:
-				break
-		placed.append(button.get_rect())
-		var highlighted: bool = provider.selected_category == category
-		if bool(button.get_meta("highlighted", false)) != highlighted:
-			button.add_theme_stylebox_override("normal", _style(highlighted))
-			button.set_meta("highlighted", highlighted)
-
-
 func _show_garage(animated: bool = true) -> void:
 	if installation != null and installation.active:
 		return
 	if module_installation != null and module_installation.active:
 		module_installation.cancel(false)
 	_hub_mode = true
-	_module_panel.hide()
-	_catalog_title.hide()
-	equip_button.hide()
-	_presets.show()
-	_detail_panel.hide()
-	_garage_return.hide()
-	_hub_caption.show()
-	for category in _grids:
-		(_grids[category] as Control).hide()
-	for button in module_buttons.values():
-		button.hide()
-	_ui.set_meta("preview_rect", Rect2(40, 105, 1200, 450))
-	for title in _nav:
-		(_nav[title] as Button).add_theme_stylebox_override("normal", _style(title == "MODULES"))
+	_view = "hub"
+	_hide_equipment_display()
+	_training_demo.close_enlarged()
+	_training_demo.hide()
+	_layout()
 	if focus != null:
 		focus.set_process(is_visible_in_tree())
 		focus.show_garage(animated)
 	_highlight_station("")
-	_update_station_buttons()
 
 
 func _open_modules(category: String) -> void:
@@ -1030,14 +1056,14 @@ func _open_modules(category: String) -> void:
 		return
 	_module_category = category
 	_show_catalog(category)
-	focus.show_station(category)
+	_focus_selection()
 
 
 func _open_weapon_rack() -> void:
 	if installation.active or module_installation.active:
 		return
 	_show_catalog("weapon")
-	focus.show_station("weapon")
+	_focus_selection()
 
 
 func _open_station(category: String) -> void:
@@ -1055,6 +1081,13 @@ func _pick_station(point: Vector2) -> String:
 func _highlight_station(category: String) -> void:
 	stage.module_stations.highlight(category if category != "weapon" else "")
 	stage.weapon_rack.highlight(category if category == "weapon" else "")
+	if focus != null:
+		focus.set_station_hovered(_hub_mode and not category.is_empty())
+
+
+func _clear_station_hover() -> void:
+	if _hub_mode:
+		_highlight_station("")
 
 
 func _open_weapon_info(identifier: String) -> void:
@@ -1064,47 +1097,86 @@ func _open_weapon_info(identifier: String) -> void:
 func _navigate(title: String) -> void:
 	if installation != null and installation.active or module_installation != null and module_installation.active:
 		return
-	if title == "MODULES":
+	if title == "MES BUILDS":
+		_show_builds()
+	elif title == "MODULES":
 		_open_modules(_module_category)
-		return
-	if title == "ARMES":
+	elif title == "ARMES":
 		_open_weapon_rack()
+	else:
+		_show_catalog("robot")
+		_focus_selection()
+
+
+func _show_builds() -> void:
+	if installation.active or module_installation.active:
 		return
-	_show_catalog("robot")
-	focus.show_overview()
+	_hub_mode = false
+	_view = "builds"
+	_hide_equipment_display()
+	_training_demo.close_enlarged()
+	_training_demo.hide()
+	_refresh_build_names()
+	_layout()
+	focus.show_garage()
+
+
+func _hide_equipment_display() -> void:
+	if _equipment_display != null:
+		_equipment_display.hide()
+	if stage != null:
+		stage.robot.show()
+
+
+func _focus_selection() -> void:
+	if focus == null or _view not in ["catalog", "detail"]:
+		return
+	if _compact_layout and _view == "catalog":
+		_hide_equipment_display()
+		if _category == "robot":
+			focus.show_overview()
+		else:
+			focus.show_station(_category)
+		return
+	var bounds: AABB = stage.robot.global_transform * stage._robot_pick_bounds
+	bounds = bounds.grow(0.25)
+	if _category == "weapon":
+		if _equipment_display == null:
+			_equipment_display = Node3D.new()
+			_equipment_display.name = "CatalogWeaponDisplay"
+			_equipment_display.position = Vector3(0, 1.9, 0)
+			stage.world.add_child(_equipment_display)
+		if _display_id != _preview_id:
+			for child in _equipment_display.get_children():
+				child.free()
+			var model := (stage.WEAPON_MODELS[_preview_id] as PackedScene).instantiate() as Node3D
+			_equipment_display.add_child(model)
+			var raw: AABB = stage._bounds(model)
+			model.position -= raw.get_center()
+			var longest := maxf(raw.size.x, maxf(raw.size.y, raw.size.z))
+			var axis := Vector3.RIGHT if raw.size.x == longest else (Vector3.UP if raw.size.y == longest else Vector3.BACK)
+			_equipment_display.basis = Basis(Quaternion(axis, Vector3.RIGHT)).scaled(Vector3.ONE * 2.8 / maxf(longest, 0.001))
+			_display_id = _preview_id
+		_equipment_display.show()
+		stage.robot.hide()
+		bounds = (_equipment_display.global_transform * stage._bounds(_equipment_display)).grow(0.35)
+	else:
+		_hide_equipment_display()
+	focus.show_catalog_preview(_category, _preview_id, bounds)
 
 
 func _show_catalog(kind: String) -> void:
 	_hub_mode = false
+	_view = "catalog"
 	_category = kind
-	_module_panel.show()
-	_catalog_title.show()
-	_catalog_title.text = "CHÂSSIS" if kind == "robot" else ("ARMES" if kind == "weapon" else CATEGORY_TITLES[kind])
-	_presets.hide()
-	_detail_panel.show()
-	_garage_return.show()
-	_hub_caption.hide()
-	_ui.set_meta("preview_rect", Rect2(346, 132, 628, 469))
-	_update_station_buttons()
-	for category in _grids:
-		(_grids[category] as Control).visible = category == _category
-	_module_options = _grids[_category]
-	for category in module_buttons:
-		var button: Button = module_buttons[category]
-		button.visible = _category in CATEGORY_TITLES
-		button.add_theme_stylebox_override("normal", _style(category == _category))
-	for key in _nav:
-		(_nav[key] as Button).add_theme_stylebox_override("normal", _style(key == ("ROBOT" if _category == "robot" else ("ARMES" if _category == "weapon" else "MODULES"))))
-	_show_detail(_category, str(loadout[_category]))
-	if _catalog_tween != null and _catalog_tween.is_valid():
-		_catalog_tween.kill()
-	_detail_panel.modulate.a = 0.0
-	_module_panel.modulate.a = 0.0
-	_module_options.modulate.a = 0.0
-	_catalog_tween = create_tween().set_parallel(true)
-	_catalog_tween.tween_property(_detail_panel, "modulate:a", 1.0, 0.3)
-	_catalog_tween.tween_property(_module_panel, "modulate:a", 1.0, 0.3)
-	_catalog_tween.tween_property(_module_options, "modulate:a", 1.0, 0.3)
+	_module_options = _grids[kind]
+	_training_demo.close_enlarged()
+	_training_demo.hide()
+	_hide_equipment_display()
+	_show_detail(kind, str(loadout[kind]))
+	_layout()
+	if not _compact_layout:
+		_focus_selection()
 
 
 func _show_detail(category: String, identifier: String) -> void:
@@ -1113,12 +1185,9 @@ func _show_detail(category: String, identifier: String) -> void:
 	_preview_category = category
 	_preview_id = identifier
 	stage.module_stations.highlight_item(identifier if category in CATEGORY_TITLES else "")
-	if stage.weapon_rack.has_method("highlight_item"):
-		stage.weapon_rack.highlight_item(identifier if category == "weapon" else "")
-	equip_button.visible = not _hub_mode and (category in CATEGORY_TITLES or category == "weapon")
-	equip_button.position.y = minf(592.0, 162.0 + _options(category).size() * 70.0)
+	stage.weapon_rack.highlight_item(identifier if category == "weapon" else "")
 	equip_button.disabled = str(loadout.get(category, "")) == identifier
-	equip_button.text = "INSTALLÉ  ✓" if equip_button.disabled else "ÉQUIPER  ›"
+	equip_button.text = "INSTALLÉ  ✓" if equip_button.disabled else "INSTALLER"
 	_detail_icon.texture = _icons.get_icon(identifier)
 	_detail_title.text = LOADOUT.display_name(identifier)
 	_detail_description.text = LOADOUT.category_description(identifier)
@@ -1126,12 +1195,13 @@ func _show_detail(category: String, identifier: String) -> void:
 	_detail_stats.text = _stat_summary(identifier)
 	_detail_stats.tooltip_text = LOADOUT.stat_line(identifier)
 	_training_demo.show_equipment(identifier)
-	_missing_demo.visible = category != "robot" and not _training_demo.visible
+	_training_demo.hide()
+	_demo_button.disabled = not TRAINING_DEMO.CLIPS.has(identifier)
 	for kind in _choices:
 		for id in _choices[kind]:
 			var button: Button = _choices[kind][id]
-			var previewed: bool = kind == category and id == identifier
-			button.add_theme_stylebox_override("normal", _style(previewed))
+			button.add_theme_stylebox_override("normal", _style(kind == category and id == identifier))
+	_refresh_build_names()
 
 
 func _stat_summary(identifier: String) -> String:

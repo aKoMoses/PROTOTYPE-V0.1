@@ -475,7 +475,7 @@ func _geometry_arrays(data: Dictionary) -> Array:
 func _process(delta: float) -> void:
 	if not _initialized:
 		return
-	if not _workshop.is_visible_in_tree():
+	if not _workshop.is_inside_tree() or not _workshop.is_visible_in_tree():
 		if not _paused_hidden:
 			reset_transients()
 			_paused_hidden = true
@@ -570,7 +570,7 @@ func _floor_y(at: Vector3) -> float:
 	return 0.0
 
 func _contact(at: Vector3, direction: Vector3, _surface: String, power: float) -> void:
-	if not _initialized or not _workshop.is_visible_in_tree():
+	if not _initialized or not _workshop.is_inside_tree() or not _workshop.is_visible_in_tree():
 		return
 	var director := _scene.get_node_or_null("OrganicWorldDetails")
 	if director == null or not bool(director.call("_visible", at)):
@@ -601,11 +601,11 @@ func reset_transients() -> void:
 		entry.shadow.hide()
 		var circuit := _circuits[int(entry.circuit)]
 		var light := circuit.light.get_ref() as OmniLight3D
-		if light != null:
+		if light != null and light.is_inside_tree():
 			light.global_position = entry.at
 		if circuit.pool != null:
 			var pool := circuit.pool.get_ref() as MeshInstance3D
-			if pool != null:
+			if pool != null and pool.is_inside_tree():
 				pool.global_position = circuit.pool_at
 	for circuit in _circuits:
 		circuit.arc = 0.0

@@ -1,0 +1,22 @@
+{
+  "asset": "tracker",
+  "triangles": 5468,
+  "material_batches": 8,
+  "bytes": 963116,
+  "sha256": "f52bc267023c8487a3565bf205de4eb262e78200182dc8d55c2fc610a3ce66d5",
+  "blender_bounds_min": [
+    -0.16499999165534973,
+    -0.13392500579357147,
+    -1.862645149230957e-08
+  ],
+  "blender_bounds_max": [
+    0.12847456336021423,
+    0.12847451865673065,
+    0.3542000353336334
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/tracker-eye/tracker.blend",
+  "design": "Approved shoulder-mounted spherical eye: ochre helmet brow, ivory shell, recessed cyan annular iris, dark convex pupil and glint, lateral swivel cradle, short adjustable stalk, oval foot and one thick cable.",
+  "reference": "captures/module-identity-concepts/traqueur-sur-vrai-robot-v1.png",
+  "mounting_origin": "Underside of oval foot, local Y up, eye faces +Z."
+}

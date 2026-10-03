@@ -1408,7 +1408,7 @@ func _set_state_speed(state_name: StringName, speed_scale: float) -> void:
 	var node_name := LOCOMOTION_NODE_NAME if state_name in [&"walk", &"run"] else BASE_POSE_NODE_NAME
 	var parameter_path := "parameters/%s/%s/TimeScale/scale" % [String(node_name), String(state_name)]
 	if animation_tree.get(parameter_path) != null:
-		animation_tree.set(parameter_path, clampf(speed_scale, 0.35, 1.6))
+		animation_tree.set(parameter_path, clampf(speed_scale, 0.35, 3.0 if state_name == &"fall" else 1.6))
 
 
 func _on_animation_finished(animation_path: StringName) -> void:

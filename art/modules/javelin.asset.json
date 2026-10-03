@@ -1,0 +1,20 @@
+{
+  "asset": "javelin",
+  "triangles": 8368,
+  "material_batches": 7,
+  "bytes": 1475784,
+  "sha256": "f98d700db8d02a6058bd925b0898558e451f3cb3a302e32a297a95f670cd4a97",
+  "blender_bounds_min": [
+    -0.07850000262260437,
+    -0.04774999991059303,
+    -0.10471995174884796
+  ],
+  "blender_bounds_max": [
+    0.07850000262260437,
+    0.006000000983476639,
+    0.10399999469518661
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/javelin-projector/javelin.blend",
+  "design": "Compact upper-arm trident launch cassette, three separate copper induction rails, hollow ceramic isolators, tapered cyan electrodes and swept armour cheeks."
+}

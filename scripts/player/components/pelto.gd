@@ -152,8 +152,7 @@ func _commit_pelto_impact() -> void:
 	player._pelto_aim_held = false
 	player._pelto_module_aim = Vector3.ZERO
 	player._clear_pelto_telegraph()
-	if player._pelto_impact_audio != null:
-		player._pelto_impact_audio.play()
+	# The shared wave owns its outbound, return and confirmed contact sounds.
 	player._camera_impulse(0.08, 0.05)
 	player._spawn_particle_burst(player.global_position + Vector3.UP * 0.08, Color("#c47b43"), 14, 0.30, 3.5, 0.13, player._pelto_direction + Vector3.UP * 0.22, 45.0)
 	var scene := player.get_tree().current_scene if player.get_tree() != null else null

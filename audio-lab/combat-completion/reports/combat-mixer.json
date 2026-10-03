@@ -1,0 +1,5 @@
+{
+  "status": "unavailable",
+  "reason": "WASAPI output device could not be opened; dummy recording is not audio acceptance",
+  "gameplay_cues_verified": 27
+}

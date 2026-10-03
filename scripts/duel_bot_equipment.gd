@@ -1,4 +1,6 @@
 extends Node
+
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 const JAVELIN_VISUAL := preload("res://scripts/javelin_visual.gd")
@@ -331,6 +333,8 @@ func _release_module_action(module_id: String, token: int = 0) -> void:
 
 
 func cancel_action(reason: String = "action interrompue") -> void:
+	COMBAT_AUDIO.stop_charge(_passive_body(), "javelin_charge")
+	COMBAT_AUDIO.stop_charge(_passive_body(), "fulguro_charge")
 	if _counter != null:
 		_counter.cancel()
 	_cancel_mekatana()
@@ -350,6 +354,9 @@ func cancel_action(reason: String = "action interrompue") -> void:
 
 
 func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: Node3D, player: Node3D, controller: Node, perception: Dictionary = {}, tuning: Dictionary = {}) -> void:
+	var in_water := ARENA_TRAVERSAL.attack_blocked(body)
+	if in_water:
+		cancel_action("dans l'eau")
 	longshot_state.tick(delta)
 	permutation_speed_remaining = maxf(0.0, permutation_speed_remaining - delta)
 	_counter = COUNTER.ensure(body)
@@ -366,11 +373,16 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	var cooldown_rate := float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["other_cooldown_rate"]) if bio_remaining > 0.0 else 1.0
 	pyro_cooldown = maxf(0.0, pyro_cooldown - delta * cooldown_rate)
 	bio_cooldown = maxf(0.0, bio_cooldown - delta)
+	var bio_was_active := bio_remaining > 0.0
 	bio_remaining = maxf(0.0, bio_remaining - delta)
+	if bio_was_active and bio_remaining <= 0.0:
+		COMBAT_AUDIO.play(body, "bio_end")
 	for module_id_value in module_cooldowns.keys():
 		module_cooldowns[module_id_value] = maxf(0.0, float(module_cooldowns[module_id_value]) - delta * cooldown_rate)
 	_javelin_mark_remaining = maxf(0.0, _javelin_mark_remaining - delta)
 	if _javelin_mark_remaining <= 0.0:
+		if is_instance_valid(_javelin_marked_player):
+			COMBAT_AUDIO.play(body, "javelin_mark_end")
 		_javelin_marked_player = null
 	if static_remaining > 0.0:
 		static_remaining = maxf(0.0, static_remaining - delta)
@@ -381,6 +393,7 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 		controller.set("_windup_remaining", 0.0)
 		controller.call("_update_telegraph")
 		if static_remaining <= 0.0:
+			COMBAT_AUDIO.play(body, "static_off")
 			body.remove_meta("duel_static_shield")
 		return
 	if counter_was_busy or _counter.phase != "":
@@ -396,7 +409,14 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 		_update_readout()
 	if profile == "shotgun" and ammo <= 0 and reload_remaining <= 0.0:
 		_start_reload()
+	if in_water:
+		controller.set("_windup_remaining", 0.0)
+		controller.call("_update_telegraph")
+		return
 	var distance := body.global_position.distance_to(observed) if observed.is_finite() else INF
+	var arena_target: Node3D = perception.get("arena_control_target")
+	if not is_instance_valid(arena_target) or profile == "mekatana":
+		arena_target = null
 	# Module choices use exactly the same delayed observation as locomotion and
 	# aiming. In particular, retreat/repair mobility does not need a visible foe.
 	var decision_perception := perception.duplicate()
@@ -428,7 +448,17 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 			controller.set("_windup_remaining", 0.0)
 			controller.call("_update_telegraph")
 		return
-	if _counter.surcharge_remaining <= 0.0 and elapsed >= _next_module_at and _consider_survival_module_use(elapsed, distance, body, controller, decision_perception, tuning):
+	# A strategic mirror shot uses the real weapon action, charge, ammunition,
+	# aim error and projectile. Modules retain their opponent observations.
+	if arena_target != null:
+		visible = true
+		observed = arena_target.global_position
+		distance = body.global_position.distance_to(observed)
+		decision_perception["position"] = observed
+		decision_perception["visible"] = true
+		decision_perception["line_of_fire"] = true
+		decision_perception["velocity"] = Vector3.ZERO
+	if arena_target == null and _counter.surcharge_remaining <= 0.0 and elapsed >= _next_module_at and _consider_survival_module_use(elapsed, distance, body, controller, decision_perception, tuning):
 		return
 	if profile == "mekatana" and _mekatana != null and _mekatana.is_busy():
 		return
@@ -460,7 +490,7 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 			controller.call("_update_telegraph")
 		return
 	var legacy_tick := perception.is_empty() and tuning.is_empty()
-	if _counter.surcharge_remaining <= 0.0 and (elapsed >= _next_module_at or legacy_tick) and _consider_module_use(elapsed, distance, body, player, controller, decision_perception, tuning):
+	if arena_target == null and _counter.surcharge_remaining <= 0.0 and (elapsed >= _next_module_at or legacy_tick) and _consider_module_use(elapsed, distance, body, player, controller, decision_perception, tuning):
 		return
 	if profile == "mekatana":
 		if elapsed >= next_attack_at and visible and observed.is_finite() and bool(decision_perception.get("line_of_fire", false)) and dash_remaining <= 0.0 and not _mekatana_movement_owned_this_tick:
@@ -729,6 +759,8 @@ func _consider_survival_module_use(elapsed: float, distance: float, body: Node3D
 	if mobility_id == "bio_injector" and _module_ready("bio_injector") and bio_remaining <= 0.0 and (escape_needed or flank_trip):
 		if _begin_module_action("bio_injector"):
 			bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+			COMBAT_AUDIO.play(body, "bio_inject")
+			COMBAT_AUDIO.play(body, "bio_boost")
 			_runtime_passive().mobility_finished()
 			_start_module_cooldown("bio_injector")
 			_release_module_action("bio_injector")
@@ -803,6 +835,8 @@ func _consider_module_use(elapsed: float, distance: float, body: Node3D, player:
 		if not _begin_module_action("bio_injector"):
 			return false
 		bio_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+		COMBAT_AUDIO.play(body, "bio_inject")
+		COMBAT_AUDIO.play(body, "bio_boost")
 		_runtime_passive().mobility_finished()
 		bio_cooldown = float(COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"])
 		_start_module_cooldown("bio_injector")
@@ -880,6 +914,10 @@ func _begin_pending_module(module_id: String, duration: float, perception: Dicti
 	_module_aim_position = Vector3(perception.get("position", Vector3.ZERO))
 	var body := get_parent().get_parent() as Node3D if get_parent() != null else null
 	if body != null:
+		if module_id == "javelin":
+			COMBAT_AUDIO.charge(body, "javelin_charge")
+		elif module_id == "fulguro_punch":
+			COMBAT_AUDIO.charge(body, "fulguro_charge")
 		if module_id == "rocket_basket":
 			body.get_node("/root/GameSfx").play_module_event("rocket_arm", body.global_position)
 		var error := deg_to_rad(float(_latest_tuning.get("aim_error_degrees", 4.5)))
@@ -897,7 +935,12 @@ func _begin_pending_module(module_id: String, duration: float, perception: Dicti
 
 
 func _resolve_pending_module(body: Node3D, player: Node3D, controller: Node, visible: bool) -> void:
+	if ARENA_TRAVERSAL.attack_blocked(body):
+		cancel_action("dans l'eau")
+		return
 	var module_id := pending_module
+	COMBAT_AUDIO.stop_charge(body, "javelin_charge")
+	COMBAT_AUDIO.stop_charge(body, "fulguro_charge")
 	var action_token := _module_action_token
 	var attack_serial := _pending_module_serial
 	pending_module = ""
@@ -949,6 +992,7 @@ func _cancel_weapon_charge(controller: Node, elapsed: float, reason: String) -> 
 
 func _activate_static_shield(body: Node3D) -> void:
 	if static_remaining > 0.0:
+		COMBAT_AUDIO.play(body, "static_off")
 		static_remaining = 0.0
 		body.remove_meta("duel_static_shield")
 		return
@@ -963,6 +1007,7 @@ func _activate_static_shield(body: Node3D) -> void:
 	if body.get("combat_state") != null:
 		body.combat_state.cleanse_burn_and_slow()
 	static_remaining = float(COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["duration"])
+	COMBAT_AUDIO.play(body, "static_on")
 	body.set_meta("duel_static_shield", true)
 	_start_module_cooldown("static_shield")
 	charge_remaining = 0.0
@@ -998,7 +1043,7 @@ func _activate_magnetic_field(body: Node3D, toward: Vector3) -> void:
 	_start_module_cooldown("magnetic_field")
 	get_tree().create_timer(float(definition["duration"]), false, false, false).timeout.connect(func() -> void:
 		if is_instance_valid(wall):
-			wall.queue_free()
+			wall.expire()
 		if _magnetic_wall == wall:
 			_magnetic_wall = null
 	)
@@ -1018,6 +1063,7 @@ func _fire_module_projectile(module_id: String, body: Node3D, player: Node3D, ta
 	var maximum := float(definition["max_range"])
 	var generation := _generation
 	var projectile := LIVE_PROJECTILE.new()
+	COMBAT_AUDIO.play(body, "javelin_launch")
 	projectile.name = "DuelBotJavelin"
 	get_tree().current_scene.add_child(projectile)
 	projectile.global_position = muzzle
@@ -1051,6 +1097,7 @@ func _resolve_module_projectile(module_id: String, body: Node3D, player: Node3D,
 	_register_damage(body, dealt)
 	if PASSIVE_STATE.accepted_damage(player, dealt, shield_before) <= 0.0:
 		return
+	COMBAT_AUDIO.play(body, "javelin_impact", player.global_position)
 	_javelin_marked_player = player
 	_javelin_mark_remaining = float(definition["mark_duration"])
 	if player.has_method("apply_spotted"):
@@ -1107,7 +1154,9 @@ func _register_damage(body: Node3D, effective_damage: float) -> void:
 	if passive_id != "omnivamp":
 		return
 	if body.has_method("heal"):
-		body.call("heal", body.combat_state.passive.omnivamp_heal_for(effective_damage) if body.combat_state.get("passive") != null else _passive_state.omnivamp_heal_for(effective_damage), "duel_bot:omnivamp")
+		var actual := float(body.call("heal", body.combat_state.passive.omnivamp_heal_for(effective_damage) if body.combat_state.get("passive") != null else _passive_state.omnivamp_heal_for(effective_damage), "duel_bot:omnivamp"))
+		if actual > 0.0:
+			COMBAT_AUDIO.play(body, "omnivamp_heal")
 
 
 
@@ -1118,7 +1167,9 @@ func _passive_body() -> Node:
 
 func _runtime_passive():
 	var body := _passive_body()
-	return body.call("get_passive_runtime") if is_instance_valid(body) and body.has_method("get_passive_runtime") else _passive_state
+	var state: RefCounted = body.call("get_passive_runtime") if is_instance_valid(body) and body.has_method("get_passive_runtime") else _passive_state
+	COMBAT_AUDIO.bind_passive(body, state)
+	return state
 
 
 func emit_passive_weapon() -> Dictionary:
@@ -1226,6 +1277,9 @@ func _start_reload() -> void:
 
 
 func _fire(body: Node3D, player: Node3D) -> void:
+	if ARENA_TRAVERSAL.attack_blocked(body):
+		cancel_action("dans l'eau")
+		return
 	if profile == "longshot" and (_last_tick_elapsed < maxf(next_attack_at, _longshot_next_attack_at) or static_remaining > 0.0 or not is_instance_valid(body) or not is_instance_valid(player)):
 		return
 	if not _action_gate.owns(_weapon_action_token, ACTION_GATE.Kind.WEAPON, profile):

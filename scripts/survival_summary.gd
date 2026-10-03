@@ -145,7 +145,9 @@ func total(values: Dictionary) -> float:
 
 func _save_favorite() -> void:
 	records.favorite_build = result.build.duplicate(true)
-	status.text = "Build favori enregistré sur cet appareil." if STATS.save_records(records, records_path) == OK else "Échec de l'enregistrement du favori."
+	var saved := STATS.save_records(records, records_path) == OK
+	status.text = "Build favori enregistré sur cet appareil." if saved else "Échec de l'enregistrement du favori."
+	get_node("/root/UiSfx").play("confirmation" if saved else "denied")
 
 func _export_card() -> void:
 	if _exporting:
@@ -183,6 +185,7 @@ func _export_card() -> void:
 	viewport.queue_free()
 	_exporting = false
 	status.text = "Carte enregistrée : " + ProjectSettings.globalize_path(path) if error == OK else "Échec de l'export de la carte."
+	get_node("/root/UiSfx").play("confirmation" if error == OK else "denied")
 
 func _style_action(button: Button) -> void:
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND

@@ -5,6 +5,9 @@ extends Node
 
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
+const SHOT_SOUND := preload("res://art/audio/weapon-sfx/longshot-shot.wav")
+const ENHANCED_SOUND := preload("res://art/audio/weapon-sfx/longshot-enhanced.wav")
+const READY_SOUND := preload("res://art/audio/weapon-sfx/longshot-ready.wav")
 
 var player: PLAYER_STATE
 
@@ -158,7 +161,12 @@ func _on_longshot_projectile_finished(hit: Dictionary, distance: float, definiti
 		if accepted <= 0.0:
 			hit["stop_piercing"] = true
 		if accepted > 0.0 and not target.is_in_group("prototype0_homing_rockets") and PLAYER_STATE.COUNTER.enemies(player, target) and not player.is_real_dead() and int(passive_attack.get("longshot_generation", -1)) == player._longshot_state.generation:
+			var was_ready := player._longshot_state.is_enhanced_ready()
 			player._longshot_state.register_hit(shot_id, enhanced, definition)
+			if not was_ready and player._longshot_state.is_enhanced_ready():
+				var ready_audio := player.get_node_or_null("LongshotReadyAudio") as AudioStreamPlayer
+				if ready_audio != null:
+					ready_audio.play()
 			player._sync_weapon_readout()
 		if effective > 0.0 and target.has_method("flash_impact"):
 			target.call("flash_impact", enhanced)
@@ -183,16 +191,21 @@ func _create_longshot_visual() -> void:
 	player._attach_weapon_pivot_to_hand(player._longshot_pivot, &"longshot", Vector3(0.58, 0.88, -0.36), Vector3.ZERO, -22.0)
 	player._longshot_shot_audio = AudioStreamPlayer.new()
 	player._longshot_shot_audio.name = "LongshotShotAudio"
-	player._longshot_shot_audio.stream = PLAYER_STATE.BLASTER_SHOT_SOUND
-	player._longshot_shot_audio.pitch_scale = 0.80
-	player._longshot_shot_audio.volume_db = -8.0
+	player._longshot_shot_audio.stream = SHOT_SOUND
+	player._longshot_shot_audio.pitch_scale = 1.0
+	player._longshot_shot_audio.volume_db = -3.0
 	player.add_child(player._longshot_shot_audio)
 	player._longshot_enhanced_audio = AudioStreamPlayer.new()
 	player._longshot_enhanced_audio.name = "LongshotEnhancedAudio"
-	player._longshot_enhanced_audio.stream = PLAYER_STATE.BLASTER_CHARGED_SHOT_SOUND
-	player._longshot_enhanced_audio.pitch_scale = 0.68
-	player._longshot_enhanced_audio.volume_db = -5.0
+	player._longshot_enhanced_audio.stream = ENHANCED_SOUND
+	player._longshot_enhanced_audio.pitch_scale = 1.0
+	player._longshot_enhanced_audio.volume_db = -3.0
 	player.add_child(player._longshot_enhanced_audio)
+	var ready_audio := AudioStreamPlayer.new()
+	ready_audio.name = "LongshotReadyAudio"
+	ready_audio.stream = READY_SOUND
+	ready_audio.volume_db = -2.0
+	player.add_child(ready_audio)
 
 
 func _play_longshot_fallback_recoil(enhanced: bool) -> void:

@@ -1,0 +1,20 @@
+{
+  "asset": "static_shield",
+  "triangles": 8220,
+  "material_batches": 7,
+  "bytes": 1512824,
+  "sha256": "58ec431b2c9aa44ee0e4f5b454860d7457777a6d04d83637a01eea1f6968cccd",
+  "blender_bounds_min": [
+    -0.07415153086185455,
+    -0.04547499865293503,
+    -0.09259522706270218
+  ],
+  "blender_bounds_max": [
+    0.0744388997554779,
+    0.006000000052154064,
+    0.0982174202799797
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/fulguro-static/static_shield.blend",
+  "design": "Compact left forearm stasis emitter with three ceramic sectors, recessed copper busbars, machined aperture and opaque cyan iris."
+}

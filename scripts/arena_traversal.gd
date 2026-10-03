@@ -1,11 +1,17 @@
 extends RefCounted
 
-## Optional height field used only by the solo test arena. Other maps stay flat.
+## Shared height field for authored solo arenas with ramps and raised decks.
 static func terrain(actor: Node) -> Node3D:
-	if not actor.is_inside_tree():
+	if not is_instance_valid(actor) or not actor.is_inside_tree():
 		return null
 	var scene := actor.get_tree().current_scene
-	if scene == null or scene.get("arena_variant") != "test":
+	if scene == null:
+		return null
+	if scene.get("arena_variant") == "gyre":
+		return scene.get_node_or_null("CompactArenaStage/GyrePlatform") as Node3D
+	if scene.get("arena_variant") == "tideglass":
+		return scene.get_node_or_null("CompactArenaStage/TideglassArena") as Node3D
+	if scene.get("arena_variant") != "test":
 		return null
 	return scene.get_node_or_null("TestArena") as Node3D
 
@@ -13,6 +19,11 @@ static func terrain(actor: Node) -> Node3D:
 static func height(actor: Node, point: Vector3) -> float:
 	var surface := terrain(actor)
 	return float(surface.call("height_at", point)) if surface != null else 0.0
+
+
+static func attack_blocked(actor: Node3D) -> bool:
+	var surface := terrain(actor)
+	return surface != null and surface.has_method("is_submerged") and bool(surface.call("is_submerged", actor.global_position))
 
 
 static func snap(actor: Node3D) -> void:

@@ -1,12 +1,13 @@
 extends Node3D
 
-## Open workshop rack. Its centered GLBs are the same objects carried to the hand.
+## Wall-mounted weapon hooks. Their centered GLBs travel to the robot's hand.
 const FONT := preload("res://art/ui/fonts/RussoOne-Regular.ttf")
+const FINISHES := preload("res://scripts/forge_workshop_materials.gd")
 const WEAPONS := ["blaster", "shotgun", "mekatana", "longshot"]
-const DISPLAY_LENGTHS := {"blaster": 0.96, "shotgun": 1.04, "mekatana": 1.10, "longshot": 1.10}
-const RACK_POSITION := Vector3(-2.55, 0, 3.30)
-const RACK_YAW := 16.0
-const LOCAL_BOUNDS := AABB(Vector3(-0.95, 0.01, -0.43), Vector3(1.90, 1.67, 0.88))
+const DISPLAY_LENGTHS := {"blaster": 1.12, "shotgun": 1.20, "mekatana": 1.30, "longshot": 1.30}
+const RACK_POSITION := Vector3(7.05, 0, -4.65)
+const RACK_YAW := 0.0
+const LOCAL_BOUNDS := AABB(Vector3(-0.87, 1.77, -0.70), Vector3(1.74, 2.17, 1.03))
 const ACCENT := Color("#dda963")
 
 var stage
@@ -31,10 +32,10 @@ func configure(garage_stage: Node) -> void:
 func _ready() -> void:
 	name = "WeaponStorageRack"
 	set_process(false)
-	_material("steel", Color("#3a4140"), 0.78, 0.52)
-	_material("dark", Color("#242b2b"), 0.65, 0.70)
-	_material("edge", Color("#80877e"), 0.82, 0.42)
-	_material("ivory", Color("#c4b9a2"), 0.24, 0.67)
+	_material("steel", Color("#596267"), 0.32, 0.76)
+	_material("dark", Color("#30383c"), 0.48, 0.76)
+	_material("edge", Color("#929c9d"), 0.78, 0.55)
+	_material("ivory", Color("#c7c0ad"), 0.24, 0.76)
 	_material("rubber", Color("#171b19"), 0.02, 0.86)
 	_trim = _material("accent", ACCENT, 0.38, 0.43)
 	_trim.emission_enabled = true
@@ -70,7 +71,7 @@ func pick(point: Vector2) -> String:
 func anchor(kind: String = "weapon") -> Vector3:
 	if kind != "weapon" or rack == null:
 		return Vector3.ZERO
-	return rack.global_transform * Vector3(0, 1.52, 0.10)
+	return rack.global_transform * Vector3(0, 3.72, 0.12)
 
 
 func bounds(kind: String = "weapon") -> AABB:
@@ -105,9 +106,9 @@ func highlight(category: String) -> void:
 	selected_category = "weapon" if category == "weapon" else ""
 	var active := selected_category != ""
 	if _trim != null:
-		_trim.emission_energy_multiplier = 1.25 if active else 0.28
+		_trim.emission_energy_multiplier = 0.9 if active else 0.05
 	if _light != null:
-		_light.light_energy = 0.48 if active else 0.10
+		_light.light_energy = 0.32 if active else 0.025
 	if _title != null:
 		_title.modulate = Color("#29251f")
 	if not active:
@@ -130,38 +131,39 @@ func _build_rack() -> void:
 	add_child(rack)
 	rack.position = RACK_POSITION
 	rack.rotation_degrees.y = RACK_YAW
-	# Two weighted feet and an open welded frame leave the weapon silhouettes clear.
-	for side in [-1.0, 1.0]:
-		var x: float = side * 0.865
-		_box(rack, Vector3(0.17, 0.09, 0.69), Vector3(x, 0.055, 0), "dark", 0.023)
-		_box(rack, Vector3(0.145, 0.018, 0.57), Vector3(x, 0.110, 0), "edge", 0.005)
-		_cylinder(rack, 0.026, 1.40, Vector3(x, 0.82, -0.27), Vector3.UP, "steel")
-		_cylinder(rack, 0.031, 0.12, Vector3(x, 0.185, -0.27), Vector3.UP, "edge")
-		_beam(rack, Vector3(x, 0.15, 0.25), Vector3(x, 0.59, -0.27), 0.017, "steel")
-		_box(rack, Vector3(0.021, 0.91, 0.013), Vector3(x, 0.92, -0.238), "ivory", 0.003)
-	for y in [0.34, 1.13]:
-		_box(rack, Vector3(1.73, 0.067, 0.067), Vector3(0, y, -0.27), "steel", 0.010)
-		_box(rack, Vector3(1.59, 0.014, 0.012), Vector3(0, y + 0.027, -0.230), "edge", 0.002)
-	_box(rack, Vector3(1.77, 0.16, 0.105), Vector3(0, 1.545, -0.25), "steel", 0.022)
-	_box(rack, Vector3(1.60, 0.095, 0.012), Vector3(0, 1.546, -0.191), "ivory", 0.007)
-	_box(rack, Vector3(1.58, 0.015, 0.018), Vector3(0, 1.629, -0.20), "accent", 0.003)
-	_title = _label(rack, "ARMES", Vector3(0, 1.545, -0.179), 48, 0.0028, Color("#29251f"))
+	# Stand-offs reach the actual corrugated back wall behind its structural column.
+	# Nothing rests on the floor: each weapon has its own exposed pair of hooks.
+	for x in [-0.73, 0.73]:
+		for y in [1.91, 3.61]:
+			_box(rack, Vector3(0.14, 0.18, 0.025), Vector3(x, y, -0.66), "steel", 0.009)
+			_beam(rack, Vector3(x, y, -0.64), Vector3(x, y, -0.18), 0.033, "dark")
+			_cylinder(rack, 0.032, 0.018, Vector3(x, y, -0.115), Vector3.BACK, "edge")
+	_box(rack, Vector3(1.66, 1.91, 0.08), Vector3(0, 2.75, -0.18), "dark", 0.025)
+	for x in [-0.81, 0.81]:
+		_box(rack, Vector3(0.045, 1.96, 0.07), Vector3(x, 2.75, -0.117), "steel", 0.008)
+		_box(rack, Vector3(0.010, 1.83, 0.012), Vector3(x, 2.75, -0.077), "ivory", 0.002)
+	for row in 9:
+		for column in 11:
+			_cylinder(rack, 0.012, 0.006, Vector3(-0.68 + column * 0.136, 1.99 + row * 0.18, -0.133), Vector3.BACK, "rubber")
+	_box(rack, Vector3(1.66, 0.16, 0.10), Vector3(0, 3.75, -0.13), "steel", 0.020)
+	_box(rack, Vector3(1.46, 0.096, 0.014), Vector3(0, 3.75, -0.069), "ivory", 0.007)
+	_box(rack, Vector3(1.49, 0.014, 0.026), Vector3(0, 3.847, -0.08), "accent", 0.003)
+	_title = _label(rack, "ARMES", Vector3(0, 3.75, -0.055), 48, 0.0028, Color("#29251f"))
 	for index in WEAPONS.size():
 		var identifier: String = WEAPONS[index]
-		var x: float = -0.675 + index * 0.45
 		var item := _weapon(identifier, index)
 		if item == null:
 			continue
 		rack.add_child(item)
-		item.position = Vector3(x, 0.88, 0.035)
+		item.position = Vector3(0, 2.12 + index * 0.40, 0.11)
 		items[identifier] = item
 		item_categories[identifier] = "weapon"
-		_build_support(x, index, item)
+		_build_support(index, item)
 	_light = OmniLight3D.new()
 	_light.name = "RackWorklight"
-	_light.position = Vector3(0, 1.45, 0.48)
+	_light.position = Vector3(0, 3.58, 0.49)
 	_light.light_color = Color("#ffc98a")
-	_light.omni_range = 1.7
+	_light.omni_range = 2.0
 	_light.omni_attenuation = 2.0
 	_light.shadow_enabled = false
 	rack.add_child(_light)
@@ -182,40 +184,37 @@ func _weapon(identifier: String, index: int) -> Node3D:
 	model.position -= geometry_bounds.get_center()
 	var longest := maxf(geometry_bounds.size.x, maxf(geometry_bounds.size.y, geometry_bounds.size.z))
 	var axis := Vector3.RIGHT if geometry_bounds.size.x == longest else (Vector3.UP if geometry_bounds.size.y == longest else Vector3.BACK)
-	var lean := -0.035 if index % 2 == 0 else 0.035
-	var direction := Vector3(lean, 1.0, -0.105).normalized()
+	var lean := -0.025 if index % 2 == 0 else 0.025
+	var direction := Vector3(1.0, lean, 0.0).normalized()
 	item.basis = Basis(Quaternion(axis, direction)).scaled(Vector3.ONE * float(DISPLAY_LENGTHS[identifier]) / maxf(longest, 0.001))
 	item.set_meta("raw_bounds", geometry_bounds)
 	item.set_meta("raw_axis", axis)
 	return item
 
 
-func _build_support(x: float, index: int, item: Node3D) -> void:
+func _build_support(index: int, item: Node3D) -> void:
 	var identifier: String = WEAPONS[index]
 	var raw: AABB = item.get_meta("raw_bounds")
 	var fitted: AABB = item.transform * AABB(-raw.size * 0.5, raw.size)
-	var width := clampf(fitted.size.x + 0.035, 0.18, 0.43)
-	var rear := fitted.position.z + 0.022
-	for y in [0.53, 1.06]:
-		_beam(rack, Vector3(x, y, -0.27), Vector3(x, y, rear), 0.013, "steel")
-		_box(rack, Vector3(width, 0.065, 0.028), Vector3(x, y, rear), "steel", 0.008)
-		_box(rack, Vector3(width - 0.018, 0.047, 0.014), Vector3(x, y, rear + 0.019), "rubber", 0.004)
-		for side in [-1.0, 1.0]:
-			_box(rack, Vector3(0.025, 0.088, 0.090), Vector3(x + side * width * 0.5, y, rear + 0.040), "steel", 0.006)
-			_box(rack, Vector3(0.012, 0.066, 0.063), Vector3(x + side * (width * 0.5 - 0.013), y, rear + 0.044), "rubber", 0.003)
-	_box(rack, Vector3(0.30, 0.045, 0.30), Vector3(x, 0.255, 0.02), "dark", 0.012)
-	_box(rack, Vector3(0.25, 0.010, 0.21), Vector3(x, 0.284, 0.02), "rubber", 0.003)
-	_box(rack, Vector3(0.13, 0.023, 0.008), Vector3(x, 0.250, 0.179), "accent", 0.002)
+	var y := fitted.position.y + 0.018
+	var rear := fitted.position.z - 0.012
+	var front := fitted.end.z + 0.020
+	for x in [-fitted.size.x * 0.30, fitted.size.x * 0.30]:
+		_box(rack, Vector3(0.14, 0.15, 0.020), Vector3(x, item.position.y, -0.122), "steel", 0.009)
+		_beam(rack, Vector3(x, item.position.y, -0.110), Vector3(x, y - 0.055, rear), 0.018, "edge")
+		_box(rack, Vector3(0.10, 0.050, maxf(front - rear, 0.045)), Vector3(x, y - 0.030, (rear + front) * 0.5), "steel", 0.010)
+		_box(rack, Vector3(0.077, 0.016, maxf(front - rear - 0.02, 0.025)), Vector3(x, y + 0.005, (rear + front) * 0.5), "rubber", 0.003)
+		_box(rack, Vector3(0.085, 0.065, 0.026), Vector3(x, y + 0.008, front), "edge", 0.008)
 	var key := "slot_" + identifier
 	var trim := _material(key, Color("#777e72"), 0.38, 0.41)
 	trim.emission_enabled = true
 	trim.emission = Color("#86c9ce")
 	trim.emission_energy_multiplier = 0.0
 	_slot_trims[identifier] = trim
-	_box(rack, Vector3(0.11, 0.012, 0.013), Vector3(x, 0.286, 0.159), key, 0.002)
+	_box(rack, Vector3(0.065, 0.040, 0.014), Vector3(-0.75, item.position.y, -0.075), key, 0.003)
 	var lamp := OmniLight3D.new()
 	lamp.name = "SlotIndicator_" + identifier
-	lamp.position = Vector3(x, 0.83, 0.40)
+	lamp.position = item.position + Vector3(0, 0.10, 0.24)
 	lamp.light_color = Color("#a7e0e3")
 	lamp.light_energy = 0.0
 	lamp.omni_range = 0.68
@@ -223,7 +222,7 @@ func _build_support(x: float, index: int, item: Node3D) -> void:
 	lamp.shadow_enabled = false
 	rack.add_child(lamp)
 	_slot_lights[identifier] = lamp
-	_label(rack, "%02d" % (index + 1), Vector3(x, 0.319, 0.177), 25, 0.0011, ACCENT)
+	_label(rack, "%02d" % (index + 1), Vector3(0.75, item.position.y, -0.073), 25, 0.0011, ACCENT)
 
 
 func _geometry_bounds(node: Node3D) -> AABB:
@@ -243,10 +242,7 @@ func _geometry_bounds(node: Node3D) -> AABB:
 
 
 func _material(key: String, color: Color, metal: float, roughness: float) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.metallic = metal
-	material.roughness = roughness
+	var material := FINISHES.surface(key, color, metal, roughness)
 	_materials[key] = material
 	return material
 

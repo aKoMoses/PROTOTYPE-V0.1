@@ -3,6 +3,8 @@ extends SubViewportContainer
 const WORKSHOP := preload("res://art/forge-garage/workshop.glb")
 const PAINT := preload("res://scripts/robot_chassis_visuals.gd")
 const SERVICE_ARM := preload("res://scripts/forge_service_arm.gd")
+const FINISHES := preload("res://scripts/forge_workshop_materials.gd")
+const HANGAR := preload("res://scripts/forge_garage_hangar.gd")
 const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
 const CONTEXT_BANK := preload("res://scripts/mecha_animation_bank.gd")
 const WEAPON_MODELS := {
@@ -70,14 +72,21 @@ func _ready() -> void:
 	world = Node3D.new()
 	world.name = "WorkshopWorld"
 	viewport.add_child(world)
-	world.add_child(WORKSHOP.instantiate())
+	var workshop := WORKSHOP.instantiate() as Node3D
+	world.add_child(workshop)
+	var finishes := FINISHES.new()
+	finishes.apply_imported(workshop)
 	_close_workshop_edge()
+	var hangar := HANGAR.new()
+	hangar.name = "GarageHangar"
+	world.add_child(hangar)
 	_build_environment()
 	_build_robot()
 	arm = SERVICE_ARM.new()
 	arm.name = "ServiceMechanism"
 	arm.position.z = 0.25
 	world.add_child(arm)
+	finishes.apply_imported(arm.model)
 	_build_camera()
 	_build_dust()
 	visibility_changed.connect(_sync_visibility)
@@ -511,10 +520,7 @@ func _make_paint_opaque() -> void:
 func _close_workshop_edge() -> void:
 	# The original frontal shot never saw the open right edge of the set.
 	# Station travelling shots now need the same enclosed workshop on that side.
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("#544438")
-	material.roughness = 0.84
-	material.metallic = 0.16
+	var material := FINISHES.surface("steel", Color("#454b4c"), 0.32, 0.76)
 	var wall := MeshInstance3D.new()
 	wall.name = "WorkshopRightWall"
 	var wall_mesh := BoxMesh.new()
@@ -534,48 +540,43 @@ func _close_workshop_edge() -> void:
 
 func _build_environment() -> void:
 	var environment := WorldEnvironment.new()
+	environment.name = "WorkshopEnvironment"
 	var settings := Environment.new()
 	settings.background_mode = Environment.BG_COLOR
-	settings.background_color = Color("#30251c")
+	settings.background_color = Color("#334650")
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color("#a8b7bf")
-	settings.ambient_light_energy = 0.38
+	settings.ambient_light_color = Color("#bdb8ac")
+	settings.ambient_light_energy = 0.30
 	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	settings.glow_enabled = true
-	settings.glow_intensity = 0.55
-	settings.glow_bloom = 0.09
+	settings.glow_intensity = 0.32
+	settings.glow_bloom = 0.03
 	settings.fog_enabled = true
-	settings.fog_density = 0.011
-	settings.fog_light_color = Color("#947054")
+	settings.fog_density = 0.0015
+	settings.fog_light_color = Color("#98a4a8")
 	settings.fog_sky_affect = 0.0
 	environment.environment = settings
 	world.add_child(environment)
-	var sun := DirectionalLight3D.new()
-	sun.name = "WindowSun"
-	sun.rotation_degrees = Vector3(-38, -135, 0)
-	sun.light_color = Color("#ffd4a0")
-	sun.light_energy = 1.7
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 28.0
-	sun.shadow_bias = 0.035
-	world.add_child(sun)
+	# A local source at the glass keeps warm light in the room and leaves its
+	# corners quieter. It replaces the broad sun, keeping three shadow lights.
+	_add_spot("WindowSun", Vector3(3.8, 4.8, -5.29), Vector3(-1, 0, 3.6), Color("#ffd7a2"), 11.0, 14.0, 58.0)
 	var fill := DirectionalLight3D.new()
 	fill.name = "CoolFrontFill"
 	fill.rotation_degrees = Vector3(-20, -15, 0)
-	fill.light_color = Color("#a0c0ce")
-	fill.light_energy = 0.65
+	fill.light_color = Color("#cbd0ce")
+	fill.light_energy = 0.40
 	world.add_child(fill)
-	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.65, 1.0, -1.5), Color("#ffb452"), 3.0, 6.0)
-	_add_spot("HeroKey", Vector3(2.8, 5.2, 2.3), Vector3(0, 1.6, 0), Color("#ffdeb3"), 3.1, 8.0)
+	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.65, 1.0, -1.5), Color("#ffcf91"), 2.8, 5.0, 46.0)
+	_add_spot("HeroKey", Vector3(2.8, 5.2, 2.3), Vector3(0, 1.6, 0), Color("#edf3ef"), 4.5, 8.0, 40.0)
 
 
-func _add_spot(label: String, pos: Vector3, target: Vector3, color: Color, energy: float, reach: float) -> void:
+func _add_spot(label: String, pos: Vector3, target: Vector3, color: Color, energy: float, reach: float, spread: float = 54.0) -> void:
 	var light := SpotLight3D.new()
 	light.name = label
 	light.light_color = color
 	light.light_energy = energy
 	light.spot_range = reach
-	light.spot_angle = 54.0
+	light.spot_angle = spread
 	light.shadow_enabled = true
 	world.add_child(light)
 	light.position = pos
@@ -587,7 +588,7 @@ func _build_camera() -> void:
 	camera.name = "GarageCamera"
 	camera.fov = 31.0
 	camera.near = 0.1
-	camera.far = 40.0
+	camera.far = 90.0
 	world.add_child(camera)
 	camera.position = Vector3(0.05, 2.72, 7.75)
 	camera.look_at(Vector3(0, 1.62, -0.10))
@@ -603,7 +604,7 @@ func _build_camera() -> void:
 func _build_dust() -> void:
 	var dust := GPUParticles3D.new()
 	dust.name = "WorkshopDust"
-	dust.amount = 60
+	dust.amount = 40
 	dust.lifetime = 10.0
 	dust.preprocess = 2.0
 	dust.position = Vector3(0, 3, -1)
@@ -618,7 +619,7 @@ func _build_dust() -> void:
 	process.scale_min = 0.25
 	process.scale_max = 0.9
 	var ramp := Gradient.new()
-	ramp.colors = PackedColorArray([Color(0.8, 0.66, 0.4, 0), Color(0.8, 0.66, 0.4, 0.14), Color(0.8, 0.66, 0.4, 0)])
+	ramp.colors = PackedColorArray([Color(0.9, 0.82, 0.66, 0), Color(0.9, 0.82, 0.66, 0.10), Color(0.9, 0.82, 0.66, 0)])
 	ramp.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
 	var texture := GradientTexture1D.new()
 	texture.gradient = ramp

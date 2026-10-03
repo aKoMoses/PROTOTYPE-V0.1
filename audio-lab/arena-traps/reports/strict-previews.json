@@ -1,0 +1,57 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\previews\\sequence-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 6.4,
+    "peak": 0.452606,
+    "rms": 0.021471,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.22,
+      0.34,
+      1.62,
+      1.76,
+      3.86,
+      5.0,
+      5.24,
+      5.48
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8594,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 1.0176,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\previews\\sequence-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 6.4,
+    "peak": 0.473145,
+    "rms": 0.021472,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.06,
+      0.18,
+      0.3,
+      0.42,
+      0.56,
+      1.64,
+      2.0,
+      3.38,
+      3.76,
+      4.96,
+      5.2,
+      5.44
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8344,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 0.9413,
+    "quality": "ok"
+  }
+]

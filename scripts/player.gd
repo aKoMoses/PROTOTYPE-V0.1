@@ -1,5 +1,7 @@
 extends "res://scripts/player/components/player_state.gd"
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 signal combat_signature_requested(kind: String, target: Node3D, event_id: String)
 
 func present_combat_signature(kind: String, target: Node3D, event_id: String) -> void:
@@ -210,6 +212,8 @@ func _physics_process(delta: float) -> void:
 	if stasis_active:
 		_cancel_mekatana_attack()
 		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
+		if _stasis_remaining <= 0.0:
+			COMBAT_AUDIO.play(self, "static_off")
 	if combat_state != null:
 		combat_state.update(delta, stasis_active or is_eclipse_travelling())
 	if _fulguro_wall_stun_active and (combat_state == null or not combat_state.is_stunned()):

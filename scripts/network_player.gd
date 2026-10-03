@@ -571,6 +571,13 @@ func set_weapon(weapon_id: String) -> void:
 func receive_action(action: String, data: Dictionary, visual_only := false) -> void:
 	if not _gameplay_enabled or is_real_dead():
 		return
+	if action == "combat_sfx":
+		if visual_only and not authoritative:
+			var cue := str(data.get("cue", ""))
+			var at: Variant = data.get("center", global_position)
+			if cue in COMBAT_AUDIO.OUTCOMES and at is Vector3 and at.is_finite():
+				get_node("/root/GameSfx").play_combat_event(cue, at, get_instance_id())
+		return
 	if action == "counter_explosion":
 		if visual_only and not authoritative:
 			COUNTER.spawn_ring(get_tree().current_scene, data.get("center", global_position), float(COMBAT_DATA.MODULE_DEFINITIONS.counter.surcharge_radius))
@@ -602,6 +609,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 	if action == "stasis_exit":
 		_replaying = visual_only
 		if visual_only:
+			COMBAT_AUDIO.play(self, "static_off")
 			_stasis_remaining = 0.0
 			if is_instance_valid(_stasis_visual):
 				_stasis_visual.queue_free()

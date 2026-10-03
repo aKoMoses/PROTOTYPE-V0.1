@@ -1,0 +1,466 @@
+{
+  "status": "technical-check-only-user-choice-pending",
+  "raw": [
+    {
+      "file": "raw/tile-warning-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -1.97,
+      "rms_dbfs": -32.59,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00094604,
+      "sha256": "c970cc8cafe3d6318c61de80f74092b8140fc99b4790101d8b97b172b97a49b3"
+    },
+    {
+      "file": "raw/tile-warning-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -11.58,
+      "rms_dbfs": -25.93,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00634766,
+      "sha256": "8883e019c258b1ed30a6cd78731b8ba8823eec59c63e1bac0e81e93d0f3f5dd7"
+    },
+    {
+      "file": "raw/tile-discharge-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -0.56,
+      "rms_dbfs": -29.74,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00100708,
+      "sha256": "8ad56f73458e8f3ab2831742bbcc30f733bafe9d85499d4eed6d4646167553a2"
+    },
+    {
+      "file": "raw/tile-discharge-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -5.1,
+      "rms_dbfs": -35.57,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0010376,
+      "sha256": "e80a6b7af59bc14d830ce1be9e8b3cc5642ab0f634d83cd298343b51b2278a20"
+    },
+    {
+      "file": "raw/cannon-warning-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -0.2,
+      "rms_dbfs": -26.31,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00100708,
+      "sha256": "90ca63b832d6c7ab08f10dd894ccfb9c8673e25f052257a4b6a68e3bd4ee44c7"
+    },
+    {
+      "file": "raw/cannon-warning-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -0.2,
+      "rms_dbfs": -34.5,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00094604,
+      "sha256": "74371a9495b7199d493a82803f530037f3fa957fce2554d2d4cdb50a1d547af2"
+    },
+    {
+      "file": "raw/cannon-shot-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -0.2,
+      "rms_dbfs": -26.53,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00100708,
+      "sha256": "ed95d78d201f76c60ed7bc61499cc2b8ac615f2792216ce2f7c08fb3f0c0fd35"
+    },
+    {
+      "file": "raw/cannon-shot-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -1.61,
+      "rms_dbfs": -36.84,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.00100708,
+      "sha256": "f21a33ca0e402342a8d54e9dd8039b60db5c113fa6eada919b6aa1c2fd63ae24"
+    }
+  ],
+  "candidates": [
+    {
+      "file": "candidates/tile-warning-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.59,
+      "peak_dbfs": -9.0,
+      "rms_dbfs": -27.4,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "6a33bbab92333b628facf4e2a48c85a1f1c89b05e121e8e410a07345fc2c16fc",
+      "event": "trap_tile_warning",
+      "direction": "A - Atelier pneumatique",
+      "grain_intervals": [
+        [
+          0.135,
+          0.725,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": 0.0
+    },
+    {
+      "file": "candidates/tile-warning-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.72,
+      "peak_dbfs": -19.72,
+      "rms_dbfs": -28.26,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "bb70854b73e1db4f2bea9b8f0d78839734952bb2f7218ec5e07dc44eb53c9ad4",
+      "event": "trap_tile_warning",
+      "direction": "B - Relais electriques",
+      "grain_intervals": [
+        [
+          0.0,
+          0.72,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": -10.72
+    },
+    {
+      "file": "candidates/tile-discharge-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.58,
+      "peak_dbfs": -6.89,
+      "rms_dbfs": -28.96,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "539e6d92b8a3378e494666f1b8e22d5c54d862676ec5e5c1813f3969ca1732ad",
+      "event": "trap_tile_discharge",
+      "direction": "A - Atelier pneumatique",
+      "grain_intervals": [
+        [
+          0.299,
+          0.879,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": -0.39
+    },
+    {
+      "file": "candidates/tile-discharge-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.58,
+      "peak_dbfs": -6.5,
+      "rms_dbfs": -28.96,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "d283ff1b692b2068050c6d87d59c9403fb89b69542b9306dfdff2baee69286d4",
+      "event": "trap_tile_discharge",
+      "direction": "B - Relais electriques",
+      "grain_intervals": [
+        [
+          0.312,
+          0.892,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": 0.0
+    },
+    {
+      "file": "candidates/cannon-warning-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.9749,
+      "peak_dbfs": -12.36,
+      "rms_dbfs": -34.73,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "eae49370a122ae7079c2f72ca4c4c359c261c77a353fde78baa8f429dacfbd98",
+      "event": "trap_cannon_warning",
+      "direction": "A - Atelier pneumatique",
+      "grain_intervals": [
+        [
+          0.085,
+          0.385,
+          1.5
+        ],
+        [
+          2.015,
+          2.625,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": -3.86
+    },
+    {
+      "file": "candidates/cannon-warning-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.75,
+      "peak_dbfs": -8.5,
+      "rms_dbfs": -33.59,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "73d8e8aff69a1c339e441e34c9b02764f1305de6518ce3244893ab4d1c3d2d4f",
+      "event": "trap_cannon_warning",
+      "direction": "B - Relais electriques",
+      "grain_intervals": [
+        [
+          0.125,
+          0.875,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": 0.0
+    },
+    {
+      "file": "candidates/cannon-shot-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.22,
+      "peak_dbfs": -13.2,
+      "rms_dbfs": -28.79,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "57138b8c597d0e42a234a4b29dfb5c437672fb49f0859d8291ed055cf0928494",
+      "event": "trap_cannon_salvo",
+      "direction": "A - Atelier pneumatique",
+      "grain_intervals": [
+        [
+          0.137,
+          0.357,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": -6.21
+    },
+    {
+      "file": "candidates/cannon-shot-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.21,
+      "peak_dbfs": -7.0,
+      "rms_dbfs": -28.59,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "3f2b29701770b9e0489367148c66bdd1da70954d938fd109b4727fb6424bd76c",
+      "event": "trap_cannon_salvo",
+      "direction": "B - Relais electriques",
+      "grain_intervals": [
+        [
+          0.238,
+          0.448,
+          1.0
+        ]
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated",
+      "energy_match_gain_db": 0.0
+    },
+    {
+      "file": "candidates/cannon-salvo-2-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.495,
+      "peak_dbfs": -13.2,
+      "rms_dbfs": -29.46,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "4986ba05c3f58c1ec2f4ff66ba08dca591273212e62473918e78171f50173db2",
+      "event": "trap_cannon_salvo",
+      "shot_count": 2,
+      "shot_onsets_seconds": [
+        0.0,
+        0.24
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated"
+    },
+    {
+      "file": "candidates/cannon-salvo-3-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.735,
+      "peak_dbfs": -13.2,
+      "rms_dbfs": -29.57,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "ff28105a682cfce078a8c8951aef266f8f5ab171c8546f02c1bd6066734a0cb0",
+      "event": "trap_cannon_salvo",
+      "shot_count": 3,
+      "shot_onsets_seconds": [
+        0.0,
+        0.24,
+        0.48
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated"
+    },
+    {
+      "file": "candidates/cannon-salvo-2-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.485,
+      "peak_dbfs": -7.0,
+      "rms_dbfs": -29.37,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "5532f0f75d8e00e218a2ff9ebf9d890b9d1f3102acc09d486ebee0e48dcd7b6f",
+      "event": "trap_cannon_salvo",
+      "shot_count": 2,
+      "shot_onsets_seconds": [
+        0.0,
+        0.24
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated"
+    },
+    {
+      "file": "candidates/cannon-salvo-3-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 0.725,
+      "peak_dbfs": -7.0,
+      "rms_dbfs": -29.51,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "0073d36318702bac79dd8165915164a6c654b2c9cb8be5cd6e79e98f3bff679d",
+      "event": "trap_cannon_salvo",
+      "shot_count": 3,
+      "shot_onsets_seconds": [
+        0.0,
+        0.24,
+        0.48
+      ],
+      "semantic_acceptance": "pending-user-listening",
+      "in_game_audition": "not-integrated"
+    }
+  ],
+  "previews": [
+    {
+      "file": "previews/sequence-A.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 6.4,
+      "peak_dbfs": -6.89,
+      "rms_dbfs": -33.36,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "0ebb694d8422afe1dd3ac1952ab822071e60eae58d350b8ea32ae6580591ce0b",
+      "schedule": [
+        {
+          "at": 0.0,
+          "cue": "tile-warning-A"
+        },
+        {
+          "at": 1.6,
+          "cue": "tile-discharge-A"
+        },
+        {
+          "at": 3.35,
+          "cue": "cannon-warning-A"
+        },
+        {
+          "at": 4.95,
+          "cue": "cannon-salvo-3-A"
+        }
+      ]
+    },
+    {
+      "file": "previews/sequence-B.wav",
+      "sample_rate": 44100,
+      "channels": 2,
+      "pcm_bits": 16,
+      "duration_seconds": 6.4,
+      "peak_dbfs": -6.5,
+      "rms_dbfs": -33.36,
+      "finite": true,
+      "clipped_samples": 0,
+      "first_last_peak": 0.0,
+      "sha256": "0969500f480934bdb8d381a968a930e8827fdb8d5763bf3662d73253a885a8db",
+      "schedule": [
+        {
+          "at": 0.0,
+          "cue": "tile-warning-B"
+        },
+        {
+          "at": 1.6,
+          "cue": "tile-discharge-B"
+        },
+        {
+          "at": 3.35,
+          "cue": "cannon-warning-B"
+        },
+        {
+          "at": 4.95,
+          "cue": "cannon-salvo-3-B"
+        }
+      ]
+    }
+  ]
+}

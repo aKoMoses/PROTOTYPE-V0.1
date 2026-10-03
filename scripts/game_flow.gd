@@ -8,6 +8,9 @@ const BOT_BUILDS := preload("res://scripts/duel_bot_builds.gd")
 const ARENA_CATALOG := preload("res://scripts/compact_arena_catalog.gd")
 const COMFORT_SETTINGS := preload("res://scripts/comfort_settings.gd")
 const SETTINGS_SCREEN := preload("res://scripts/ui/settings_screen.gd")
+const SOLO_SETUP_SCREEN := preload("res://scripts/ui/solo_setup_screen.gd")
+const MENU_NAVIGATION := preload("res://scripts/ui/menu_navigation.gd")
+const BUILD_LIBRARY := preload("res://scripts/garage_build_library.gd")
 const PRECOMBAT_SCREEN := preload("res://scripts/ui/precombat_screen.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
@@ -46,7 +49,8 @@ const PRECOMBAT_SECONDS := 8.0
 const EXPERIENCE := preload("res://scripts/review_preferences.gd")
 const FEEDBACK := preload("res://scripts/combat_feedback.gd")
 const FIGHT_SECONDS := 0.9
-const WINNER_FOCUS_SECONDS := 1.55
+const WINNER_FOCUS_SECONDS := 2.0
+const ROUND_END_FEEDBACK := preload("res://scripts/round_end_feedback.gd")
 const COUNTDOWN_DIGITS := [
 	preload("res://art/countdown/3.png"),
 	preload("res://art/countdown/2.png"),
@@ -62,6 +66,8 @@ const FIGHT_SOUND: AudioStream = preload("res://art/audio/countdown-fight.mp3")
 const MATCH_MUSIC_PATH := "res://son-musique/musiques/02_tambours_de_guerre_30s.wav"
 const MENU_MUSIC_PATH := "res://art/audio/menu_poussiere_et_cambouis.wav"
 const MENU_MUSIC_VOLUME_DB := -10.0
+const GARAGE_MUSIC_PATH := "res://art/audio/garage_atelier.wav"
+const GARAGE_MUSIC_VOLUME_DB := -14.0
 const VICTORY_SOUND: AudioStream = preload("res://son-musique/musiques/01_victoire_rock.wav")
 const DEFEAT_SOUND: AudioStream = preload("res://son-musique/musiques/02_defaite_forge.wav")
 
@@ -130,7 +136,11 @@ var _match_music: AudioStreamPlayer
 var _menu_music: AudioStreamPlayer
 var _menu_music_tween: Tween
 var _menu_music_active := false
+var _garage_music: AudioStreamPlayer
+var _garage_music_tween: Tween
+var _garage_music_active := false
 var _result_audio: AudioStreamPlayer
+var _round_end_feedback: CanvasLayer
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
@@ -151,7 +161,9 @@ var _editor_existing_fx: Dictionary = {}
 var _result_actions: Array[Control] = []
 var _navigation_backdrop: TextureRect
 var _touch_scale_label: Label
-var _solo_setup: PanelContainer
+var _solo_setup: Control
+var _solo_library: Dictionary
+var _solo_camera_state: Dictionary = {}
 var _solo_backdrop: ColorRect
 var _solo_options: Dictionary
 var _combat_feedback: Control
@@ -206,11 +218,25 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		menu_stream.loop_begin = int(4.75 * menu_stream.mix_rate)
 		menu_stream.loop_end = int(menu_stream.get_length() * menu_stream.mix_rate)
 	add_child(_menu_music)
+	_garage_music = AudioStreamPlayer.new()
+	_garage_music.bus = &"Music"
+	_garage_music.name = "GarageMusic"
+	_garage_music.volume_db = -60.0
+	_garage_music.stream = load(GARAGE_MUSIC_PATH) as AudioStream
+	if _garage_music.stream is AudioStreamWAV:
+		var garage_stream := _garage_music.stream as AudioStreamWAV
+		garage_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		garage_stream.loop_begin = int(8.0 * garage_stream.mix_rate)
+		garage_stream.loop_end = int(garage_stream.get_length() * garage_stream.mix_rate)
+	add_child(_garage_music)
 	_result_audio = AudioStreamPlayer.new()
 	_result_audio.bus = &"Music"
 	_result_audio.name = "ResultAudio"
 	_result_audio.volume_db = -6.0
 	add_child(_result_audio)
+	_round_end_feedback = ROUND_END_FEEDBACK.new()
+	add_child(_round_end_feedback)
+	_round_end_feedback.focus_ready.connect(_focus_resolved_winner)
 	_build_ui()
 	_solo_options = EXPERIENCE.read()
 	_build_solo_setup()
@@ -273,6 +299,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
+		elif current_screen == Screen.MENU:
+			_menu_panel.call("back")
 		elif current_screen in [Screen.SETTINGS, Screen.EQUIPMENT, Screen.LOBBY]:
 			_open_menu()
 		get_viewport().set_input_as_handled()
@@ -290,6 +318,10 @@ func _notification(what: int) -> void:
 			return
 		if current_screen == Screen.COMBAT:
 			_toggle_pause()
+		elif current_screen == Screen.MENU:
+			_menu_panel.call("back")
+		elif current_screen == Screen.EQUIPMENT and _forge_garage != null:
+			_forge_garage.call("_request_back")
 		elif current_screen in [Screen.SETTINGS, Screen.EQUIPMENT, Screen.LOBBY]:
 			_open_menu()
 
@@ -332,8 +364,11 @@ func _layout_navigation_panels() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	var available := viewport_size - Vector2(32.0, 24.0)
-	for panel in [_menu_panel, _equipment_panel, _pause_panel, _result_panel, _solo_setup]:
+	for panel in [_menu_panel, _equipment_panel, _pause_panel, _result_panel]:
 		if panel == null:
+			continue
+		if panel == _menu_panel:
+			panel.call("layout_navigation")
 			continue
 		var design: Vector2 = panel.get_meta("navigation_size", panel.custom_minimum_size)
 		design = design.max(panel.get_combined_minimum_size())
@@ -432,6 +467,8 @@ func _clear_screen() -> void:
 		child.visible = false
 
 func _show_screen(screen: Screen) -> void:
+	if _round_end_feedback != null:
+		_round_end_feedback.reset()
 	if _solo_setup != null:
 		_close_solo_setup()
 	if _skip_intro != null:
@@ -439,7 +476,8 @@ func _show_screen(screen: Screen) -> void:
 	current_screen = screen
 	if screen != Screen.RESULT:
 		_result_audio.stop()
-	_set_menu_music_active(screen in [Screen.MENU, Screen.EQUIPMENT, Screen.SETTINGS, Screen.LOBBY])
+	_set_menu_music_active(screen in [Screen.MENU, Screen.SETTINGS, Screen.LOBBY])
+	_set_garage_music_active(screen == Screen.EQUIPMENT)
 	_clear_screen()
 	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if screen == Screen.COMBAT else Control.MOUSE_FILTER_STOP
 	_navigation_backdrop.visible = screen != Screen.COMBAT
@@ -450,6 +488,7 @@ func _show_screen(screen: Screen) -> void:
 	match screen:
 		Screen.MENU:
 			_menu_panel.visible = true
+			_menu_panel.call("show_page", "home")
 			_menu_settings_button.visible = true
 		Screen.EQUIPMENT:
 			_open_forge_garage()
@@ -477,63 +516,10 @@ func _touch_preview_requested() -> bool:
 	return false
 
 func _build_menu() -> void:
-	var panel_size := Vector2(620.0, 660.0)
-	_menu_panel = Control.new()
-	_menu_panel.name = "MainMenuPanel"
-	_menu_panel.custom_minimum_size = panel_size
-	_menu_panel.set_meta("navigation_size", panel_size)
-	_menu_panel.size = panel_size
-	_menu_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_menu_panel.position = Vector2(-panel_size.x * 0.5 - 300.0, -panel_size.y * 0.5)
+	_menu_panel = MENU_NAVIGATION.new()
+	_menu_panel.configure(self)
 	_screen_root.add_child(_menu_panel)
-	var plate := TextureRect.new()
-	plate.name = "GeneratedMenuPlate"
-	plate.texture = MENU_PANEL_TEXTURE
-	plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	plate.stretch_mode = TextureRect.STRETCH_SCALE
-	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_menu_panel.add_child(plate)
-	var box := VBoxContainer.new()
-	box.name = "MenuContent"
-	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	box.position = Vector2(136.0, 94.0)
-	box.size = Vector2(422.0, 416.0)
-	box.add_theme_constant_override("separation", 7)
-	_menu_panel.add_child(box)
-	var title := HBoxContainer.new()
-	title.add_theme_constant_override("separation", 0)
-	_title_label = _label("PROTOTYPE ", 42, CREAM)
-	_title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_title_label.add_theme_font_override("font", MENU_DISPLAY_FONT)
-	title.add_child(_title_label)
-	var title_zero := _label("0", 42, CYAN)
-	title_zero.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_zero.add_theme_font_override("font", MENU_DISPLAY_FONT)
-	title.add_child(title_zero)
-	box.add_child(title)
-	var subtitle := _label("COMBAT DE ROBOTS", 16, CYAN)
-	subtitle.add_theme_font_override("font", MENU_DISPLAY_FONT)
-	box.add_child(subtitle)
-	var divider := ColorRect.new()
-	divider.color = Color("#3a4244")
-	divider.custom_minimum_size = Vector2(0.0, 2.0)
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(divider)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 10.0)
-	box.add_child(spacer)
-	box.add_child(_menu_art_button("DUEL SOLO", Callable(self, "_open_solo_setup"), MENU_BUTTON_PRIMARY_TEXTURE, 58.0))
-	box.add_child(_menu_art_button("GARAGE", Callable(self, "_open_equipment"), MENU_BUTTON_SECONDARY_TEXTURE, 55.0))
-	box.add_child(_menu_art_button("MULTIJOUEUR", Callable(self, "_open_lobby"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
-	box.add_child(_menu_art_button("SURVIE", Callable(self, "_open_survival"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
-	var training_spacer := Control.new()
-	training_spacer.custom_minimum_size = Vector2(0.0, 10.0)
-	box.add_child(training_spacer)
-	box.add_child(_menu_art_button("ENTRAÎNEMENT", Callable(self, "_open_training_ground"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0))
-	var tutorial_button := _menu_art_button("Test Tutoriel", Callable(self, "_open_beginner_tutorial"), MENU_BUTTON_SECONDARY_TEXTURE, 49.0)
-	tutorial_button.name = "TestTutorialButton"
-	box.add_child(tutorial_button)
+	_title_label = _menu_panel.title_label
 	_build_menu_settings_shortcut()
 
 
@@ -564,64 +550,9 @@ func _build_menu_settings_shortcut() -> void:
 
 
 func _build_solo_setup() -> void:
-	_solo_backdrop = ColorRect.new()
-	_solo_backdrop.name = "SoloBackdrop"
-	_solo_backdrop.color = Color("#081016b8")
-	_solo_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_screen_root.add_child(_solo_backdrop)
-	_solo_backdrop.hide()
-	_solo_setup = _center_panel(570, 470)
-	_solo_setup.name = "SoloSetup"
+	_solo_setup = SOLO_SETUP_SCREEN.new()
 	_screen_root.add_child(_solo_setup)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 12)
-	_solo_setup.add_child(content)
-	content.add_child(_label("DUEL SOLO", 30, CREAM))
-	content.add_child(_label("Même adversaire jusqu’à la fin du match. Premier à 3.", 15, MUTED))
-	_solo_arena_selector = OptionButton.new()
-	_solo_arena_selector.name = "SoloArenaSelector"
-	_solo_arena_selector.custom_minimum_size.y = 44
-	_solo_arena_selector.fit_to_longest_item = false
-	for choice in ARENA_CATALOG.options():
-		_solo_arena_selector.add_item("ARÈNE · " + str(choice.title))
-		_solo_arena_selector.set_item_metadata(_solo_arena_selector.item_count - 1, str(choice.id))
-	_solo_arena_selector.item_selected.connect(func(index: int) -> void:
-		_select_arena(str(_solo_arena_selector.get_item_metadata(index))))
-	content.add_child(_solo_arena_selector)
-	var difficulty := OptionButton.new()
-	difficulty.name = "SoloDifficulty"
-	difficulty.custom_minimum_size.y = 44
-	for title in ["FACILE · découverte", "NORMAL · duel", "DIFFICILE · maîtrise"]:
-		difficulty.add_item(title)
-	difficulty.select(["easy", "normal", "hard"].find(str(_solo_options.difficulty)))
-	difficulty.item_selected.connect(func(index: int) -> void:
-		_solo_options.difficulty = ["easy", "normal", "hard"][index]
-		_store_solo_options()
-	)
-	content.add_child(difficulty)
-	for option in [{"key": "quick", "title": "Présentations rapides (Garage et précombat)"}, {"key": "feedback", "title": "Confirmations visuelles des actions réussies"}]:
-		var toggle := CheckButton.new()
-		toggle.name = str(option.key).to_pascal_case() + "Option"
-		toggle.text = str(option.title)
-		toggle.custom_minimum_size.y = 42
-		toggle.button_pressed = bool(_solo_options[option.key])
-		toggle.toggled.connect(func(active: bool) -> void:
-			_solo_options[option.key] = active
-			_store_solo_options()
-		)
-		content.add_child(toggle)
-	content.add_child(_label("BANNIÈRE DE MAÎTRISE · récompense cosmétique", 14, CYAN))
-	var badge := OptionButton.new()
-	badge.name = "MasteryBadge"
-	badge.custom_minimum_size.y = 40
-	content.add_child(badge)
-	badge.item_selected.connect(func(index: int) -> void:
-		_solo_options.badge = badge.get_item_metadata(index)
-		_store_solo_options()
-	)
-	badge.tooltip_text = "Duelliste : gagner un duel. Technicien : réussir les 3 défis. Survivant : finir la survie. Maître d’arsenal : finir avec les 4 armes."
-	content.add_child(_button("CHOISIR MON LOADOUT", _launch_solo, 340))
-	content.add_child(_button("RETOUR", _close_solo_setup, 340))
+	_solo_setup.configure(self)
 	_solo_setup.hide()
 	_skip_intro = _button("PASSER LA PRÉSENTATION", _skip_precombat, 260)
 	_skip_intro.name = "SkipPrecombat"
@@ -651,19 +582,88 @@ func _open_solo_setup() -> void:
 		badge.set_item_metadata(badge.item_count - 1, id)
 		if id == _solo_options.badge:
 			badge.select(badge.item_count - 1)
+	_solo_library = BUILD_LIBRARY.load_local()
+	var selector: OptionButton = _solo_setup.loadouts
+	selector.clear()
+	for entry in _solo_library.builds:
+		selector.add_item(entry.name)
+		selector.set_item_metadata(selector.item_count - 1, entry.id)
+		if entry.id == _solo_library.active:
+			selector.select(selector.item_count - 1)
+	_solo_setup.launch.disabled = selector.item_count == 0
+	for key in ["quick", "feedback"]:
+		var toggle: CheckButton = _solo_setup.find_child(key.to_pascal_case() + "Option", true, false)
+		toggle.set_pressed_no_signal(bool(_solo_options[key]))
+	var difficulties: Node = _solo_setup.find_child("SoloDifficulty", true, false)
+	for button in difficulties.get_children():
+		button.set_pressed_no_signal(button.name == str(_solo_options.difficulty))
+	_menu_panel.hide()
+	_menu_settings_button.hide()
+	_navigation_backdrop.hide()
+	main.call("set_menu_showcase_enabled", false)
+	_solo_setup.refresh_arena()
 	_solo_setup.show()
-	_solo_backdrop.show()
-	_layout_navigation_panels.call_deferred()
-	_solo_setup.find_child("SoloDifficulty", true, false).grab_focus()
+	for path in ["Player/WorldUIAnchor/PlayerHealthReadout", "TargetDummy/TargetHealthReadout"]:
+		var readout := main.get_node_or_null(path)
+		if readout != null:
+			readout.hide()
+	_preview_solo_arena()
+	selector.grab_focus()
 
 func _close_solo_setup() -> void:
+	var was_open := _solo_setup.visible
 	_solo_setup.hide()
-	_solo_backdrop.hide()
+	if not _solo_camera_state.is_empty():
+		var rig: Node3D = main.get_node("CameraRig")
+		var camera: Camera3D = rig.get_node("Camera3D")
+		rig.set_process(_solo_camera_state.processing)
+		rig.transform = _solo_camera_state.rig
+		camera.transform = _solo_camera_state.camera
+		camera.fov = _solo_camera_state.fov
+		camera.h_offset = _solo_camera_state.h_offset
+		_solo_camera_state.clear()
+	if was_open and current_screen == Screen.MENU:
+		_menu_panel.show()
+		_menu_settings_button.show()
+		_navigation_backdrop.show()
+		main.call("set_menu_showcase_enabled", true)
+		for path in ["Player/WorldUIAnchor/PlayerHealthReadout", "TargetDummy/TargetHealthReadout"]:
+			var readout := main.get_node_or_null(path)
+			if readout != null:
+				readout.show()
+
+
+func _preview_solo_arena() -> void:
+	var rig: Node3D = main.get_node("CameraRig")
+	var camera: Camera3D = rig.get_node("Camera3D")
+	if _solo_camera_state.is_empty():
+		_solo_camera_state = {"processing": rig.is_processing(), "rig": rig.transform, "camera": camera.transform, "fov": camera.fov, "h_offset": camera.h_offset}
+	rig.set_process(false)
+	rig.position = Vector3.ZERO
+	camera.position = Vector3(0, 26, 21)
+	camera.fov = 48
+	camera.h_offset = -7.0
+	camera.look_at(Vector3.ZERO, Vector3.UP)
 
 
 func _launch_solo() -> void:
-	_close_solo_setup()
-	_open_equipment()
+	var selector: OptionButton = _solo_setup.loadouts
+	if selector.selected < 0:
+		return
+	var selected_id := str(selector.get_item_metadata(selector.selected))
+	# Reload by stable ID: garage saves can change while this screen is open.
+	var library := BUILD_LIBRARY.load_local()
+	for entry in library.builds:
+		if entry.id != selected_id:
+			continue
+		library.active = selected_id
+		if not BUILD_LIBRARY.save_local(library):
+			_status_label.text = "Sauvegarde indisponible ; duel lancé avec le loadout choisi."
+		loadout = LOADOUT.sanitize(entry.loadout)
+		_close_solo_setup()
+		_start_duel()
+		return
+	_open_solo_setup()
 
 
 func _skip_precombat() -> void:
@@ -1450,6 +1450,22 @@ func _set_menu_music_active(active: bool) -> void:
 		_menu_music_tween.tween_property(_menu_music, "volume_db", -60.0, 0.45)
 		_menu_music_tween.tween_callback(_menu_music.stop)
 
+func _set_garage_music_active(active: bool) -> void:
+	if _garage_music_active == active or _garage_music.stream == null:
+		return
+	_garage_music_active = active
+	if _garage_music_tween != null:
+		_garage_music_tween.kill()
+	_garage_music_tween = create_tween()
+	if active:
+		if not _garage_music.playing:
+			_garage_music.volume_db = -60.0
+			_garage_music.play()
+		_garage_music_tween.tween_property(_garage_music, "volume_db", GARAGE_MUSIC_VOLUME_DB, 0.8)
+	else:
+		_garage_music_tween.tween_property(_garage_music, "volume_db", -60.0, 0.45)
+		_garage_music_tween.tween_callback(_garage_music.stop)
+
 func _start_match_music() -> void:
 	if _match_music.stream == null:
 		return
@@ -1846,16 +1862,20 @@ func resolve_round(player_dead: bool, target_dead: bool) -> void:
 	if touch_controls != null:
 		touch_controls.visible = false
 	if main != null and main.has_method("stop_duel"):
-		main.call("stop_duel")
-	if player_dead == target_dead:
-		_show_round_result()
-	else:
-		round_phase = RoundPhase.WINNER_FOCUS
-		_winner_focus_remaining = WINNER_FOCUS_SECONDS
-		_transition_dim.visible = true
-		_transition_dim.modulate.a = 0.0
-		if main != null and main.has_method("focus_round_winner"):
-			main.call("focus_round_winner", target_dead)
+		main.call("stop_duel", true)
+	round_phase = RoundPhase.WINNER_FOCUS
+	_winner_focus_remaining = WINNER_FOCUS_SECONDS
+	_transition_dim.visible = true
+	_transition_dim.modulate.a = 0.0
+	var outcome := 0 if player_dead == target_dead else 1 if target_dead else -1
+	_round_end_feedback.begin(outcome, player_round_score, bot_round_score, [player, target], main.get_node_or_null("CameraRig"), _match_music, player_round_score >= 3 or bot_round_score >= 3)
+
+
+func _focus_resolved_winner() -> void:
+	if round_phase != RoundPhase.WINNER_FOCUS or _round_result_player_dead == _round_result_bot_dead:
+		return
+	if main != null and main.has_method("focus_round_winner"):
+		main.call("focus_round_winner", _round_result_bot_dead)
 
 
 func _show_round_result() -> void:
@@ -1869,6 +1889,7 @@ func _show_round_result() -> void:
 
 
 func _begin_round_countdown() -> void:
+	_round_end_feedback.reset()
 	round_phase = RoundPhase.COUNTDOWN
 	_countdown_remaining = PRECOMBAT_SECONDS if round_number == 1 and not bool(_solo_options.get("quick", false)) else COUNTDOWN_SECONDS
 	if _combat_feedback != null:
@@ -1951,6 +1972,7 @@ func _show_final_result() -> void:
 		return
 	_stop_match_music()
 	_set_menu_music_active(false)
+	_set_garage_music_active(false)
 	_countdown_audio.stop()
 	_result_audio.stream = VICTORY_SOUND if player_round_score >= 3 else DEFEAT_SOUND
 	_result_audio.play()
@@ -1979,7 +2001,8 @@ func _show_final_result() -> void:
 func _update_round_result_label() -> void:
 	if not _hud_labels.has("result_detail") or round_phase != RoundPhase.ROUND_RESULT:
 		return
-	_hud_labels.result_detail.text = "%s\nScore %d — %d\n%s\nProchaine manche dans %.1f s" % [result_text, player_round_score, bot_round_score, _round_report, _round_result_remaining]
+	var next_step := "Résultat du match" if player_round_score >= 3 or bot_round_score >= 3 else "Prochaine manche"
+	_hud_labels.result_detail.text = "%s\nScore %d — %d\n%s\n%s dans %.1f s" % [result_text, player_round_score, bot_round_score, _round_report, next_step, _round_result_remaining]
 
 
 func _set_result_actions_visible(visible: bool) -> void:

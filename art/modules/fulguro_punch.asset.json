@@ -1,0 +1,20 @@
+{
+  "asset": "fulguro_punch",
+  "triangles": 6964,
+  "material_batches": 7,
+  "bytes": 1437528,
+  "sha256": "dc889245fa58405a7ded0b01b607c43785f3e4a068119fa712e8c8aff1b78d4c",
+  "blender_bounds_min": [
+    -0.07233458757400513,
+    -0.05450000241398811,
+    -0.1057891845703125
+  ],
+  "blender_bounds_max": [
+    0.07138295471668243,
+    0.006000000052154064,
+    0.10984423011541367
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/fulguro-static/fulguro_punch.blend",
+  "design": "Compact right forearm accelerator, real piston clearances, three impact shoes, copper heat fins and restrained amber apertures."
+}

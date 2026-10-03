@@ -1,0 +1,92 @@
+{
+  "reservation": "c6c7d972-717e-417c-892c-542f5ae0859c",
+  "status": "user-selected-awaiting-gameplay-integration",
+  "selection": {
+    "trap_tile_warning": "B",
+    "trap_tile_discharge": "A",
+    "trap_cannon_warning": "B",
+    "trap_cannon_salvo": "A"
+  },
+  "files": [
+    {
+      "path": "selected/trap-tile-warning.wav",
+      "source": "candidates/tile-warning-B.wav",
+      "sha256": "bb70854b73e1db4f2bea9b8f0d78839734952bb2f7218ec5e07dc44eb53c9ad4",
+      "duration_seconds": 0.72,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    },
+    {
+      "path": "selected/trap-tile-discharge.wav",
+      "source": "candidates/tile-discharge-A.wav",
+      "sha256": "539e6d92b8a3378e494666f1b8e22d5c54d862676ec5e5c1813f3969ca1732ad",
+      "duration_seconds": 0.58,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    },
+    {
+      "path": "selected/trap-cannon-warning.wav",
+      "source": "candidates/cannon-warning-B.wav",
+      "sha256": "73d8e8aff69a1c339e441e34c9b02764f1305de6518ce3244893ab4d1c3d2d4f",
+      "duration_seconds": 0.75,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    },
+    {
+      "path": "selected/trap-cannon-shot.wav",
+      "source": "candidates/cannon-shot-A.wav",
+      "sha256": "57138b8c597d0e42a234a4b29dfb5c437672fb49f0859d8291ed055cf0928494",
+      "duration_seconds": 0.22,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    },
+    {
+      "path": "selected/trap-cannon-salvo-2.wav",
+      "source": "candidates/cannon-salvo-2-A.wav",
+      "sha256": "4986ba05c3f58c1ec2f4ff66ba08dca591273212e62473918e78171f50173db2",
+      "duration_seconds": 0.495,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    },
+    {
+      "path": "selected/trap-cannon-salvo-3.wav",
+      "source": "candidates/cannon-salvo-3-A.wav",
+      "sha256": "ff28105a682cfce078a8c8951aef266f8f5ab171c8546f02c1bd6066734a0cb0",
+      "duration_seconds": 0.735,
+      "sample_rate": 44100,
+      "channels": 2,
+      "bit_identical_to_inspected_candidate": true
+    }
+  ],
+  "warning_seconds": 1.6,
+  "cannon_shot_interval_seconds": 0.24,
+  "in_game_audition": "pending",
+  "published": false,
+  "preview": {
+    "path": "previews/sequence-selected.wav",
+    "sha256": "d3203c742eea7fb0713b1af7b7b0d485a0a600aa89edc0a4e3c4bfc327fbaf6b",
+    "schedule": [
+      {
+        "at": 0.0,
+        "file": "trap-tile-warning.wav"
+      },
+      {
+        "at": 1.6,
+        "file": "trap-tile-discharge.wav"
+      },
+      {
+        "at": 3.35,
+        "file": "trap-cannon-warning.wav"
+      },
+      {
+        "at": 4.95,
+        "file": "trap-cannon-salvo-3.wav"
+      }
+    ]
+  }
+}

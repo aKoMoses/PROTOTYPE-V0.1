@@ -1,5 +1,7 @@
 extends StaticBody3D
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 const KNOCKBACK := preload("res://scripts/knockback_motion.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
@@ -185,6 +187,8 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if network_proxy:
 		get_node("/root/NetworkSession").send_hit(amount, source_id, attack_id)
 	if _duel_mode and bool(get_meta("duel_static_shield", false)):
+		if amount > 0.0:
+			COMBAT_AUDIO.play(self, "static_block")
 		return 0.0
 	if amount > 0.0 and visibility_state != null:
 		visibility_state.mark_combat_event()
@@ -571,6 +575,7 @@ func _spawn_fulguro_motion_visual(color: Color, alpha: float) -> void:
 
 
 func _spawn_fulguro_wall_visual(impact_position: Vector3, impact_normal: Vector3) -> void:
+	COMBAT_AUDIO.play(self, "fulguro_wall", impact_position)
 	var scene := get_tree().current_scene if get_tree() != null else null
 	var vfx := scene.get_node_or_null("VFXManager") if scene != null else null
 	var normal := impact_normal if impact_normal.length_squared() > 0.001 else -_fulguro_projection_direction

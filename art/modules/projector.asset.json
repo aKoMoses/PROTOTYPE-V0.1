@@ -1,0 +1,20 @@
+{
+  "asset": "projector",
+  "triangles": 8212,
+  "material_batches": 7,
+  "bytes": 1434860,
+  "sha256": "dd0c437751af2d9b6ea6ff0db80d189aa6ff9930ad015385b13c01092845c096",
+  "blender_bounds_min": [
+    -0.08013158291578293,
+    -0.05575000122189522,
+    -0.10276032984256744
+  ],
+  "blender_bounds_max": [
+    0.07951682060956955,
+    0.006000000983476639,
+    0.10357776284217834
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/javelin-projector/projector.blend",
+  "design": "Compact forearm repulsion emitter, true concave metal diaphragm, concentric copper traces, open protective grille, two ceramic shutters and restrained cyan side apertures."
+}

@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 # Health, passives, status effects, death and bush visibility.
 # Player owns shared state and keeps the scene/network API.
 
@@ -166,6 +168,8 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if player.training_invulnerable:
 		return 0.0
 	if player._stasis_remaining > 0.0:
+		if amount > 0.0:
+			COMBAT_AUDIO.play(player, "static_block")
 		return 0.0
 	if player.combat_state == null or player.passive_state == null:
 		return 0.0
@@ -278,6 +282,7 @@ func passive_authoritative() -> bool:
 
 
 func emit_passive_weapon() -> Dictionary:
+	COMBAT_AUDIO.bind_passive(player, player.passive_state)
 	var attack: Dictionary = player.passive_state.emit_weapon() if player.passive_state != null and player.passive_authoritative() else {}
 	attack["counter_attack"] = PLAYER_STATE.COUNTER.weapon_attack(player, "weapon:%d:%d" % [player.get_instance_id(), Time.get_ticks_usec()], PLAYER_STATE.COMBAT_DATA.WEAPON_DEFINITIONS.get(player._weapon_id, {}))
 	return attack
@@ -297,6 +302,7 @@ func passive_weapon_damage(target: Node, amount: float, source: String, componen
 
 
 func register_offensive_attack(activation: String) -> void:
+	COMBAT_AUDIO.bind_passive(player, player.passive_state)
 	if player.passive_state != null and player.passive_authoritative():
 		player.passive_state.register_module(activation)
 
@@ -343,6 +349,8 @@ func _on_damage_dealt(effective_damage: float, target: Node3D = null) -> void:
 	var amount: float = float(player.passive_state.omnivamp_heal_for(effective_damage))
 	if amount > 0.0:
 		var actual: float = player.heal(amount, "omnivamp")
+		if actual > 0.0:
+			COMBAT_AUDIO.play(player, "omnivamp_heal")
 		if player.survival_mode and player.survival_evolution_effects != null:
 			player.survival_evolution_effects.overflow_heal(amount - actual)
 

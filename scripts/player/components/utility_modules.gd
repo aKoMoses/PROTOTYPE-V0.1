@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 # Module cooldowns, defensive casts, dash, injector and buffered commands.
 # Player owns shared state and keeps the scene/network API.
 
@@ -64,6 +66,8 @@ func _update_module_cooldowns(delta: float) -> void:
 	var bio_active := player._bio_remaining > 0.0
 	if bio_active:
 		player._bio_remaining = maxf(0.0, player._bio_remaining - delta)
+		if player._bio_remaining <= 0.0:
+			COMBAT_AUDIO.play(player, "bio_end")
 		if player._uses_local_feedback() and player._bio_remaining <= 1.0 and player._bio_remaining + delta > 1.0:
 			player._spawn_particle_burst(player.global_position + Vector3.UP * 0.85, Color("#ffe6a0"), 12, 0.35, 2.0, 0.10, Vector3.UP, 60.0)
 			if player._attack_label != null:
@@ -190,7 +194,7 @@ func _create_magnetic_wall(token: int, action_token: int, center: Vector3, direc
 	lifetime_timer.timeout.connect(func() -> void:
 		var surviving_wall: Area3D = wall_reference.get_ref()
 		if is_instance_valid(surviving_wall):
-			surviving_wall.queue_free()
+			surviving_wall.call("expire")
 		if player._magnetic_wall == surviving_wall:
 			player._magnetic_wall = null
 	)
@@ -201,6 +205,7 @@ func _perform_static_shield() -> void:
 		return
 	var mobile_shield := player.survival_evolution_effects if player.survival_mode else null
 	if mobile_shield != null and mobile_shield.shield_remaining > 0.0:
+		COMBAT_AUDIO.play(player, "static_off")
 		mobile_shield.shield_remaining = 0.0
 		mobile_shield.shield_health = 0.0
 		mobile_shield.shield_energy = 0.0
@@ -211,6 +216,7 @@ func _perform_static_shield() -> void:
 			player._attack_label.text = "STATIC SHIELD  •  SORTIE"
 		return
 	if player._stasis_remaining > 0.0:
+		COMBAT_AUDIO.play(player, "static_off")
 		player._stasis_remaining = 0.0
 		if is_instance_valid(player._stasis_visual):
 			player._stasis_visual.queue_free()
@@ -233,6 +239,7 @@ func _perform_static_shield() -> void:
 		player._cancel_dash()
 	player._mark_combat_event()
 	player._start_module_cooldown("static_shield", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["static_shield"]["cooldown"]))
+	COMBAT_AUDIO.play(player, "static_on")
 	if player.passive_authoritative() and player.combat_state != null:
 		player.combat_state.cleanse_burn_and_slow()
 	if player.survival_mode and player.survival_evolution_effects != null:
@@ -350,6 +357,8 @@ func _perform_bio_injector() -> void:
 	player._mark_combat_event()
 	player._start_module_cooldown("bio_injector", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["cooldown"]))
 	player._bio_remaining = float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["bio_injector"]["duration"])
+	COMBAT_AUDIO.play(player, "bio_inject")
+	COMBAT_AUDIO.play(player, "bio_boost")
 	if player.passive_state != null and player.passive_authoritative():
 		player.passive_state.mobility_finished()
 	if player.survival_mode and player.survival_evolution_effects != null:

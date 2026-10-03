@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7")
 
 GamePreferences="*res://scripts/game_preferences.gd"
 GameSfx="*res://scripts/game_sfx.gd"
+UiSfx="*res://scripts/ui_sfx.gd"
 GDSync="*res://addons/GD-Sync/MultiplayerClient.gd"
 NetworkSession="*res://scripts/network_session.gd"
 StylizedEnvironment="*res://scripts/environment/stylized_environment.gd"

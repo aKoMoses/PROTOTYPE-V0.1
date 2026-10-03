@@ -20,6 +20,7 @@ var _focus_start_camera_position := Vector3.ZERO
 var _focus_start_fov := 38.0
 const FOCUS_DURATION := 1.45
 const BASE_FOV := 38.0
+const GAMEPLAY_ZOOM := 1.3
 
 
 func _ready() -> void:
@@ -128,11 +129,11 @@ func reset_focus() -> void:
 	_follow_position = global_position - _aim_offset
 	_resolve_camera()
 	if _camera != null:
-		_camera.position = Vector3(0.0, 20.5, 17.5)
+		_camera.position = Vector3(0.0, 20.5, 17.5) / GAMEPLAY_ZOOM
 		_camera.fov = 38.0
 		var scene := get_tree().current_scene
 		if scene != null and scene.has_meta("arena_half_size") and (scene.get_meta("arena_half_size") as Vector2).x < 15.0:
-			_camera.position = Vector3(0.0, 24.0, 20.0)
+			_camera.position = Vector3(0.0, 24.0, 20.0) / GAMEPLAY_ZOOM
 			_camera.fov = 40.0
 
 
@@ -146,8 +147,8 @@ func _clamp_follow(at: Vector3) -> Vector3:
 	if scene != null and scene.has_meta("arena_half_size"):
 		var half: Vector2 = scene.get_meta("arena_half_size")
 		if half.x < 15.0:
-			at.x = clampf(at.x, -maxf(0.0, half.x - 9.0), maxf(0.0, half.x - 9.0))
-			at.z = clampf(at.z, -maxf(0.0, half.y - 8.0), maxf(0.0, half.y - 8.0))
+			at.x = clampf(at.x, -maxf(0.0, half.x - 9.0 / GAMEPLAY_ZOOM), maxf(0.0, half.x - 9.0 / GAMEPLAY_ZOOM))
+			at.z = clampf(at.z, -maxf(0.0, half.y - 8.0 / GAMEPLAY_ZOOM), maxf(0.0, half.y - 8.0 / GAMEPLAY_ZOOM))
 	return at
 
 

@@ -17,7 +17,7 @@ const BUSH_STATE := preload("res://scripts/bush_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
 const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
-const FULGURO_CHARGE_SOUND: AudioStream = preload("res://art/audio/blaster-charge-v2.wav")
+const FULGURO_CHARGE_SOUND: AudioStream = preload("res://art/audio/combat-sfx/fulguro-charge.wav")
 
 const ATTACK_INTERVAL := 2.20
 const ATTACK_DAMAGE := 35.0
@@ -185,8 +185,8 @@ func _ready() -> void:
 	_fulguro_charge_audio = AudioStreamPlayer.new()
 	_fulguro_charge_audio.name = "FulguroChargeAudio"
 	_fulguro_charge_audio.stream = FULGURO_CHARGE_SOUND
-	_fulguro_charge_audio.volume_db = -12.0
-	_fulguro_charge_audio.pitch_scale = 1.28
+	_fulguro_charge_audio.volume_db = -3.0
+	_fulguro_charge_audio.pitch_scale = 1.0
 	add_child(_fulguro_charge_audio)
 	set_physics_process(false)
 
@@ -526,6 +526,12 @@ func _physics_process(delta: float) -> void:
 		_perception["dodge_direction"] = _choose_dodge_direction(bot_body, Vector3(_projectile_threat.get("velocity", _last_observed_position - bot_body.global_position))) if not _projectile_threat.is_empty() or bool(_perception.get("target_charging", false)) else Vector3.ZERO
 		_holding_bush_fire = _should_hold_bush_fire(bot_body)
 		_perception["holding_fire"] = _holding_bush_fire
+		_perception.erase("arena_control_target")
+		var arena_controls := get_tree().current_scene.get_node_or_null("ArenaHazards")
+		if arena_controls != null and arena_controls.has_method("get_bot_mirror_target") and str(_duel_equipment.get("profile")) != "mekatana":
+			var mirror_target: Node3D = arena_controls.call("get_bot_mirror_target", bot_body, _last_observed_position if _has_last_observed_position else Vector3.INF, difficulty_profile)
+			if mirror_target != null:
+				_perception["arena_control_target"] = mirror_target
 		if _attack_action_token != 0:
 			_advance_shared_attack_windup(bot_body, delta)
 		else:
@@ -1639,6 +1645,8 @@ func _update_hazard_avoidance(bot_body: Node3D, delta: float) -> bool:
 		_hazard_threat_id = threat_id
 		_hazard_observed_at = _elapsed
 	var reaction := float(_tuning.get("reaction_delay", 0.22))
+	if hazards.has_method("get_heat") and float(hazards.call("get_heat", bot_body)) > 0.6:
+		reaction *= 0.6
 	# Its normal difficulty delay applies; occasional committed mistakes remain.
 	var mistake_cycle := 4 if difficulty_profile == "easy" else (12 if difficulty_profile == "hard" else 8)
 	if threat_id % mistake_cycle == 0 or _elapsed - _hazard_observed_at < reaction:
@@ -2083,6 +2091,8 @@ func _choose_dodge_direction(bot_body: Node3D, incoming: Vector3) -> Vector3:
 
 
 func _can_attack(bot_body: Node3D, player: Node3D) -> bool:
+	if ARENA_TRAVERSAL.attack_blocked(bot_body):
+		return false
 	if player.has_method("is_visible_to") and not bool(player.call("is_visible_to", bot_body)):
 		return false
 	if bot_body.global_position.distance_to(player.global_position) > ATTACK_RANGE:
@@ -2091,6 +2101,8 @@ func _can_attack(bot_body: Node3D, player: Node3D) -> bool:
 
 
 func execute_duel_offensive(module_id: String, bot_body: Node3D, player: Node3D, locked_position: Vector3, _visible: bool) -> void:
+	if ARENA_TRAVERSAL.attack_blocked(bot_body):
+		return
 	if bot_body == null or player == null or not is_instance_valid(player):
 		return
 	var direction := locked_position - bot_body.global_position
@@ -2141,6 +2153,8 @@ func register_duel_damage(effective_damage: float) -> void:
 
 
 func _begin_attack(bot_body: Node3D, player: Node3D) -> void:
+	if ARENA_TRAVERSAL.attack_blocked(bot_body):
+		return
 	var definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["fulguro_punch"]
 	var pelto_definition: Dictionary = COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"]
 	var to_player := player.global_position - bot_body.global_position
@@ -2179,6 +2193,10 @@ func _mark_bot_combat_event(bot_body: Node3D) -> void:
 
 
 func _resolve_attack(bot_body: Node3D, player: Node3D) -> void:
+	if ARENA_TRAVERSAL.attack_blocked(bot_body):
+		_action_gate.release(_attack_action_token)
+		_attack_action_token = 0
+		return
 	var expected_kind := ACTION_GATE.Kind.MODULE if _attack_mode in ["fulguro", "pelto"] else ACTION_GATE.Kind.WEAPON
 	if player == null or not is_instance_valid(player) or not _action_gate.owns(_attack_action_token, expected_kind, _attack_mode):
 		_action_gate.release(_attack_action_token)

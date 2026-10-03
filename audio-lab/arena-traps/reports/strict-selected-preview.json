@@ -1,0 +1,32 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\previews\\sequence-selected.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 6.4,
+    "peak": 0.452606,
+    "rms": 0.021471,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.06,
+      0.18,
+      0.3,
+      0.42,
+      0.56,
+      1.62,
+      1.76,
+      1.88,
+      3.38,
+      3.76,
+      5.0,
+      5.24,
+      5.48
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8125,
+    "median_transient_gap_seconds": 0.19,
+    "transient_gap_cv": 1.0732,
+    "quality": "ok"
+  }
+]

@@ -148,6 +148,11 @@ func _return_menu() -> void:
 	_flow.call("_open_menu")
 
 func _on_connection_changed(is_connected: bool, message: String) -> void:
+	if is_visible_in_tree():
+		for failure in ["impossible", "indisponible", "incompatible", "trop longue", "Configuration requise"]:
+			if message.contains(failure):
+				get_node("/root/UiSfx").play("denied")
+				break
 	# Project configuration belongs in the editor, never in the player's menu.
 	_status.text = "Le multijoueur est indisponible sur cette version." if message.begins_with("Configuration requise") else message
 	if not get_node("/root/NetworkSession").current_room.is_empty():

@@ -1,0 +1,20 @@
+{
+  "asset": "permutation",
+  "triangles": 7584,
+  "material_batches": 7,
+  "bytes": 1360372,
+  "sha256": "ba1ff973e25b125f0ad1c911015bf4b139eb812a659e41ca71ef21a2ecb9f7cf",
+  "blender_bounds_min": [
+    -0.05227109417319298,
+    -0.0430000014603138,
+    -0.08834467083215714
+  ],
+  "blender_bounds_max": [
+    0.05227109417319298,
+    0.006000000983476639,
+    0.08834467083215714
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/four-active/permutation.blend",
+  "design": "Compact torso phase exchanger with two true copper helices, hollow ceramic seats, paired status ports, swept guards and connected exchange busbars."
+}

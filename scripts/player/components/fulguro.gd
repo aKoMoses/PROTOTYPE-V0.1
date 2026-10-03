@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 # Fulguro charge, strike, projection and wall impacts.
 # Player owns shared state and keeps the scene/network API.
 
@@ -112,6 +114,7 @@ func _cancel_fulguro_projection() -> void:
 
 
 func _spawn_fulguro_wall_impact(impact_position: Vector3, impact_normal: Vector3) -> void:
+	COMBAT_AUDIO.play(player, "fulguro_wall", impact_position)
 	var position := impact_position if impact_position != Vector3.ZERO else player.global_position + Vector3.UP * 0.85
 	var normal := impact_normal if impact_normal.length_squared() > 0.001 else -player._fulguro_projection_direction
 	var vfx: Node = player._vfx_manager()
@@ -166,8 +169,7 @@ func _begin_fulguro_charge() -> void:
 	player._fulguro_flame_clock = 0.0
 	player._start_module_cooldown("fulguro_punch", float(PLAYER_STATE.COMBAT_DATA.MODULE_DEFINITIONS["fulguro_punch"]["cooldown"]))
 	player._create_fulguro_telegraph()
-	if player._fulguro_charge_audio != null:
-		player._fulguro_charge_audio.play()
+	COMBAT_AUDIO.charge(player, "fulguro_charge")
 	if player._attack_label != null:
 		player._attack_label.text = "FULGURO PUNCH  •  CHARGE 0.00 / %.1f s" % player._fulguro_charge_max
 	player._update_fulguro_pose()
@@ -238,11 +240,8 @@ func _commit_fulguro_strike() -> void:
 	player._fulguro_strike_wall_damage = lerpf(player._fulguro_wall_damage, player._fulguro_wall_damage_max, player._fulguro_charge_ratio)
 	player._fulguro_phase = "active"
 	player._fulguro_elapsed = 0.0
-	if player._fulguro_charge_audio != null:
-		player._fulguro_charge_audio.stop()
-	if player._fulguro_release_audio != null:
-		player._fulguro_release_audio.pitch_scale = lerpf(1.03, 0.78, player._fulguro_charge_ratio)
-		player._fulguro_release_audio.play()
+	COMBAT_AUDIO.stop_charge(player, "fulguro_charge")
+	# The shared strike resolver plays the impact only on accepted contact.
 	player._clear_fulguro_telegraph()
 	player._resolve_fulguro_strike()
 	player._spawn_fulguro_strike_fx()
@@ -440,8 +439,7 @@ func _update_fulguro_pose() -> void:
 func _finish_fulguro_attack() -> void:
 	var action_token := player._active_module_action_token if player._active_module_id == "fulguro_punch" else 0
 	player._clear_fulguro_telegraph()
-	if player._fulguro_charge_audio != null:
-		player._fulguro_charge_audio.stop()
+	COMBAT_AUDIO.stop_charge(player, "fulguro_charge")
 	if player._visual_rig != null and player._visual_rig.has_method("clear_fulguro_pose"):
 		player._visual_rig.call("clear_fulguro_pose")
 	player._fulguro_phase = ""
@@ -461,8 +459,7 @@ func _cancel_fulguro_attack(reason: String = "") -> void:
 		player._clear_fulguro_telegraph()
 		return
 	player._clear_fulguro_telegraph()
-	if player._fulguro_charge_audio != null:
-		player._fulguro_charge_audio.stop()
+	COMBAT_AUDIO.stop_charge(player, "fulguro_charge")
 	if player._visual_rig != null and player._visual_rig.has_method("clear_fulguro_pose"):
 		player._visual_rig.call("clear_fulguro_pose")
 	player._fulguro_phase = ""

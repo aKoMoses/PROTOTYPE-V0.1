@@ -126,7 +126,7 @@ func _process(delta: float) -> void:
 func _update_props(delta: float) -> void:
 	for prop in _props:
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var material := mesh.material_override as ShaderMaterial
 		if material == null:
@@ -168,7 +168,7 @@ func _disturb(mesh: MeshInstance3D, at: Vector3, direction: Vector3, power: floa
 func disturb_at(at: Vector3, direction: Vector3, power: float, radius: float = 3.6) -> void:
 	for prop in _props:
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var distance := mesh.global_position.distance_to(at)
 		if distance > radius:
@@ -201,7 +201,7 @@ func _shot(socket: Node3D, weapon: String, charge: float) -> void:
 		if not prop.grass:
 			continue
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var centre := mesh.global_position + Vector3.UP * 1.0
 		var closest := Geometry3D.get_closest_point_to_segment(centre, start, end)

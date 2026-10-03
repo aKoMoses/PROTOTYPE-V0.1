@@ -4,18 +4,20 @@ extends Node3D
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const ICONS := preload("res://scripts/equipment_icons.gd")
 const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
+const FINISHES := preload("res://scripts/forge_workshop_materials.gd")
 const FONT := preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const CATEGORIES := ["offensive", "defensive", "passive", "mobility"]
 const TITLES := {"offensive": "OFFENSIF", "defensive": "DÉFENSIF", "passive": "PASSIF", "mobility": "MOBILITÉ"}
-const COLORS := {"offensive": Color("#f19d4e"), "defensive": Color("#69bddd"), "passive": Color("#b99ad9"), "mobility": Color("#9ecb91")}
+const COLORS := {"offensive": Color("#bc8e58"), "defensive": Color("#75959f"), "passive": Color("#9b879e"), "mobility": Color("#8e9c78")}
 const POSITIONS := {
-	"offensive": Vector3(-3.20, 0, -0.05),
-	"defensive": Vector3(3.18, 0, -0.80),
-	"passive": Vector3(-1.08, 0, -3.24),
-	"mobility": Vector3(3.25, 0, 1.68),
+	"offensive": Vector3(-6.50, 0, -3.20),
+	"defensive": Vector3(7.50, 0, -1.00),
+	"passive": Vector3(-6.50, 0, 4.00),
+	"mobility": Vector3(6.50, 0, 4.00),
 }
 const YAW := {"offensive": 10.0, "defensive": -10.0, "passive": 0.0, "mobility": -18.0}
 const LOCAL_BOUNDS := AABB(Vector3(-0.76, 0.02, -0.33), Vector3(1.52, 1.87, 0.69))
+const PASSIVE_BOUNDS := AABB(Vector3(-0.77, 0.02, -0.50), Vector3(1.54, 1.71, 1.30))
 
 var stage
 var station_nodes: Dictionary = {}
@@ -38,10 +40,10 @@ func configure(garage_stage: Node) -> void:
 func _ready() -> void:
 	name = "ModuleStorageStations"
 	set_process(false)
-	_material("steel", Color("#3c4345"), 0.78, 0.43)
-	_material("dark", Color("#202728"), 0.64, 0.65)
-	_material("ivory", Color("#d0c8b8"), 0.25, 0.61)
-	_material("edge", Color("#879093"), 0.85, 0.35)
+	_material("steel", Color("#596267"), 0.32, 0.76)
+	_material("dark", Color("#30383c"), 0.48, 0.76)
+	_material("ivory", Color("#c7c0ad"), 0.25, 0.76)
+	_material("edge", Color("#929c9d"), 0.78, 0.55)
 	_material("rubber", Color("#151a1a"), 0.05, 0.83)
 	var selection := _material("selection", Color("#ffd484"), 0.3, 0.35)
 	selection.emission_enabled = true
@@ -51,7 +53,7 @@ func _ready() -> void:
 		var trim := _material(category, COLORS[category], 0.37, 0.38)
 		trim.emission_enabled = true
 		trim.emission = COLORS[category]
-		trim.emission_energy_multiplier = 0.65
+		trim.emission_energy_multiplier = 0.06
 		_trims[category] = trim
 		_build_station(category)
 	highlight("")
@@ -72,7 +74,7 @@ func pick(point: Vector2) -> String:
 		if not station.is_visible_in_tree() or stage.camera.is_position_behind(anchor(category)):
 			continue
 		var inverse := station.global_transform.affine_inverse()
-		var hit = LOCAL_BOUNDS.intersects_ray(inverse * origin, inverse.basis * direction)
+		var hit = _local_bounds(category).intersects_ray(inverse * origin, inverse.basis * direction)
 		if hit == null:
 			continue
 		var distance := origin.distance_to(station.global_transform * (hit as Vector3))
@@ -93,13 +95,18 @@ func pick(point: Vector2) -> String:
 func anchor(category: String) -> Vector3:
 	if not station_nodes.has(category):
 		return Vector3.ZERO
-	return (station_nodes[category] as Node3D).global_transform * Vector3(0, 1.73, 0.33)
+	var point := Vector3(0, 1.65, 0.13) if category == "passive" else Vector3(0, 1.73, 0.33)
+	return (station_nodes[category] as Node3D).global_transform * point
 
 
 func bounds(category: String) -> AABB:
 	if not station_nodes.has(category):
 		return AABB()
-	return (station_nodes[category] as Node3D).global_transform * LOCAL_BOUNDS
+	return (station_nodes[category] as Node3D).global_transform * _local_bounds(category)
+
+
+func _local_bounds(category: String) -> AABB:
+	return PASSIVE_BOUNDS if category == "passive" else LOCAL_BOUNDS
 
 
 func module_transform(identifier: String) -> Transform3D:
@@ -127,8 +134,8 @@ func highlight(category: String) -> void:
 	selected_category = category if CATEGORIES.has(category) else ""
 	for key in CATEGORIES:
 		var active: bool = key == selected_category
-		(_trims[key] as StandardMaterial3D).emission_energy_multiplier = 1.5 if active else 0.65
-		(_lights[key] as OmniLight3D).light_energy = 0.70 if active else 0.12
+		(_trims[key] as StandardMaterial3D).emission_energy_multiplier = 0.95 if active else 0.06
+		(_lights[key] as OmniLight3D).light_energy = 0.38 if active else 0.025
 		(_titles[key] as Label3D).modulate = COLORS[key].lightened(0.30) if active else Color("#dfd8c9")
 	if selected_category.is_empty():
 		highlight_item("")
@@ -150,6 +157,9 @@ func _build_station(category: String) -> void:
 	rack.position = POSITIONS[category]
 	rack.rotation_degrees.y = YAW[category]
 	station_nodes[category] = rack
+	if category == "passive":
+		_build_passive_charger(rack)
+		return
 	# A weighted plinth, folded sheet backing and proud tubular corner posts.
 	_box(rack, Vector3(1.48, 0.12, 0.60), Vector3(0, 0.08, 0), "dark", 0.035)
 	_box(rack, Vector3(1.35, 0.045, 0.51), Vector3(0, 0.156, 0), "steel", 0.014)
@@ -200,6 +210,69 @@ func _build_station(category: String) -> void:
 	lamp.shadow_enabled = false
 	rack.add_child(lamp)
 	_lights[category] = lamp
+
+
+func _build_passive_charger(rack: Node3D) -> void:
+	# Six sockets in a tilted charging tray, above a compact drawer cabinet.
+	# The cartridge root follows the tray so the mechanic takes its real pose.
+	_box(rack, Vector3(1.49, 0.10, 0.88), Vector3(0, 0.07, 0.01), "dark", 0.028)
+	_box(rack, Vector3(1.35, 0.62, 0.75), Vector3(0, 0.44, -0.02), "steel", 0.034)
+	_box(rack, Vector3(1.21, 0.38, 0.030), Vector3(0, 0.43, 0.374), "dark", 0.015)
+	_box(rack, Vector3(1.16, 0.32, 0.018), Vector3(0, 0.43, 0.397), "steel", 0.009)
+	_box(rack, Vector3(0.44, 0.038, 0.055), Vector3(0, 0.48, 0.433), "edge", 0.008)
+	_box(rack, Vector3(1.13, 0.010, 0.022), Vector3(0, 0.617, 0.406), "rubber", 0.002)
+	for side in [-1.0, 1.0]:
+		for row in 5:
+			_box(rack, Vector3(0.013, 0.024, 0.38), Vector3(side * 0.681, 0.28 + row * 0.068, 0.005), "rubber", 0.003)
+		_box(rack, Vector3(0.035, 0.34, 0.025), Vector3(side * 0.60, 0.43, 0.412), "passive", 0.004)
+	var tray := Node3D.new()
+	tray.name = "ChargingTray"
+	rack.add_child(tray)
+	tray.position = Vector3(0, 1.13, 0.13)
+	tray.rotation_degrees.x = -45.0
+	_box(tray, Vector3(1.47, 1.23, 0.12), Vector3(0, 0, -0.11), "steel", 0.029)
+	_box(tray, Vector3(1.35, 1.10, 0.024), Vector3(0, 0, -0.038), "dark", 0.016)
+	for x in [-0.71, 0.71]:
+		_box(tray, Vector3(0.029, 1.15, 0.032), Vector3(x, 0, -0.02), "edge", 0.005)
+	var catalog := _catalog("passive")
+	for index in catalog.size():
+		var x := -0.33 if index % 2 == 0 else 0.33
+		var y := 0.36 - floori(index / 2.0) * 0.36
+		_box(tray, Vector3(0.52, 0.325, 0.025), Vector3(x, y, -0.016), "rubber", 0.014)
+		for side in [-1.0, 1.0]:
+			_box(tray, Vector3(0.035, 0.21, 0.15), Vector3(x + side * 0.25, y, 0.04), "edge", 0.006)
+			_box(tray, Vector3(0.011, 0.13, 0.045), Vector3(x + side * 0.227, y, 0.073), "passive", 0.003)
+		var identifier := str(catalog[index])
+		var item := _cartridge("passive", identifier, index)
+		tray.add_child(item)
+		item.position = Vector3(x, y, 0.095)
+		items[identifier] = item
+		item_categories[identifier] = "passive"
+		_box(tray, Vector3(0.40, 0.023, 0.025), Vector3(x, y - 0.159, 0.056), "passive", 0.004)
+		var mark := _box(tray, Vector3(0.43, 0.033, 0.018), Vector3(x, y - 0.159, 0.079), "selection", 0.004)
+		mark.name = "SelectedBay_" + identifier
+		mark.visible = false
+		_item_marks[identifier] = mark
+	_box(rack, Vector3(1.44, 0.12, 0.105), Vector3(0, 1.65, -0.25), "steel", 0.018)
+	_box(rack, Vector3(1.32, 0.014, 0.021), Vector3(0, 1.725, -0.193), "passive", 0.003)
+	_titles["passive"] = _label(rack, TITLES.passive, Vector3(0, 1.65, -0.190), 48, 0.00225, Color("#dfd8c9"))
+	_label(rack, "03", Vector3(-0.51, 0.21, 0.410), 28, 0.0016, COLORS.passive)
+	for index in 4:
+		_box(rack, Vector3(0.034, 0.023, 0.010), Vector3(0.39 + index * 0.047, 0.21, 0.415), "passive", 0.003)
+	# Short static cable behind the cabinet; no idle processing is needed.
+	var cable := [Vector3(0.46, 1.09, -0.32), Vector3(0.52, 0.88, -0.43), Vector3(0.48, 0.63, -0.47), Vector3(0.32, 0.53, -0.46), Vector3(0.20, 0.63, -0.44)]
+	for index in cable.size() - 1:
+		var direction: Vector3 = cable[index + 1] - cable[index]
+		_cylinder(rack, 0.023, 0.023, direction.length(), (cable[index] + cable[index + 1]) * 0.5, direction.normalized(), "rubber")
+	var lamp := OmniLight3D.new()
+	lamp.name = "ChargingAccent"
+	lamp.position = Vector3(0, 1.41, 0.52)
+	lamp.light_color = COLORS.passive
+	lamp.omni_range = 1.4
+	lamp.omni_attenuation = 2.0
+	lamp.shadow_enabled = false
+	rack.add_child(lamp)
+	_lights["passive"] = lamp
 
 
 func _cartridge(category: String, identifier: String, index: int) -> Node3D:
@@ -270,10 +343,7 @@ func _short_name(identifier: String) -> String:
 
 func _material(key: String, color: Color, metal: float, roughness: float) -> StandardMaterial3D:
 	if not _materials.has(key):
-		var material := StandardMaterial3D.new()
-		material.albedo_color = color
-		material.metallic = metal
-		material.roughness = roughness
+		var material := FINISHES.surface(key, color, metal, roughness)
 		_materials[key] = material
 	return _materials[key]
 

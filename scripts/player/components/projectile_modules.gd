@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 # Modulo Drone and Javelin launch, hit and recast.
 # Player owns shared state and keeps the scene/network API.
 
@@ -18,6 +20,7 @@ func _update_javelin_mark() -> void:
 		player._javelin_mark_target = null
 		return
 	if not bool(player._javelin_mark_target.call("has_javelin_mark")):
+		COMBAT_AUDIO.play(player, "javelin_mark_end")
 		player._javelin_mark_target = null
 
 
@@ -106,6 +109,7 @@ func _begin_javelin_charge() -> bool:
 	player._module_token += 1
 	player._javelin_launch_token += 1
 	player._javelin_charging = true
+	COMBAT_AUDIO.charge(player, "javelin_charge")
 	player._javelin_elapsed = 0.0
 	player._javelin_release_at = -1.0
 	player._javelin_charge_action_token = action_token
@@ -171,6 +175,7 @@ func _update_javelin_charge(delta: float) -> void:
 
 
 func _clear_javelin_charge_visual() -> void:
+	COMBAT_AUDIO.stop_charge(player, "javelin_charge")
 	if is_instance_valid(player._javelin_charge_visual):
 		player._javelin_charge_visual.queue_free()
 	player._javelin_charge_visual = null
@@ -193,6 +198,7 @@ func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Ve
 	if token != player._javelin_launch_token or not player._module_action_can_execute(action_token, "javelin"):
 		return
 	player._presentation_component.confirm_module_release("javelin")
+	COMBAT_AUDIO.play(player, "javelin_launch")
 	if player.survival_mode and player.survival_evolution_effects != null and player.survival_evolution_effects.launch_beacon(origin, direction):
 		player._end_module_action(action_token, "javelin")
 		return
@@ -254,6 +260,7 @@ func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage:
 					player.survival_evolution_effects.javelin_hit(target, target.global_position)
 				if player._survival_evolved("offensive"):
 					player._survival_area_damage(target.global_position, 3.0, damage * 0.45, "javelin_splash", Color("#7df4ff"), target)
+				COMBAT_AUDIO.play(player, "javelin_impact", target.global_position)
 				target.call("apply_javelin_mark", mark_duration, "javelin")
 				player._javelin_active_mark_duration = mark_duration
 				player._javelin_active_recast_range = shot_range

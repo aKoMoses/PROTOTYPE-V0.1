@@ -83,6 +83,9 @@ func _process(delta: float) -> void:
 			_prop_ids.erase(prop.id)
 			_props.remove_at(index)
 			continue
+		# Compact maps detach the classic courtyard while retaining it for return.
+		if not mesh.is_inside_tree():
+			continue
 		var strength := 0.0
 		for gust in _gusts:
 			strength = maxf(strength, maxf(0.0, 1.0 - mesh.global_position.distance_to(gust.at) / 3.0) * gust.life * gust.power)

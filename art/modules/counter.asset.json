@@ -1,0 +1,20 @@
+{
+  "asset": "counter",
+  "triangles": 4788,
+  "material_batches": 7,
+  "bytes": 1280416,
+  "sha256": "0197a37092baf3dc0ae8ed729b7bcb049e8c50f63128aad15cf6ed97cbc2ac3f",
+  "blender_bounds_min": [
+    -0.07855776697397232,
+    -0.05347499996423721,
+    -0.10385075956583023
+  ],
+  "blender_bounds_max": [
+    0.07800000160932541,
+    0.006000000052154064,
+    0.10251637548208237
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/four-active/counter.blend",
+  "design": "Compact angular forearm interception capacitor with three separated ceramic vanes, copper pickup traces, central surcharge cell and recessed cyan indicators."
+}

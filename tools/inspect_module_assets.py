@@ -6,7 +6,10 @@ import struct
 import hashlib
 
 ROOT = Path(__file__).resolve().parent.parent
-IDS = ('pyro_boots', 'bio_injector', 'rocket_basket', 'magnetic_field', 'auxiliary_reactor')
+IDS = ('pyro_boots', 'bio_injector', 'rocket_basket', 'magnetic_field', 'auxiliary_reactor',
+       'fulguro_punch', 'static_shield', 'javelin', 'projector',
+       'pelto_smash', 'counter', 'permutation', 'eclipse',
+       'baroud', 'omnivamp', 'tracker', 'alternator', 'inertia')
 
 
 def inspect(identifier):
@@ -67,7 +70,10 @@ def inspect(identifier):
 
 if __name__ == '__main__':
     result = [inspect(identifier) for identifier in IDS]
-    total = sum(item['triangles'] for item in result if item['asset'] not in ('pyro_boots', 'bio_injector'))
-    kit = max(result[0]['triangles']*2, result[1]['triangles']) + total
-    assert kit <= 60000, 'equipped accessory geometry budget'
+    counts = {item['asset']: item['triangles'] for item in result}
+    kit = (max(counts['pyro_boots']*2, counts['bio_injector'], counts['permutation'], counts['eclipse'])
+           + max(counts[key] for key in ('rocket_basket', 'fulguro_punch', 'javelin', 'pelto_smash'))
+           + max(counts[key] for key in ('magnetic_field', 'static_shield', 'projector', 'counter'))
+           + max(counts[key] for key in ('auxiliary_reactor', 'baroud', 'omnivamp', 'tracker', 'alternator', 'inertia')))
+    assert kit <= 30000, 'equipped accessory geometry budget'
     print('MODULE GLB INSPECTION: PASS, max equipped accessory triangles=' + str(kit))

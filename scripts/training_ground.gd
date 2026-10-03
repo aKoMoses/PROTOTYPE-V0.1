@@ -265,6 +265,13 @@ func _build_player_and_camera() -> void:
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
 	player.died.connect(_on_player_died)
+	# The overhead camera attenuates nearby cues and can lose flying rockets.
+	# Listen from the controlled robot while preserving the camera framing.
+	var listener := AudioListener3D.new()
+	listener.name = "TrainingAudioListener"
+	listener.position = Vector3.UP * 1.2
+	player.add_child(listener)
+	listener.make_current()
 	var rig := Node3D.new()
 	rig.name = "CameraRig"
 	rig.set_script(CAMERA_SCRIPT)

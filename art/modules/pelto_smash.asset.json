@@ -1,0 +1,20 @@
+{
+  "asset": "pelto_smash",
+  "triangles": 7512,
+  "material_batches": 7,
+  "bytes": 1446468,
+  "sha256": "4c1d9201c9fced5844a11ef47288c56a10e189bf76ed820632ea790a5797955f",
+  "blender_bounds_min": [
+    -0.0846167728304863,
+    -0.057499997317790985,
+    -0.09962578117847443
+  ],
+  "blender_bounds_max": [
+    0.0846162661910057,
+    0.006000000983476639,
+    0.10560417920351028
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/four-active/pelto_smash.blend",
+  "design": "Compact right forearm seismic driver with a segmented impact shoe, paired exposed hydraulic rams, hollow copper seals, cooling fins and protected return lines."
+}

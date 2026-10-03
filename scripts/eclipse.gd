@@ -1,5 +1,7 @@
 extends RefCounted
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 ## Destination selection and particle-only transit. The actor stays at its
 ## departure point until arrival; its body and all attached visuals disappear.
 const DATA := preload("res://scripts/combat_data.gd")
@@ -131,6 +133,7 @@ func depart(actor: CharacterBody3D, at: Vector3, from_snapshot: bool = false) ->
 	destination = arrival
 	remaining = float(DATA.MODULE_DEFINITIONS.eclipse.travel_duration)
 	travelling = true
+	COMBAT_AUDIO.play(actor, "eclipse_depart")
 	_old_layer = actor.collision_layer
 	_old_mask = actor.collision_mask
 	_old_visible = actor.visible

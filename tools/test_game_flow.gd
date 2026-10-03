@@ -60,8 +60,9 @@ func _initialize() -> void:
 		if garage.get("loadout") != garage_before or bool(garage.get("module_installation").active):
 			_failures.append("la carte doit ouvrir un aperçu sans équiper le module")
 		(garage.get("equip_button") as Button).pressed.emit()
-		if garage.get("module_installation").active or str(garage.get("loadout").passive) != passive:
-			_failures.append("Équiper applique le passif sans transport de pièce factice")
+		if not garage.get("module_installation").active or garage.get("loadout") != garage_before:
+			_failures.append("Équiper doit lancer la pose avant de changer le brouillon")
+		garage.get("module_installation").finish_now()
 		var current_loadout: Dictionary = flow.get("loadout")
 		if str(garage.get("loadout").passive) != passive or current_loadout != saved_loadout:
 			_failures.append("la pose doit changer le brouillon en conservant le build de combat")

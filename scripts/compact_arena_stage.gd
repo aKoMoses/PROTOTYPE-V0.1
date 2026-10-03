@@ -8,6 +8,7 @@ const WATER_SHADER = preload("res://shaders/compact_arena_water.gdshader")
 const REPAIR_SCENE = preload("res://scenes/repair_kit.tscn")
 const LEGACY_ART = preload("res://scripts/compact_arena_legacy_art.gd")
 const OPEN_ART = preload("res://scripts/compact_arena_open_art.gd")
+const PRESENTATION = preload("res://scripts/environment/compact_arena_presentation.gd")
 
 var arena_id: String = "heliostat"
 var running: bool = false
@@ -32,6 +33,9 @@ func _ready() -> void:
 	name = "CompactArenaStage"
 	_build_materials()
 	_build_collision_contract()
+	var geometry := get_children()
+	var gameplay_definition := _definition
+	_definition = CATALOG.DEFINITIONS[arena_id].duplicate(true)
 	match arena_id:
 		"heliostat": _build_heliostat()
 		"tideglass": _build_tideglass()
@@ -42,10 +46,33 @@ func _ready() -> void:
 		LEGACY_ART.build(self, arena_id)
 	else:
 		OPEN_ART.build(self, arena_id)
+	# Enlarge decorative architecture without scaling physics bodies or heights.
+	var art_layout := Node3D.new()
+	art_layout.name = "ExpandedArchitecture"
+	add_child(art_layout)
+	for child in get_children():
+		if child != art_layout and child not in geometry and child is Node3D:
+			child.reparent(art_layout, false)
+	art_layout.scale = Vector3(CATALOG.LAYOUT_SCALE, 1, CATALOG.LAYOUT_SCALE)
+	_definition = gameplay_definition
+	if arena_id == "gyre":
+		var platform := preload("res://scripts/gyre_platform.gd").new()
+		platform.name = "GyrePlatform"
+		add_child(platform)
+		platform.configure(self)
+	if arena_id == "tideglass":
+		var basin := preload("res://scripts/tideglass_arena.gd").new()
+		basin.name = "TideglassArena"
+		add_child(basin)
+		basin.configure(self)
 	_build_landmarks()
 	_batch_static_details(self)
 	set_meta("arena_id", arena_id)
 	set_meta("mesh_count", _mesh_count)
+	if arena_id in ["heliostat", "tideglass", "clockwork"] and not OS.get_cmdline_user_args().has("compact-art-baseline"):
+		var presentation := PRESENTATION.new()
+		presentation.name = "CompactArenaPresentation"
+		add_child(presentation)
 
 
 func _process(delta: float) -> void:
@@ -156,17 +183,17 @@ func _build_collision_contract() -> void:
 		_polygon_floor(footprint)
 		_polygon_boundaries(footprint)
 		_prism(self, "ContinuousDeck", footprint, 0.24, Vector3(0, -0.12, 0), _materials["floor"])
-		return
-	_solid("CompactFloor", Vector3(half.x * 2.0, 0.6, half.y * 2.0), Vector3(0, -0.3, 0))
-	for sign_value in [-1.0, 1.0]:
-		_solid("BoundaryX", Vector3(0.4, 6, half.y * 2.0 + 0.8), Vector3(sign_value * (half.x + 0.2), 3, 0))
-		_solid("BoundaryZ", Vector3(half.x * 2.0, 6, 0.4), Vector3(0, 3, sign_value * (half.y + 0.2)))
+	else:
+		_solid("CompactFloor", Vector3(half.x * 2.0, 0.6, half.y * 2.0), Vector3(0, -0.3, 0))
+		for sign_value in [-1.0, 1.0]:
+			_solid("BoundaryX", Vector3(0.4, 6, half.y * 2.0 + 0.8), Vector3(sign_value * (half.x + 0.2), 3, 0))
+			_solid("BoundaryZ", Vector3(half.x * 2.0, 6, 0.4), Vector3(0, 3, sign_value * (half.y + 0.2)))
+		_box(self, "ContinuousDeck", Vector3(half.x * 2.0, 0.24, half.y * 2.0), Vector3(0, -0.12, 0), _materials["floor"])
 	var index := 0
 	for entry in _definition["covers"]:
 		index += 1
 		var body := _solid("CompactCover%d" % index, entry["size"], entry["position"], deg_to_rad(float(entry["yaw"])))
 		_build_cover(body, entry["size"], index)
-	_box(self, "ContinuousDeck", Vector3(half.x * 2.0, 0.24, half.y * 2.0), Vector3(0, -0.12, 0), _materials["floor"])
 
 
 func _build_landmarks() -> void:
@@ -199,6 +226,10 @@ func _build_cover(body: StaticBody3D, size: Vector3, index: int) -> void:
 	visual.name = "CoverSculpture"
 	body.add_child(visual)
 	match arena_id:
+		"gyre", "resonance":
+			var wall_material: Material = _materials["foundry_steel"] if arena_id == "gyre" else _materials["lavender"]
+			_box(visual, "CoverWall", size, Vector3.ZERO, wall_material)
+			_box(visual, "WallCap", Vector3(size.x + 0.12, 0.12, size.z + 0.12), Vector3(0, size.y * 0.5 - 0.06, 0), _materials["gold"])
 		"heliostat":
 			var outline := _clipped_rectangle(Vector2(size.x, size.z) * 0.98, 0.16)
 			_prism(visual, "BeveledSandstoneBattery", outline, size.y * 0.96, Vector3.ZERO, _materials["stone"])
@@ -265,12 +296,12 @@ func _build_heliostat() -> void:
 	# the playable roof. Its moving arcs give the solar deck a clear silhouette.
 	var armillary := Node3D.new()
 	armillary.name = "SolarArmillary"
-	armillary.position = Vector3(0, 3.1, -13.2)
+	armillary.position = Vector3(0, 4.1, -13.2)
 	add_child(armillary)
 	_cylinder(self, "SolarArmillaryPlinth", 1.15, 2.4, Vector3(0, 0.45, -13.2), _materials["stone"], 0.74, 8)
-	_sphere(armillary, "CagedSun", 0.88, Vector3.ZERO, _materials["amber_glow"])
+	_sphere(armillary, "CagedSun", 1.38, Vector3.ZERO, _materials["amber_glow"])
 	for i in range(3):
-		var hoop := _ring(armillary, "SolarOrbit", 1.8 + float(i) * 0.21, 0.047, Vector3.ZERO, _materials["gold"], 64)
+		var hoop := _ring(armillary, "SolarOrbit", 2.0 + float(i) * 0.24, 0.065, Vector3.ZERO, _materials["gold"], 64)
 		hoop.rotation = Vector3(PI * (0.28 + float(i) * 0.18), float(i) * 0.8, 0.3)
 		_rotors.append({"node": hoop, "axis": Vector3.UP, "speed": 0.07 * (-1.0 if i % 2 == 0 else 1.0)})
 	_add_light(Vector3(0, 3.3, -11.4), Color("#ffd195"), 2.0, 7.0)
@@ -334,8 +365,9 @@ func _floating_tower(origin: Vector3, tower_scale: float, index: int) -> void:
 
 
 func _build_tideglass() -> void:
-	_box(self, "GreenhousePontoon", Vector3(23, 0.8, 23), Vector3(0, -0.64, 0), _materials["porcelain"])
-	_box(self, "PontoonWaterline", Vector3(23.3, 0.2, 23.3), Vector3(0, -1.07, 0), _materials["teal_metal"])
+	var outline := _scaled_polygon(CATALOG.footprint(arena_id), 1.0 / CATALOG.LAYOUT_SCALE)
+	_prism(self, "GreenhousePontoon", _scaled_polygon(outline, 1.10), 0.8, Vector3(0, -0.64, 0), _materials["porcelain"])
+	_prism(self, "PontoonWaterline", _scaled_polygon(outline, 1.12), 0.2, Vector3(0, -1.07, 0), _materials["teal_metal"])
 	_box(self, "Ocean", Vector3(220, 0.06, 220), Vector3(0, -1.35, 0), _materials["water"])
 	_build_perimeter(_materials["porcelain"], _materials["teal_metal"], 0.3)
 	# Recessed water flanks the combat terrace. Ribbed bridges, pools and plants
@@ -469,7 +501,7 @@ func _build_clockwork() -> void:
 
 
 func _build_gyre() -> void:
-	var footprint := CATALOG.footprint(arena_id)
+	var footprint := _scaled_polygon(CATALOG.footprint(arena_id), 1.0 / CATALOG.LAYOUT_SCALE)
 	var steel: Material = _materials["foundry_steel"]
 	var iron: Material = _materials["cast_iron"]
 	_prism(self, "CastOctagonalFoundry", _scaled_polygon(footprint, 1.055), 0.92, Vector3(0, -0.60, 0), iron)
@@ -573,7 +605,7 @@ func _foundry_tongs(point: Vector3, side: float) -> void:
 
 
 func _build_resonance() -> void:
-	var footprint := CATALOG.footprint(arena_id)
+	var footprint := _scaled_polygon(CATALOG.footprint(arena_id), 1.0 / CATALOG.LAYOUT_SCALE)
 	_prism(self, "AlabasterResonancePlinth", _scaled_polygon(footprint, 1.055), 0.65, Vector3(0, -0.49, 0), _materials["alabaster"])
 	_prism(self, "MidnightPlinthUndercut", _scaled_polygon(footprint, 1.02), 0.2, Vector3(0, -0.93, 0), _materials["midnight"])
 	_box(self, "MidnightReflectingBasin", Vector3(190, 0.05, 190), Vector3(0, -1.60, 0), _materials["water"])
@@ -648,6 +680,10 @@ func _acoustic_fan(point: Vector3, side: float, seed: int) -> void:
 
 
 func _build_perimeter(coping: Material, binding: Material, rail_height: float) -> void:
+	if float(_definition.get("corner_cut", 0.0)) > 0.0:
+		var outline := _scaled_polygon(CATALOG.footprint(arena_id), 1.0 / CATALOG.LAYOUT_SCALE)
+		_polygon_trim(outline, coping, binding, rail_height)
+		return
 	var half: Vector2 = _definition["half_size"]
 	var rail_width := 0.065 if arena_id == "clockwork" else 0.12
 	for side in [-1.0, 1.0]:
@@ -835,7 +871,8 @@ func _prism(parent: Node3D, label: String, outline: PackedVector2Array, thicknes
 		var b := outline[(i + 1) % outline.size()]
 		_quad(st, Vector3(a.x, -thickness * 0.5, a.y), Vector3(a.x, thickness * 0.5, a.y), Vector3(b.x, thickness * 0.5, b.y), Vector3(b.x, -thickness * 0.5, b.y))
 	st.generate_normals()
-	_instance(parent, label, st.commit(), point, material)
+	var instance := _instance(parent, label, st.commit(), point, material)
+	instance.set_meta("arena_prism", true)
 
 
 func _solid(label: String, size: Vector3, point: Vector3, yaw: float = 0.0) -> StaticBody3D:

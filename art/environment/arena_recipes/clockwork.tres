@@ -1,0 +1,27 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/arena_art_recipe.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+title = "Cœur d'horloge / acier et laiton"
+cover_style = "clock"
+stone = Color(0.463, 0.459, 0.518, 1)
+metal = Color(0.596, 0.427, 0.231, 1)
+paint = Color(0.208, 0.282, 0.337, 1)
+bright = Color(0.82, 0.675, 0.4, 1)
+dark = Color(0.161, 0.173, 0.196, 1)
+weathering = 0.62
+floor_wear = 0.55
+floor_grain = 0.76
+floor_texture_scale = 0.18
+floor_base = Color(0.454902, 0.462745, 0.529412, 1)
+floor_inlay = Color(0.678, 0.537, 0.353, 1)
+sun_color = Color(1, 0.867, 0.694, 1)
+sun_energy = 1.08
+ambient_color = Color(0.639, 0.671, 0.761, 1)
+ambient_energy = 0.36
+sky_top = Color(0.337, 0.404, 0.51, 1)
+sky_horizon = Color(0.635, 0.647, 0.706, 1)
+sky_ground_horizon = Color(0.384, 0.353, 0.408, 1)
+sky_energy = 0.7

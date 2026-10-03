@@ -104,7 +104,12 @@ func _test_map(identifier: String) -> void:
 	var definition: Dictionary = CATALOG.definition(identifier)
 	var half: Vector2 = definition.half_size
 	var open_map: bool = definition.get("mechanism", "") == "open"
-	_check(half.x * half.y < 29.0 * 29.0 * 0.15, identifier + ": playable floor is less than 15% of classic")
+	if identifier in ["heliostat", "tideglass", "clockwork"]:
+		var expected_vertices := {"heliostat": 4, "tideglass": 8, "clockwork": 8}
+		_check(CATALOG.footprint(identifier).size() == expected_vertices[identifier], identifier + ": distinctive rectangular, hexagonal or octagonal outline")
+		_check(definition.portals.is_empty() == (identifier in ["heliostat", "clockwork", "tideglass"]), identifier + ": specialized arenas replace teleporters with their own mechanisms")
+	_check(half.is_equal_approx(CATALOG.DEFINITIONS[identifier].half_size * 1.25), identifier + ": playable dimensions are enlarged by 25 percent")
+	_check(not definition.covers.is_empty() or identifier in ["clockwork", "tideglass"], identifier + ": static or runtime covers exist")
 	flow.call("_select_arena", identifier)
 	flow.call("_start_duel")
 	var mechanisms := scene.get_node_or_null("ArenaHazards")
@@ -122,7 +127,7 @@ func _test_map(identifier: String) -> void:
 	_check(_actor_clear(player) and _actor_clear(bot), identifier + ": both spawn capsules are outside solid geometry")
 	_check(_available_repairs() == 0, identifier + ": repairs cannot be collected during countdown")
 	var countdown_player := player.global_position
-	var fixture_point: Vector3 = definition.spawns[0] if open_map else definition.portals[0]
+	var fixture_point: Vector3 = definition.portals[0] if not definition.portals.is_empty() else definition.spawns[0]
 	player.global_position = fixture_point
 	mechanisms.call("advance", 20.0)
 	_check(is_zero_approx(float(mechanisms.get("elapsed"))) and player.global_position == fixture_point, identifier + ": countdown freezes mechanisms and actor transport")
@@ -149,12 +154,19 @@ func _test_map(identifier: String) -> void:
 			await _test_rotors(mechanisms)
 		else:
 			await _test_resonance(definition, mechanisms)
-	else:
+	elif identifier not in ["heliostat", "clockwork", "tideglass"]:
 		await _test_warning_damage(identifier, definition, mechanisms)
-		await _test_portals(identifier, definition, mechanisms)
+		if not definition.portals.is_empty():
+			await _test_portals(identifier, definition, mechanisms)
+		else:
+			_check(int(mechanisms.call("get_snapshot").portals) == 0, identifier + ": arena contains no teleporter")
 		await _test_boost_collision(identifier, definition, mechanisms)
 	if identifier == "clockwork":
-		await _test_shutters(mechanisms, definition)
+		_check(mechanisms.get("_clockwork") != null and mechanisms.get("_fixtures").is_empty(), "clockwork: pendulum replaces damaging lanes and gates")
+	if identifier == "heliostat":
+		_check(mechanisms.get_script().resource_path == "res://scripts/heliostat_arena.gd" and mechanisms.get("mirrors").size() == 2, "heliostat: solar controller and two physical reflectors replace fixed lanes")
+	if identifier == "tideglass":
+		_check(stage.has_node("TideglassArena") and mechanisms.get("_fixtures").is_empty(), "tideglass: tidal basin replaces damaging lanes")
 	await _test_bot_route(identifier, definition, mechanisms)
 	scene.call("stop_duel")
 	var stopped: Dictionary = mechanisms.call("get_snapshot")
@@ -171,7 +183,8 @@ func _test_geometry(identifier: String, definition: Dictionary, stage: Node) -> 
 	var half: Vector2 = definition.half_size
 	for point in definition.spawns + definition.portals + definition.repairs + definition.boosts:
 		var hit := _ray(point + Vector3(0, 0.5, 0), point - Vector3(0, 0.5, 0))
-		_check(not hit.is_empty() and absf(float(hit.get("position", Vector3.INF).y)) < 0.025, identifier + ": functional points have a colliding floor with top at zero")
+		var expected_y: float = point.y if identifier == "tideglass" else 0.0
+		_check(not hit.is_empty() and absf(float(hit.get("position", Vector3.INF).y) - expected_y) < 0.025, identifier + ": functional points have a colliding floor at their authored height")
 		if not hit.is_empty():
 			_check(stage.is_ancestor_of(hit.collider), identifier + ": only current floor collides below functional points")
 	for axis in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
@@ -187,14 +200,14 @@ func _test_geometry(identifier: String, definition: Dictionary, stage: Node) -> 
 
 
 func _test_open_geometry(identifier: String, definition: Dictionary, mechanisms: Node, stage: Node) -> void:
-	for fixture in ["portals", "boosts", "covers", "repairs", "hazards"]:
+	for fixture in ["portals", "boosts", "repairs", "hazards"]:
 		_check((definition[fixture] as Array).is_empty(), identifier + ": no authored " + fixture)
 	_check(get_nodes_in_group("repair_kits").is_empty(), identifier + ": neither current nor detached old repair kits remain collectible")
 	var interior_blockers := 0
 	for body in scene.get("_arena_blockers"):
 		if not body.get_meta("invisible_safety_limit", false):
 			interior_blockers += 1
-	_check(interior_blockers == 0, identifier + ": bot receives no invented interior cover")
+	_check(interior_blockers >= definition.covers.size(), identifier + ": bot receives the authored wall geometry")
 	var half: Vector2 = definition.half_size
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 		var cut_corner := Vector3(corner.x * (half.x - 0.6), 0, corner.y * (half.y - 0.6))
@@ -207,26 +220,28 @@ func _test_open_geometry(identifier: String, definition: Dictionary, mechanisms:
 		var beyond_edge := midpoint + outward
 		var boundary := _ray(Vector3(near_edge.x, 1, near_edge.y), Vector3(beyond_edge.x, 1, beyond_edge.y))
 		_check(not boundary.is_empty() and stage.is_ancestor_of(boundary.get("collider")), identifier + ": each octagonal edge stops a real ray")
-	for z in [-5.0, 0.0, 5.0]:
+	for z in [-5.0, 5.0]:
 		_check(_ray(Vector3(-6, 1, z), Vector3(6, 1, z)).is_empty(), identifier + ": combat lanes remain open without physical cover")
+	var wall: Vector3 = definition.covers[0].position
+	_check(not _ray(wall + Vector3(0, 0, -2), wall + Vector3(0, 0, 2)).is_empty(), identifier + ": authored wall blocks shots while side lanes stay open")
 	_check((mechanisms.call("get_threats") as Array).is_empty(), identifier + ": fresh open arena has no stale old trap threat")
 
 
 func _test_rotors(mechanisms: Node) -> void:
 	_reset_live(mechanisms)
-	player.global_position = Vector3(2, 0, 0)
-	bot.global_position = Vector3(6, 0, 0)
+	player.global_position = Vector3(4, 0, 0)
+	bot.global_position = Vector3(8, 0, 0)
 	player.velocity = Vector3(0.7, 0, 0.2)
 	var velocity_before := player.velocity
 	var player_life := float(player.call("get_health"))
 	var bot_life := float(bot.call("get_health"))
 	mechanisms.call("advance", 3.9)
-	_check(player.global_position == Vector3(2, 0, 0) and bot.global_position == Vector3(6, 0, 0), "gyre: grace period does not move either fighter")
+	_check(player.global_position == Vector3(4, 0, 0) and bot.global_position == Vector3(8, 0, 0), "gyre: grace period does not move either fighter")
 	mechanisms.call("advance", 1.4)
 	mechanisms.call("advance", 1.0)
 	var snapshot: Dictionary = mechanisms.call("get_snapshot")
 	_check(player.global_position.z * bot.global_position.z < 0.0 and absf(player.global_position.z) > 0.2 and absf(bot.global_position.z) > 0.4, "gyre: actual inner and outer fighters travel in opposite directions")
-	_check(absf(Vector2(player.global_position.x, player.global_position.z).length() - 2.0) < 0.01 and absf(Vector2(bot.global_position.x, bot.global_position.z).length() - 6.0) < 0.01, "gyre: opposing transport preserves each orbit radius")
+	_check(absf(Vector2(player.global_position.x, player.global_position.z).length() - 4.0) < 0.01 and absf(Vector2(bot.global_position.x, bot.global_position.z).length() - 8.0) < 0.01, "gyre: opposing transport preserves each orbit radius")
 	_check(player.velocity == velocity_before and float(player.call("get_health")) == player_life and float(bot.call("get_health")) == bot_life, "gyre: transport preserves movement ownership and both fighters' health")
 	var action_position := player.global_position
 	player.set("_dash_active", true)
@@ -246,9 +261,9 @@ func _test_rotors(mechanisms: Node) -> void:
 	var high_rate := _rotor_position_at_rate(mechanisms, 120)
 	_check(low_rate.distance_to(high_rate) < 0.015, "gyre: physical transport agrees at 30 and 120 updates per second")
 	_reset_live(mechanisms)
-	player.global_position = Vector3(2, 0, 0)
+	player.global_position = Vector3(4, 0, 0)
 	bot.global_position = Vector3(7, 0, 2)
-	var obstacle := _obstacle("RotorSafetyFixture", Vector3(2, 0.9, -1), Vector3(2, 1.8, 0.3))
+	var obstacle := _obstacle("RotorSafetyFixture", Vector3(4, 0.9, -1), Vector3(2, 1.8, 0.3))
 	await physics_frame
 	await physics_frame
 	mechanisms.call("advance", 4.0)
@@ -259,7 +274,7 @@ func _test_rotors(mechanisms: Node) -> void:
 	await physics_frame
 	# Real player movement runs between external transport steps.
 	_reset_live(mechanisms)
-	player.global_position = Vector3(2, 0, 0)
+	player.global_position = Vector3(4, 0, 0)
 	bot.global_position = Vector3(-7, 0, -4)
 	player.call("set_touch_move_vector", Vector2.ZERO)
 	player.velocity = Vector3.ZERO
@@ -274,7 +289,7 @@ func _test_rotors(mechanisms: Node) -> void:
 
 func _rotor_position_at_rate(mechanisms: Node, updates: int) -> Vector3:
 	_reset_live(mechanisms)
-	player.global_position = Vector3(2, 0, 0)
+	player.global_position = Vector3(4, 0, 0)
 	bot.global_position = Vector3(-7, 0, -4)
 	for frame in range(updates * 7):
 		mechanisms.call("advance", 1.0 / float(updates))
@@ -293,14 +308,15 @@ func _test_resonance(definition: Dictionary, mechanisms: Node) -> void:
 	mechanisms.call("advance", 3.9)
 	_check(not bool(mechanisms.call("trigger_resonator", 1)), "resonance: countdown grace rejects premature crystal shots")
 	mechanisms.call("advance", 0.2)
+	_check(bool(mechanisms.call("trigger_resonator", 0)), "resonance: player can initiate the first pulse")
 	mechanisms.call("advance", 0.5)
 	var snapshot: Dictionary = mechanisms.call("get_snapshot")
-	_check((snapshot.waves as Array).size() == 1 and str(snapshot.waves[0].phase) == "warning" and player.global_position == player_before and bot.global_position == bot_before, "resonance: periodic crystal clearly warns before applying pressure")
+	_check((snapshot.waves as Array).size() == 1 and str(snapshot.waves[0].phase) == "warning" and player.global_position == player_before and bot.global_position == bot_before, "resonance: shot-triggered crystal clearly warns before applying pressure")
 	paused = true
 	mechanisms.call("advance", 5.0)
 	_check(mechanisms.call("get_snapshot") == snapshot and not bool(mechanisms.call("trigger_resonator", 1)), "resonance: pause freezes waves and rejects crystal activation")
 	paused = false
-	for frame in range(180):
+	for frame in range(102):
 		mechanisms.call("advance", 1.0 / 60.0)
 	snapshot = mechanisms.call("get_snapshot")
 	_check(player.global_position.distance_to(player_before) > 1.1 and bot.global_position.distance_to(bot_before) > 1.1, "resonance: expanding annulus really pushes both fighters outward")
@@ -366,6 +382,7 @@ func _test_pressure_collision(definition: Dictionary, mechanisms: Node) -> void:
 	await physics_frame
 	await physics_frame
 	mechanisms.call("advance", 4.0)
+	mechanisms.call("trigger_resonator", 0)
 	mechanisms.call("advance", 3.0)
 	var travel := player.global_position.x - original.x
 	_check(travel > 0.02 and travel < 0.5 and _actor_clear(player), "resonance: actual pressure impulse stops at a thin solid instead of crossing it")
@@ -441,7 +458,8 @@ func _test_garage_selection() -> void:
 	for button in navigation.values():
 		_check(not selector.get_global_rect().intersects((button as Control).get_global_rect()), "garage: arena selector does not overlap " + str(button.text))
 	var build_title := garage.get("_header_name") as Control
-	_check(build_title != null and not selector.get_global_rect().intersects(build_title.get_global_rect()), "garage: arena selector %s does not overlap the build name %s" % [selector.get_global_rect(), build_title.get_global_rect() if build_title != null else Rect2()])
+	if build_title != null and build_title.is_visible_in_tree():
+		_check(not selector.get_global_rect().intersects(build_title.get_global_rect()), "garage: arena selector does not overlap the visible build name")
 	for identifier in ["hazards", "test"] + CATALOG.IDS:
 		var found := false
 		for index in range(selector.item_count):
@@ -676,6 +694,7 @@ func _actor_clear(actor: CollisionObject3D) -> bool:
 			query.transform = child.global_transform
 			query.collision_mask = 1 | 8
 			var exclusions: Array[RID] = [actor.get_rid()]
+			exclusions.append_array(preload("res://scripts/arena_traversal.gd").exclusions(actor))
 			# The grounded capsule touches the floor; check horizontal penetration.
 			var floor := scene.get_node_or_null("CompactArenaStage/CompactFloor") as CollisionObject3D
 			if floor != null:

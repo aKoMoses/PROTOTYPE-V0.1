@@ -1,0 +1,20 @@
+{
+  "asset": "omnivamp",
+  "triangles": 4352,
+  "material_batches": 7,
+  "bytes": 1245896,
+  "sha256": "02e39898b31187fc3455b99efe789e7cae26de24e2cecd2e2d19c4344a02e785",
+  "blender_bounds_min": [
+    -0.07578961551189423,
+    -0.05500000715255737,
+    -0.10330861806869507
+  ],
+  "blender_bounds_max": [
+    0.07578960806131363,
+    0.006000002846121788,
+    0.10330864042043686
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/passives/omnivamp.blend",
+  "design": "Paired jade recovery reservoirs with level channels, copper return circuit, ceramic crash guards, retaining straps and a real bored flow-regulator handwheel."
+}

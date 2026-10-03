@@ -1,0 +1,20 @@
+{
+  "asset": "eclipse",
+  "triangles": 6212,
+  "material_batches": 7,
+  "bytes": 1402824,
+  "sha256": "133562becf1caeeb3c954c21b7dea984da1186123c350eb0adbed00fb9152f3b",
+  "blender_bounds_min": [
+    -0.05271252244710922,
+    -0.04375000298023224,
+    -0.08886008709669113
+  ],
+  "blender_bounds_max": [
+    0.0517035648226738,
+    0.006000000052154064,
+    0.08775606006383896
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/four-active/eclipse.blend",
+  "design": "Compact torso occlusion emitter with an opaque lens, eight modelled iris blades, restrained half-ring amber light, swept ceramic crescent and open lower fork."
+}

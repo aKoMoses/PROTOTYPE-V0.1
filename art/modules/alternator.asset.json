@@ -1,0 +1,20 @@
+{
+  "asset": "alternator",
+  "triangles": 3944,
+  "material_batches": 8,
+  "bytes": 1265736,
+  "sha256": "19fd58465085fa93f983cc45f84b4fbc68fc3fd36696c531f7855964447a7f9f",
+  "blender_bounds_min": [
+    -0.07928016036748886,
+    -0.058500003069639206,
+    -0.10181133449077606
+  ],
+  "blender_bounds_max": [
+    0.07928016036748886,
+    0.006000000052154064,
+    0.10181133449077606
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/passives/alternator.blend",
+  "design": "Two-channel rotary commutator with eight separated copper contacts, cyan and amber charge sectors, a keyed spindle, ceramic yokes, carbon brush terminals and a bottom changeover relay."
+}

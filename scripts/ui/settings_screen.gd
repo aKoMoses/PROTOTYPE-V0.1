@@ -196,11 +196,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed or event.shift_pressed or event.keycode in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
 		_message.text = "Choisis une touche seule, sans modificateur."
+		get_node("/root/UiSfx").play("denied")
 		return
 	var problem := str(_preferences.call("rebind", _capture_action, event.keycode))
 	if not problem.is_empty():
 		_message.text = problem
+		get_node("/root/UiSfx").play("denied")
 		return
 	_cancel_capture()
 	_message.text = "Raccourci enregistré."
+	get_node("/root/UiSfx").play("confirmation")
 	get_viewport().gui_release_focus()

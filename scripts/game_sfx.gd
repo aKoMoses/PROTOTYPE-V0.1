@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 ## Ben's selected game sounds. One player per action keeps overlapping
 ## combat events independent; short cooldowns tame pellet and burn bursts.
 signal event_played(event_id: String)
@@ -310,6 +312,35 @@ func play_module_event(event_id: String, position: Vector3) -> AudioStreamPlayer
 	voice.play()
 	mark_combat()
 	event_played.emit(event_id)
+	return voice
+
+
+func play_combat_event(cue: String, position: Vector3, actor_id: int = 0) -> AudioStreamPlayer3D:
+	if _paused or not COMBAT_AUDIO.STREAMS.has(cue) or _module_voices.size() >= 24:
+		return null
+	var key := "combat:%d:%s" % [actor_id, cue]
+	var now := Time.get_ticks_msec()
+	if now - int(_last_played_ms.get(key, -100000)) < int(COMBAT_AUDIO.INTERVALS.get(cue, 40)):
+		return null
+	_last_played_ms[key] = now
+	if cue == "magnetic_block":
+		# The field owns this contact; suppress the historical generic layer.
+		_last_played_ms["magnetic_absorb"] = now
+	var voice := AudioStreamPlayer3D.new()
+	voice.stream = COMBAT_AUDIO.STREAMS[cue]
+	voice.bus = &"Effects"
+	voice.volume_db = -3.0
+	voice.unit_size = 18.0
+	voice.max_distance = 48.0
+	add_child(voice)
+	voice.global_position = position
+	_module_voices.append(voice)
+	voice.finished.connect(func() -> void:
+		_module_voices.erase(voice)
+		voice.queue_free()
+	)
+	voice.play()
+	event_played.emit(cue)
 	return voice
 
 

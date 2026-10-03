@@ -1,0 +1,24 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/arena_art_recipe.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+title = "Serre engloutie / céramique et cuivre"
+cover_style = "garden"
+stone = Color(0.722, 0.769, 0.706, 1)
+metal = Color(0.235, 0.412, 0.376, 1)
+paint = Color(0.224, 0.482, 0.459, 1)
+bright = Color(0.714, 0.608, 0.376, 1)
+dark = Color(0.114, 0.2, 0.192, 1)
+weathering = 0.83
+floor_wear = 0.8
+floor_grain = 0.55
+floor_texture_scale = 0.24
+sun_color = Color(0.886, 0.925, 0.824, 1)
+sun_energy = 1.08
+ambient_color = Color(0.576, 0.722, 0.702, 1)
+sky_top = Color(0.392, 0.557, 0.604, 1)
+sky_horizon = Color(0.776, 0.847, 0.792, 1)
+sky_ground_horizon = Color(0.373, 0.565, 0.545, 1)
+sky_energy = 0.7

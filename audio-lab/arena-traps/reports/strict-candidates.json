@@ -1,0 +1,222 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\tile-warning-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.59,
+    "peak": 0.354828,
+    "rms": 0.042664,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.22
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5517,
+    "median_transient_gap_seconds": 0.18,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\tile-warning-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.72,
+    "peak": 0.103302,
+    "rms": 0.03862,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.1111,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\tile-discharge-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.58,
+    "peak": 0.452606,
+    "rms": 0.035631,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.02
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.4483,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\tile-discharge-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.58,
+    "peak": 0.473145,
+    "rms": 0.035631,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.4
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7586,
+    "median_transient_gap_seconds": 0.36,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-warning-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.9749,
+    "peak": 0.240967,
+    "rms": 0.018343,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.5
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7708,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-warning-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.75,
+    "peak": 0.375824,
+    "rms": 0.020913,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.02,
+      0.4,
+      0.52
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.6757,
+    "median_transient_gap_seconds": 0.25,
+    "transient_gap_cv": 0.52,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-shot-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.22,
+    "peak": 0.218658,
+    "rms": 0.036339,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.4545,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-shot-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.21,
+    "peak": 0.446655,
+    "rms": 0.037194,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-salvo-2-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.495,
+    "peak": 0.218658,
+    "rms": 0.033666,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.28
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-salvo-2-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.485,
+    "peak": 0.446655,
+    "rms": 0.034012,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.24
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5833,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-salvo-3-A.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.735,
+    "peak": 0.218658,
+    "rms": 0.033244,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.28,
+      0.52
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\arena-traps\\candidates\\cannon-salvo-3-B.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.725,
+    "peak": 0.446655,
+    "rms": 0.033473,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.24,
+      0.48
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.6111,
+    "median_transient_gap_seconds": 0.24,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

@@ -107,16 +107,20 @@ func _initialize() -> void:
 		garage.module_installation.finish_now()
 	check(stage.weapon_id == "shotgun" and garage.loadout.weapon == "shotgun", "vrai shotgun et selection en brouillon")
 	var module_baseline: Dictionary = garage.loadout.duplicate(true)
-	module_baseline.defensive = "magnetic_field"
+	module_baseline.defensive = "counter"
+	module_baseline.passive = "auxiliary_reactor"
 	garage.restore_draft({"loadout": module_baseline, "name": garage.build_name, "id": garage.build_id})
-	garage.call("_open_modules", "defensive")
+	garage.call("_open_modules", "passive")
 	var picker: GridContainer = garage.get("_module_options")
 	check(picker.columns == 1, "modules presentes en liste lisible")
-	var generic_before: Dictionary = garage.loadout.duplicate(true)
-	(garage._choices.defensive["static_shield"] as Button).pressed.emit()
-	check(garage.loadout == generic_before and not garage.module_installation.active, "aperçu du bouclier conserve le brouillon")
+	var passive_before: Dictionary = garage.loadout.duplicate(true)
+	(garage._choices.passive["omnivamp"] as Button).pressed.emit()
+	check(garage.loadout == passive_before and not garage.module_installation.active, "aperçu d'Omnivamp conserve le brouillon")
 	garage.equip_button.pressed.emit()
-	check(garage.loadout.defensive == "static_shield" and not garage.module_installation.active and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "choix sans modele applique directement sans transport ni sauvegarde")
+	check(garage.module_installation.active and garage.loadout == passive_before, "le passif réel est transporté avant de modifier le brouillon")
+	garage.module_installation.finish_now()
+	check(garage.loadout.passive == "omnivamp" and not garage.module_installation.active and flow.get("loadout") == before and LOADOUT.load_local() == saved_before, "passif fixé sans écraser le build actif ni sa sauvegarde")
+	garage.call("_open_modules", "defensive")
 	var defense := "magnetic_field"
 	var draft_before: Dictionary = garage.loadout.duplicate(true)
 	(garage._choices.defensive[defense] as Button).pressed.emit()
@@ -191,7 +195,7 @@ func check_robot_rotation(garage: Control, stage) -> void:
 	await mouse_motion(Vector2(510, 60), Vector2(160, 0), true)
 	await mouse_button(Vector2(510, 60), false)
 	check(is_equal_approx(stage.robot.rotation.y, rotated_angle), "cliquer le decor ne fait pas tourner le robot")
-	var button: Button = garage.station_buttons["offensive"]
+	var button: Button = garage._nav["MODULES"]
 	var button_point: Vector2 = button.get_global_rect().get_center()
 	await mouse_button(button_point, true)
 	await mouse_motion(button_point + Vector2(12, 0), Vector2(12, 0), true)

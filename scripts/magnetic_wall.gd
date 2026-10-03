@@ -1,5 +1,7 @@
 extends Area3D
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 ## Projectile surface stays on layer 8; the solid body uses a separate layer
 ## so sight and weapon queries still see the energy surface, not its chassis.
 const FIELD_SHADER := preload("res://shaders/magnetic_wall.gdshader")
@@ -7,6 +9,8 @@ const SOLID_LAYER := 16
 const GROUP := "prototype0_magnetic_walls"
 
 var owner_rid := RID()
+var _audio_owner: WeakRef
+var _expiry_sound_played := false
 var width := 4.0
 var height := 2.4
 var duration := 2.5
@@ -20,6 +24,7 @@ var _edge: StandardMaterial3D
 
 func configure(actor: CollisionObject3D, next_width: float, next_height: float, lifetime: float) -> void:
 	owner_rid = actor.get_rid()
+	_audio_owner = weakref(actor)
 	width = next_width
 	height = next_height
 	duration = lifetime
@@ -97,6 +102,19 @@ func _ready() -> void:
 	_register_actors(get_tree().current_scene)
 	get_tree().node_added.connect(_actor_added)
 	_build_visual()
+	_play_placement_audio.call_deferred()
+
+
+func _play_placement_audio() -> void:
+	if not is_queued_for_deletion():
+		COMBAT_AUDIO.play(_audio_owner.get_ref() as Node3D if _audio_owner != null else null, "magnetic_place", global_position)
+
+
+func expire() -> void:
+	if not _expiry_sound_played:
+		_expiry_sound_played = true
+		COMBAT_AUDIO.play(_audio_owner.get_ref() as Node3D if _audio_owner != null else null, "magnetic_end", global_position)
+	queue_free()
 
 
 func _register_actors(node: Node) -> void:
@@ -173,6 +191,7 @@ func _box(position_value: Vector3, size_value: Vector3, material: Material) -> v
 
 
 func projectile_impact(point: Vector3) -> void:
+	COMBAT_AUDIO.play(_audio_owner.get_ref() as Node3D if _audio_owner != null else null, "magnetic_block", point)
 	if _field == null:
 		return
 	var local := to_local(point)

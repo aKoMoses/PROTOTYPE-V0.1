@@ -52,9 +52,6 @@ func _run() -> void:
 	var saved_before_selection: Dictionary = loadout_script.load_local()
 	official.call("_navigate", "ARMES")
 	(official.get("weapon_buttons")["shotgun"] as Button).pressed.emit()
-	(official.get("equip_button") as Button).pressed.emit()
-	if official.get("module_installation").active:
-		official.get("module_installation").finish_now()
 	var restored: Dictionary = loadout_script.load_local()
 	_check(official.get("loadout").weapon == "shotgun" and restored == saved_before_selection, "weapon selection changes the draft without saving it")
 	var escape := InputEventKey.new()

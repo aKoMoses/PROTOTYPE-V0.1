@@ -112,6 +112,14 @@ var _round_serial := 0
 var _teleports := 0
 var _boost_count := 0
 var _shader: Shader
+var _clockwork: Node3D
+var _tideglass: Node3D
+
+
+func set_stage(stage: Node3D) -> void:
+	if arena_id == "tideglass":
+		_tideglass = stage.get_node("TideglassArena")
+		_tideglass.call("configure_actors", _actors)
 
 
 func _ready() -> void:
@@ -127,7 +135,8 @@ func _ready() -> void:
 	_build_portals()
 	_build_boosts()
 	if arena_id == "clockwork":
-		_build_shutters()
+		_clockwork = preload("res://scripts/clockwork_mechanism.gd").new()
+		add_child(_clockwork)
 	visible = enabled
 	_reset_visuals()
 
@@ -162,12 +171,16 @@ func reset_round() -> void:
 
 func start_round() -> void:
 	running = enabled
+	if is_instance_valid(_tideglass):
+		_tideglass.set("active", running)
 	for portal in _portals:
 		(portal.swirl as ShaderMaterial).set_shader_parameter("live", 1.0 if running else 0.0)
 
 
 func stop_round() -> void:
 	running = false
+	if is_instance_valid(_tideglass):
+		_tideglass.call("stop")
 	_boost_motion.clear()
 	for fixture in _fixtures:
 		fixture.phase = "idle"
@@ -182,6 +195,14 @@ func _physics_process(delta: float) -> void:
 func advance(delta: float) -> void:
 	if not enabled or not running or not is_inside_tree() or get_tree().paused or delta <= 0.0:
 		return
+	if is_instance_valid(_tideglass):
+		_tideglass.call("advance", delta)
+		elapsed += delta
+		return
+	if is_instance_valid(_clockwork):
+		_clockwork.call("advance", delta)
+		elapsed += delta
+		return
 	elapsed += delta
 	for fixture in _fixtures:
 		if fixture.phase != "idle":
@@ -195,7 +216,7 @@ func advance(delta: float) -> void:
 		if fixture.phase == "active":
 			_damage_fixture(fixture)
 		_update_fixture_visual(fixture)
-	if elapsed >= _next_event_at:
+	if not _fixtures.is_empty() and elapsed >= _next_event_at:
 		_warn_fixture(_event_index % _fixtures.size())
 		_event_index += 1
 		_next_event_at = GRACE_SECONDS + float(_event_index) * float(_definition.period)
@@ -246,6 +267,8 @@ func get_threats() -> Array[Dictionary]:
 	var threats: Array[Dictionary] = []
 	if not running or not enabled:
 		return threats
+	if is_instance_valid(_clockwork):
+		return _clockwork.call("get_threats")
 	for fixture in _fixtures:
 		if fixture.phase == "idle":
 			continue
@@ -272,6 +295,16 @@ func threat_at(point: Vector3, margin: float = 0.0, known_threats: Array[Diction
 
 
 func get_snapshot() -> Dictionary:
+	if is_instance_valid(_tideglass):
+		var snapshot: Dictionary = _tideglass.call("get_snapshot")
+		snapshot.merge({"arena_id": arena_id, "enabled": enabled, "running": running, "elapsed": elapsed,
+			"tier": 1, "busy": 0, "bolts": 0, "portals": 0, "teleports": 0, "boosts": 0, "shutters": []})
+		return snapshot
+	if is_instance_valid(_clockwork):
+		var snapshot: Dictionary = _clockwork.call("get_snapshot")
+		snapshot.merge({"arena_id": arena_id, "enabled": enabled, "running": running, "elapsed": elapsed,
+			"tier": 1, "bolts": 0, "portals": 0, "teleports": 0, "boosts": 0, "shutters": []})
+		return snapshot
 	var phases: Array[String] = []
 	var shutters: Array[String] = []
 	var busy := 0
@@ -687,7 +720,7 @@ func _build_shutters() -> void:
 	var metal := _material(_definition.metal, 0.3)
 	var dark := _material(_definition.floor.darkened(0.28), 0.4)
 	for index in range(2):
-		var at := Vector3(0, 0, -5.3 if index == 0 else 5.3)
+		var at := Vector3(0, 0, (-5.3 if index == 0 else 5.3) * CATALOG.LAYOUT_SCALE)
 		var root := Node3D.new()
 		root.name = "RhythmicShutter%d" % (index + 1)
 		root.position = at
@@ -724,6 +757,10 @@ func _build_shutters() -> void:
 
 
 func _reset_visuals() -> void:
+	if is_instance_valid(_tideglass):
+		_tideglass.call("reset_round")
+	if is_instance_valid(_clockwork):
+		_clockwork.call("reset_round")
 	for fixture in _fixtures:
 		_update_fixture_visual(fixture)
 	for portal in _portals:

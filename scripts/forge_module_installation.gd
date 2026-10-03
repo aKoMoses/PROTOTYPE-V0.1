@@ -6,12 +6,14 @@ signal mounted(category: String, identifier: String)
 signal completed(identifier: String)
 signal cancelled
 
+const INSTALLATION_AUDIO := preload("res://scripts/forge_installation_audio.gd")
+
 const DURATION := 7.05
 const WORK_TIME := 0.80
 const JOINT_NAMES := ["BaseYaw", "Shoulder", "Elbow", "Wrist"]
 const PHASES := ["approach", "pickup", "lift", "carry", "align", "work", "release", "return"]
 const TIMES := [1.55, 0.35, 0.55, 1.70, 0.55, WORK_TIME, 0.35, 1.20]
-const REAL_MODULES := ["pyro_boots", "bio_injector", "rocket_basket", "magnetic_field", "auxiliary_reactor"]
+const REAL_MODULES := ["pyro_boots", "bio_injector", "rocket_basket", "magnetic_field", "auxiliary_reactor", "fulguro_punch", "static_shield", "javelin", "projector", "pelto_smash", "counter", "permutation", "eclipse", "baroud", "omnivamp", "tracker", "alternator", "inertia"]
 const LIMITS := [Vector2(-180, 180), Vector2(-55, 85), Vector2(18, 145), Vector2(-95, 85)]
 
 var stage
@@ -60,6 +62,7 @@ var _camera_started := false
 var _restoring := false
 var _lens_distance := 10.0
 var _lens_transition := 3.0
+var audio: INSTALLATION_AUDIO
 
 
 func configure(garage_stage: Node, equipment_focus: Node) -> void:
@@ -86,6 +89,8 @@ func _ready() -> void:
 		_bones[label.to_lower().trim_prefix("mixamorig_").trim_prefix("mixamorig:")] = index
 	stage.arm.manual_control_cancelled.connect(_forced_cancel)
 	_build_carriage()
+	audio = INSTALLATION_AUDIO.new()
+	add_child(audio)
 	set_process(false)
 
 
@@ -124,7 +129,9 @@ func begin(identifier: String, kind: String = "") -> bool:
 	_shoulder_offset = _joints[1].global_position - stage.arm.global_position
 	_source_base = _base_for(_source.origin)
 	_mount_pose = _mount_transform(identifier, category)
-	_lift_point = _source.origin + Vector3(0, 0.52, 0.24)
+	# Wall hooks release toward the aisle before transport; a high vertical lift
+	# would take the upper weapons beyond the mechanic's articulated reach.
+	_lift_point = _source.origin + (Vector3(0, 0.12, 0.48) if category == "weapon" else Vector3(0, 0.52, 0.24))
 	_approach_point = _mount_pose.origin + _front() * 0.34
 	active = true
 	mounted_module = false
@@ -138,6 +145,8 @@ func begin(identifier: String, kind: String = "") -> bool:
 	focus.set_process(false)
 	_carriage.visible = true
 	_gripper.visible = true
+	audio.stop_all()
+	audio.enter_phase(phase)
 	set_process(true)
 	return true
 
@@ -207,6 +216,7 @@ func _advance_motion(delta: float) -> void:
 		_orient_payload(1.0)
 		worked_seconds = minf(WORK_TIME, _phase_elapsed)
 		stage.arm.particles.emitting = time > 0.10 and time < 0.76
+		audio.set_welding(stage.arm.particles.emitting)
 		_pulse.global_position = _mount_pose.origin + _front() * 0.14
 		_pulse.light_energy = sin(time * PI) * (0.45 + sin(time * 51.0) * 0.10)
 	elif phase == "release":
@@ -241,6 +251,7 @@ func _next_phase() -> void:
 		return
 	_phase_elapsed = 0.0
 	phase = PHASES[_phase_index]
+	audio.enter_phase(phase)
 	if phase == "align" and category == "weapon" and is_instance_valid(stage.weapon_socket):
 		stage.weapon_socket.visible = false
 	if phase == "return":
@@ -256,6 +267,10 @@ func _drive_to_bay(time: float) -> void:
 	var shoulder_bay := _source_base + _shoulder_offset
 	var front_z := maxf(2.15, shoulder_bay.z + 0.45)
 	var outside_x := maxf(2.40, shoulder_bay.x)
+	if category == "weapon":
+		# Reach the rear wall through the inside aisle, clear of the defensive
+		# cabinet, then cross behind it to the pickup stance.
+		outside_x = minf(outside_x, 5.80)
 	var points: Array[Vector3] = [start, Vector3(outside_x, shoulder_home.y, front_z) - _shoulder_offset, Vector3(outside_x, shoulder_bay.y, shoulder_bay.z) - _shoulder_offset, _source_base]
 	if shoulder_bay.z >= 0.10:
 		points[2] = Vector3(shoulder_bay.x, shoulder_bay.y, front_z) - _shoulder_offset
@@ -289,6 +304,10 @@ func _path(points: Array[Vector3], time: float) -> Vector3:
 func _base_for(target: Vector3) -> Vector3:
 	# Keeping the shoulder outside the body allows a compact, bounded elbow pose.
 	var reach := lerpf(1.86, 1.40, clampf((target.y - 0.40) / 2.70, 0.0, 1.0))
+	if category == "weapon":
+		# Bring the wheeled shoulder closer to the upper wall hooks.
+		# The lower hooks also keep the carriage entirely inside the right wall.
+		reach = lerpf(minf(reach, 1.15), 0.75, clampf((target.y - 2.20) / 1.30, 0.0, 1.0))
 	var side := Vector3.RIGHT
 	var facing := Vector3.BACK
 	if equipment_id in REAL_MODULES and phase in ["carry", "align", "work", "release"]:
@@ -381,6 +400,7 @@ func _take_from_bay() -> void:
 	_payload.reparent(_gripper, true)
 	_provider().set_item_visible(equipment_id, false)
 	reached_module = true
+	audio.play("pickup")
 
 
 func _orient_payload(weight: float) -> void:
@@ -420,6 +440,7 @@ func _mount_payload() -> void:
 	_payload = null
 	mounted_module = true
 	mounted.emit(category, equipment_id)
+	audio.play("lock")
 
 
 func sync_loadout(_loadout: Dictionary) -> void:
@@ -453,7 +474,7 @@ func _start_phase_camera() -> void:
 	_camera_from = stage.camera.global_transform
 	_camera_fov_from = stage.camera.fov
 	var bounds := AABB(_source.origin - Vector3(0.65, 0.45, 0.40), Vector3(1.30, 0.90, 0.80))
-	var side: float = {"weapon": 0.55, "offensive": -0.40, "defensive": 0.90, "passive": -0.65, "mobility": 0.65}.get(category, 0.26)
+	var side: float = {"weapon": -0.55, "offensive": -0.40, "defensive": 0.90, "passive": -0.65, "mobility": 0.65}.get(category, 0.26)
 	var direction := Vector3(side, 0.60 if category == "passive" else 0.18, 1).normalized()
 	_phase_fov = 37.0
 	if phase in ["carry", "lift"]:
@@ -509,10 +530,18 @@ func _return_home(time: float) -> void:
 
 func complete_immediately() -> void:
 	# Traverse the same contacts and signals even when the player skips the shot.
+	if not active:
+		return
+	var already_mounted := mounted_module
+	audio.stop_all()
+	audio.suppressed = true
 	var steps := 0
 	while active and steps < 260:
 		advance(1.0 / 30.0)
 		steps += 1
+	audio.suppressed = false
+	if mounted_module and not active and not already_mounted:
+		audio.play("lock")
 
 
 func finish_now() -> void:
@@ -546,6 +575,7 @@ func _finish() -> void:
 
 func _restore(overview: bool) -> void:
 	_restoring = true
+	audio.stop_all()
 	_provider().set_item_visible(equipment_id, true)
 	if category == "weapon" and not mounted_module and is_instance_valid(stage.weapon_socket):
 		stage.weapon_socket.visible = _weapon_visible

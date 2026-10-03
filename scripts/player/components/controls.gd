@@ -15,6 +15,7 @@ var _desktop_down_last := false
 
 func advance_input_time(delta: float) -> void:
 	_input_time += maxf(0.0, delta)
+	_interrupt_water_attack()
 	if not _queued_command.is_empty() and _input_time > float(_queued_command.expires):
 		_queued_command.clear()
 
@@ -44,6 +45,8 @@ func _static_shield_remaining() -> float:
 
 
 func _module_blocked(action: String) -> bool:
+	if action == "offensive" and ARENA_TRAVERSAL.attack_blocked(player):
+		return true
 	var module_id := _module_id(action)
 	# Static Shield preempts casts and crowd control; only its recharge gates entry.
 	if module_id == "static_shield":
@@ -59,6 +62,8 @@ func _module_blocked(action: String) -> bool:
 
 
 func request_module_command(action: String, touch: bool = false, released: bool = false) -> bool:
+	if action == "offensive" and ARENA_TRAVERSAL.attack_blocked(player):
+		return false
 	var module_id := _module_id(action)
 	if module_id.is_empty() or not player._gameplay_enabled or player.is_real_dead():
 		return false
@@ -115,6 +120,8 @@ func _execute_module_command(command: Dictionary) -> bool:
 
 
 func _weapon_unavailable() -> bool:
+	if ARENA_TRAVERSAL.attack_blocked(player):
+		return true
 	if player._action_incapacitated() or player._action_gate.is_busy() or player._action_gate.was_claimed_this_frame():
 		return true
 	var now := Time.get_ticks_msec() / 1000.0
@@ -127,6 +134,9 @@ func _weapon_unavailable() -> bool:
 
 
 func execute_buffered_command() -> void:
+	if ARENA_TRAVERSAL.attack_blocked(player):
+		_queued_command.clear()
+		return
 	if _queued_command.is_empty():
 		return
 	if not player._gameplay_enabled or player.is_real_dead() or _input_time > float(_queued_command.expires) or str(_queued_command.weapon) != player._weapon_id:
@@ -221,6 +231,19 @@ func _update_movement(delta: float) -> void:
 	player.velocity = ARENA_TRAVERSAL.motion(player, player.velocity * delta) / maxf(delta, 0.001)
 	player.move_and_slide()
 	ARENA_TRAVERSAL.snap(player)
+	_interrupt_water_attack()
+
+
+func _interrupt_water_attack() -> void:
+	if not ARENA_TRAVERSAL.attack_blocked(player):
+		return
+	_queued_command.clear()
+	# Cancel asynchronous shots as well as charges before they can resolve.
+	player._interrupt_weapon_for_module()
+	if player._active_module_id == player._offensive_module_id:
+		player._cancel_fulguro_attack()
+		player._cancel_pelto_smash()
+		player._cancel_pending_module_action()
 
 
 func _get_actual_move_velocity() -> Vector3:
@@ -329,6 +352,8 @@ func _normalized_aim_direction() -> Vector3:
 
 
 func get_weapon_aim_preview() -> Dictionary:
+	if ARENA_TRAVERSAL.attack_blocked(player):
+		return {}
 	if not player._uses_local_feedback() or not player._gameplay_enabled or player.is_real_dead() or player._weapon_id not in ["blaster", "longshot"]:
 		return {}
 	# Only a currently held, accepted fire input owns this guide. Movement,
@@ -484,6 +509,8 @@ func _action_incapacitated() -> bool:
 
 
 func _try_begin_weapon_action(action_id: String) -> int:
+	if ARENA_TRAVERSAL.attack_blocked(player):
+		return 0
 	if player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE):
 		return 0
 	var token: int = player._action_gate.try_acquire(PLAYER_STATE.ACTION_GATE.Kind.WEAPON, action_id)
@@ -493,6 +520,8 @@ func _try_begin_weapon_action(action_id: String) -> int:
 
 
 func _try_begin_module_action(module_id: String) -> int:
+	if module_id == player._offensive_module_id and ARENA_TRAVERSAL.attack_blocked(player):
+		return 0
 	var action_token := 0
 	if module_id == "static_shield":
 		if not player._gameplay_enabled or player.is_real_dead() or not player._module_ready(module_id):
@@ -538,6 +567,8 @@ func _interrupt_weapon_for_module() -> void:
 
 
 func _module_action_can_execute(action_token: int, module_id: String) -> bool:
+	if module_id == player._offensive_module_id and ARENA_TRAVERSAL.attack_blocked(player):
+		return false
 	return player._action_gate.owns(action_token, PLAYER_STATE.ACTION_GATE.Kind.MODULE, module_id) and not player._action_incapacitated()
 
 
@@ -599,6 +630,7 @@ func get_action_owner() -> String:
 
 
 func _update_attack(force_action_blocked: bool = false) -> void:
+	force_action_blocked = force_action_blocked or ARENA_TRAVERSAL.attack_blocked(player)
 	var desktop_wants_attack: bool = player._desktop_attack_input_held()
 	if not desktop_wants_attack:
 		player._desktop_attack_rearm_required = false

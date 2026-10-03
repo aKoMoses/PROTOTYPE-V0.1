@@ -130,7 +130,7 @@ func _run() -> void:
 	garage.build_name = "ABCDEFGHIJKLMNOPQRSTUVWXYZ12"
 	garage._refresh_build_names()
 	await process_frame
-	check(garage._build_selector.get_rect().end.x < 285 and garage._header_name.get_rect().position.x >= 974, "les noms longs restent contenus dans le selecteur et l'entete")
+	check(garage._build_selector.get_rect().end.x < garage._build_menu.position.x and garage._build_selector.clip_text, "les noms longs restent contenus dans le selecteur unique")
 	garage.queue_free()
 	await process_frame
 	for path in [LIB_PATH, OLD_PATH]:

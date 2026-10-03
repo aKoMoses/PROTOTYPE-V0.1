@@ -3,6 +3,9 @@ extends Node
 ## Inspection camera and short equipment cues; no combat state is changed.
 const TRANSITION_TIME := 0.52
 const EFFECT_TIME := 1.65
+const GARAGE_ORBIT_PERIOD := 18.0
+const GARAGE_ORBIT_AMPLITUDE := 0.10
+const GARAGE_ORBIT_RESUME := 1.5
 const COLORS := {
 	"weapon": Color("#77e5ff"), "offensive": Color("#ffac52"),
 	"defensive": Color("#68bfff"), "mobility": Color("#ffcf65"),
@@ -39,6 +42,11 @@ var _chassis_scale := 1.0
 var station_category := ""
 var _from_fov := 31.0
 var _target_fov := 31.0
+var _via_garage := false
+var _garage_orbit_phase := 0.0
+var _garage_orbit_speed := 0.0
+var _station_hovered := false
+var _catalog_bounds := AABB()
 
 
 func configure(garage_stage: Node, picker: Control, interface: Control) -> void:
@@ -91,16 +99,17 @@ func fit_layout() -> void:
 	# Keep the model's size relative to the letterboxed interface at narrow ratios.
 	_framed_chassis = stage.chassis_id
 	_design_fov = _authored_fov + (6.0 if _framed_chassis == "puissant" else 0.0)
-	var design_height := 720.0 * _ui.scale.y
+	var design_height := _ui.size.y * _ui.scale.y
 	_base_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(_design_fov * 0.5)) * stage.size.y / maxf(design_height, 1.0)))
-	if zone not in ["garage", "station"]:
+	if zone not in ["garage", "station", "catalog"]:
 		_target_fov = _base_fov
-	if zone not in ["garage", "station"] and (not stage._equipment_focused or zone != "robot"):
+	if zone not in ["garage", "station", "catalog"] and (not stage._equipment_focused or zone != "robot"):
 		stage.camera.fov = _base_fov
 	_reframe()
 
 
 func show_equipment(kind: String, identifier: String, play_effect: bool = true) -> void:
+	_via_garage = false
 	station_category = ""
 	_from_fov = stage.camera.fov
 	_target_fov = _base_fov
@@ -122,6 +131,7 @@ func show_equipment(kind: String, identifier: String, play_effect: bool = true) 
 
 
 func show_overview(animated: bool = true) -> void:
+	_via_garage = false
 	station_category = ""
 	_from_fov = stage.camera.fov
 	_target_fov = _base_fov
@@ -139,10 +149,14 @@ func show_overview(animated: bool = true) -> void:
 
 
 func show_garage(animated: bool = true) -> void:
+	_via_garage = false
 	category = "robot"
 	equipment_id = ""
 	station_category = ""
 	zone = "garage"
+	_garage_orbit_phase = 0.0
+	_garage_orbit_speed = 0.0
+	_station_hovered = false
 	_from = stage.camera.global_transform
 	_from_fov = stage.camera.fov
 	_target_fov = 40.0
@@ -155,10 +169,36 @@ func show_garage(animated: bool = true) -> void:
 		stage.camera.fov = _target_fov
 
 
+func set_station_hovered(value: bool) -> void:
+	_station_hovered = value
+	if value:
+		_garage_orbit_speed = 0.0
+
+
+func _garage_orbit(base: Transform3D, delta: float, settled: bool) -> Transform3D:
+	# Freeze the phase at its current pose while the player aims or drags.
+	# Ramp only its speed on release, so resuming never recentres the camera.
+	var paused: bool = not settled or _station_hovered or stage._rotating_robot or stage.arm.active or not stage.is_visible_in_tree()
+	if paused:
+		_garage_orbit_speed = 0.0
+	else:
+		var step := minf(delta, 0.1)
+		_garage_orbit_speed = move_toward(_garage_orbit_speed, 1.0, step / GARAGE_ORBIT_RESUME)
+		_garage_orbit_phase = fposmod(_garage_orbit_phase + step * _garage_orbit_speed * TAU / GARAGE_ORBIT_PERIOD, TAU)
+	var pivot: Vector3 = stage.robot.global_position + Vector3(0, 1.35, 0)
+	var radial := base.origin - pivot
+	var radius := maxf(Vector2(radial.x, radial.z).length(), 1.0)
+	var angle := sin(_garage_orbit_phase) * GARAGE_ORBIT_AMPLITUDE / radius
+	var orbit := Basis(Vector3.UP, angle)
+	# Rotate both pose and aim around the same pivot: no zoom or vertical bob.
+	return Transform3D(orbit * base.basis, pivot + orbit * radial)
+
+
 func show_station(kind: String, animated: bool = true) -> void:
 	var provider := _station_provider(kind)
 	if provider == null or not COLORS.has(kind):
 		return
+	_via_garage = animated and zone == "station" and station_category != kind
 	category = kind
 	equipment_id = ""
 	station_category = kind
@@ -180,10 +220,18 @@ func show_station(kind: String, animated: bool = true) -> void:
 
 
 func _garage_transform() -> Transform3D:
+	if bool(_ui.get_meta("garage_hero", false)):
+		var hero: AABB = stage.robot.global_transform * stage._robot_pick_bounds
+		var compact: bool = _ui.get_meta("garage_hero_compact", false)
+		hero = hero.merge(AABB(Vector3(-1.6, 0, -1.6), Vector3(3.2, 3.3, 3.2)) if compact else AABB(Vector3(-2.2, 0, -1.7), Vector3(5.0, 3.7, 4.2)))
+		return cinematic_frame(hero, Vector3(-0.06, 0.28, 1.0), 40.0)
 	var bounds := AABB(Vector3(-4.35, 0.1, -3.6), Vector3(8.65, 3.5, 6.0))
 	if stage.weapon_rack != null:
 		bounds = bounds.merge(stage.weapon_rack.bounds("weapon").grow(0.22))
-	return cinematic_frame(bounds, Vector3(-0.24, 0.25, 1.0), 40.0)
+	if stage.module_stations != null:
+		for category in stage.module_stations.CATEGORIES:
+			bounds = bounds.merge(stage.module_stations.bounds(category).grow(0.35))
+	return cinematic_frame(bounds, Vector3(-0.06, 0.32, 1.0), 40.0)
 
 
 func _station_provider(kind: String) -> Node3D:
@@ -195,7 +243,9 @@ func _station_transform() -> Transform3D:
 	if provider == null:
 		return _garage_transform()
 	var bounds: AABB = provider.bounds(station_category).grow(0.22)
-	var direction := Vector3(float({"weapon": 0.55, "offensive": -0.36, "defensive": 0.9, "passive": -0.65, "mobility": 0.24}.get(station_category, 0.0)), 0.60 if station_category == "passive" else 0.24, 1.0)
+	# Observe the bays from the central aisle. The former outward angles put
+	# the camera behind the side walls after the bays were moved apart.
+	var direction := Vector3(float({"weapon": -0.55, "offensive": -0.05, "defensive": -0.55, "passive": 0.45, "mobility": -0.45}.get(station_category, 0.0)), 0.38, 1.0)
 	return cinematic_frame(bounds, direction, _target_fov)
 
 
@@ -232,6 +282,22 @@ func preview_equipment(kind: String, identifier: String) -> void:
 	_build_effects()
 
 
+func show_catalog_preview(kind: String, identifier: String, bounds: AABB) -> void:
+	_via_garage = false
+	category = kind
+	equipment_id = identifier
+	station_category = kind if kind != "robot" else ""
+	_catalog_bounds = bounds
+	zone = "catalog"
+	_from = stage.camera.global_transform
+	_from_fov = stage.camera.fov
+	_target_fov = 36.0
+	_transition = 0.0
+	stage.set_equipment_focus(true)
+	_clear_effects()
+	effect_elapsed = EFFECT_TIME
+
+
 func _process(delta: float) -> void:
 	advance(delta)
 
@@ -243,17 +309,28 @@ func advance(delta: float) -> void:
 			var bone: String = stage.skeleton.get_bone_name(index)
 			_bones[bone.to_lower().trim_prefix("mixamorig_").trim_prefix("mixamorig:")] = index
 		fit_layout()
+	var settled := _transition >= 1.0
 	var duration := 0.9 if zone in ["garage", "station"] else TRANSITION_TIME
 	_transition = minf(_transition + delta / duration, 1.0)
 	var weight := _transition * _transition * _transition * (_transition * (_transition * 6.0 - 15.0) + 10.0)
 	var desired := _base
 	if zone == "garage":
-		desired = _garage_transform()
+		desired = _garage_orbit(_garage_transform(), delta, settled)
 	elif zone == "station":
 		desired = _station_transform()
+	elif zone == "catalog":
+		desired = cinematic_frame(_catalog_bounds, Vector3(0.12, 0.19, 1), _target_fov)
 	elif zone != "robot":
 		desired = _focused_transform()
-	stage.camera.global_transform = _from.interpolate_with(desired, weight)
+	if _via_garage and zone == "station":
+		# Pull back into the open aisle before travelling to another bay,
+		# rather than cutting across the workbench, cases and robot.
+		var waypoint := _base
+		var leg := clampf(_transition * 2.0 if _transition < 0.5 else (_transition - 0.5) * 2.0, 0.0, 1.0)
+		leg = leg * leg * (3.0 - 2.0 * leg)
+		stage.camera.global_transform = _from.interpolate_with(waypoint, leg) if _transition < 0.5 else waypoint.interpolate_with(desired, leg)
+	else:
+		stage.camera.global_transform = _from.interpolate_with(desired, weight)
 	stage.camera.fov = lerpf(_from_fov, _target_fov, weight)
 	var lens := stage.camera.attributes as CameraAttributesPractical
 	if lens != null:
@@ -263,6 +340,8 @@ func advance(delta: float) -> void:
 			var provider := _station_provider(station_category)
 			if provider != null:
 				target = provider.bounds(station_category).get_center()
+		elif zone == "catalog":
+			target = _catalog_bounds.get_center()
 		elif zone != "robot" and zone != "garage":
 			target = region_bounds().get_center()
 		lens.dof_blur_far_distance = stage.camera.global_position.distance_to(target) + 2.0

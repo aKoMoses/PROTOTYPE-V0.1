@@ -1,6 +1,8 @@
 class_name PeltoSmashWave
 extends Node3D
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
 
 ## Shared PELTO SMASH wave used by players and bots. The wave owns its locked
@@ -9,7 +11,7 @@ const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
 signal finished
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
-const SCRAPE_SOUND: AudioStream = preload("res://art/audio/shotgun-cycle-a.wav")
+const SCRAPE_SOUND: AudioStream = preload("res://art/audio/combat-sfx/pelto-return.wav")
 const OBSTACLE_MASK := 1
 const TARGET_MASK := 2 | 4
 const SAMPLE_HEIGHT := 0.72
@@ -71,6 +73,7 @@ func configure(p_caster: Node3D, origin: Vector3, locked_direction: Vector3, p_s
 	_pause_remaining = float(_definition.return_pause)
 	_build_visuals()
 	_update_visuals()
+	COMBAT_AUDIO.play(caster, "pelto_outbound", start_position)
 
 
 func _ready() -> void:
@@ -228,6 +231,7 @@ func _apply_hit(target: Node, returning: bool) -> void:
 		caster.call("on_direct_offensive_hit", attack_id, PASSIVE_HITS.accepted_damage(target, applied, shield_before), target)
 	if applied <= 0.0:
 		return
+	COMBAT_AUDIO.play(caster, "pelto_hit", (target as Node3D).global_position)
 	if caster != null and is_instance_valid(caster) and caster.has_method("_on_damage_dealt"):
 		caster.call("_on_damage_dealt", applied)
 	if caster != null and is_instance_valid(caster) and caster.has_method("_on_pelto_hit"):
@@ -368,8 +372,7 @@ func _spawn_pause_cue() -> void:
 func _begin_return() -> void:
 	_endpoint_ring.visible = false
 	_dust_accumulator = DUST_STEP
-	if _scrape_audio != null:
-		_scrape_audio.play()
+	COMBAT_AUDIO.play(caster, "pelto_return", _front_root.global_position)
 
 
 func _spawn_hit_fx(target: Node3D, returning: bool) -> void:

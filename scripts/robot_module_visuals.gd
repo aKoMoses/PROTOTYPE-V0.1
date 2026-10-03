@@ -10,6 +10,19 @@ const MODEL_PATHS := {
 	"rocket_basket": "res://art/modules/rocket_basket.glb",
 	"magnetic_field": "res://art/modules/magnetic_field.glb",
 	"auxiliary_reactor": "res://art/modules/auxiliary_reactor.glb",
+	"fulguro_punch": "res://art/modules/fulguro_punch.glb",
+	"static_shield": "res://art/modules/static_shield.glb",
+	"javelin": "res://art/modules/javelin.glb",
+	"projector": "res://art/modules/projector.glb",
+	"pelto_smash": "res://art/modules/pelto_smash.glb",
+	"counter": "res://art/modules/counter.glb",
+	"permutation": "res://art/modules/permutation.glb",
+	"eclipse": "res://art/modules/eclipse.glb",
+	"baroud": "res://art/modules/baroud.glb",
+	"omnivamp": "res://art/modules/omnivamp.glb",
+	"tracker": "res://art/modules/tracker.glb",
+	"alternator": "res://art/modules/alternator.glb",
+	"inertia": "res://art/modules/inertia.glb",
 }
 const MODEL_SCENES := {
 	"pyro_boots": preload("res://art/modules/pyro_boots.glb"),
@@ -17,16 +30,41 @@ const MODEL_SCENES := {
 	"rocket_basket": preload("res://art/modules/rocket_basket.glb"),
 	"magnetic_field": preload("res://art/modules/magnetic_field.glb"),
 	"auxiliary_reactor": preload("res://art/modules/auxiliary_reactor.glb"),
+	"fulguro_punch": preload("res://art/modules/fulguro_punch.glb"),
+	"static_shield": preload("res://art/modules/static_shield.glb"),
+	"javelin": preload("res://art/modules/javelin.glb"),
+	"projector": preload("res://art/modules/projector.glb"),
+	"pelto_smash": preload("res://art/modules/pelto_smash.glb"),
+	"counter": preload("res://art/modules/counter.glb"),
+	"permutation": preload("res://art/modules/permutation.glb"),
+	"eclipse": preload("res://art/modules/eclipse.glb"),
+	"baroud": preload("res://art/modules/baroud.glb"),
+	"omnivamp": preload("res://art/modules/omnivamp.glb"),
+	"tracker": preload("res://art/modules/tracker.glb"),
+	"alternator": preload("res://art/modules/alternator.glb"),
+	"inertia": preload("res://art/modules/inertia.glb"),
 }
 const MODEL_CATEGORIES := {
 	"pyro_boots": "mobility", "bio_injector": "mobility",
 	"rocket_basket": "offensive", "magnetic_field": "defensive",
 	"auxiliary_reactor": "passive",
+	"fulguro_punch": "offensive", "static_shield": "defensive",
+	"javelin": "offensive", "projector": "defensive",
+	"pelto_smash": "offensive", "counter": "defensive",
+	"permutation": "mobility", "eclipse": "mobility",
+	"baroud": "passive", "omnivamp": "passive", "tracker": "passive",
+	"alternator": "passive", "inertia": "passive",
 }
 const MOUNT_IDS := {
 	"pyro_left": "pyro_boots", "pyro_right": "pyro_boots",
 	"bio": "bio_injector", "rocket": "rocket_basket",
 	"magnetic": "magnetic_field", "reactor": "auxiliary_reactor",
+	"fulguro": "fulguro_punch", "static": "static_shield",
+	"javelin": "javelin", "projector": "projector",
+	"pelto_smash": "pelto_smash", "counter": "counter",
+	"permutation": "permutation", "eclipse": "eclipse",
+	"baroud": "baroud", "omnivamp": "omnivamp", "tracker": "tracker",
+	"alternator": "alternator", "inertia": "inertia",
 }
 static var _shared_meshes: Dictionary = {}
 static var _shared_materials: Dictionary = {}
@@ -47,7 +85,44 @@ func configure(source_skeleton: Skeleton3D) -> void:
 	_make_mount("bio", "spine1", Vector3(0.2776, -0.0803, 0.1871), false, Vector3(0.3320, 0.6739, 0.0192))
 	_make_mount("rocket", "leftarm", Vector3(0.1447, 0.0876, 0.1795), false, Vector3(-0.4721, 0.7048, 1.0034))
 	_make_mount("magnetic", "leftforearm", Vector3(0.18, -0.005, 0.230), false, Vector3(0, 0, -PI / 2))
-	_make_mount("reactor", "leftarm", Vector3(0.2169, -0.0284, -0.1132), false, Vector3(0.0938, -3.0804, 1.5765))
+	_make_mount("fulguro", "rightforearm", Vector3(-0.23, -0.005, 0.230), false, Vector3(0, 0, PI / 2))
+	_make_mount("static", "leftforearm", Vector3(0.18, -0.005, 0.230), false, Vector3(0, 0, -PI / 2))
+	var javelin_rotation := Vector3(-0.4721, 0.7048, 1.0034)
+	var javelin_offset := Vector3(0.1447, 0.0876, 0.1795)
+	var powerful_armour := false
+	# The orange chassis has a deeper shoulder plate around the same rig.
+	var source: Node = skeleton
+	while source != null:
+		if source.scene_file_path == "res://art/player_mecha_puissant.glb":
+			powerful_armour = true
+			javelin_offset += Basis.from_euler(javelin_rotation).z * 0.28
+			break
+		source = source.get_parent()
+	_make_mount("javelin", "leftarm", javelin_offset, false, javelin_rotation)
+	_make_mount("projector", "leftforearm", Vector3(0.18, -0.005, 0.230), false, Vector3(0, 0, -PI / 2))
+	var forearm_depth := 0.300 if powerful_armour else 0.230
+	_make_mount("pelto_smash", "rightforearm", Vector3(-0.23, -0.005, forearm_depth), false, Vector3(0, 0, PI / 2))
+	_make_mount("counter", "leftforearm", Vector3(0.18, -0.005, forearm_depth), false, Vector3(0, 0, -PI / 2))
+	var phase_rotation := Vector3(0.3320, 0.6739, 0.0192)
+	var phase_offset := Vector3(0.2776, -0.0803, 0.1871)
+	if powerful_armour:
+		phase_offset += Basis.from_euler(phase_rotation).z * 0.14
+	_make_mount("permutation", "spine1", phase_offset, false, phase_rotation)
+	_make_mount("eclipse", "spine1", phase_offset, false, phase_rotation)
+	# The five flat passive inserts share the rear upper-arm pad.
+	var passive_rotation := Vector3(0.0938, -3.0804, 1.5765)
+	var passive_offset := Vector3(0.2169, -0.0284, -0.1132)
+	if powerful_armour:
+		passive_offset += Vector3(0.25, 0, 0) + Basis.from_euler(passive_rotation).z * 0.14
+	_make_mount("reactor", "leftarm", passive_offset, false, passive_rotation)
+	for identifier in ["baroud", "omnivamp", "alternator", "inertia"]:
+		_make_mount(identifier, "leftarm", passive_offset, false, passive_rotation)
+	# Traqueur has an upright foot and spherical eye above the left pauldron.
+	# Calibrated in the idle pose, then converted once into the bone's rest axes.
+	var tracker_rotation := Vector3(0.165565, -0.172591, 1.237018) if powerful_armour else Vector3(0.191385, -0.02355, 1.338031)
+	var tracker_upright := Basis.from_euler(tracker_rotation)
+	var tracker_offset := tracker_upright * (Vector3(0.35, -0.055, 0.085) if powerful_armour else Vector3(0.175, 0.01, -0.04))
+	_make_mount("tracker", "leftarm", tracker_offset, false, (tracker_upright * Basis(Vector3.UP, 0.25)).get_euler())
 	set_loadout(equipment_ids)
 
 
@@ -151,7 +226,7 @@ func _make_mount(key: String, bone_label: String, offset: Vector3, mirrored: boo
 		if child is MeshInstance3D:
 			geometry = child.mesh.get_aabb() if first else geometry.merge(child.mesh.get_aabb())
 			first = false
-	target.position = Vector3(0, 0, geometry.end.z)
+	target.position = Vector3(0, 0.050, 0.041) if key == "tracker" else Vector3(0, 0, geometry.end.z)
 	mount.add_child(target)
 
 

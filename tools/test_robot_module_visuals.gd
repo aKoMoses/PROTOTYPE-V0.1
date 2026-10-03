@@ -9,18 +9,26 @@ const FULL_LOADOUT := {
 }
 const CATEGORY_IDS := {
 	"mobility": ["pyro_boots", "bio_injector", "permutation", "eclipse"],
-	"offensive": ["rocket_basket", "javelin"],
-	"defensive": ["magnetic_field", "static_shield"],
-	"passive": ["auxiliary_reactor", "baroud"],
+	"offensive": ["rocket_basket", "javelin", "fulguro_punch", "pelto_smash"],
+	"defensive": ["magnetic_field", "static_shield", "projector", "counter"],
+	"passive": ["auxiliary_reactor", "baroud", "omnivamp", "tracker", "alternator", "inertia"],
 }
 const MOUNT_IDS := {
 	"pyro_left": "pyro_boots", "pyro_right": "pyro_boots",
 	"bio": "bio_injector", "rocket": "rocket_basket",
 	"magnetic": "magnetic_field", "reactor": "auxiliary_reactor",
+	"fulguro": "fulguro_punch", "static": "static_shield",
+	"javelin": "javelin", "projector": "projector",
+	"pelto_smash": "pelto_smash", "counter": "counter",
+	"permutation": "permutation", "eclipse": "eclipse",
+	"baroud": "baroud", "omnivamp": "omnivamp", "tracker": "tracker",
+	"alternator": "alternator", "inertia": "inertia",
 }
 # Keep each physical accessory around 35 cm on the largest chassis. The
 # centimetre tolerance accommodates its animated world-axis bounding box.
 const MAX_MOUNT_EXTENT := 0.36
+# The approved spherical shoulder eye has a taller pedestal than flat inserts.
+const MAX_TRACKER_EXTENT := 0.40
 var failures: Array[String] = []
 var checks := 0
 
@@ -35,7 +43,7 @@ func _run() -> void:
 	await process_frame
 	stage.set_process(false)
 	var modules = stage.module_visuals
-	check(modules.mounts.size() == 6, "six physical mounts for five authored modules")
+	check(modules.mounts.size() == 19, "nineteen physical mounts for all eighteen authored modules")
 	check(not modules.is_processing() and not modules.is_physics_processing(), "accessories require no new frame processing")
 	for key in MOUNT_IDS:
 		check(modules.mounts.has(key), "mount exists: " + key)
@@ -80,13 +88,16 @@ func _run() -> void:
 	check(stage.robot_model.scene_file_path == "res://art/player_mecha_puissant.glb" and _mesh_resources(stage.robot_model) != source_meshes, "powerful chassis uses its authored orange model")
 	check(modules.equipment_ids == FULL_LOADOUT and modules.skeleton == stage.skeleton, "all equipped accessories survive rebuilding the orange chassis skeleton")
 	_check_visibility(modules, FULL_LOADOUT, "orange chassis retains full equipment")
+	var powerful_bindings := {}
+	for key in ["javelin", "projector", "pelto_smash", "counter", "permutation", "eclipse", "reactor", "baroud", "omnivamp", "tracker", "alternator", "inertia"]:
+		powerful_bindings[key] = modules.mounts[key].transform
 	for key in MOUNT_IDS:
 		check(_mesh_resources(modules.mounts[key]) == accessory_meshes[key], "chassis replacement preserves shared accessory geometry: " + key)
 		check(modules.mounts[key].global_basis.get_scale().is_equal_approx(mount_scales[key] * stage.robot.scale.x / original_scale.x), "accessory scale follows chassis normalization: " + key)
 		var mount_bounds := _world_bounds(modules.mounts[key])
 		var longest := maxf(mount_bounds.size.x, maxf(mount_bounds.size.y, mount_bounds.size.z))
 		print("MODULE FIT ", key, " powerful_world_size=", mount_bounds.size)
-		check(longest > 0.01 and longest <= MAX_MOUNT_EXTENT, "compact physical accessory on powerful chassis: " + key)
+		check(longest > 0.01 and longest <= (MAX_TRACKER_EXTENT if key == "tracker" else MAX_MOUNT_EXTENT), "compact physical accessory on powerful chassis: " + key)
 	for identifier in modules.MODEL_PATHS:
 		var bounds: AABB = modules.module_bounds(identifier)
 		check(bounds.position.is_finite() and bounds.size.is_finite() and bounds.size.x > 0.01 and bounds.size.y > 0.01 and bounds.size.z > 0.01 and bounds.size.length() < 3.0, "finite useful robot-space bounds: " + identifier)
@@ -106,7 +117,20 @@ func _run() -> void:
 					break
 			check(_mesh_resources(display) == _mesh_resources(first_mount) and _materials(display) == _materials(first_mount), "storage and installed module share authored meshes and materials: " + identifier)
 			display.free()
-	for equipment in [FULL_LOADOUT, bio_loadout]:
+	var punch_loadout := FULL_LOADOUT.duplicate()
+	punch_loadout.offensive = "fulguro_punch"
+	punch_loadout.defensive = "static_shield"
+	var javelin_loadout := FULL_LOADOUT.duplicate()
+	javelin_loadout.offensive = "javelin"
+	javelin_loadout.defensive = "projector"
+	var phase_loadout := FULL_LOADOUT.merged({"offensive": "pelto_smash", "defensive": "counter", "mobility": "permutation"}, true)
+	var eclipse_loadout := phase_loadout.merged({"mobility": "eclipse"}, true)
+	var maximal_loadout := javelin_loadout.merged({"defensive": "static_shield", "mobility": "permutation"}, true)
+	var budget_kits := [FULL_LOADOUT, punch_loadout, javelin_loadout, phase_loadout, eclipse_loadout, maximal_loadout]
+	for passive in CATEGORY_IDS.passive:
+		budget_kits.append(maximal_loadout.merged({"passive": passive}, true))
+	budget_kits.append(bio_loadout)
+	for equipment in budget_kits:
 		stage.set_equipped_modules(equipment)
 		var module_triangles := 0
 		for key in modules.mounts:
@@ -146,7 +170,10 @@ func _run() -> void:
 			player.apply_loadout(equipment)
 			_check_visibility(player._visual_rig.module_visuals, equipment, "real Player " + category + " " + identifier)
 			check(player._visual_rig.module_visuals.equipment_ids.get(category) == identifier, "Player synchronizes category state: " + category + " " + identifier)
-	player.apply_loadout(bio_loadout)
+	player.apply_loadout(javelin_loadout.merged({"robot": "puissant"}, true))
+	for key in powerful_bindings:
+		check(player._visual_rig.module_visuals.mounts[key].transform.is_equal_approx(powerful_bindings[key]), "real Player and garage use the same fitted powerful socket: " + key)
+	player.apply_loadout(bio_loadout.merged({"robot": "polyvalent"}, true))
 	other.apply_loadout(bio_loadout)
 	var original_materials: Dictionary = {}
 	var original_signatures: Dictionary = {}

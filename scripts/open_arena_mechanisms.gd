@@ -1,22 +1,24 @@
 extends "res://scripts/compact_arena_mechanisms.gd"
 
 ## Two open arenas: mechanical floor transport and shot-reactive pressure waves.
-## No old fixture, pickup, portal, speed pad or movement-blocking prop is built.
+## The stage owns solid cover; this layer builds only the arena mechanisms.
 const PUSH_MOTION := preload("res://scripts/knockback_motion.gd")
-const RING_INNER_RADIUS := 0.9
-const RING_SEAM_RADIUS := 4.0
-const RING_OUTER_RADIUS := 7.6
+const TRAVERSAL := preload("res://scripts/arena_traversal.gd")
+const RING_INNER_RADIUS := 0.9 * CATALOG.LAYOUT_SCALE
+const RING_SEAM_RADIUS := 4.0 * CATALOG.LAYOUT_SCALE
+const RING_OUTER_RADIUS := 7.6 * CATALOG.LAYOUT_SCALE
 const INNER_ANGULAR_SPEED := 0.22
 const OUTER_ANGULAR_SPEED := -0.14
 const ORBIT_RAMP := 1.2
 const RESONATOR_COOLDOWN := 3.0
-const SHOT_WARNING := 0.65
+const SHOT_WARNING := 0.8
 const WAVE_START_RADIUS := 0.5
-const WAVE_END_RADIUS := 10.0
-const WAVE_SPEED := 3.0
-const WAVE_HALF_WIDTH := 0.16
-const WAVE_PUSH_DISTANCE := 1.4
-const WAVE_PUSH_DURATION := 0.28
+const WAVE_END_RADIUS := 12.5
+const WAVE_SPEED := 4.8
+const WAVE_HALF_WIDTH := 0.25
+const WAVE_PUSH_DISTANCE := 4.2
+const WAVE_PUSH_DURATION := 0.38
+const WAVE_SEGMENTS := 128
 const MAX_WAVES := 4
 const MAX_PHYSICAL_STEP := 1.0 / 60.0
 
@@ -34,7 +36,7 @@ void fragment() {
 	ALBEDO = mix(tint.rgb * (0.48 + cut * 0.29), vec3(1.0, 0.75, 0.35), excitation * 0.45);
 	ROUGHNESS = 0.19;
 	METALLIC = 0.14;
-	EMISSION = tint.rgb * (0.08 + rim * 0.23 + stripe * 0.14 + breath * 0.045 + excitation * 0.38);
+	EMISSION = tint.rgb * (0.12 + rim * 0.35 + stripe * 0.22 + breath * 0.06 + excitation * 1.6);
 	ALPHA = 0.68 + rim * 0.09 + breath * 0.025 + excitation * 0.12;
 }
 """
@@ -54,7 +56,7 @@ void fragment() {
 	float silk = pow(0.5 + 0.5 * sin(UV.y * 22.0 + UV.x * 52.0 - clock * 7.0), 13.0);
 	float overtone = exp(-pow((UV.y - 0.46) * 27.0, 2.0));
 	ALBEDO = mix(tint.rgb * 0.52, vec3(0.89, 0.84, 1.0), crest * 0.43);
-	ALPHA = (0.035 + foot * 0.49 + crest * 0.60 + silk * 0.10 + overtone * 0.16) * strength;
+	ALPHA = (0.06 + foot * 0.65 + crest * 0.85 + silk * 0.16 + overtone * 0.24) * strength;
 }
 """
 
@@ -128,7 +130,7 @@ func reset_round() -> void:
 	_shot_triggers = 0
 	_periodic_triggers = 0
 	_chain_triggers = 0
-	_next_self_resonance = GRACE_SECONDS
+	_next_self_resonance = GRACE_SECONDS + float(_definition.get("period", 22.0))
 	_next_self_source = 0
 	for resonator in _resonators:
 		resonator.cooldown_until = 0.0
@@ -172,6 +174,8 @@ func advance(delta: float) -> void:
 		remaining -= step
 	_sync_orbit_stage()
 	_update_resonators()
+	for wave in _waves:
+		_update_wave_visual(wave)
 
 
 func _simulation_live() -> bool:
@@ -223,6 +227,8 @@ func _advance_orbits(delta: float) -> void:
 		if not _can_transport(actor):
 			continue
 		var origin := actor.global_position
+		if TRAVERSAL.height(actor, origin) > 0.02:
+			continue
 		var radius := Vector2(origin.x, origin.z).length()
 		if radius < RING_INNER_RADIUS or radius > RING_OUTER_RADIUS:
 			continue
@@ -233,7 +239,7 @@ func _advance_orbits(delta: float) -> void:
 		var destination := origin.rotated(Vector3.UP, rate * delta)
 		var movement := _bounded_motion(actor, destination - origin)
 		actor.global_position += movement
-		actor.global_position.y = 0.0
+		TRAVERSAL.snap(actor)
 		_record_transport(actor, movement.length())
 
 
@@ -292,7 +298,12 @@ func _trigger_resonator(index: int, warning: float, source: String, family: Dict
 	var edge_material := _material(AMBER, 0.3, AMBER, 0.32)
 	var edge := _torus(root, Vector3(0, 0.048, 0), 0.95, 1.05, edge_material)
 	edge.scale.y = 0.20
-	var wave := {"id": _serial, "index": index, "source": source, "position": resonator.position,
+	var limits := PackedFloat32Array()
+	for segment in range(WAVE_SEGMENTS + 1):
+		var angle := TAU * float(segment) / WAVE_SEGMENTS
+		var end: Vector3 = resonator.position + Vector3(cos(angle), 0, sin(angle)) * WAVE_END_RADIUS
+		limits.append(_pressure_reach(resonator.position, end))
+	var wave := {"id": _serial, "index": index, "source": source, "position": resonator.position, "limits": limits,
 		"phase": "warning", "remaining": warning, "active_at": elapsed + warning, "radius": WAVE_START_RADIUS,
 		"previous_radius": WAVE_START_RADIUS, "hit": {}, "family": family,
 		"root": root, "curtain": curtain, "edge": edge, "edge_material": edge_material, "color": color}
@@ -330,7 +341,6 @@ func _advance_resonance(delta: float) -> void:
 		if wave.phase == "active":
 			_hit_wave(wave)
 			_chain_wave(wave)
-		_update_wave_visual(wave)
 		if float(wave.radius) >= WAVE_END_RADIUS - 0.000001:
 			(wave.root as Node3D).queue_free()
 			_waves.erase(wave)
@@ -351,6 +361,8 @@ func _hit_wave(wave: Dictionary) -> void:
 		var skin := WAVE_HALF_WIDTH + _actor_radius(actor)
 		if minf(before, after) > skin or maxf(before, after) < -skin:
 			continue
+		if not _pressure_visible(wave.position, position):
+			continue
 		wave.hit[key] = true
 		_wave_hits += 1
 		var direction: Vector3 = position - (wave.position as Vector3)
@@ -368,7 +380,18 @@ func _chain_wave(wave: Dictionary) -> void:
 			continue
 		var distance := _flat_distance(wave.position, _resonators[index].position)
 		if distance >= float(wave.previous_radius) - 0.10 and distance <= float(wave.radius) + 0.10:
-			_trigger_resonator(index, SHOT_WARNING, "chain", wave.family)
+			if _pressure_visible(wave.position, _resonators[index].position):
+				_trigger_resonator(index, SHOT_WARNING, "chain", wave.family)
+
+
+func _pressure_reach(from: Vector3, to: Vector3) -> float:
+	var query := PhysicsRayQueryParameters3D.create(from + Vector3.UP * 0.9, to + Vector3.UP * 0.9, 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return from.distance_to((hit.position as Vector3) - Vector3.UP * 0.9) if not hit.is_empty() else from.distance_to(to)
+
+
+func _pressure_visible(from: Vector3, to: Vector3) -> bool:
+	return _pressure_reach(from, to) >= _flat_distance(from, to) - 0.03
 
 
 func _advance_shoves(delta: float) -> void:
@@ -421,7 +444,16 @@ func _bounded_motion(actor: Node3D, motion: Vector3) -> Vector3:
 			else:
 				high = middle
 		motion *= low
-	return _safe_motion(actor, motion)
+	return _safe_motion(actor, TRAVERSAL.motion(actor, motion))
+
+
+func _shape_query(actor: Node3D, at: Vector3) -> PhysicsShapeQueryParameters3D:
+	var query := super._shape_query(actor, at)
+	if query != null:
+		var excluded := query.exclude
+		excluded.append_array(TRAVERSAL.exclusions(actor))
+		query.exclude = excluded
+	return query
 
 
 func _record_transport(actor: Node3D, distance: float) -> void:
@@ -445,6 +477,8 @@ func get_threats() -> Array[Dictionary]:
 func threat_at(point: Vector3, margin: float = 0.0, known_threats: Array[Dictionary] = []) -> Dictionary:
 	var threats := known_threats if not known_threats.is_empty() else get_threats()
 	for threat in threats:
+		if not _pressure_visible(threat.position, point):
+			continue
 		var distance := _flat_distance(point, threat.position)
 		var skin := float(threat.half_width) + margin
 		var radius := float(threat.radius)
@@ -562,33 +596,62 @@ func _update_resonators() -> void:
 		var excitation := maxf(0.0, 1.0 - (elapsed - float(resonator.last_impact)) / 0.8)
 		for wave in _waves:
 			if int(wave.index) == index and wave.phase == "warning":
-				excitation = 0.62 + 0.26 * sin(elapsed * 12.0)
+				excitation = 0.95 + 0.35 * sin(elapsed * 12.0)
 		var material: ShaderMaterial = resonator.material
 		material.set_shader_parameter("clock", elapsed)
 		material.set_shader_parameter("excitation", excitation if running else 0.0)
 		var edge_material: StandardMaterial3D = resonator.edge_material
 		edge_material.emission_energy_multiplier = 0.46 + (0.09 * sin(elapsed * 1.7 + float(index)) + excitation * 0.30 if running else 0.0)
 		(resonator.crystal as Node3D).position.y = 0.04 + (sin(elapsed * 1.7 + float(index) * 1.8) * 0.025 if running else 0.0)
-		(resonator.light as OmniLight3D).light_energy = 0.18 + excitation * 0.26 if running else 0.08
+		(resonator.light as OmniLight3D).omni_range = 3.2
+		(resonator.light as OmniLight3D).light_energy = 0.28 + excitation * 1.4 if running else 0.12
 
 
 func _update_wave_visual(wave: Dictionary) -> void:
 	var radius := float(wave.radius)
 	var curtain: MeshInstance3D = wave.curtain
 	curtain.visible = wave.phase == "active"
-	curtain.scale = Vector3(radius, 1.0, radius)
+	curtain.mesh = _clipped_wave_mesh(wave.limits, radius, false)
+	curtain.scale = Vector3.ONE
 	var material := curtain.material_override as ShaderMaterial
 	material.set_shader_parameter("clock", elapsed)
 	material.set_shader_parameter("strength", minf(1.0, (WAVE_END_RADIUS - radius) / 0.8))
 	var edge: MeshInstance3D = wave.edge
-	var edge_shape := edge.mesh as TorusMesh
-	edge_shape.inner_radius = maxf(0.05, radius - 0.035)
-	edge_shape.outer_radius = radius + 0.035
-	edge.scale = Vector3(1.0, 0.20, 1.0)
+	var edge_radius: float = 1.6 + 0.45 * sin(elapsed * 10.0) if wave.phase == "warning" else radius
+	edge.mesh = _clipped_wave_mesh(wave.limits, edge_radius, true)
+	edge.scale = Vector3.ONE
 	var edge_material: StandardMaterial3D = wave.edge_material
 	edge_material.albedo_color = AMBER if wave.phase == "warning" else wave.color
 	edge_material.emission = edge_material.albedo_color
-	edge_material.emission_energy_multiplier = 0.25 + sin(elapsed * 11.0) * 0.16 if wave.phase == "warning" else 0.45
+	edge_material.emission_energy_multiplier = 1.3 + sin(elapsed * 11.0) * 0.4 if wave.phase == "warning" else 1.6
+
+
+func _clipped_wave_mesh(limits: PackedFloat32Array, radius: float, flat: bool) -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var uv := PackedVector2Array()
+	var indices := PackedInt32Array()
+	for segment in range(WAVE_SEGMENTS):
+		# Drop occluded arcs instead of drawing a ring through a protecting wall.
+		if radius > minf(limits[segment], limits[segment + 1]):
+			continue
+		var start := vertices.size()
+		for endpoint in [segment, segment + 1]:
+			var angle := TAU * float(endpoint) / WAVE_SEGMENTS
+			var direction := Vector3(cos(angle), 0, sin(angle))
+			vertices.append(direction * (radius - 0.10 if flat else radius))
+			vertices.append(direction * (radius + 0.10) if flat else direction * radius + Vector3.UP * 1.2)
+			uv.append(Vector2(float(endpoint) / WAVE_SEGMENTS, 0))
+			uv.append(Vector2(float(endpoint) / WAVE_SEGMENTS, 1))
+		indices.append_array(PackedInt32Array([start, start + 2, start + 1, start + 1, start + 2, start + 3]))
+	var result := ArrayMesh.new()
+	if not vertices.is_empty():
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		arrays[Mesh.ARRAY_TEX_UV] = uv
+		arrays[Mesh.ARRAY_INDEX] = indices
+		result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return result
 
 
 func _pressure_material(color: Color) -> ShaderMaterial:

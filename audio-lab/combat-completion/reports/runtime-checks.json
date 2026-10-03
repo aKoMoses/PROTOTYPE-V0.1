@@ -1,0 +1,42 @@
+[
+  {
+    "test": "test_combat_completion_sfx",
+    "passed": true
+  },
+  {
+    "test": "test_training_audio",
+    "passed": true
+  },
+  {
+    "test": "test_module_sfx",
+    "passed": true
+  },
+  {
+    "test": "test_offensive_modules",
+    "passed": true
+  },
+  {
+    "test": "test_fulguro_punch",
+    "passed": true
+  },
+  {
+    "test": "test_pelto_smash",
+    "passed": true
+  },
+  {
+    "test": "test_defensive_modules",
+    "passed": true
+  },
+  {
+    "test": "test_eclipse_training",
+    "passed": true
+  },
+  {
+    "test": "test_new_passive_combat",
+    "passed": true
+  },
+  {
+    "test": "test_network_combat",
+    "passed": true
+  }
+]

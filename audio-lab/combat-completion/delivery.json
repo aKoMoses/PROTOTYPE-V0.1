@@ -1,0 +1,69 @@
+{
+  "rocket_fix": "TrainingAudioListener follows the controlled robot; camera framing unchanged",
+  "recorded_mixer": "reports/training-rockets-recorded.wav",
+  "weapons": [
+    "art\\audio\\weapon-sfx\\mekatana-windup.wav",
+    "art\\audio\\weapon-sfx\\mekatana-slash-1.wav",
+    "art\\audio\\weapon-sfx\\mekatana-slash-2.wav",
+    "art\\audio\\weapon-sfx\\mekatana-slash-3.wav",
+    "art\\audio\\weapon-sfx\\mekatana-impact-1.wav",
+    "art\\audio\\weapon-sfx\\mekatana-impact-2.wav",
+    "art\\audio\\weapon-sfx\\mekatana-impact-3.wav",
+    "art\\audio\\weapon-sfx\\longshot-shot.wav",
+    "art\\audio\\weapon-sfx\\longshot-enhanced.wav",
+    "art\\audio\\weapon-sfx\\longshot-ready.wav"
+  ],
+  "checks": [
+    {
+      "test": "test_combat_completion_sfx",
+      "passed": true
+    },
+    {
+      "test": "test_training_audio",
+      "passed": true
+    },
+    {
+      "test": "test_module_sfx",
+      "passed": true
+    },
+    {
+      "test": "test_offensive_modules",
+      "passed": true
+    },
+    {
+      "test": "test_fulguro_punch",
+      "passed": true
+    },
+    {
+      "test": "test_pelto_smash",
+      "passed": true
+    },
+    {
+      "test": "test_defensive_modules",
+      "passed": true
+    },
+    {
+      "test": "test_eclipse_training",
+      "passed": true
+    },
+    {
+      "test": "test_new_passive_combat",
+      "passed": true
+    },
+    {
+      "test": "test_network_combat",
+      "passed": true
+    }
+  ],
+  "combat_completion": {
+    "count": 27,
+    "integrated_in_game": true,
+    "decision": "integration requested by user"
+  },
+  "publication": "local only",
+  "current_mixer_probe": {
+    "status": "unavailable",
+    "reason": "WASAPI output device could not be opened; dummy recording is not audio acceptance",
+    "gameplay_cues_verified": 27
+  }
+}

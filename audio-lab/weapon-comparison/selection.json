@@ -7,7 +7,7 @@
   },
   "future_sfx_generator": "Stable Audio",
   "current_selected_model": "Stable Audio 3 Small-SFX",
-  "integrated_in_game": false,
+  "integrated_in_game": true,
   "files": [
     {
       "id": "mekatana-windup",
@@ -69,5 +69,6 @@
       "source": "candidates\\B-stable\\longshot-ready.wav",
       "sha256": "78907cccc609103a5b4d0f32e49bb751863cbef43447121a776c0b9dccea5586"
     }
-  ]
+  ],
+  "integration_receipt": "audio-lab/combat-completion/delivery.json"
 }

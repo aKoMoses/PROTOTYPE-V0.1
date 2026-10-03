@@ -1,0 +1,20 @@
+{
+  "asset": "baroud",
+  "triangles": 3176,
+  "material_batches": 8,
+  "bytes": 1392596,
+  "sha256": "699b3ce13735b7546adbbb54fe803e589563709a601c82909d6f951c85a45f95",
+  "blender_bounds_min": [
+    -0.07329639047384262,
+    -0.053500011563301086,
+    -0.1038077101111412
+  ],
+  "blender_bounds_max": [
+    0.07329639047384262,
+    0.006000002846121788,
+    0.1038077250123024
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/passives/baroud.blend",
+  "design": "Rear upper-arm emergency reserve cartridge with red ceramic housing, three amber charge windows, protective ivory rails, captive latches, copper terminal buses and a recessed cutoff lever."
+}

@@ -40,6 +40,9 @@ var _rematch_button: Button
 var _room_button: Button
 var _saved_hud_layout: Dictionary = {}
 var _saved_pause_contextual := false
+var _round_end_feedback: CanvasLayer
+var _result_winner_id := 0
+var _result_generation := 0
 
 
 func configure(main: Node3D, host_id: int, guest_id: int) -> void:
@@ -90,6 +93,9 @@ func configure(main: Node3D, host_id: int, guest_id: int) -> void:
 	_retarget_vision(_player, _target, true)
 	_flow.get_node("FlowRoot/CombatHUD/PauseButton").hide()
 	_build_overlay()
+	_round_end_feedback = preload("res://scripts/round_end_feedback.gd").new()
+	add_child(_round_end_feedback)
+	_round_end_feedback.focus_ready.connect(_focus_round_winner)
 	_flow.call("_start_match_music")
 	_touch.visible = false
 	_session.round_prepared.connect(_on_round_prepared)
@@ -228,6 +234,9 @@ func _publish_snapshot(reliable := false) -> void:
 func _on_round_prepared(number: int, host_score: int, guest_score: int) -> void:
 	if _cleanup_done:
 		return
+	_round_end_feedback.reset()
+	_result_generation += 1
+	_main.get_node("CameraRig").call("set_target", _player)
 	_round_number = number
 	_host_score = host_score
 	_guest_score = guest_score
@@ -282,16 +291,51 @@ func _on_round_finished(host_score: int, guest_score: int, winner_id: int, match
 	_guest_score = guest_score
 	_player.call("set_gameplay_enabled", false)
 	_target.call("set_gameplay_enabled", false)
-	if winner_id != 0:
-		_player.call("show_round_result", _player.peer_id == winner_id)
-		_target.call("show_round_result", _target.peer_id == winner_id)
+	# The reliable result may precede the final health snapshot on a client.
+	# Present the host-confirmed defeat without changing replicated health.
+	for actor in [_player, _target]:
+		if winner_id == 0 or actor.peer_id != winner_id:
+			var visual: Node = actor.get("_visual_rig")
+			if visual != null and visual.get("_active_action") != &"fall":
+				visual.call("play_action", &"fall", 0.10)
+	_result_winner_id = winner_id
+	var won: bool = winner_id == _session.local_peer_id()
+	var own_score := host_score if _is_host() else guest_score
+	var other_score := guest_score if _is_host() else host_score
+	_round_end_feedback.begin(0 if winner_id == 0 else 1 if won else -1, own_score, other_score, [_player, _target], _main.get_node("CameraRig"), _flow.get("_match_music"), match_over)
 	_touch.visible = false
-	_status.text = "ÉGALITÉ" if winner_id == 0 else ("MATCH GAGNÉ" if winner_id == _session.local_peer_id() else "MATCH PERDU") if match_over else ("MANCHE GAGNÉE" if winner_id == _session.local_peer_id() else "MANCHE PERDUE")
+	_status.text = ""
 	_status.add_theme_color_override("font_color", CREAM if winner_id == 0 else GREEN if winner_id == _session.local_peer_id() else RED)
 	_set_spell_bar_visible(false)
 	_rematch_button.get_parent().visible = match_over
 	_rematch_button.disabled = false
 	_rematch_button.text = "REVANCHE"
+	if match_over:
+		_flow.call("_stop_match_music")
+		var result_audio: AudioStreamPlayer = _flow.get("_result_audio")
+		result_audio.stream = _flow.VICTORY_SOUND if won else _flow.DEFEAT_SOUND if winner_id != 0 else null
+		# The short cue and fall precede the match jingle.
+		_result_generation += 1
+		_play_final_jingle(_result_generation)
+
+
+func _focus_round_winner() -> void:
+	if _cleanup_done or _phase not in ["round_result", "finished"] or _result_winner_id == 0:
+		return
+	var winner: Node3D = _player if _player.peer_id == _result_winner_id else _target
+	# Never overwrite the defeated actor's fall with a standing lose pose.
+	winner.call("show_round_result", true)
+	_main.get_node("CameraRig").call("focus_on_winner", winner)
+
+
+func _play_final_jingle(generation: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	if _cleanup_done or _phase != "finished" or generation != _result_generation:
+		return
+	var result_audio: AudioStreamPlayer = _flow.get("_result_audio")
+	_status.text = "ÉGALITÉ" if _result_winner_id == 0 else "MATCH GAGNÉ" if _result_winner_id == _session.local_peer_id() else "MATCH PERDU"
+	if result_audio.stream != null:
+		result_audio.play()
 
 
 func _valid_pose(packet: Dictionary) -> bool:
@@ -353,7 +397,7 @@ func _on_action_received(event: Dictionary) -> void:
 			var victim: Node3D = _player if bool(event.data.get("target_self", false)) else _target
 			_flow.get("_combat_feedback").call("_signature_success", str(event.data.get("kind", "")), victim, str(event.data.get("event_id", "")))
 		return
-	if str(event.action) in ["counter_explosion", "rocket_end"]:
+	if str(event.action) in ["counter_explosion", "rocket_end", "combat_sfx"]:
 		var counter_owner: Node3D = _player if int(event.peer) == _session.local_peer_id() else _target
 		counter_owner.call("receive_action", str(event.action), event.data, true)
 		return
@@ -431,6 +475,9 @@ func _cleanup_actors() -> void:
 	if _cleanup_done:
 		return
 	_cleanup_done = true
+	if _round_end_feedback != null:
+		_round_end_feedback.reset()
+	_flow.get("_result_audio").stop()
 	_phase = "closed"
 	_flow.call("hide_network_precombat")
 	for actor in [_player, _target]:

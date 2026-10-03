@@ -6,6 +6,7 @@ signal arrived(origin: Vector3, destination: Vector3)
 signal failed
 
 const DATA := preload("res://scripts/combat_data.gd")
+const TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 const TINT := Color("#a797ff")
 var caster: Node3D
 var target: Node3D
@@ -195,6 +196,10 @@ static func _fits(actor: Node3D, destination: Vector3, other: Node3D) -> bool:
 		var scene := actor.get_tree().current_scene
 		if scene != null and scene.has_meta("arena_floor_rid"):
 			exclusions.append(scene.get_meta("arena_floor_rid"))
+		# A valid endpoint stands on the raised floor; touching that support is
+		# expected. Covers still take part in the fit query on every platform.
+		if TRAVERSAL.terrain(actor) != null and absf(destination.y - TRAVERSAL.height(actor, destination)) < 0.05:
+			exclusions.append_array(TRAVERSAL.exclusions(actor))
 		query.exclude = exclusions
 		if not actor.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
 			return false

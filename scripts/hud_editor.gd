@@ -461,10 +461,12 @@ func _cancel_pending_preset() -> void:
 func _save() -> bool:
 	if not LAYOUT.save_active(draft, LAYOUT.family(), _pending_preset):
 		_hint("Enregistrement impossible.")
+		get_node("/root/UiSfx").play("denied")
 		return false
 	saved_layout = draft.duplicate(true)
 	saved.emit(saved_layout)
 	_hint("Disposition enregistrée.")
+	get_node("/root/UiSfx").play("confirmation")
 	return true
 
 func _request_exit() -> void:

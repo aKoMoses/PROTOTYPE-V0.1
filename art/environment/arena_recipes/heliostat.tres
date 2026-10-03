@@ -1,0 +1,11 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/arena_art_recipe.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+title = "Héliostat / pierre et bronze"
+cover_style = "solar"
+floor_tint = Color(0.97, 0.98, 1.02, 1)
+floor_grain = 0.86
+floor_texture_scale = 0.15

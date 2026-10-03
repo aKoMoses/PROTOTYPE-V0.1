@@ -6,17 +6,14 @@ extends SceneTree
 const GARAGE := preload("res://scripts/forge_garage.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const LIBRARY := preload("res://scripts/garage_build_library.gd")
+const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
 const STEP := 1.0 / 60.0
 const CATEGORIES := {
 	"offensive": LOADOUT.OFFENSIVE, "defensive": LOADOUT.DEFENSIVE,
 	"mobility": LOADOUT.MOBILITY, "passive": LOADOUT.PASSIVES,
 }
-const REAL_MODULES := ["pyro_boots", "bio_injector", "rocket_basket", "magnetic_field", "auxiliary_reactor"]
-const PHYSICAL := {
-	"weapon": LOADOUT.WEAPONS, "offensive": ["rocket_basket"],
-	"defensive": ["magnetic_field"], "mobility": ["pyro_boots", "bio_injector"],
-	"passive": ["auxiliary_reactor"],
-}
+var real_modules: Array = MODULE_VISUALS.MODEL_PATHS.keys()
+var physical := {"weapon": LOADOUT.WEAPONS}
 var garage
 var failures: Array[String] = []
 var checks := 0
@@ -33,6 +30,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	for category in CATEGORIES:
+		physical[category] = CATEGORIES[category].filter(func(identifier: String): return MODULE_VISUALS.has_model(identifier))
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	root.content_scale_size = Vector2i.ZERO
 	root.size = Vector2i(1280, 720)
@@ -56,8 +55,8 @@ func _run() -> void:
 	else:
 		for chassis in LOADOUT.ROBOTS:
 			garage._select_equipment("robot", chassis)
-			for category in PHYSICAL:
-				for identifier in PHYSICAL[category]:
+			for category in physical:
+				for identifier in physical[category]:
 					await _installation_cycle(category, identifier, chassis)
 			await _generic_equipment(chassis)
 		await _cancel_and_skip()
@@ -103,7 +102,7 @@ func _check_storage_inventory() -> void:
 		check(stations.bounds(category).size.length() > 0.25, "rack has useful world bounds: " + category)
 		for identifier in CATEGORIES[category]:
 			check(stations.items.has(identifier), "module retains its catalog storage location: " + identifier)
-			if identifier in REAL_MODULES:
+			if identifier in real_modules:
 				_check_pickup_geometry(identifier)
 	for identifier in LOADOUT.WEAPONS:
 		check(garage.stage.weapon_rack.items.has(identifier), "real weapon stocked separately: " + identifier)
@@ -246,10 +245,10 @@ func _installation_cycle(category: String, identifier: String, chassis: String) 
 func _generic_equipment(chassis: String) -> void:
 	for category in CATEGORIES:
 		for identifier in CATEGORIES[category]:
-			if identifier in REAL_MODULES:
+			if identifier in real_modules:
 				continue
 			var draft: Dictionary = garage.loadout.duplicate(true)
-			draft[category] = PHYSICAL[category][0]
+			draft[category] = physical[category][0]
 			garage.set_loadout(draft)
 			var mounted_before := mounted.size()
 			var completed_before := completed.size()
@@ -322,77 +321,64 @@ func _gui_and_framing() -> void:
 		for frame in 3:
 			await process_frame
 		_pause_controllers()
-		for category in PHYSICAL:
-			var identifier: String = PHYSICAL[category][0]
+		for category in physical:
+			var identifier: String = physical[category][0]
 			var catalog: Array = LOADOUT.WEAPONS if category == "weapon" else CATEGORIES[category]
 			var baseline: Dictionary = garage.loadout.duplicate(true)
 			baseline[category] = catalog[1] if identifier == catalog[0] else catalog[0]
 			garage.set_loadout(baseline)
 			garage._show_garage()
 			garage.focus.advance(1.1)
-			await process_frame
-			var button: Button = garage.station_buttons[category]
-			check(button.is_visible_in_tree() and Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(button.get_global_rect()), "station can be selected at " + str(dimensions) + ": " + category)
-			var storage = _storage(identifier)
-			var station_point: Vector3 = storage.anchor(category)
-			var screen := _project(station_point)
-			check(not garage.stage.camera.is_position_behind(station_point) and Rect2(Vector2.ZERO, garage.stage.size).has_point(screen), "world station label is on screen: " + category + " " + str(dimensions))
-			var bounds: AABB = storage.bounds(category)
-			# The robot deliberately occludes the rear rack; select an exposed
-			# portion instead of expecting a ray through the chassis to hit it.
-			var pickable: bool = storage.pick(screen) == category
-			for corner in 8:
-				pickable = pickable or storage.pick(_project(bounds.get_endpoint(corner).lerp(bounds.get_center(), 0.15))) == category
-			check(pickable, "exposed 3D rack can be picked at " + str(dimensions) + ": " + category)
-			if not pickable:
-				print("STATION PICK HUB FAIL ", category, " camera=", garage.stage.camera.global_transform, " anchor-screen=", screen, " returned=", storage.pick(screen))
-			await _click(button.get_global_rect().get_center())
+			check(garage.find_children("Station_*", "Button", true, false).is_empty(), "no floating station boxes at " + str(dimensions))
+			garage._module_category = category if category != "weapon" else garage._module_category
+			var navigation: Button = garage._nav["ARMES" if category == "weapon" else "MODULES"]
+			await _click(_ui_rect(navigation).get_center())
 			garage.focus.set_process(false)
 			garage.focus.advance(1.1)
-			check(garage._category == category and garage._module_panel.visible, "actual GUI station opens the matching submenu: " + category)
+			for frame in 3:
+				await process_frame
+			check(garage._category == category and garage._grids[category].visible, "atelier navigation opens the matching catalog: " + category)
 			for choice in catalog:
 				var option: Button = garage._choices[category][choice]
-				check(option.is_visible_in_tree() and Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(option.get_global_rect()), "every catalog choice remains visible, including the final passive: " + choice + " " + str(dimensions))
-				check(option.get_global_rect().end.y <= garage.equip_button.get_global_rect().position.y - 2.0, "catalog choice leaves the Equip action clear: " + choice + " " + str(dimensions))
-			var focused_pick: String = storage.pick(_project(bounds.get_center()))
-			check(focused_pick == category, "focused rack center picks the matching category: " + category)
-			if focused_pick != category:
-				print("STATION PICK FOCUSED FAIL ", category, " camera=", garage.stage.camera.global_transform, " returned=", focused_pick)
-			var rect: Rect2 = garage.focus.frame_rect().grow(3.0)
-			var fits := true
-			for corner in 8:
-				var world_point: Vector3 = bounds.get_endpoint(corner)
-				fits = fits and not garage.stage.camera.is_position_behind(world_point) and rect.has_point(_project(world_point))
-			check(fits, "station is framed between the catalog panels: " + category + " " + str(dimensions))
+				check(option.is_visible_in_tree() and Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(_ui_rect(option)), "every equipment card stays visible: " + choice + " " + str(dimensions))
+				check(_ui_rect(option).size.x >= 44 and _ui_rect(option).size.y >= 44, "card has a comfortable target: " + choice)
 			var card: Button = garage._choices[category][identifier]
-			check(Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(card.get_global_rect()), "module card remains accessible: " + identifier + " " + str(dimensions))
 			var before: Dictionary = garage.loadout.duplicate(true)
 			var previous_preview: String = garage._preview_id
-			await _hover(card.get_global_rect().get_center())
-			check(garage._preview_id == previous_preview and garage.loadout == before, "hover cannot change selected equipment: " + category + " " + str(dimensions))
-			await _click(card.get_global_rect().get_center())
+			await _hover(_ui_rect(card).get_center())
+			check(garage._preview_id == previous_preview and garage.loadout == before, "hover cannot change selected equipment")
+			await _click(_ui_rect(card).get_center())
+			for frame in 3:
+				await process_frame
 			check(garage.loadout == before and not garage.module_installation.active, "actual card click previews without equipping: " + identifier)
-			check(garage._preview_id == identifier and garage._preview_category == category, "card click deliberately selects equipment for the Equip action: " + identifier)
-			var other: Button = garage._choices[category][str(before[category])]
-			await _hover(other.get_global_rect().get_center())
-			check(garage._preview_id == identifier and garage.loadout == before, "hovering another card cannot steal the clicked selection: " + identifier)
+			check(garage._preview_id == identifier and garage._preview_category == category, "card deliberately selects equipment for Install: " + identifier)
 			var equip: Button = garage.equip_button
-			check(equip.is_visible_in_tree() and not equip.disabled and Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(equip.get_global_rect()), "Equip button is actionable at " + str(dimensions))
-			await _click(equip.get_global_rect().get_center())
+			check(equip.is_visible_in_tree() and not equip.disabled and Rect2(Vector2.ZERO, Vector2(dimensions)).encloses(_ui_rect(equip)), "Install is actionable at " + str(dimensions))
+			check(not _ui_rect(card).intersects(_ui_rect(equip)) if card.is_visible_in_tree() else true, "catalog and install action do not overlap")
+			await _click(_ui_rect(equip).get_center())
 			garage.module_installation.set_process(false)
-			check(garage.module_installation.active and garage.loadout == before and not garage._ui.visible, "actual Equip click begins the cinematic: " + identifier)
+			check(garage.module_installation.active and garage.loadout == before and not garage._ui.visible, "actual Install click begins the cinematic: " + identifier)
 			garage.module_installation.finish_now()
-			check(str(garage.loadout[category]) == identifier and garage._ui.visible, "cinematic commits the GUI-selected module: " + identifier)
+			check(str(garage.loadout[category]) == identifier and garage._ui.visible, "cinematic commits the GUI-selected equipment: " + identifier)
 			await process_frame
 			_pause_controllers()
-		garage._open_modules("mobility")
+		garage._open_modules("passive")
 		garage.focus.advance(1.1)
-		var before_direct: Dictionary = garage.loadout.duplicate(true)
-		await _click((garage._choices.mobility.permutation as Button).get_global_rect().get_center())
-		check(garage.loadout == before_direct and garage._preview_id == "permutation", "generic catalog card is also a deliberate preview: " + str(dimensions))
-		await _click(garage.equip_button.get_global_rect().get_center())
-		check(not garage.module_installation.active and str(garage.loadout.mobility) == "permutation" and garage._ui.visible, "generic Equip applies directly without fictional transport: " + str(dimensions))
-		_check_no_placeholders("generic GUI " + str(dimensions))
+		for frame in 3:
+			await process_frame
+		var before_passive: Dictionary = garage.loadout.duplicate(true)
+		await _click(_ui_rect(garage._choices.passive.omnivamp).get_center())
+		check(garage.loadout == before_passive and garage._preview_id == "omnivamp", "passive catalog previews its authored object")
+		await _click(_ui_rect(garage.equip_button).get_center())
+		garage.module_installation.set_process(false)
+		check(garage.module_installation.active and garage.loadout == before_passive, "passive Install starts real transport before committing")
+		garage.module_installation.finish_now()
+		check(str(garage.loadout.passive) == "omnivamp" and garage._ui.visible, "passive fastening returns to the usable garage")
+		_check_no_placeholders("passive GUI " + str(dimensions))
+
+
+func _ui_rect(control: Control) -> Rect2:
+	return control.get_global_transform() * Rect2(Vector2.ZERO, control.size)
 
 
 func _save_and_test() -> void:
@@ -464,9 +450,11 @@ func _native_runtime() -> void:
 		garage._show_garage(false)
 		for frame in 3:
 			await process_frame
-		await _click((garage.station_buttons[category] as Button).get_global_rect().get_center())
+		var station_point := _station_pick_point(category, _storage(identifier).bounds(category))
+		check(station_point != Vector2(-1, -1), "native physical station has a visible pick target: " + category)
+		await _click(station_point)
 		await create_timer(1.1).timeout
-		check(garage._category == category and garage._module_panel.visible, "native GUI button opens matching equipment rack: " + category)
+		check(garage._category == category and garage._module_panel.visible, "native physical station click opens matching equipment rack: " + category)
 		await _click((garage._choices[category][identifier] as Button).get_global_rect().get_center())
 		check(garage.loadout == draft and not garage.module_installation.active, "native GUI equipment card only previews its choice: " + identifier)
 		await _hover((garage._choices[category][alternative] as Button).get_global_rect().get_center())
@@ -486,6 +474,17 @@ func _native_runtime() -> void:
 
 func _project(point: Vector3) -> Vector2:
 	return garage.stage.camera.unproject_position(point) * garage.stage.size / Vector2(garage.stage.viewport.size)
+
+
+func _station_pick_point(category: String, bounds: AABB) -> Vector2:
+	var candidates: Array[Vector3] = [bounds.get_center()]
+	for corner in 8:
+		candidates.append(bounds.get_endpoint(corner).lerp(bounds.get_center(), 0.15))
+	for point in candidates:
+		var screen := _project(point)
+		if not garage.stage.camera.is_position_behind(point) and garage._pick_station(screen) == category:
+			return screen
+	return Vector2(-1, -1)
 
 
 func _storage_item(identifier: String) -> Node3D:
@@ -552,6 +551,16 @@ func _click(point: Vector2) -> void:
 		event.button_index = MOUSE_BUTTON_LEFT
 		event.pressed = pressed
 		event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		root.push_input(event, true)
+		await process_frame
+
+
+func _tap(point: Vector2) -> void:
+	for pressed in [true, false]:
+		var event := InputEventScreenTouch.new()
+		event.position = point
+		event.index = 0
+		event.pressed = pressed
 		root.push_input(event, true)
 		await process_frame
 

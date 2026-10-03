@@ -1,5 +1,7 @@
 extends Node
 
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
+
 # Specialized module behavior; state and public API stay on Player.
 const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
 
@@ -38,7 +40,7 @@ func _on_eclipse_arrived(_origin: Vector3, destination: Vector3) -> void:
 		player.passive_state.mobility_finished()
 	player.on_permutation_relocated()
 	PLAYER_STATE.PERMUTATION.refresh_sweeps(player.get_tree())
-	player.get_node("/root/GameSfx").play_event("javelin_teleport")
+	COMBAT_AUDIO.play(player, "eclipse_arrival", destination)
 	if not player._permutation_authoritative():
 		return
 	var scene := player.get_tree().current_scene
@@ -73,6 +75,7 @@ func _on_eclipse_arrived(_origin: Vector3, destination: Vector3) -> void:
 		if target.has_method("flash_impact"):
 			target.call("flash_impact", false)
 	if hit:
+		COMBAT_AUDIO.play(player, "eclipse_shield")
 		player.combat_state.grant_shield(float(definition.shield_amount), float(definition.shield_duration))
 
 

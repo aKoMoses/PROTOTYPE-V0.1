@@ -1,5 +1,7 @@
 class_name FulguroPunch
 extends RefCounted
+
+const COMBAT_AUDIO := preload("res://scripts/combat_audio.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 const PASSIVE_HITS := preload("res://scripts/passive_state.gd")
@@ -102,6 +104,7 @@ static func resolve_strike(attacker: CollisionObject3D, candidates: Array, locke
 		attacker.call("on_direct_offensive_hit", attack_id, PASSIVE_HITS.accepted_damage(target, applied, shield_before), target)
 	if applied <= 0.0:
 		return null
+	COMBAT_AUDIO.play(attacker, "fulguro_impact", target.global_position)
 	if target.has_method("flash_impact"):
 		target.call("flash_impact", false)
 	var values := definition()

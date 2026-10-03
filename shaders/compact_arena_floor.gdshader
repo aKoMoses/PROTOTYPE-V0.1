@@ -7,6 +7,14 @@ uniform vec4 metal_color : source_color = vec4(0.55, 0.4, 0.2, 1.0);
 uniform int style = 0;
 uniform float surface_roughness = 0.83;
 uniform float surface_metallic = 0.0;
+// Optional finish supplied per instance; other maps retain the original recipe.
+uniform sampler2D detail_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float detail_strength = 0.0;
+uniform float detail_scale = 0.46;
+uniform float detail_relief = 0.013;
+uniform float authored_wear = 0.0;
+uniform int wear_zone_count = 0;
+uniform vec4 wear_zones[12]; // world XZ, footprint radius, strength
 varying vec3 world_pos;
 varying vec3 mesh_pos;
 
@@ -34,6 +42,26 @@ float band(float r, float inner_radius, float outer_radius) {
 void vertex() {
     world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     mesh_pos = VERTEX;
+}
+vec2 mineral_fracture(vec2 position) {
+    // The reference courtyard's irregular fracture scale, independent of tiles.
+    vec2 p = position * 0.30;
+    p += vec2(smooth_noise(position * 0.85), smooth_noise(position * 0.85 + vec2(7.8))) * 0.08;
+    vec2 cell = floor(p), local = fract(p);
+    float first = 8.0, second = 8.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 offset = vec2(float(x), float(y));
+            vec2 seed = offset + vec2(hash(cell + offset), hash(cell + offset + vec2(17.3))) * 0.76 + vec2(0.12);
+            float d = length(seed - local);
+            if (d < first) { second = first; first = d; }
+            else { second = min(second, d); }
+        }
+    }
+    float gap = second - first;
+    float aa = max(fwidth(gap), 0.002);
+    float broken = mix(0.24, 1.0, smoothstep(0.3, 0.7, smooth_noise(position * 0.63)));
+    return vec2(1.0 - smoothstep(0.002, 0.006 + aa, gap), 1.0 - smoothstep(0.017, 0.035 + aa, gap)) * broken;
 }
 void fragment() {
     // Steel ring engraving turns with the exact physical angle from runtime.
@@ -141,6 +169,50 @@ void fragment() {
         col = stone_color.rgb * (0.86 + variation * 0.18 + brushing);
         col = mix(col, stone_color.rgb * vec3(0.50, 0.67, 0.65), wear * 0.15);
         roughness += wear * 0.06;
+    }
+    if (detail_strength > 0.0) {
+        vec3 detail = texture(detail_albedo, world_pos.xz * detail_scale).rgb;
+        // Texture reads are linear. The old multiplier clamped nearly every
+        // concrete texel to the same value, erasing the actual material.
+        vec3 variation = clamp(detail / vec3(0.373, 0.308, 0.230), vec3(0.56), vec3(1.48));
+        float grain = dot(variation, vec3(0.299, 0.587, 0.114));
+        col *= mix(vec3(1.0), variation, detail_strength);
+        relief += (grain - 1.0) * detail_relief * detail_strength;
+        roughness += (1.0 - grain) * 0.12 * detail_strength;
+    }
+    if (authored_wear > 0.0 && style < 3) {
+        // Larger, quieter surface variation and located wear around real props.
+        // Other maps keep authored_wear=0 and retain their existing appearance.
+        float grime = smooth_noise(p * 0.45 + vec2(11.3, -3.8));
+        float patches = smooth_noise(p * 2.8 + vec2(grime * 0.45));
+        float edge_age = smoothstep(8.0, 14.0, max(abs(p.x), abs(p.y)));
+        float contact_age = 0.0;
+        for (int i = 0; i < wear_zone_count; i++) {
+            float distance_to_prop = length(p - wear_zones[i].xy);
+            float ring = 1.0 - smoothstep(wear_zones[i].z * 0.48, wear_zones[i].z * 1.5, distance_to_prop);
+            contact_age = max(contact_age, ring * wear_zones[i].w);
+        }
+        vec2 tile_size = style == 1 ? vec2(1.65) : vec2(2.5, 1.5);
+        vec2 tiles = p / tile_size;
+        if (style == 0) { tiles.x += mod(floor(tiles.y), 2.0) * 0.5; }
+        vec2 cell = floor(tiles), f = fract(tiles);
+        float random = hash(cell + vec2(17.4, 2.3));
+        vec2 fracture = mineral_fracture(p);
+        float crack = fracture.x * (style == 1 ? 0.58 : 1.0);
+        float seam = min(min(f.x, 1.0 - f.x) * tile_size.x, min(f.y, 1.0 - f.y) * tile_size.y);
+        float chips = (1.0 - smoothstep(0.015, 0.11, seam)) * smoothstep(0.51, 0.78, patches);
+        float age = (edge_age * 0.38 + contact_age * 0.85) * (0.22 + patches * 0.78) * authored_wear;
+        vec3 dirt = style == 1 ? vec3(0.18, 0.30, 0.23) : style == 2 ? vec3(0.20, 0.19, 0.19) : vec3(0.39, 0.31, 0.22);
+        col *= 0.91 + grime * 0.17;
+        col = mix(col, dirt, age * 0.46);
+        col *= 1.0 + (fracture.y - crack) * authored_wear * 0.15;
+        col = mix(col, joint_color.rgb, (crack * 0.56 + chips * 0.27) * authored_wear);
+        relief -= (crack * 0.012 + fracture.y * 0.007 + chips * 0.006) * authored_wear;
+        roughness += age * 0.08;
+        if (style == 1) {
+            float damp = smoothstep(0.52, 0.75, grime) * (0.3 + contact_age * 0.7);
+            roughness = mix(roughness, 0.37, damp * authored_wear);
+        }
     }
     ALBEDO = style == 3 || style >= 8 ? col : mix(col, metal_color.rgb, metal * 0.82);
     METALLIC = style >= 8 ? surface_metallic : metal * 0.82;

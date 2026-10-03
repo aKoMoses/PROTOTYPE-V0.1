@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prototype 0 · Sons des pièges</title>
+  <style>
+    :root{color-scheme:dark;--bg:#111416;--panel:#1b2023;--line:#343b40;--muted:#a1aaae;--ink:#f3f1e9;--a:#efbc71;--b:#9ad3d1}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top left,#263032 0,transparent 55%),var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:36px 24px 52px}h1{font-size:clamp(28px,4vw,44px);line-height:1.12;letter-spacing:-1.4px;margin:10px 0 12px}h2{margin:0;font-size:19px}p{margin:0}.eyebrow{color:var(--a);font-size:11px;letter-spacing:2px;font-weight:750;text-transform:uppercase}.intro{color:var(--muted);max-width:700px}.directions,.sequences{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px}.direction,.sequence{padding:18px 20px;border:1px solid var(--line);background:var(--panel);border-radius:10px}.direction strong{display:block;font-size:17px}.direction small,.sequence small{color:var(--muted);display:block;margin-top:5px}.a{color:var(--a)}.b{color:var(--b)}.sequence{display:flex;gap:16px;align-items:center;justify-content:space-between}.sectionbar{display:flex;gap:20px;justify-content:space-between;align-items:center;margin:32px 0 10px}.sectionbar small{color:var(--muted)}.row{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:18px;align-items:center;border-bottom:1px solid var(--line);padding:19px 2px}.event strong{font-size:16px;display:block}.event small{color:var(--muted);display:block;margin-top:5px;font-size:12px}.sample{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.sample small{width:100%;color:var(--muted);font-size:12px;margin-bottom:3px}.sample small b{font-size:13px;margin-right:6px}button{font:inherit;font-size:12px;font-weight:650;cursor:pointer;border:1px solid #485159;border-radius:6px;color:var(--ink);padding:9px 12px;background:#252d32}button:hover{background:#343f46}button:focus-visible{outline:2px solid var(--a);outline-offset:3px}button[aria-pressed=true]{background:#efbc71;color:#17191a;border-color:#efbc71}.sample.b button[aria-pressed=true]{background:var(--b);border-color:var(--b)}button.playing{background:#f3f1e9;color:#151a1d}.segment{display:flex;gap:4px}.segment button{padding:6px 10px}.choice-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:26px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:14px}.choice-box p{font-size:13px;color:var(--muted);margin-top:5px}textarea{font:13px/1.7 ui-monospace,monospace;grid-column:1/-1;width:100%;border:1px solid #444e54;border-radius:6px;color:var(--ink);padding:12px;background:#121719;resize:vertical;min-height:110px}button:disabled{opacity:.4;cursor:default}.foot{font-size:12px;color:var(--muted);margin-top:18px}.now{height:4px;position:fixed;bottom:0;left:0;background:var(--a);width:0;transition:width .08s linear}.notice{color:var(--a);font-size:13px;margin-top:12px;min-height:20px}@media(max-width:690px){main{padding:26px 16px}.directions,.sequences{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr;gap:13px}.event{grid-column:1/-1}.sectionbar{align-items:flex-end}.choice-box{grid-template-columns:1fr}.choice-box>button{justify-self:start}.sample button{font-size:11px;padding:8px 10px}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Prototype 0 / Duel piégé</div>
+  <h1>Quatre gestes.<br>Deux directions sonores.</h1>
+  <p class="intro">Écoute les sons séparément, puis leurs enchaînements. Tu peux mélanger A et B selon les événements.</p>
+  <div class="sequence" style="margin-top:22px"><div><strong class="a">Ta sélection · B / A / B / A</strong><small>Avertissement dalle B · Décharge A · Armement B · Salve A</small></div><button data-play="previews/sequence-selected.wav" aria-label="Écouter la sélection B A B A">▶ Écouter</button></div>
+  <div class="directions">
+    <div class="direction"><strong class="a">A · Atelier pneumatique</strong><small>Relais doubles, culasse lourde, arc sourd et percussion mate.</small></div>
+    <div class="direction"><strong class="b">B · Relais électriques</strong><small>Vibreur bref, étincelles sèches, verrou et claquement métallique.</small></div>
+  </div>
+  <div class="sequences">
+    <div class="sequence"><div><strong class="a">Enchaînement A</strong><small>Dalle : alerte → décharge · Canon : armement → 3 tirs</small></div><button data-play="previews/sequence-A.wav" aria-label="Écouter l’enchaînement A">▶ Écouter</button></div>
+    <div class="sequence"><div><strong class="b">Enchaînement B</strong><small>1,6 seconde entre chaque avertissement et son activation.</small></div><button data-play="previews/sequence-B.wav" aria-label="Écouter l’enchaînement B">▶ Écouter</button></div>
+  </div>
+  <div class="sectionbar"><h2>Comparer et choisir</h2><div><small>Salves</small><div class="segment"><button data-count="2" aria-pressed="true">2 tirs</button><button data-count="3" aria-pressed="false">3 tirs</button></div></div></div>
+  <section class="row">
+    <div class="event"><strong>Avertissement de dalle</strong><small>Avant l’électrification · A 0,59 s / B 0,72 s</small></div>
+    <div class="sample a"><small><b class="a">A</b> Relais double</small><button data-play="candidates/tile-warning-A.wav" aria-label="Écouter l’avertissement de dalle A">▶ Écouter</button><button data-event="tile-warning" data-choice="A" aria-pressed="false">Choisir A</button></div>
+    <div class="sample b"><small><b class="b">B</b> Vibreur mat</small><button data-play="candidates/tile-warning-B.wav" aria-label="Écouter l’avertissement de dalle B">▶ Écouter</button><button data-event="tile-warning" data-choice="B" aria-pressed="false">Choisir B</button></div>
+  </section>
+  <section class="row">
+    <div class="event"><strong>Décharge électrique</strong><small>Activation de la dalle · 0,58 s</small></div>
+    <div class="sample a"><small><b class="a">A</b> Arc sourd</small><button data-play="candidates/tile-discharge-A.wav" aria-label="Écouter la décharge électrique A">▶ Écouter</button><button data-event="tile-discharge" data-choice="A" aria-pressed="false">Choisir A</button></div>
+    <div class="sample b"><small><b class="b">B</b> Étincelles sèches</small><button data-play="candidates/tile-discharge-B.wav" aria-label="Écouter la décharge électrique B">▶ Écouter</button><button data-event="tile-discharge" data-choice="B" aria-pressed="false">Choisir B</button></div>
+  </section>
+  <section class="row">
+    <div class="event"><strong>Armement du canon</strong><small>Avant le premier tir · A 0,97 s / B 0,75 s</small></div>
+    <div class="sample a"><small><b class="a">A</b> Culasse et pression</small><button data-play="candidates/cannon-warning-A.wav" aria-label="Écouter l’armement du canon A">▶ Écouter</button><button data-event="cannon-warning" data-choice="A" aria-pressed="false">Choisir A</button></div>
+    <div class="sample b"><small><b class="b">B</b> Verrou à ressort</small><button data-play="candidates/cannon-warning-B.wav" aria-label="Écouter l’armement du canon B">▶ Écouter</button><button data-event="cannon-warning" data-choice="B" aria-pressed="false">Choisir B</button></div>
+  </section>
+  <section class="row">
+    <div class="event"><strong>Courte salve</strong><small>Tirs espacés de 0,24 s · 2 ou 3 projectiles</small></div>
+    <div class="sample a"><small><b class="a">A</b> Percussion pneumatique</small><button data-salvo="A" data-play="candidates/cannon-salvo-2-A.wav" aria-label="Écouter la salve A">▶ Écouter</button><button data-event="cannon-salvo" data-choice="A" aria-pressed="false">Choisir A</button></div>
+    <div class="sample b"><small><b class="b">B</b> Claquement métallique</small><button data-salvo="B" data-play="candidates/cannon-salvo-2-B.wav" aria-label="Écouter la salve B">▶ Écouter</button><button data-event="cannon-salvo" data-choice="B" aria-pressed="false">Choisir B</button></div>
+  </section>
+  <div class="choice-box"><div><h2>Ta sélection</h2><p>Choisis chaque événement, puis copie ce texte dans la conversation.</p></div><button id="copy" disabled>Copier mes choix</button><textarea id="selection" readonly aria-label="Sélection des sons"></textarea></div>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <p class="foot">Candidats audio vérifiés. Sélection et écoute en jeu encore à faire.</p>
+</main><div class="now" id="progress"></div>
+<script>
+  const names={"tile-warning":"Avertissement dalle","tile-discharge":"Décharge dalle","cannon-warning":"Armement canon","cannon-salvo":"Salve canon"};
+  const storageKey="prototype0-arena-traps-candidates-v1";
+  let selected={},active=null,activeButton=null;
+  try {const stored=JSON.parse(localStorage.getItem(storageKey)||"{}");for(const key of Object.keys(names)){if(["A","B"].includes(stored[key]))selected[key]=stored[key];}} catch {}
+  const notice=document.getElementById("notice"),selection=document.getElementById("selection"),copy=document.getElementById("copy"),progress=document.getElementById("progress");
+  function refresh(){document.querySelectorAll("[data-choice]").forEach(button=>button.setAttribute("aria-pressed",String(selected[button.dataset.event]===button.dataset.choice)));selection.value=Object.keys(names).map(key=>names[key]+" : "+(selected[key]||"à choisir")).join("\n");copy.disabled=Object.keys(names).some(key=>!selected[key]);try{localStorage.setItem(storageKey,JSON.stringify(selected));}catch{}}
+  function stop(){if(active){active.pause();active.currentTime=0;}if(activeButton){activeButton.classList.remove("playing");activeButton.textContent="▶ Écouter";}active=null;activeButton=null;progress.style.width="0";}
+  document.querySelectorAll("[data-play]").forEach(button=>button.addEventListener("click",async()=>{const same=activeButton===button;stop();if(same)return;notice.textContent="";const player=new Audio(button.dataset.play);active=player;activeButton=button;button.textContent="■ Arrêter";button.classList.add("playing");player.addEventListener("ended",()=>{if(active===player)stop();});player.addEventListener("timeupdate",()=>{if(active===player)progress.style.width=(100*player.currentTime/player.duration)+"%";});player.addEventListener("error",()=>{if(active===player){stop();notice.textContent="Lecture indisponible. Ouvre le WAV directement depuis le dossier candidates.";}});try{await player.play();}catch{if(active===player){stop();notice.textContent="La lecture n’a pas démarré. Réessaie le bouton Écouter.";}}}));
+  document.querySelectorAll("[data-choice]").forEach(button=>button.addEventListener("click",()=>{selected[button.dataset.event]=button.dataset.choice;notice.textContent="";refresh();}));
+  document.querySelectorAll("[data-count]").forEach(button=>button.addEventListener("click",()=>{stop();document.querySelectorAll("[data-count]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));document.querySelectorAll("[data-salvo]").forEach(item=>item.dataset.play="candidates/cannon-salvo-"+button.dataset.count+"-"+item.dataset.salvo+".wav");}));
+  copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(selection.value);notice.textContent="Choix copiés. Colle-les dans la conversation.";}catch{selection.focus();selection.select();notice.textContent="Texte sélectionné : utilise Ctrl+C pour le copier.";}});
+  window.addEventListener("pagehide",stop);refresh();
+</script></body></html>

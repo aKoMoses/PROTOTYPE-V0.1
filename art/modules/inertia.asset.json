@@ -1,0 +1,20 @@
+{
+  "asset": "inertia",
+  "triangles": 4516,
+  "material_batches": 7,
+  "bytes": 1274068,
+  "sha256": "755340e0900d2f6e501161b2446cd1fdd4e4b5d474bba24d95c5ad4d5427cc6e",
+  "blender_bounds_min": [
+    -0.07828286290168762,
+    -0.06670799106359482,
+    -0.1038077101111412
+  ],
+  "blender_bounds_max": [
+    0.07828287035226822,
+    0.006000002846121788,
+    0.1038077250123024
+  ],
+  "origin": "Locally authored Blender geometry and PBR textures, no external assets.",
+  "source": "source/passives/inertia.blend",
+  "design": "Mechanical inertia stabilizer with three real bored gimbals in different planes, a solid ochre flywheel, lateral trunnions, ceramic support forks, paired damping struts and a lock-state indicator."
+}

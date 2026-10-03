@@ -5,6 +5,17 @@ class_name MekatanaVisual
 ## Source GLB is untouched; SourceAlignment seats its diagonal handle at the grip.
 const ELECTRIC_COLOR := Color("#70e7ff")
 const MAX_TRAIL_SAMPLES := 10
+const WINDUP_SOUND := preload("res://art/audio/weapon-sfx/mekatana-windup.wav")
+const SLASH_SOUNDS := [
+	preload("res://art/audio/weapon-sfx/mekatana-slash-1.wav"),
+	preload("res://art/audio/weapon-sfx/mekatana-slash-2.wav"),
+	preload("res://art/audio/weapon-sfx/mekatana-slash-3.wav"),
+]
+const IMPACT_SOUNDS := [
+	preload("res://art/audio/weapon-sfx/mekatana-impact-1.wav"),
+	preload("res://art/audio/weapon-sfx/mekatana-impact-2.wav"),
+	preload("res://art/audio/weapon-sfx/mekatana-impact-3.wav"),
+]
 ## Presentation endpoints, sound grains and electrical intensity are shared by
 ## both rigs. These settings never change damage, casts or dash durations.
 const STEP_PRESENTATION := [
@@ -82,11 +93,10 @@ func _ready() -> void:
 	if AudioServer.get_bus_index("Effects") >= 0:
 		_audio.bus = &"Effects"
 	add_child(_audio)
-	_charge_sound = _sound(0.14, 0)
+	_charge_sound = WINDUP_SOUND
 	for step in range(3):
-		var settings: Dictionary = STEP_PRESENTATION[step]
-		_slash_sounds.append(_sound(float(settings.slash_duration), 1, step))
-		_impact_sounds.append(_sound(float(settings.impact_duration), 2, step))
+		_slash_sounds.append(SLASH_SOUNDS[step])
+		_impact_sounds.append(IMPACT_SOUNDS[step])
 	var ancestor := get_parent()
 	while ancestor != null:
 		if ancestor is Skeleton3D:
@@ -121,13 +131,13 @@ func set_phase(step: int, phase: String, progress: float) -> void:
 		if phase == "preparation":
 			_samples.clear()
 			_audio.stream = _charge_sound
-			_audio.pitch_scale = [1.18, 1.05, 0.92][_step]
-			_audio.volume_db = float(settings.slash_volume) - 1.0
+			_audio.pitch_scale = 1.0
+			_audio.volume_db = -4.0
 			_audio.play()
 		elif phase == "active":
 			_audio.stream = _slash_sounds[_step]
-			_audio.pitch_scale = float(settings.slash_pitch)
-			_audio.volume_db = float(settings.slash_volume)
+			_audio.pitch_scale = 1.0
+			_audio.volume_db = -2.0
 			_audio.play()
 		elif phase == "":
 			_audio.stop()
@@ -171,8 +181,8 @@ func set_mekatana_impact(target: Node3D, power: float = 1.0) -> void:
 			manager.call("tracer", origin, origin + side * (float(settings.arc_length) * strength), float(settings.arc_width), ELECTRIC_COLOR, float(settings.arc_life))
 	if _audio != null:
 		_audio.stream = _impact_sounds[_step]
-		_audio.pitch_scale = float(settings.impact_pitch) / sqrt(strength)
-		_audio.volume_db = float(settings.impact_volume)
+		_audio.pitch_scale = 1.0 / sqrt(clampf(strength, 0.85, 1.15))
+		_audio.volume_db = -2.0
 		_audio.play()
 
 
@@ -275,28 +285,3 @@ static func _material(color: Color, opacity: float) -> StandardMaterial3D:
 	material.emission_energy_multiplier = 1.4
 	material.vertex_color_use_as_albedo = true
 	return material
-
-
-static func _sound(duration: float, kind: int, step: int = 0) -> AudioStreamWAV:
-	# Short, deterministic electrical/metallic grains; no gameplay random state.
-	var sample_rate := 22050
-	var count := int(duration * float(sample_rate))
-	var data := PackedByteArray()
-	data.resize(count * 2)
-	for index in range(count):
-		var time := float(index) / float(sample_rate)
-		var amount := float(index) / float(count)
-		var envelope := sin(minf(amount * 12.0, 1.0) * PI * 0.5) * pow(1.0 - amount, 2.0)
-		var grain := sin(float(index) * 12.9898) * sin(float(index) * 0.731)
-		var frequency := lerpf(420.0, 1050.0, amount) if kind == 0 else lerpf([1250.0, 920.0, 660.0][step], [260.0, 180.0, 110.0][step], amount)
-		var wave := sin(TAU * frequency * time) * 0.35 + grain * (0.20 if kind == 0 else 0.65)
-		if kind == 1:
-			wave += sin(TAU * [180.0, 140.0, 90.0][step] * time) * [0.06, 0.14, 0.27][step]
-		if kind == 2:
-			wave += sin(TAU * [1900.0, 1400.0, 960.0][step] * time) * 0.20
-		data.encode_s16(index * 2, int(clampf(wave * envelope, -1.0, 1.0) * 12500.0))
-	var sound := AudioStreamWAV.new()
-	sound.format = AudioStreamWAV.FORMAT_16_BITS
-	sound.mix_rate = sample_rate
-	sound.data = data
-	return sound
