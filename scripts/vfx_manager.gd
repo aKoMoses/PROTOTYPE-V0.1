@@ -8,6 +8,7 @@ signal organic_motion(at: Vector3, direction: Vector3, power: float)
 const SURFACES := preload("res://scripts/surface_response.gd")
 const PRESENTATION := preload("res://scripts/combat_presentation_pass.gd")
 const ORGANIC_DETAILS := preload("res://scripts/environment/organic_world_details.gd")
+const STATIC_BATCHER := preload("res://scripts/static_scene_batcher.gd")
 
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const ASSETS := preload("res://scripts/vfx_assets.gd")
@@ -75,6 +76,7 @@ func _apply_device_budget(mobile: bool) -> void:
 func _install_presentation() -> void:
 	PRESENTATION.install(get_parent(), self)
 	ORGANIC_DETAILS.install(get_parent(), self)
+	STATIC_BATCHER.install(get_parent())
 
 
 func _process(delta: float) -> void:

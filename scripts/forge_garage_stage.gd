@@ -3,6 +3,7 @@ extends SubViewportContainer
 const WORKSHOP := preload("res://art/forge-garage/workshop.glb")
 const PAINT := preload("res://scripts/robot_chassis_visuals.gd")
 const SERVICE_ARM := preload("res://scripts/forge_service_arm.gd")
+const STATIC_BATCHER := preload("res://scripts/static_scene_batcher.gd")
 const FINISHES := preload("res://scripts/forge_workshop_materials.gd")
 const HANGAR := preload("res://scripts/forge_garage_hangar.gd")
 const MODULE_VISUALS := preload("res://scripts/robot_module_visuals.gd")
@@ -93,6 +94,7 @@ func _ready() -> void:
 	_sync_visibility()
 	set_chassis(chassis_id)
 	set_weapon(weapon_id)
+	STATIC_BATCHER.install(world, true)
 
 
 func _process(delta: float) -> void:

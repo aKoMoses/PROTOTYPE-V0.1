@@ -9,6 +9,7 @@ var _previous_usec := 0
 var _refresh := 0.0
 var _label: Label
 var _panel: PanelContainer
+var _measured_viewport: Viewport
 
 func _ready() -> void:
 	name = "FramePacing"
@@ -47,7 +48,34 @@ func _process(delta: float) -> void:
 	_refresh = 0.0
 	var stats := get_stats()
 	_label.text = "%.0f FPS · %.1f ms\npic %.1f ms · >33 ms : %d" % [stats.fps, stats.average_ms, stats.peak_ms, stats.stalls]
+	if OS.has_feature("mobile") or OS.get_cmdline_user_args().has("static-batching"):
+		_update_renderer_stats()
 	_label.add_theme_color_override("font_color", Color("#ffb276") if stats.peak_ms > 33.333 else Color("#adebbb"))
+
+func _update_renderer_stats() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var viewport: Viewport = get_viewport()
+	var scene := get_tree().current_scene
+	var interface := scene.get_node_or_null("Interface") if scene != null else null
+	if interface != null and interface.has_method("_open_equipment"):
+		var garage: Node = interface.get("_forge_garage")
+		if is_instance_valid(garage) and garage.is_visible_in_tree():
+			var stage: Node = garage.get("stage")
+			if is_instance_valid(stage):
+				viewport = stage.get("viewport")
+	if _measured_viewport != viewport:
+		if is_instance_valid(_measured_viewport):
+			RenderingServer.viewport_set_measure_render_time(_measured_viewport.get_viewport_rid(), false)
+		_measured_viewport = viewport
+		RenderingServer.viewport_set_measure_render_time(viewport.get_viewport_rid(), true)
+	var gpu_ms := RenderingServer.viewport_get_measured_render_time_gpu(viewport.get_viewport_rid())
+	var gpu_text := "GPU %.1f ms" % gpu_ms if gpu_ms > 0.0 else "GPU —"
+	_label.text += "\n%d appels 3D · %s" % [int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), gpu_text]
+
+func _exit_tree() -> void:
+	if is_instance_valid(_measured_viewport):
+		RenderingServer.viewport_set_measure_render_time(_measured_viewport.get_viewport_rid(), false)
 
 func record_interval(milliseconds: float) -> void:
 	if _intervals.size() != SAMPLE_COUNT:
