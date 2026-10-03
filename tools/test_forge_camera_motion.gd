@@ -101,20 +101,23 @@ func _check_cycle(dimensions: Vector2i) -> void:
 
 
 func _check_station_framing(label: String) -> void:
-	for category in ["weapon", "offensive", "defensive", "passive", "mobility"]:
-		var provider = garage.stage.weapon_rack if category == "weapon" else garage.stage.module_stations
-		var bounds: AABB = provider.bounds(category)
-		var fits := true
-		for corner in 8:
-			var point := bounds.get_endpoint(corner)
-			fits = fits and not garage.stage.camera.is_position_behind(point) and garage.focus.frame_rect().grow(1).has_point(_project(point))
-		check(fits and _pick_point(category) != Vector2(-1, -1), "station stays framed and pickable: " + category + " " + label)
+	var bounds: AABB = garage.stage.robot.global_transform * garage.stage._robot_pick_bounds
+	var fits := true
+	for corner in 8:
+		var point := bounds.get_endpoint(corner)
+		fits = fits and not garage.stage.camera.is_position_behind(point) and garage.focus.frame_rect().grow(1).has_point(_project(point))
+	check(fits, "robot remains framed throughout the orbit: " + label)
+	for title in ["ARMES", "MODULES", "MES BUILDS"]:
+		var button: Button = garage._nav[title]
+		var rect := button.get_global_transform() * Rect2(Vector2.ZERO, button.size)
+		check(button.is_visible_in_tree() and Rect2(Vector2.ZERO, garage.size).encloses(rect), "navigation stays accessible during the orbit: " + title)
 
 
 func _check_hover_and_picking(dimensions: Vector2i) -> void:
-	var point := _pick_point("passive")
+	var modules: Button = garage._nav.MODULES
+	var point: Vector2 = modules.get_global_transform() * (modules.size * 0.5)
 	await _mouse_motion(point)
-	check(garage.stage.module_stations.selected_category == "passive", "real pointer highlights passive station: " + str(dimensions))
+	check(garage.focus._station_hovered, "navigation hover pauses the camera at " + str(dimensions))
 	var held: Transform3D = garage.stage.camera.global_transform
 	_advance(3.0)
 	check(garage.stage.camera.global_transform.is_equal_approx(held), "hover freezes current camera pose: " + str(dimensions))
@@ -122,27 +125,28 @@ func _check_hover_and_picking(dimensions: Vector2i) -> void:
 	garage.focus.advance(STEP)
 	check(garage.stage.camera.global_position.distance_to(held.origin) < 0.00002, "hover release resumes without a jump: " + str(dimensions))
 	_advance(2.0)
-	check(garage.stage.camera.global_position.distance_to(held.origin) > 0.005, "orbit resumes after leaving station: " + str(dimensions))
-	# The camera may have moved since the previous pointer event.
-	point = _pick_point("passive")
-	await _press(point, true, dimensions.x == 960)
-	await _press(point, false, dimensions.x == 960)
+	check(garage.stage.camera.global_position.distance_to(held.origin) > 0.005, "orbit resumes after leaving navigation")
+	point = modules.get_global_transform() * (modules.size * 0.5)
+	await _press(point, true, false)
+	await _press(point, false, false)
 	garage.focus.set_process(false)
 	garage.focus.advance(0.95)
-	check(garage._category == "passive" and garage.focus.zone == "station", "click or touch still opens the moving physical station: " + str(dimensions))
+	check(garage._category == "passive" and garage.focus.zone in ["station", "catalog"], "navigation opens the selected family")
 	var station_pose: Transform3D = garage.stage.camera.global_transform
 	_advance(3.0)
-	check(garage.stage.camera.global_transform.is_equal_approx(station_pose), "catalog camera remains stationary: " + str(dimensions))
+	check(garage.stage.camera.global_transform.is_equal_approx(station_pose), "catalog camera remains stationary")
 	garage._show_garage(false)
 	_pause()
 	_advance(2.0)
-	await _mouse_motion(_pick_point("weapon"))
+	var weapons: Button = garage._nav.ARMES
+	await _mouse_motion(weapons.get_global_transform() * (weapons.size * 0.5))
 	var weapon_hold: Transform3D = garage.stage.camera.global_transform
 	_advance(1.0)
-	check(garage.stage.camera.global_transform.is_equal_approx(weapon_hold), "weapon hover also freezes the orbit")
+	check(garage.stage.camera.global_transform.is_equal_approx(weapon_hold), "weapon navigation also freezes the orbit")
 	root.mouse_exited.emit()
+	await _mouse_motion(Vector2(dimensions.x * 0.5, dimensions.y * 0.75))
 	_advance(2.0)
-	check(garage.stage.camera.global_position.distance_to(weapon_hold.origin) > 0.005, "leaving the window clears the hover pause")
+	check(garage.stage.camera.global_position.distance_to(weapon_hold.origin) > 0.005, "leaving the controls clears the hover pause")
 
 
 func _check_rotation(touch: bool) -> void:

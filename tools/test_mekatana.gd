@@ -444,9 +444,16 @@ func _test_player_integration() -> void:
 	var combat_build_before: Dictionary = flow.get("loadout").duplicate(true)
 	_check(choices.has("mekatana"), "the real equipment selector exposes Mekatana")
 	if choices.has("mekatana"):
-		(choices["mekatana"] as Button).pressed.emit()
 		var garage = flow.get("_forge_garage")
-		_check(str(garage.loadout.weapon) == "mekatana" and garage.stage.weapon_id == "mekatana" and flow.get("loadout") == combat_build_before and LOADOUT.load_local() == saved_before_selection, "real selection previews Mekatana and preserves the saved combat build until Save")
+		var draft_before: Dictionary = garage.loadout.duplicate(true)
+		var weapon_before: String = garage.stage.weapon_id
+		(choices["mekatana"] as Button).pressed.emit()
+		_check(garage._preview_id == "mekatana" and garage.loadout == draft_before and garage.stage.weapon_id == weapon_before and not garage.module_installation.active and flow.get("loadout") == combat_build_before and LOADOUT.load_local() == saved_before_selection, "real card previews Mekatana without equipping or saving it")
+		garage._equip_preview()
+		if weapon_before != "mekatana":
+			_check(garage.module_installation.active and garage.loadout == draft_before, "equipping Mekatana waits for its fixation")
+			garage.module_installation.finish_now()
+		_check(str(garage.loadout.weapon) == "mekatana" and garage.stage.weapon_id == "mekatana" and not garage.module_installation.active and flow.get("loadout") == combat_build_before and LOADOUT.load_local() == saved_before_selection, "fixed Mekatana remains a draft until the build is saved")
 	flow.call("_open_menu")
 	await _prepare_player(player, target, controls)
 	await _desktop_key(true)

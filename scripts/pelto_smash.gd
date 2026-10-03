@@ -18,6 +18,7 @@ const SAMPLE_HEIGHT := 0.72
 const HITBOX_HEIGHT := 1.45
 const WALL_MARGIN := 0.045
 const DUST_STEP := 0.55
+static var _visual_resources: Dictionary = {}
 
 var caster: Node3D
 var source_id := ""
@@ -50,6 +51,51 @@ var _motion_blend := 1.0
 
 static func definition() -> Dictionary:
 	return COMBAT_DATA.MODULE_DEFINITIONS["pelto_smash"]
+
+static func prepare_visual_resources() -> Dictionary:
+	# Geometry and fixed materials never change during a cast. Reuse them for
+	# all waves, while each wave keeps its own transforms and gameplay state.
+	var values := definition()
+	var key := Vector2(float(values.width), float(values.front_thickness))
+	if _visual_resources.has(key):
+		return _visual_resources[key]
+	var plates: Array[SphereMesh] = []
+	var fragments: Array[BoxMesh] = []
+	for index in 3:
+		var plate := SphereMesh.new()
+		plate.radius = key.x / 9.0 * 0.56
+		plate.height = 0.24 + float(index) * 0.035
+		plate.radial_segments = 6
+		plate.rings = 3
+		plates.append(plate)
+		var fragment := BoxMesh.new()
+		var size_factor := 0.08 + float(index) * 0.025
+		fragment.size = Vector3(size_factor, size_factor * 0.75, size_factor * 1.35)
+		fragments.append(fragment)
+	var trace := BoxMesh.new()
+	trace.size = Vector3.ONE
+	var ring := TorusMesh.new()
+	ring.inner_radius = key.x * 0.34
+	ring.outer_radius = key.x * 0.42
+	ring.rings = 8
+	ring.ring_segments = 28
+	var dust := SphereMesh.new()
+	dust.radius = 0.16
+	dust.height = 0.18
+	dust.radial_segments = 7
+	dust.rings = 4
+	var resources := {"plates": plates, "fragments": fragments, "trace": trace, "ring": ring, "dust": dust,
+		"plate_dark": _earth_material(Color("#9b5835"), 1.0), "plate_light": _earth_material(Color("#b66d3e"), 1.0),
+		"fragment_material": _earth_material(Color("#cf8750"), 1.0), "trace_material": _earth_material(Color("#70452f"), 0.38),
+		"ring_material": _earth_material(Color("#f0b66a"), 0.82)}
+	# PrimitiveMesh builds its geometry lazily. Force resource preparation now,
+	# rather than leaving that work for the first visible wave.
+	for mesh in plates + fragments + [trace, ring, dust]:
+		mesh.get_rid()
+	for material in [resources.plate_dark, resources.plate_light, resources.fragment_material, resources.trace_material, resources.ring_material]:
+		material.get_rid()
+	_visual_resources[key] = resources
+	return resources
 
 
 static func flat_direction(value: Vector3) -> Vector3:
@@ -248,6 +294,7 @@ func _apply_hit(target: Node, returning: bool) -> void:
 
 
 func _build_visuals() -> void:
+	var resources := prepare_visual_resources()
 	_front_root = Node3D.new()
 	_front_root.name = "EarthFront"
 	add_child(_front_root)
@@ -255,46 +302,33 @@ func _build_visuals() -> void:
 	var segment_width := float(_definition.width) / float(plate_count)
 	for index in range(plate_count):
 		var plate := MeshInstance3D.new()
-		var mesh := SphereMesh.new()
-		mesh.radius = segment_width * 0.56
-		mesh.height = 0.24 + float(index % 3) * 0.035
-		mesh.radial_segments = 6
-		mesh.rings = 3
+		var mesh: SphereMesh = resources.plates[index % 3]
 		plate.mesh = mesh
 		plate.scale.z = float(_definition.front_thickness) * 0.82 / (mesh.radius * 2.0)
 		plate.position.x = -float(_definition.width) * 0.5 + segment_width * (float(index) + 0.5)
 		plate.position.z = (0.08 if index % 2 == 0 else -0.08)
-		plate.material_override = _earth_material(Color("#9b5835") if index % 2 == 0 else Color("#b66d3e"), 1.0)
+		plate.material_override = resources.plate_dark if index % 2 == 0 else resources.plate_light
 		_front_root.add_child(plate)
 		_plates.append(plate)
 	for index in range(5):
 		var fragment := MeshInstance3D.new()
-		var fragment_mesh := BoxMesh.new()
-		var scale_factor := 0.08 + float(index % 3) * 0.025
-		fragment_mesh.size = Vector3(scale_factor, scale_factor * 0.75, scale_factor * 1.35)
-		fragment.mesh = fragment_mesh
+		fragment.mesh = resources.fragments[index % 3]
 		fragment.position = Vector3(-float(_definition.width) * 0.38 + float(index) * float(_definition.width) * 0.19, 0.22, 0.0)
 		fragment.set_meta("pelto_base", fragment.position)
-		fragment.material_override = _earth_material(Color("#cf8750"), 1.0)
+		fragment.material_override = resources.fragment_material
 		_front_root.add_child(fragment)
 		_fragments.append(fragment)
 	_trace = MeshInstance3D.new()
 	_trace.name = "TemporaryGroundTrace"
 	_trace.top_level = true
-	_trace_mesh = BoxMesh.new()
-	_trace_mesh.size = Vector3(float(_definition.width) * 0.92, 0.025, 0.05)
+	_trace_mesh = resources.trace
 	_trace.mesh = _trace_mesh
-	_trace.material_override = _earth_material(Color("#70452f"), 0.38)
+	_trace.material_override = resources.trace_material
 	add_child(_trace)
 	_endpoint_ring = MeshInstance3D.new()
 	_endpoint_ring.name = "ReturnCue"
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius = float(_definition.width) * 0.34
-	ring_mesh.outer_radius = float(_definition.width) * 0.42
-	ring_mesh.rings = 8
-	ring_mesh.ring_segments = 28
-	_endpoint_ring.mesh = ring_mesh
-	_endpoint_ring.material_override = _earth_material(Color("#f0b66a"), 0.82)
+	_endpoint_ring.mesh = resources.ring
+	_endpoint_ring.material_override = resources.ring_material
 	_endpoint_ring.visible = false
 	_endpoint_ring.top_level = true
 	add_child(_endpoint_ring)
@@ -325,9 +359,11 @@ func _update_visuals() -> void:
 		fragment.position = base + Vector3(0.0, (0.5 + 0.5 * sin(_visual_clock * 9.0 + float(index))) * 0.18, motion_sign * -0.16)
 		fragment.rotation = Vector3(_visual_clock * (2.0 + index * 0.12), float(index), _visual_clock * 1.7)
 	var trace_length := maxf(0.05, _max_distance if phase in ["pause", "return"] else render_distance)
-	_trace_mesh.size = Vector3(float(_definition.width) * 0.92, 0.025, trace_length)
+	# Scaling the immutable box keeps the exact dimensions without rebuilding
+	# and uploading a new mesh every rendered frame.
 	_trace.global_position = start_position + direction * (trace_length * 0.5) + Vector3.UP * 0.018
 	_trace.global_basis = Basis.looking_at(direction, Vector3.UP)
+	_trace.scale = Vector3(float(_definition.width) * 0.92, 0.025, trace_length)
 	_endpoint_ring.global_position = start_position + direction * _max_distance + Vector3.UP * 0.055
 	_front_root.scale.y = 1.0 + (1.0 - absf(_motion_blend)) * 0.12
 	_endpoint_ring.scale = Vector3.ONE * (1.0 + (1.0 - absf(_motion_blend)) * 0.16)
@@ -341,12 +377,7 @@ func _emit_moving_dust(step_distance: float, returning: bool) -> void:
 	var side := Vector3(-direction.z, 0.0, direction.x)
 	for side_sign in [-1.0, 1.0]:
 		var puff := MeshInstance3D.new()
-		var mesh := SphereMesh.new()
-		mesh.radius = 0.16
-		mesh.height = 0.18
-		mesh.radial_segments = 7
-		mesh.rings = 4
-		puff.mesh = mesh
+		puff.mesh = prepare_visual_resources().dust
 		var material := _earth_material(Color("#b98a68"), 0.30)
 		puff.material_override = material
 		var scene := get_tree().current_scene if get_tree() != null else null
@@ -401,12 +432,12 @@ func _finish_wave() -> void:
 	# Keep the wave alive until the last detached dust tween has finished using
 	# our shared material-alpha callback (dust lifetime is 0.24 seconds).
 	tween.tween_property(_front_root, "scale", Vector3(0.85, 0.05, 0.85), 0.30)
-	tween.tween_property(_trace, "scale", Vector3(1.0, 0.05, 1.0), 0.30)
+	tween.tween_property(_trace, "scale", _trace.scale * Vector3(1.0, 0.05, 1.0), 0.30)
 	tween.set_parallel(false)
 	tween.tween_callback(queue_free)
 
 
-func _earth_material(color: Color, alpha: float) -> StandardMaterial3D:
+static func _earth_material(color: Color, alpha: float) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(color.r, color.g, color.b, alpha)
 	material.roughness = 0.92

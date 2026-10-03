@@ -29,9 +29,9 @@ func _run() -> void:
 	check(events.is_empty(), "preview does not announce an installation")
 	_cycle("weapon", "mekatana")
 	_cycle("offensive", "rocket_basket")
-	garage._select_equipment("defensive", "projector")
+	_cycle("defensive", "projector")
 	_cycle("defensive", "magnetic_field")
-	garage._select_equipment("mobility", "eclipse")
+	_cycle("mobility", "eclipse")
 	_cycle("mobility", "pyro_boots")
 	_cycle("mobility", "bio_injector")
 	_cycle("passive", "auxiliary_reactor")
@@ -58,12 +58,11 @@ func _run() -> void:
 	events.clear()
 	garage.module_installation.finish_now()
 	check(events.is_empty(), "late skip does not replay an already heard latch")
-	# Generic nonphysical modules use only the fitting cue, once per change.
-	events.clear()
+	# Projector now has a physical model and uses the full arm installation.
+	_cycle("defensive", "projector")
+	var completed_event_count := events.size()
 	garage._select_equipment("defensive", "projector")
-	check(events.size() == 1 and _count("lock") == 1, "direct module installation has one latch")
-	garage._select_equipment("defensive", "projector")
-	check(events.size() == 1, "selecting equipped module stays silent")
+	check(events.size() == completed_event_count, "selecting equipped module stays silent")
 	garage._select_equipment("weapon", "longshot")
 	_advance_to(0.4)
 	garage.hide()
@@ -87,6 +86,7 @@ func _cycle(category: String, identifier: String) -> void:
 	check(garage.module_installation.active, "installation starts: " + identifier)
 	_advance_to(8.0)
 	check(not garage.module_installation.active, "installation completes: " + identifier)
+	check(str(garage.loadout.get(category, "")) == identifier, "installation equips the requested model: " + identifier)
 	check(_count("pickup") == 1 and _count("weld") == 1 and _count("lock") == 1, "single contact cues: " + identifier)
 	for event in events:
 		if event.cue == "pickup":

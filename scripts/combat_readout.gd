@@ -36,6 +36,7 @@ var _blaster_progress_tip: ColorRect
 var _latest_popup: Node3D
 var _latest_healing_popup: Node3D
 var _damage_serial := 0
+var _cinematic_mode := false
 
 
 func configure(accent: Color, display_name: String = "JOUEUR", damage_side: float = 1.0) -> void:
@@ -138,7 +139,9 @@ func _sync_weapon_badge() -> void:
 
 
 func show_damage(amount: float) -> void:
-	if amount <= 0.0:
+	# Cinematic menus hide this whole readout. Building invisible Label3Ds
+	# still allocates rendering resources and causes recurring shot-time stalls.
+	if amount <= 0.0 or _cinematic_mode or not is_visible_in_tree():
 		return
 	if _latest_popup == null or not is_instance_valid(_latest_popup) or not bool(_latest_popup.call("can_merge")):
 		_damage_serial += 1
@@ -154,7 +157,7 @@ func show_damage(amount: float) -> void:
 
 
 func show_healing(amount: float) -> void:
-	if amount <= 0.0:
+	if amount <= 0.0 or _cinematic_mode or not is_visible_in_tree():
 		return
 	if _latest_healing_popup == null or not is_instance_valid(_latest_healing_popup) or not bool(_latest_healing_popup.call("can_merge")):
 		_damage_serial += 1
@@ -176,6 +179,7 @@ func clear_damage_numbers() -> void:
 
 
 func set_cinematic_mode(enabled: bool) -> void:
+	_cinematic_mode = enabled
 	if _sprite != null:
 		_sprite.visible = not enabled
 
@@ -193,7 +197,7 @@ func _build() -> void:
 	_viewport.transparent_bg = true
 	_viewport.disable_3d = true
 	_viewport.gui_disable_input = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	add_child(_viewport)
 	var root := Control.new()
 	root.name = "HealthBarUI"

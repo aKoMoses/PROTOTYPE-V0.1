@@ -43,20 +43,29 @@ func _run() -> void:
 	var saved_before_choices := LOADOUT.load_local()
 	var combat_weapon_before := str(scene.get("player").call("get_weapon_id"))
 	_check(garage.visible and choices.size() == LOADOUT.WEAPONS.size(), "toutes les armes dans la forge officielle")
+	garage.call("_navigate", "ARMES")
 	for identifier in LOADOUT.WEAPONS:
 		var button: Button = choices[identifier]
+		var draft_before: Dictionary = garage.get("loadout").duplicate(true)
 		button.pressed.emit()
+		_check(garage.get("loadout") == draft_before and garage.get("_preview_id") == identifier and not garage.module_installation.active and LOADOUT.load_local() == saved_before_choices, "apercu sans equipement ni sauvegarde : " + identifier)
+		garage.call("_equip_preview")
+		if str(draft_before.weapon) != identifier:
+			_check(garage.module_installation.active and garage.get("loadout") == draft_before, "fixation avant changement du brouillon : " + identifier)
+			garage.module_installation.finish_now()
 		_check(str(garage.get("loadout").weapon) == identifier and LOADOUT.load_local() == saved_before_choices, "selection dans le brouillon sans sauvegarde immediate : " + identifier)
 		var model := stage.weapon_socket.get_child(0).get_child(0) as Node3D
 		var expected_path: String = MODEL_PATHS.get(identifier, "res://art/weapons/%s.glb" % identifier)
 		_check(model.scene_file_path == expected_path, "vrai GLB equipe dans la main : " + identifier)
 		_check(stage.weapon_socket.global_transform.is_finite(), "transformation finie : " + identifier)
 		button.mouse_entered.emit()
-		_check(garage.get("_detail_title").text == LOADOUT.display_name(identifier), "fiche de l'arme accessible au survol : " + identifier)
+		_check(garage.get("_detail_title").text == LOADOUT.display_name(identifier), "fiche de l'arme selectionnee accessible : " + identifier)
 		_check(garage.get("_detail_description").text == LOADOUT.category_description(identifier) and garage.get("_detail_stats").tooltip_text == LOADOUT.stat_line(identifier), "description et statistiques conservees : " + identifier)
 		var other_id: String = LOADOUT.WEAPONS[(LOADOUT.WEAPONS.find(identifier) + 1) % LOADOUT.WEAPONS.size()]
 		(choices[other_id] as Button).mouse_entered.emit()
-		_check(str(garage.get("loadout").weapon) == identifier and garage.get("_detail_title").text == LOADOUT.display_name(other_id), "survoler une autre fiche ne change pas l'equipement")
+		_check(str(garage.get("loadout").weapon) == identifier and garage.get("_detail_title").text == LOADOUT.display_name(identifier), "survoler une carte conserve la fiche selectionnee et l'equipement")
+		(choices[other_id] as Button).pressed.emit()
+		_check(str(garage.get("loadout").weapon) == identifier and stage.weapon_id == identifier and garage.get("_detail_title").text == LOADOUT.display_name(other_id), "ouvrir une autre fiche ne change pas l'equipement")
 	for dimensions in [Vector2i(1280, 720), Vector2i(800, 600), Vector2i(2340, 1080)]:
 		root.size = dimensions
 		await process_frame

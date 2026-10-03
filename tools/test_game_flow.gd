@@ -171,6 +171,10 @@ func _initialize() -> void:
 			_failures.append("jingle joué avant le résultat final du match")
 		if str(flow.call("get_round_phase_name")) != "WINNER_FOCUS" or flow.get("_result_panel").visible:
 			_failures.append("focus vainqueur absent avant le résultat")
+		var round_feedback: Node = flow.get("_round_end_feedback")
+		if camera_rig.get("_focus_target") != null:
+			_failures.append("la caméra doit attendre la chute avant de cadrer le vainqueur")
+		round_feedback.call("_process", float(round_feedback.DEATH_READ_TIME))
 		if camera_rig.get("_focus_target") != player:
 			_failures.append("caméra ne cible pas le vainqueur")
 		if player_bar == null or player_bar.visible:
@@ -184,7 +188,7 @@ func _initialize() -> void:
 		if absf(float(flow.get("_winner_focus_remaining")) - focus_before_pause) > 0.01:
 			_failures.append("pause n'arrête pas le focus vainqueur")
 		flow.call("_resume")
-		flow.call("_process", 1.6)
+		flow.call("_process", float(flow.WINNER_FOCUS_SECONDS))
 		if str(flow.call("get_round_phase_name")) != "ROUND_RESULT" or not flow.get("_result_panel").visible:
 			_failures.append("résultat absent après la transition")
 		flow.call("resolve_round", false, true)
@@ -205,7 +209,8 @@ func _initialize() -> void:
 		flow.set("round_phase", 2)
 		flow.set("_round_resolved", false)
 		flow.call("resolve_round", false, true)
-		flow.call("_process", 1.6)
+		round_feedback.call("_process", float(round_feedback.DEATH_READ_TIME))
+		flow.call("_process", float(flow.WINNER_FOCUS_SECONDS))
 		flow.set("_round_result_remaining", 0.0)
 		flow.call("_start_next_round")
 		if str(flow.call("get_round_phase_name")) != "MATCH_RESULT" or int(flow.get("current_screen")) != 4:
@@ -226,10 +231,11 @@ func _initialize() -> void:
 		if player_bar != null and not player_bar.visible:
 			_failures.append("la barre reste cachée au combat suivant")
 		flow.call("resolve_round", true, false)
+		round_feedback.call("_process", float(round_feedback.DEATH_READ_TIME))
 		if camera_rig.get("_focus_target") != target or flow.call("get_match_score") != Vector2i(0, 1):
 			_failures.append("la défaite ne cadre pas le bot vainqueur")
 		flow.set("bot_round_score", 3)
-		flow.call("_process", 1.6)
+		flow.call("_process", float(flow.WINNER_FOCUS_SECONDS))
 		flow.set("_round_result_remaining", 0.0)
 		flow.call("_start_next_round")
 		if not result_audio.playing or result_audio.stream.resource_path != "res://son-musique/musiques/02_defaite_forge.wav":

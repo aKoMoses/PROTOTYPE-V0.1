@@ -110,6 +110,8 @@ func family_for(button: BaseButton) -> String:
 	if button.toggle_mode:
 		return "selection"
 	var id := str(button.name)
+	if id == "GarageSaveAndPlay":
+		return "silent"
 	if id.begins_with("RewardChoice"):
 		return "confirmation"
 	if id.begins_with("Garage") and id != "GarageSaveAndPlay" and id != "GarageScanner":

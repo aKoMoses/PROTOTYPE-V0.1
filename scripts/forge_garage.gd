@@ -456,6 +456,7 @@ func _save_then_play() -> void:
 	if installation.active or module_installation.active:
 		return
 	if not is_dirty():
+		build_saved.emit(loadout.duplicate(true))
 		start_requested.emit()
 		return
 	_save_and_play = true
@@ -506,6 +507,8 @@ func _cancel_save() -> void:
 	_ui.show()
 	_installation_controls.hide()
 	_save_button.disabled = false
+	_layout()
+	_focus_selection()
 
 
 func _test_build() -> void:
@@ -623,6 +626,10 @@ func _build_interface() -> void:
 	for title in ["ARMES", "MODULES", "MES BUILDS"]:
 		var button := _button("", Vector2.ZERO, Vector2(220, 130), _navigate.bind(title))
 		button.name = "Garage" + title.to_pascal_case().replace(" ", "")
+		button.mouse_entered.connect(func() -> void:
+			if focus != null and _hub_mode:
+				focus.set_station_hovered(true))
+		button.mouse_exited.connect(func() -> void: _highlight_station(""))
 		_nav[title] = button
 		var icon := TextureRect.new()
 		icon.name = "HubIcon"
@@ -1082,7 +1089,10 @@ func _highlight_station(category: String) -> void:
 	stage.module_stations.highlight(category if category != "weapon" else "")
 	stage.weapon_rack.highlight(category if category == "weapon" else "")
 	if focus != null:
-		focus.set_station_hovered(_hub_mode and not category.is_empty())
+		var navigation_hovered := false
+		for button: Button in _nav.values():
+			navigation_hovered = navigation_hovered or (button.is_visible_in_tree() and button.is_hovered())
+		focus.set_station_hovered(_hub_mode and (not category.is_empty() or navigation_hovered))
 
 
 func _clear_station_hover() -> void:

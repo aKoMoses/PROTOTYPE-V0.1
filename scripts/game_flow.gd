@@ -18,6 +18,7 @@ const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const ROBOT_FORGE_PREVIEW := preload("res://scripts/robot_forge_preview.gd")
 const FORGE_GARAGE := preload("res://scripts/forge_garage.gd")
+const MENU_PERFORMANCE := preload("res://scripts/menu_performance.gd")
 const EQUIPMENT_FORGE_PREVIEW := preload("res://scripts/equipment_forge_preview.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
@@ -104,6 +105,7 @@ var _menu_panel: Control
 var _menu_settings_button: Button
 var _equipment_panel: Control
 var _forge_garage: Control
+var _menu_performance: MENU_PERFORMANCE
 var _title_label: Label
 var _status_label: Label
 var _equipment_content: HBoxContainer
@@ -243,6 +245,12 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_combat_feedback = FEEDBACK.attach(main, player)
 	_combat_feedback.register_target(target)
 	_setup_hud_editor()
+	_menu_performance = MENU_PERFORMANCE.new()
+	add_child(_menu_performance)
+	_menu_performance.configure(main)
+	# Prepare before the first menu becomes interactive.
+	# Later navigation only shows this cached garage; it never constructs it.
+	_prepare_forge_garage()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
 	_show_screen(Screen.MENU)
@@ -507,6 +515,8 @@ func _show_screen(screen: Screen) -> void:
 		main.call("set_menu_mode", screen != Screen.COMBAT)
 	if main != null and main.has_method("set_menu_showcase_enabled"):
 		main.call("set_menu_showcase_enabled", screen == Screen.MENU)
+	if _menu_performance != null:
+		_menu_performance.set_parked(screen in [Screen.EQUIPMENT, Screen.SETTINGS, Screen.LOBBY])
 	_layout_navigation_panels.call_deferred()
 
 func _touch_preview_requested() -> bool:
@@ -828,11 +838,10 @@ func _build_equipment() -> void:
 	_open_equipment_category("robot")
 
 
-func _open_forge_garage() -> void:
-	if current_screen != Screen.EQUIPMENT:
-		return
+func _prepare_forge_garage() -> void:
 	if _forge_garage == null:
 		_forge_garage = FORGE_GARAGE.new()
+		_forge_garage.hide()
 		_screen_root.add_child(_forge_garage)
 		_forge_garage.connect("build_saved", _on_garage_build_saved)
 		_forge_garage.connect("test_requested", _on_garage_test_requested)
@@ -840,6 +849,16 @@ func _open_forge_garage() -> void:
 		_forge_garage.connect("back_requested", _close_forge_garage)
 		_forge_garage.connect("start_requested", _start_duel)
 		_forge_garage.connect("arena_selected", _on_garage_arena_selected)
+		_forge_garage.call("set_loadout", loadout)
+		# Render the cached preview once while still hidden, so its first
+		# visible opening can reuse prepared rendering resources too.
+		var preview: SubViewport = _forge_garage.get("stage").get("viewport")
+		preview.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _open_forge_garage() -> void:
+	if current_screen != Screen.EQUIPMENT:
+		return
+	_prepare_forge_garage()
 	_forge_garage.call("set_loadout", loadout)
 	var arena_options := main != null and main.has_method("set_arena_variant")
 	var arena: String = _arena_variant if arena_options else "classic"
@@ -1676,6 +1695,8 @@ func _setup_hud_editor() -> void:
 func _open_hud_editor() -> void:
 	if _hud_editor == null or _hud_editor.visible:
 		return
+	if _menu_performance != null:
+		_menu_performance.set_parked(false)
 	_editor_from_pause = _pause_active
 	if touch_controls != null and touch_controls.has_method("reset_inputs"):
 		touch_controls.call("reset_inputs")
@@ -1710,6 +1731,8 @@ func _on_hud_editor_closed() -> void:
 			main.call("set_menu_mode", true)
 	if touch_controls != null:
 		touch_controls.visible = _editor_from_pause and (DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested())
+	if _menu_performance != null and not _editor_from_pause:
+		_menu_performance.set_parked(true)
 
 func _on_hud_test_started() -> void:
 	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -122,6 +122,11 @@ static func apply(g) -> void:
 		g._detail_title.add_theme_font_size_override("font_size", 20 if compact else 26)
 		var scroll: ScrollContainer = g._detail_description.get_parent()
 		place(scroll, Vector2(16, 72), Vector2(panel_w - 32, maxf(48, panel_h - (190 if compact else 195))))
+		if compact and g._category == "robot":
+			scroll.size.y = panel_h - 88
+		g._detail_description.text = g.LOADOUT.category_description(g._preview_id)
+		if compact:
+			g._detail_description.text += "\n\n" + g.LOADOUT.stat_line(g._preview_id)
 		g._detail_description.custom_minimum_size = Vector2(panel_w - 48, 0)
 		g._detail_description.add_theme_font_size_override("font_size", 16 if compact else 17)
 		g._detail_stats.visible = not compact

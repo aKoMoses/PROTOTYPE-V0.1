@@ -66,6 +66,8 @@ func _run() -> void:
 	garage.queue_free()
 	for frame in 4:
 		await process_frame
+	# Let transient interface sounds release their AudioStreamPlayer instances.
+	await create_timer(0.3).timeout
 	for path in real_files:
 		var unchanged: bool = FileAccess.file_exists(path) == real_files[path].existed and _bytes(path) == real_files[path].bytes
 		check(unchanged, "real user save untouched: " + path)

@@ -100,6 +100,8 @@ func _run() -> void:
 					check(garage._view == "catalog" and garage._category == category, "back restores the same family")
 				else:
 					check(garage._grids[category].visible, "PC retains catalog next to detail")
+			elif garage._compact_layout:
+				await _check_view(profile.id, "robot-detail", garage._ui)
 		garage._show_builds()
 		garage.focus.advance(1)
 		await _check_view(profile.id, "builds", garage._ui)
@@ -132,6 +134,24 @@ func _run() -> void:
 	check(LIBRARY.load_local(paths[0], paths[1]).builds.size() == 2, "duplicate preserves the original and adds a build")
 	garage._select_build(0)
 	check(garage.build_name == "TEST UI", "saved build selection restores the first name")
+	# Observe launch signals without starting a match or writing the real loadout.
+	garage.start_requested.disconnect(flow._start_duel)
+	var launches := [0]
+	garage.start_requested.connect(func(): launches[0] += 1)
+	garage._save_then_play()
+	check(garage.installation.active and launches[0] == 0, "switching the active build saves before launching")
+	garage._skip_installation()
+	check(launches[0] == 1 and flow.loadout == garage.loadout, "save completes before the launch signal and synchronizes the selected build")
+	garage._save_then_play()
+	check(launches[0] == 2 and not garage.installation.active, "a saved active build launches without another service sequence")
+	garage._rename_build()
+	garage._name_input.text = "BUILD JOUER"
+	garage._finish_rename()
+	garage._save_then_play()
+	check(garage.installation.active and launches[0] == 2, "a draft launches only after its save")
+	garage._skip_installation()
+	check(launches[0] == 3 and not garage.is_dirty(), "a saved draft launches exactly once")
+	check(LIBRARY.load_local(paths[0], paths[1]).builds[0].name == "BUILD JOUER", "Jouer persists the selected build before launching")
 	# Verify the production canvas-items stretch, not only unscaled captures.
 	root.content_scale_size = Vector2i(1280, 720)
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
@@ -179,6 +199,8 @@ func _check_view(profile: String, view: String, control: Control) -> void:
 			check(safe.grow(1).encloses(rect), "safe inset: " + profile + "/" + view + "/" + str(button.name))
 	if control == garage._ui and garage._detail_panel.visible:
 		check(garage._detail_description.get_theme_font_size("font_size") * garage._ui.scale.y * scale >= 11, "readable body text: " + profile + "/" + view)
+		if garage._compact_layout:
+			check(garage._detail_description.text.contains(LOADOUT.stat_line(garage._preview_id)), "compact detail retains the complete equipment values: " + profile + "/" + view)
 	if capture_enabled:
 		await RenderingServer.frame_post_draw
 		var filename := profile + "-" + view + ".png"

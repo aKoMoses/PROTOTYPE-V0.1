@@ -221,7 +221,17 @@ func show_station(kind: String, animated: bool = true) -> void:
 
 func _garage_transform() -> Transform3D:
 	if bool(_ui.get_meta("garage_hero", false)):
-		var hero: AABB = stage.robot.global_transform * stage._robot_pick_bounds
+		# A yaw-independent envelope prevents reframing while dragging the robot.
+		var local: AABB = stage._robot_pick_bounds
+		var radius := 0.0
+		var bottom := INF
+		var top := -INF
+		for corner in 8:
+			var point: Vector3 = local.get_endpoint(corner) * stage.robot.scale
+			radius = maxf(radius, Vector2(point.x, point.z).length())
+			bottom = minf(bottom, point.y)
+			top = maxf(top, point.y)
+		var hero := AABB(stage.robot.global_position + Vector3(-radius, bottom, -radius), Vector3(radius * 2, top - bottom, radius * 2))
 		var compact: bool = _ui.get_meta("garage_hero_compact", false)
 		hero = hero.merge(AABB(Vector3(-1.6, 0, -1.6), Vector3(3.2, 3.3, 3.2)) if compact else AABB(Vector3(-2.2, 0, -1.7), Vector3(5.0, 3.7, 4.2)))
 		return cinematic_frame(hero, Vector3(-0.06, 0.28, 1.0), 40.0)

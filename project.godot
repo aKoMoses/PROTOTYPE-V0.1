@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 GamePreferences="*res://scripts/game_preferences.gd"
+FramePacing="*res://scripts/frame_pacing_overlay.gd"
 GameSfx="*res://scripts/game_sfx.gd"
 UiSfx="*res://scripts/ui_sfx.gd"
 GDSync="*res://addons/GD-Sync/MultiplayerClient.gd"
@@ -39,4 +40,7 @@ window/stretch/mode="canvas_items"
 [rendering]
 
 renderer/rendering_method="mobile"
+scaling_3d/scale.mobile=0.75
+lights_and_shadows/directional_shadow/size.mobile=1024
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=0
 textures/vram_compression/import_etc2_astc=true

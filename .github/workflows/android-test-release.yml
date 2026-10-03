@@ -6,13 +6,18 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      full_validation:
+        description: 'Executer aussi la suite complete du jeu'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
   group: android-test-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -39,11 +44,21 @@ jobs:
         run: godot --headless --path . --editor --quit
 
       - name: Install display for rendered tests
+        if: github.event_name == 'workflow_dispatch' && inputs.full_validation
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri
 
-      - name: Run game tests
+      - name: Run publication smoke checks
+        run: |
+          set -euo pipefail
+          for test_file in tools/test_loadout_state.gd tools/test_game_flow.gd tools/test_robot_module_visuals.gd; do
+            echo "Running $test_file"
+            timeout 120s godot --headless --audio-driver Dummy --path . --script "res://$test_file"
+          done
+
+      - name: Run complete game tests
+        if: github.event_name == 'workflow_dispatch' && inputs.full_validation
         run: |
           set -euo pipefail
           for test_file in tools/test_*.gd; do

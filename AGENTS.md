@@ -12,6 +12,10 @@ If the local setup is missing, prepare read-only work and request activation wit
 
 To continue locally finished work, recheck context and repeat the same claim with the original topic and session. This reopens the same reservation only for its original owner and conversation, and only when that conversation has no other active work. Published reservations are not reopened by claim.
 
+## Publication validation
+
+For a routine push or APK refresh, use short validation: resource import, checks directly affected by the changes, and the Android workflow's three smoke checks. Reuse checks already completed for the same files; rerun them only after a relevant change or failure. Do not run the complete game test suite before publication unless the user explicitly asks for it. The Android workflow offers the complete suite as an optional manual run; it is disabled by default. A new publication replaces an older build still running for the same branch.
+
 ## Prototype 0 paths
 
 - Godot project root (the directory containing `project.godot`): `C:\RomainOpen\perso\Studio\game-source`

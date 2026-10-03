@@ -450,13 +450,16 @@ func _test_garage_selection() -> void:
 	_check(garage != null and garage.is_visible_in_tree(), "garage: equipment opens the actual forge UI")
 	if garage == null:
 		return
+	(garage.get("_nav")["MES BUILDS"] as Button).pressed.emit()
+	await process_frame
 	var selector := garage.get("_arena_selector") as OptionButton
 	_check(selector != null and selector.is_visible_in_tree() and selector.item_count == 8 and selector.item_count == CATALOG.options().size(), "garage: visible arena selector contains all eight choices")
 	if selector == null:
 		return
 	var navigation: Dictionary = garage.get("_nav")
 	for button in navigation.values():
-		_check(not selector.get_global_rect().intersects((button as Control).get_global_rect()), "garage: arena selector does not overlap " + str(button.text))
+		if button.is_visible_in_tree():
+			_check(not selector.get_global_rect().intersects((button as Control).get_global_rect()), "garage: arena selector does not overlap " + str(button.text))
 	var build_title := garage.get("_header_name") as Control
 	if build_title != null and build_title.is_visible_in_tree():
 		_check(not selector.get_global_rect().intersects(build_title.get_global_rect()), "garage: arena selector does not overlap the visible build name")

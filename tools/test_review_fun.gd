@@ -47,6 +47,8 @@ func _run() -> void:
 	quick.button_pressed = true
 	check(PREFS.read().difficulty == "hard" and PREFS.read().quick, "independent comfort and difficulty controls persist")
 	flow._launch_solo()
+	check(flow.current_screen == flow.Screen.EQUIPMENT and flow._forge_garage.visible and flow.round_phase == flow.RoundPhase.IDLE, "solo options open the loadout selector before combat")
+	flow._start_duel()
 	check(flow._countdown_remaining <= 3.0 and scene.bot_difficulty == "hard", "quick preparation and selected AI profile applied")
 	var initial: Dictionary = scene.get_current_bot_build().duplicate(true)
 	flow.round_number = 2

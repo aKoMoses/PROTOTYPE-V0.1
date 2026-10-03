@@ -33,6 +33,9 @@ func _run() -> void:
 		current_scene = scene
 		await process_frame
 		_freeze(scene)
+		# Freeze the camera at its resting pose, rather than partway through the
+		# user's combat-zoom interpolation. Arena switches restore this pose.
+		scene.call("reset_round_camera")
 		var before := _signature(scene)
 		for frame in range(5):
 			await process_frame

@@ -3,13 +3,15 @@
 Garage officiel issu du concept 1, accessible par **GARAGE** dans le menu principal.
 **DUEL SOLO** utilise le dernier build sauvegardé et passe par l'écran de pré-combat.
 Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est décrit dans [garage-builds.md](garage-builds.md).
+Le parcours simplifié des menus et les captures PC/formats iPhone sont décrits dans [garage-responsive-menus.md](garage-responsive-menus.md).
 
 ## Ce qui fonctionne
 
-- L'entrée montre l'atelier entier et quatre postes physiques : offensif, défensif, passif et mobilité.
-  Cliquer ou toucher directement le rangement ouvre son catalogue avec un travelling de caméra.
-  Les grands encadrés flottants sont supprimés ; les plaques physiques et les onglets restent disponibles.
-  **ATELIER**, **MODULES** ou Échap depuis un catalogue ramène à la vue générale.
+- L'entrée cadre le robot et présente trois accès : **ARMES**, **MODULES**, **MES BUILDS**.
+  Les rangements physiques restent utilisables quand ils sont visibles, avec un travelling de caméra.
+  Les grands encadrés flottants sont supprimés ; les plaques physiques restent dans le décor.
+  Le sélecteur de famille donne accès aux offensifs, défensifs, passifs, à la mobilité et aux châssis.
+  Retour ou Échap ramène de la fiche au catalogue sur petit écran, puis à l'atelier.
 - Les dix-huit modules ont une cartouche provisoire à leur emplacement, avec l'icône du catalogue,
   un boîtier métallique et un repère de couleur par famille. Les assets définitifs peuvent remplacer ces cartouches.
 - Atelier 3D local : établi, panneau d'outils, verrière, casiers, câbles et plateforme grillagée.
@@ -22,10 +24,12 @@ Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est d
   Une inspection manuelle remet le robot dans la position prévue pour l'intervention du bras.
 - Blaster, shotgun, Mekatana et Longshot réellement attachés au squelette ; choix des quatre catégories de modules.
   La zone des armes utilise une grille de deux colonnes quand plus de deux armes sont disponibles.
-- Le clic sur une carte de module ouvre sa fiche et sa démonstration. **ÉQUIPER** lance la prise sur le rangement,
+- Le clic sur une carte ouvre sa fiche sans modifier le build. **VOIR EN ACTION** lance sa démonstration sur demande.
+  **INSTALLER** lance la prise sur le rangement,
   le transport par la pince, l'alignement et la fixation sur le squelette du robot. Le brouillon change à la fixation.
   **TERMINER** accélère cette séquence ; Échap avant la fixation annule la pose sans changer le brouillon.
-  **SAUVEGARDER** transmet le build au combat après son contrôle ; **TESTER** ouvre l'entraînement sans enregistrer.
+  **SAUVEGARDER**, dans **MES BUILDS**, enregistre après le contrôle ; **TESTER** ouvre l'entraînement sans enregistrer.
+  **JOUER** lance directement un build déjà sauvegardé, ou sauvegarde le brouillon avant le lancement.
 - Pyroboots et Bio Injector retrouvent leurs vrais accessoires 3D à la fixation. Les autres modules
   conservent une cartouche provisoire sur leur point d'ancrage dans le garage. Voir [robot-module-visuals.md](robot-module-visuals.md).
 - Fiches d'information des armes accessibles sans modifier l'équipement sélectionné.
@@ -40,6 +44,8 @@ Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est d
 ## Sources et organisation
 
 `scripts/forge_garage.gd` construit l'interface et émet les choix d'équipement.
+`scripts/ui/forge_garage_layout.gd` adapte les vues et les zones sûres aux dimensions de la fenêtre.
+`scripts/forge_garage_focus.gd` cadre les vues, l'aperçu et le mouvement discret de l'atelier.
 `scripts/forge_garage_stage.gd` gère le monde, la caméra, le robot et ses armes.
 `scripts/forge_service_arm.gd` pilote le clip Blender et les étincelles.
 `scripts/forge_module_stations.gd` construit les rangements et leurs cartouches partagées.
