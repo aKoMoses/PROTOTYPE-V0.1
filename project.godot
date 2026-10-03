@@ -38,4 +38,7 @@ window/stretch/mode="canvas_items"
 [rendering]
 
 renderer/rendering_method="mobile"
+scaling_3d/scale.mobile=0.75
+lights_and_shadows/directional_shadow/size.mobile=1024
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=0
 textures/vram_compression/import_etc2_astc=true

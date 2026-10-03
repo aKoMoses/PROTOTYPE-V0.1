@@ -36,6 +36,8 @@ var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	# Select the existing lightweight scenery/VFX path before adapters install.
+	_apply_device_budget(OS.has_feature("mobile"))
 	_rng.randomize()
 	_install_presentation.call_deferred()
 	# Follow skeleton modifiers and weapon recoil when updating attached flashes.
@@ -52,6 +54,13 @@ func _ready() -> void:
 		var material := _material(Color("#ffd7a3") if critical else Color("#9bc8d1"))
 		material.albedo_color.a = 0.18 if critical else 0.12
 		_hit_materials.append(material)
+
+func _apply_device_budget(mobile: bool) -> void:
+	if mobile:
+		quality = Quality.LOW
+		max_effects = mini(max_effects, 24)
+		max_decals = mini(max_decals, 8)
+		max_particles = mini(max_particles, 6)
 
 func _install_presentation() -> void:
 	PRESENTATION.install(get_parent(), self)
