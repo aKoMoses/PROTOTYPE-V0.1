@@ -1,0 +1,86 @@
+{
+  "technical_checks_only": true,
+  "tracks": [
+    {
+      "id": "4A",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -21.8,
+      "peak_dbfs": -1.11,
+      "sha256": "266057779c25eb2ada308d859d42513dedc7e33f4ca3f7c7c8ab024b9d354ec7"
+    },
+    {
+      "id": "4B",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -1.87,
+      "sha256": "f540fb7da697c41946330aeb67cab7da56767165dd55c4dafaabdb15d7ea8301"
+    },
+    {
+      "id": "4C",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -5.35,
+      "sha256": "ce372b689ccebf89ac5ca34b088e68a0c67655254a589bb2c71421f0790a858b"
+    },
+    {
+      "id": "5A",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -5.79,
+      "sha256": "e947af702dc88b313bf25a0f6f3c92877243d9dd58bb8bc7ce511ffa279da3e3"
+    },
+    {
+      "id": "5B",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -21.22,
+      "peak_dbfs": -1.11,
+      "sha256": "9c7984beb5d8dc8392c68f852ebcee44abd7d4bf7ec64f23a54f1642761f4316"
+    },
+    {
+      "id": "5C",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -1.45,
+      "sha256": "2f3098c6f0e241d02ed782307067bdd15564ec0fbebebe7c4ab74d77dbf6ffd8"
+    },
+    {
+      "id": "6A",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -3.51,
+      "sha256": "6ed6d796af46f153ad33e527bbd8459a042f792bcd6638845aabd73ce17f95c7"
+    },
+    {
+      "id": "6B",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -6.64,
+      "sha256": "7777e41c7eea0ebc665a9d4bc7d3e94d39e7a5d0eaeeea4d910ef0f8bcb4c4e9"
+    },
+    {
+      "id": "6C",
+      "duration_seconds": 30,
+      "sample_rate": 44100,
+      "channels": 2,
+      "rms_dbfs": -20.92,
+      "peak_dbfs": -2.83,
+      "sha256": "4bc3531bed85ce2edd1120d7ac1c621c4f581a943f01acb409b74c2784fd4385"
+    }
+  ]
+}

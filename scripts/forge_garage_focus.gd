@@ -47,6 +47,8 @@ var _garage_orbit_phase := 0.0
 var _garage_orbit_speed := 0.0
 var _station_hovered := false
 var _catalog_bounds := AABB()
+var _desktop_zoom_goal := 1.0
+var _desktop_zoom := 1.0
 
 
 func configure(garage_stage: Node, picker: Control, interface: Control) -> void:
@@ -221,6 +223,14 @@ func show_station(kind: String, animated: bool = true) -> void:
 
 func _garage_transform() -> Transform3D:
 	if bool(_ui.get_meta("garage_hero", false)):
+		if not bool(_ui.get_meta("garage_hero_compact", false)):
+			# Desktop has space for an establishing view of the work bay and
+			# neighbouring hangar. Phone keeps the existing close hero envelope.
+			var workshop := AABB(Vector3(-7.2, 0.0, -3.9), Vector3(15.8, 6.4, 8.0))
+			var view := cinematic_frame(workshop, Vector3(-0.04, 0.23, 1.0), 40.0)
+			var pivot: Vector3 = stage.robot.global_position + Vector3(0, 1.35, 0)
+			view.origin = pivot + (view.origin - pivot) * _desktop_zoom
+			return view
 		# A yaw-independent envelope prevents reframing while dragging the robot.
 		var local: AABB = stage._robot_pick_bounds
 		var radius := 0.0
@@ -255,7 +265,7 @@ func _station_transform() -> Transform3D:
 	var bounds: AABB = provider.bounds(station_category).grow(0.22)
 	# Observe the bays from the central aisle. The former outward angles put
 	# the camera behind the side walls after the bays were moved apart.
-	var direction := Vector3(float({"weapon": -0.55, "offensive": -0.05, "defensive": -0.55, "passive": 0.45, "mobility": -0.45}.get(station_category, 0.0)), 0.38, 1.0)
+	var direction := Vector3(float({"weapon": -0.55, "offensive": 0.30, "defensive": -0.55, "passive": 0.45, "mobility": -0.45}.get(station_category, 0.0)), 0.38, 1.0)
 	return cinematic_frame(bounds, direction, _target_fov)
 
 
@@ -312,7 +322,20 @@ func _process(delta: float) -> void:
 	advance(delta)
 
 
+func _input(event: InputEvent) -> void:
+	if not event is InputEventMouseButton or not event.pressed or event.button_index not in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		return
+	if zone != "garage" or not stage.is_visible_in_tree() or OS.has_feature("mobile") or bool(_ui.get_meta("garage_hero_compact", false)):
+		return
+	if stage._rotating_robot or stage.arm.active or not frame_rect().has_point(event.position):
+		return
+	var direction := -1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0
+	_desktop_zoom_goal = clampf(_desktop_zoom_goal + direction * 0.12, 0.78, 1.5)
+	get_viewport().set_input_as_handled()
+
+
 func advance(delta: float) -> void:
+	_desktop_zoom = lerpf(_desktop_zoom, _desktop_zoom_goal, 1.0 - exp(-8.0 * maxf(delta, 0.0)))
 	if _framed_chassis != stage.chassis_id:
 		_bones.clear()
 		for index in stage.skeleton.get_bone_count():

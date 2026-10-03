@@ -1,0 +1,36 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "accepted_on": "2026-10-03",
+  "integrated_in_game": true,
+  "publication": "local only",
+  "assets": [
+    {
+      "cue": "ventilation",
+      "path": "art\\audio\\garage-ambience\\ventilation.wav",
+      "sha256": "b0a05a182e5d626b285ecafb534908f432dcc09127b9da0224a4102417b0d4bb",
+      "decision": "accepted by user with music in the proposed preview",
+      "heard_in_picture": "User approved the offline garage music and ambience proposal; no agent listening claim."
+    },
+    {
+      "cue": "pressure",
+      "path": "art\\audio\\garage-ambience\\pressure.wav",
+      "sha256": "e6b1133f816e1e72158df97576122923c705d2f8254328a935d4aeec637dfd68",
+      "decision": "accepted by user with music in the proposed preview",
+      "heard_in_picture": "User approved the offline garage music and ambience proposal; no agent listening claim."
+    },
+    {
+      "cue": "metal",
+      "path": "art\\audio\\garage-ambience\\metal.wav",
+      "sha256": "ea48ae5e8d9defb231d36b5bc2ddeee762a71e8a07611cc08b1406feb35b6b68",
+      "decision": "accepted by user with music in the proposed preview",
+      "heard_in_picture": "User approved the offline garage music and ambience proposal; no agent listening claim."
+    }
+  ],
+  "runtime_verified": {
+    "audio_present": true,
+    "silence_after_hide": true,
+    "tail_peak": 0.0,
+    "sample_rate": 44100
+  },
+  "android_verified": false
+}

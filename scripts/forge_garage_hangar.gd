@@ -94,7 +94,7 @@ func _shell() -> void:
 
 func _neighboring_bays() -> void:
 	for side in [-1.0, 1.0]:
-		var x: float = side * 16.0
+		var x: float = side * 13.0
 		_box("wall", Vector3(x, 2.8, -10.5), Vector3(6.8, 5.6, 0.16))
 		_box("steel", Vector3(x, 5.6, -10.35), Vector3(7.4, 0.23, 0.25))
 		for offset in [-3.4, 3.4]:
@@ -102,8 +102,35 @@ func _neighboring_bays() -> void:
 		_box("wood", Vector3(x, 1.15, -8.6), Vector3(3.3, 0.15, 0.95))
 		for offset in [-1.4, 1.4]:
 			_box("steel", Vector3(x + offset, 0.55, -8.6), Vector3(0.13, 1.1, 0.70))
+			_box("edge", Vector3(x + offset, 0.08, -8.6), Vector3(0.28, 0.06, 0.78))
+		_box("steel", Vector3(x, 0.35, -8.6), Vector3(3.05, 0.05, 0.82))
+		# A cabinet, bench vice and differentiated hanging tools read at distance.
+		_box("cases", Vector3(x - side * 0.8, 0.65, -8.6), Vector3(1.0, 0.85, 0.80))
+		for drawer in 4:
+			_box("steel", Vector3(x - side * 0.8, 0.32 + drawer * 0.20, -8.18), Vector3(0.89, 0.17, 0.04))
+			_box("edge", Vector3(x - side * 0.8, 0.32 + drawer * 0.20, -8.14), Vector3(0.40, 0.03, 0.04))
+		_box("edge", Vector3(x + side * 1.0, 1.32, -8.4), Vector3(0.48, 0.24, 0.28))
+		_box("steel", Vector3(x + side * 1.0, 1.45, -8.4), Vector3(0.42, 0.04, 0.34))
+		_box("cases", Vector3(x, 2.7, -10.25), Vector3(2.8, 1.2, 0.07))
+		for tool in 6:
+			var tool_x: float = x - 1.05 + tool * 0.40
+			var height: float = 0.40 + (tool % 3) * 0.11
+			_box("edge", Vector3(tool_x, 2.65, -10.17), Vector3(0.04, height, 0.045))
+			_box("steel", Vector3(tool_x, 2.85, -10.13), Vector3(0.16 if tool % 2 == 0 else 0.09, 0.08, 0.045))
 		_box("cases", Vector3(x + side * 2.3, 0.47, -8.7), Vector3(1.15, 0.95, 0.85))
 		_box("cases", Vector3(x + side * 2.3, 1.24, -8.7), Vector3(1.0, 0.58, 0.75))
+		for offset in [-0.35, 0.35]:
+			_box("edge", Vector3(x + side * 2.3 + offset, 0.47, -8.25), Vector3(0.09, 0.16, 0.04))
+			_box("edge", Vector3(x + side * 2.3 + offset, 1.24, -8.30), Vector3(0.07, 0.12, 0.04))
+		_box("steel", Vector3(x + side * 2.3, 0.88, -8.7), Vector3(1.19, 0.06, 0.89))
+		_box("steel", Vector3(x + side * 2.3, 1.56, -8.7), Vector3(1.05, 0.05, 0.80))
+		# Painted bay boundaries and wall cable runs keep this part of the hangar
+		# coherent with the detailed foreground, in the same eight static batches.
+		for offset in [-3.6, 3.6]:
+			_box("cases", Vector3(x + offset, FLOOR_TOP + 0.003, -6.5), Vector3(0.055, 0.004, 7.3))
+		_box("steel", Vector3(x, 4.6, -10.2), Vector3(6.5, 0.065, 0.085))
+		_box("edge", Vector3(x - side * 2.9, 3.1, -10.17), Vector3(0.06, 3.0, 0.08))
+		_box("steel", Vector3(x - side * 2.9, 1.7, -10.02), Vector3(0.45, 0.66, 0.25))
 		_box("steel", Vector3(x, 3.7, -10.3), Vector3(2.3, 0.18, 0.20))
 		_box("lamp", Vector3(x, 3.65, -10.15), Vector3(1.7, 0.035, 0.035))
 		var pool := OmniLight3D.new()

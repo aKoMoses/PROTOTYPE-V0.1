@@ -1,7 +1,6 @@
 extends RefCounted
 
-## Layout in readable interface units. Compact windows use successive views;
-## desktop windows keep the catalog alongside the equipment detail.
+## The rack fills the catalog. Equipment details open only after selection.
 static func safe_rect(garage) -> Rect2:
 	var full := Rect2(Vector2.ZERO, garage.size)
 	if garage.safe_area_override.has_area():
@@ -31,24 +30,27 @@ static func apply(g) -> void:
 	var w: float = g._ui.size.x
 	var h: float = g._ui.size.y
 	var compact: bool = g._compact_layout
-	if not compact and g._view == "detail":
-		g._view = "catalog"
-	var hub: bool = g._view == "hub"
+	var entry: bool = g._view == "entry"
+	var summary: bool = g._view == "summary"
+	var hub: bool = g._view == "hub" or summary
+	var guided: bool = g._creating and g._journey_step < g.BUILD_STEPS.size() and g._view in ["catalog", "detail"]
 	var builds: bool = g._view == "builds"
 	var catalog: bool = g._view == "catalog"
-	var detail: bool = g._view == "detail" or (catalog and not compact)
+	var detail: bool = g._view == "detail"
 	place(g._header, Vector2.ZERO, Vector2(w, 64))
 	place(g._back_button, Vector2(12, 8), Vector2(48, 48))
 	g._back_button.add_theme_font_size_override("font_size", 26)
 	place(g._header_title, Vector2(76, 10), Vector2(w - 290, 46))
 	g._header_title.add_theme_font_size_override("font_size", 26 if compact else 34)
 	g._header_title.text = "GARAGE" if hub else ("MES BUILDS" if builds else ("CHÂSSIS" if g._category == "robot" else ("ARMES" if g._category == "weapon" else (g.LOADOUT.display_name(g._preview_id) if g._view == "detail" else "MODULES"))))
+	if entry or hub or guided:
+		g._header_title.text = "GARAGE" if entry else ("BUILD TERMINÉ" if summary else ("NOUVEAU BUILD" if guided else "MODIFIER LE BUILD"))
 	if g._view == "detail":
 		g._header_title.add_theme_font_size_override("font_size", 22)
 		g._header_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	g._save_state.visible = hub or builds
 	place(g._save_state, Vector2(w - 218, 23), Vector2(200, 26))
-	g._family_selector.visible = catalog
+	g._family_selector.visible = catalog and not guided
 	place(g._family_selector, Vector2(w - 230, 8), Vector2(218, 48))
 	for index in g._family_selector.item_count:
 		if str(g._family_selector.get_item_metadata(index)) == g._category:
@@ -60,15 +62,15 @@ static func apply(g) -> void:
 		button.hide()
 	for button in g.arena_buttons.values():
 		button.hide()
-	g._hub_caption.visible = hub
+	g._hub_caption.visible = hub and not compact and not summary
 	place(g._hub_caption, Vector2(24, 79), Vector2(240, 30))
 	g._hub_caption.add_theme_font_size_override("font_size", 16 if compact else 20)
-	var sidebar: float = 144.0 if compact else 220.0
+	var sidebar: float = 270.0 if compact else 380.0
 	var card_h: float = maxf(64.0, (h - 208.0) / 3.0) if compact else minf(160.0, (h - 240.0) / 3.0)
 	for index in 3:
 		var title: String = ["ARMES", "MODULES", "MES BUILDS"][index]
 		var button: Button = g._nav[title]
-		button.visible = hub
+		button.visible = false
 		place(button, Vector2(20, 114 + index * (card_h + 10)), Vector2(sidebar, card_h))
 		place(button.get_node("HubIcon"), Vector2(20, 6), Vector2(sidebar - 40, card_h - 35))
 		place(button.get_node("HubTitle"), Vector2(5, card_h - 30), Vector2(sidebar - 10, 24))
@@ -79,7 +81,13 @@ static func apply(g) -> void:
 	g._save_button.visible = hub
 	place(g._test_button, Vector2(w - 332, h - 60), Vector2(126, 48))
 	place(g._save_button, Vector2(w - 194, h - 60), Vector2(182, 48))
+	g._library_button.visible = hub
+	place(g._library_button, Vector2(20, h - 60), Vector2(136, 48))
+	g._library_button.add_theme_font_size_override("font_size", 14 if compact else 16)
+	g._status.visible = not entry
 	place(g._status, Vector2(20, h - 57), Vector2(maxf(200, w - 366), 45))
+	if hub:
+		place(g._status, Vector2(168, h - 57), Vector2(maxf(0, w - 526), 45))
 	g._status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	g._stats_panel.visible = hub
 	place(g._stats_panel, Vector2(sidebar + 60, h - 112), Vector2(w - sidebar - 88, 30))
@@ -90,12 +98,13 @@ static func apply(g) -> void:
 	g._speed.hide()
 	g._catalog_title.visible = catalog
 	g._catalog_title.text = "Choisis un châssis" if g._category == "robot" else ("Choisis une arme" if g._category == "weapon" else "Choisis un module")
-	place(g._catalog_title, Vector2(20, 76), Vector2(320, 26))
-	var left: float = w - 40.0 if compact else (w - 48.0) * 0.43
-	var cols: int = 3 if compact and g._options(g._category).size() != 4 else 2
+	var catalog_y: float = 140 if guided else 110
+	place(g._catalog_title, Vector2(20, catalog_y - 34), Vector2(320, 26))
+	var left: float = minf(240 if compact else 280, w * 0.32)
+	var cols: int = 2 if compact else 1
 	var rows: int = ceili(float(g._options(g._category).size()) / cols)
-	var available_h: float = h - 120.0
-	var cell := Vector2((left - (cols - 1) * 12) / cols, minf(220, (available_h - (rows - 1) * 12) / rows))
+	var available_h: float = h - catalog_y - 20.0
+	var cell := Vector2((left - (cols - 1) * 12) / cols, minf(76 if compact else 72, (available_h - (rows - 1) * 12) / rows))
 	for kind in g._grids:
 		var grid: GridContainer = g._grids[kind]
 		grid.visible = catalog and kind == g._category
@@ -104,19 +113,25 @@ static func apply(g) -> void:
 		grid.columns = cols
 		for button: Button in g._choices[kind].values():
 			button.custom_minimum_size = cell
-			place(button.get_node("EquipmentIcon"), Vector2(12, 10), Vector2(cell.x - 24, maxf(30, cell.y - (45 if compact else 70))))
-			place(button.get_node("CardTitle"), Vector2(6, cell.y - (32 if compact else 54)), Vector2(cell.x - 12, 26))
-			button.get_node("CardTitle").add_theme_font_size_override("font_size", 14 if compact else 17)
-			button.get_node("CardTag").visible = not compact
+			if compact:
+				place(button.get_node("EquipmentIcon"), Vector2(8, 4), Vector2(cell.x - 16, maxf(18, cell.y - 34)))
+				place(button.get_node("CardTitle"), Vector2(4, cell.y - 28), Vector2(cell.x - 8, 24))
+			else:
+				place(button.get_node("EquipmentIcon"), Vector2(8, 10), Vector2(48, 48))
+				place(button.get_node("CardTitle"), Vector2(66, (cell.y - 26) * 0.5), Vector2(cell.x - 96, 26))
+			button.get_node("CardTitle").add_theme_font_size_override("font_size", 12 if compact else 15)
+			button.get_node("CardTitle").text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			button.get_node("CardTag").visible = false
 			place(button.get_node("CardTag"), Vector2(6, cell.y - 28), Vector2(cell.x - 12, 24))
 			place(button.get_node("Selected"), Vector2(cell.x - 29, 7), Vector2(24, 26))
-		place(grid, Vector2(20, 110), Vector2(left, cell.y * rows + (rows - 1) * 12))
+		place(grid, Vector2(20, catalog_y), Vector2(left, cell.y * rows + (rows - 1) * 12))
 		grid.queue_sort()
 	g._detail_panel.visible = detail
 	if detail:
-		var panel_w: float = minf(w * 0.47, 370.0) if compact else w - left - 60.0
-		var panel_h: float = h - 88.0 if compact else minf(310.0, h * 0.43)
-		place(g._detail_panel, Vector2(w - panel_w - 20, 76 if compact else h - panel_h - 20), Vector2(panel_w, panel_h))
+		var panel_w: float = minf(w * 0.47, 370.0) if compact else minf(430, w * 0.36)
+		var top: float = 110 if guided else 76
+		var panel_h: float = h - top - 12 if compact else minf(450.0, h - top - 20)
+		place(g._detail_panel, Vector2(w - panel_w - 20, top), Vector2(panel_w, panel_h))
 		place(g._detail_icon, Vector2(panel_w - 66, 12), Vector2(50, 50))
 		place(g._detail_title, Vector2(16, 12), Vector2(panel_w - 94, 50))
 		g._detail_title.add_theme_font_size_override("font_size", 20 if compact else 26)
@@ -139,13 +154,18 @@ static func apply(g) -> void:
 		else:
 			place(g.equip_button, Vector2(16, panel_h - 66), Vector2((panel_w - 44) * 0.5, 50))
 			place(g._demo_button, Vector2(28 + (panel_w - 44) * 0.5, panel_h - 66), Vector2((panel_w - 44) * 0.5, 50))
-		g._ui.set_meta("preview_rect", Rect2(20 if compact else left + 40, 80, w - panel_w - 60 if compact else panel_w, h - 104 if compact else h - panel_h - 110))
+		g._ui.set_meta("preview_rect", Rect2(20, top, w - panel_w - 60, h - top - 24))
 	else:
 		g.equip_button.hide()
 		g._demo_button.hide()
 		g._ui.set_meta("preview_rect", Rect2(sidebar + 56, 76, w - sidebar - 84, maxf(100, h - (182 if compact else 210))) if hub else Rect2(20, 80, w - 40, h - 100))
-	g._ui.set_meta("garage_hero", hub or builds)
+	if catalog:
+		g._ui.set_meta("preview_rect", Rect2(left + 40, 110 if guided else 80, w - left - 60, h - (140 if guided else 110)))
+	elif detail and guided:
+		g._ui.set_meta("preview_rect", Rect2(20, 110, w - g._detail_panel.size.x - 60, h - 134))
+	g._ui.set_meta("garage_hero", entry or hub or builds)
 	g._ui.set_meta("garage_hero_compact", compact)
+	layout_journey(g, w, h, compact, entry, hub, summary, guided)
 	g._builds_panel.visible = builds
 	if builds:
 		layout_builds(g, w, h, compact)
@@ -171,6 +191,57 @@ static func apply(g) -> void:
 	if g._installation_controls != null:
 		place(g._installation_status, Vector2(20, h - 61), Vector2(w - 225, 35))
 		place(g._installation_controls.get_node("SkipInstallation"), Vector2(w - 204, h - 64), Vector2(188, 48))
+
+
+static func layout_journey(g, w: float, h: float, compact: bool, entry: bool, hub: bool, summary: bool, guided: bool) -> void:
+	var side: float = minf(270 if compact else 380, w * 0.46)
+	for index in g._entry_choices.size():
+		var card: Button = g._entry_choices.values()[index]
+		card.visible = entry
+		var height: float = minf(108 if compact else 200, (h - 120) * 0.5 - 8)
+		place(card, Vector2(20, 92 + index * (height + 12)), Vector2(side, height))
+		place(card.get_node("HubIcon"), Vector2(12, 8), Vector2(side - 24, height - 42))
+		place(card.get_node("HubTitle"), Vector2(4, height - 32), Vector2(side - 8, 26))
+		card.get_node("HubTitle").add_theme_font_size_override("font_size", 16 if compact else 22)
+	if entry or hub:
+		g._ui.set_meta("preview_rect", Rect2(side + 50, 76, w - side - 70, h - (158 if hub else 100)))
+	g._edit_selector.visible = hub and not summary
+	g._summary_name.visible = summary
+	place(g._edit_selector, Vector2(20, 80 if compact else 112), Vector2(side, 48))
+	place(g._summary_name, Vector2(20, 112), Vector2(side, 48))
+	var top: float = 138 if compact and not summary else 170
+	var row_h: float = minf(132, (h - top - 94) / 3)
+	var width: float = (side - 10) * 0.5
+	var columns: int = 3 if compact and summary else 2
+	if compact and summary:
+		width = (side - 16) / 3
+		row_h = minf(64, (h - top - 86) / 2)
+	for index in g.BUILD_STEPS.size():
+		var kind: String = g.BUILD_STEPS[index]
+		var card: Button = g._edit_choices[kind]
+		card.visible = hub
+		var cell_w: float = side if index == 4 and columns == 2 else width
+		place(card, Vector2(20 + (index % columns) * (width + (8 if columns == 3 else 10)), top + (index / columns) * (row_h + 8)), Vector2(cell_w, row_h))
+		if compact and summary:
+			place(card.get_node("HubIcon"), Vector2(6, 2), Vector2(cell_w - 12, row_h - 26))
+			place(card.get_node("HubTitle"), Vector2(2, row_h - 24), Vector2(cell_w - 4, 22))
+		elif compact:
+			place(card.get_node("HubIcon"), Vector2(6, 4), Vector2(36, row_h - 8))
+			place(card.get_node("HubTitle"), Vector2(44, (row_h - 24) * 0.5), Vector2(cell_w - 48, 24))
+		else:
+			place(card.get_node("HubIcon"), Vector2(12, 6), Vector2(cell_w - 24, row_h - 55))
+			place(card.get_node("HubTitle"), Vector2(4, row_h - 50), Vector2(cell_w - 8, 24))
+		card.get_node("HubTitle").add_theme_font_size_override("font_size", 13 if compact else 17)
+		card.get_node("EquipmentName").visible = not compact
+		place(card.get_node("EquipmentName"), Vector2(4, row_h - 26), Vector2(cell_w - 8, 22))
+	for index in g._journey_labels.size():
+		var label: Label = g._journey_labels[index]
+		label.visible = guided or summary
+		var title: String = "ARME" if index == 0 else g.CATEGORY_TITLES[g.BUILD_STEPS[index]]
+		label.text = ("✓ " if index < g._journey_step else "%d " % (index + 1)) + title
+		label.add_theme_color_override("font_color", g.CYAN if index < g._journey_step else (g.AMBER if index == g._journey_step else g.CREAM.darkened(0.35)))
+		label.add_theme_font_size_override("font_size", 12 if compact else 16)
+		place(label, Vector2(20 + index * (w - 40) / 5, 70), Vector2((w - 40) / 5, 26))
 
 
 static func layout_builds(g, w: float, h: float, compact: bool) -> void:

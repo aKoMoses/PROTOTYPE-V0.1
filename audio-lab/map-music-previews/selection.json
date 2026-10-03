@@ -1,0 +1,15 @@
+{
+  "purpose": "map selection and precombat preparation",
+  "approved_by_user": true,
+  "integrated_in_game": true,
+  "tracks": {
+    "heliostat": "4A",
+    "tideglass": "5B",
+    "clockwork": "6A"
+  },
+  "combat_tracks": {
+    "heliostat": "4C",
+    "tideglass": "5C",
+    "clockwork": "6A"
+  }
+}

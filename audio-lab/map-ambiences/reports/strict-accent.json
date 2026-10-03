@@ -1,0 +1,199 @@
+[
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\heliostat-creak.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.25,
+    "peak": 0.301727,
+    "rms": 0.022387,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.12,
+      0.32,
+      0.44,
+      0.7,
+      0.86,
+      1.04
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8065,
+    "median_transient_gap_seconds": 0.18,
+    "transient_gap_cv": 0.2516,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\heliostat-mirror.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.15,
+    "peak": 0.619995,
+    "rms": 0.01459,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.28,
+      0.94
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.9298,
+    "median_transient_gap_seconds": 0.66,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\heliostat-sweep.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 2.8,
+    "peak": 0.281036,
+    "rms": 0.031622,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.4,
+      0.54,
+      0.76,
+      0.94,
+      1.06
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.6286,
+    "median_transient_gap_seconds": 0.16,
+    "transient_gap_cv": 0.2328,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\tideglass-drop.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.85,
+    "peak": 0.29892,
+    "rms": 0.025118,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.1
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.881,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\tideglass-barge.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.5,
+    "peak": 0.25943,
+    "rms": 0.028183,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.14,
+      0.28,
+      0.48,
+      1.22
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.6533,
+    "median_transient_gap_seconds": 0.2,
+    "transient_gap_cv": 0.7495,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\clockwork-beat.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.65,
+    "peak": 0.221283,
+    "rms": 0.028183,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.5312,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\clockwork-click.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.45,
+    "peak": 0.388336,
+    "rms": 0.017782,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04,
+      0.22
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.7727,
+    "median_transient_gap_seconds": 0.18,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\clockwork-pendulum.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.2,
+    "peak": 0.359039,
+    "rms": 0.03981,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.2,
+      0.36
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.4333,
+    "median_transient_gap_seconds": 0.16,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\clockwork-cover.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.4,
+    "peak": 0.619995,
+    "rms": 0.033488,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.14,
+      0.4,
+      0.52
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.8286,
+    "median_transient_gap_seconds": 0.19,
+    "transient_gap_cv": 0.3684,
+    "quality": "ok"
+  },
+  {
+    "path": "C:\\Users\\BOTTEROOOW\\PROTOTYPE-V0.1\\audio-lab\\map-ambiences\\candidates\\clockwork-brass.wav",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 1.6,
+    "peak": 0.371277,
+    "rms": 0.015848,
+    "clipped_ratio": 0.0,
+    "transient_seconds": [
+      0.04
+    ],
+    "periodic_transient_risk": false,
+    "dense_accent_risk": false,
+    "silence_ratio": 0.675,
+    "median_transient_gap_seconds": 0.0,
+    "transient_gap_cv": 0.0,
+    "quality": "ok"
+  }
+]

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ambiances · Cartes 4–6</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#171b1f;color:#eee9de;font:16px/1.5 system-ui,sans-serif}main{max-width:1080px;margin:0 auto;padding:38px 24px}h1{font-size:30px;margin:0 0 8px}h2{font-size:24px;margin:8px 0}p{margin:8px 0;color:#b5bbb9}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c5ba9e}.intro{max-width:800px}.maps{display:grid;gap:22px;margin-top:28px}.map{padding:24px;background:#21272b;border:1px solid #3b4348;border-left:4px solid var(--accent);border-radius:10px}.map .eyebrow{color:var(--accent)}audio{width:100%;margin:10px 0 4px}a{color:var(--accent,#e6c38a)}summary{cursor:pointer;color:#d3d8d4;padding:10px 0}.sounds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sound{background:#181e22;padding:14px;border:1px solid #374048;border-radius:6px}.sound small{display:block;color:#aeb8b7}.timeline{font-size:13px;color:#b0b9b8;max-width:900px;margin:12px 0}.tag{display:inline-block;border:1px solid #596369;border-radius:20px;font-size:12px;padding:3px 9px;margin:0 5px 5px 0}.status{color:#dfc891}.error{color:#ffbaaa}@media(max-width:650px){main{padding:24px 16px}.map{padding:18px}.sounds{grid-template-columns:1fr}h1{font-size:25px}}
+</style>
+<main>
+<div class="eyebrow">Prototype 0 · Stable Audio</div>
+<h1>Trois lieux, trois ambiances</h1>
+<p class="intro">Écoute chaque carte pendant 45 secondes. Le fond reste discret, puis les mécanismes apparaissent. Les couches séparées permettent de vérifier chaque son.</p>
+<p class="status">Première écoute · fichiers locaux · pas encore intégrés au jeu</p>
+<p class="intro">Les moments des mécanismes sont illustratifs. Leur synchronisation sera vérifiée dans le jeu après l’écoute. Les bandes sonores musicales sont proposées dans le nouveau chat.</p>
+<section class="maps" id="maps"><p>Chargement des sons…</p></section>
+</main>
+<script>
+const escapeText = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const player = (path,label,loop=false) => `<audio controls preload="metadata" aria-label="${escapeText(label)}" ${loop?'loop':''}><source src="${escapeText(path)}" type="audio/wav"></audio>`;
+fetch('manifest.json').then(response=>{if(!response.ok)throw Error('Le manifeste audio est indisponible.');return response.json()}).then(pack=>{
+document.getElementById('maps').innerHTML = pack.maps.map(map=>`<article class="map" style="--accent:${map.color}">
+<div class="eyebrow">Carte ${map.number}</div><h2>${escapeText(map.title)}</h2><p>${escapeText(map.direction)}</p>
+${player(map.path,map.title+' · ambiance complète')}<small>Ambiance complète · 45 s · <a href="${map.path}" download>Télécharger</a></small>
+<details><summary>Écouter le fond seul</summary>${player(map.bed_path,map.title+' · fond seul')}<small>Extrait du fond · 45 s</small></details>
+<details><summary>Les ${pack.cues.filter(c=>c.arena===map.id).length} sons séparés</summary><div class="sounds">${pack.cues.filter(c=>c.arena===map.id).map(c=>`<div class="sound"><strong>${escapeText(c.label)}</strong><small>${c.kind==='ambience'?'Boucle de fond':'Son ponctuel'} · ${c.duration_seconds.toFixed(2)} s</small>${player(c.path,c.label,c.kind==='ambience')}<a href="${c.path}" download>Télécharger</a></div>`).join('')}</div></details>
+<details><summary>Repères d’écoute</summary><div class="timeline">${map.events.map(e=>`<span class="tag">${e.at_seconds.toFixed(1)} s · ${escapeText(e.label)}</span>`).join('')}</div></details>
+</article>`).join('');
+document.querySelectorAll('audio').forEach(audio=>{audio.volume=.7;audio.addEventListener('play',()=>document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause()}));});
+}).catch(error=>{document.getElementById('maps').innerHTML=`<p class="error">${escapeText(error.message)}</p>`;});
+</script>
+</html>

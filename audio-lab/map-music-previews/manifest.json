@@ -1,0 +1,93 @@
+{
+  "provider": "local Stability AI",
+  "model": "Stable Audio 3 Small-Music",
+  "duration_seconds": 30,
+  "steps": 8,
+  "cfg": 1.0,
+  "threads": 4,
+  "negative_prompt": "vocals, singing, speech, synthesizer, EDM, electronic drums, dense orchestration, cymbal crashes, sound effects, ticking clocks, water, pumps, mechanical noises, distorted audio",
+  "integrated_in_game": false,
+  "tracks": [
+    {
+      "id": "4A",
+      "map": "Héliostat",
+      "title": "La ligne d’ombre",
+      "direction": "Chaleur et vigilance",
+      "seed": 261003401,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Dry low oud plucked melody, sustained viola, soft frame drum. Sparse offbeat 92 BPM pulse. Hot dry sunlight, moving sheltering shadows. Begin with solo oud, add a gentle drum pulse, viola creates a suspended unresolved tension, retreat to sparse oud.",
+      "file": "previews/4A.wav"
+    },
+    {
+      "id": "4B",
+      "map": "Héliostat",
+      "title": "Midi de cuivre",
+      "direction": "Puissance solaire",
+      "seed": 261003402,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Soft low French horns, cellos, felt piano, very occasional muffled timpani. Slow heavy 72 BPM. Spacious matte chamber orchestral score, vast solar installation, immense heat pressing down. Begin a quiet low piano note, add sustained cello harmony, a brief restrained horn opening, gently recede.",
+      "file": "previews/4B.wav"
+    },
+    {
+      "id": "4C",
+      "map": "Héliostat",
+      "title": "Deux pas dans la poussière",
+      "direction": "Duel mobile",
+      "seed": 261003403,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Acoustic baritone guitar, pizzicato upright bass, very soft brushed snare, occasional guitar harmonics. Dry intimate acoustic desert duel score. Light syncopated 112 BPM sway. Start solo guitar, add bass, alternate two short nimble motifs with gaps, restrained movement and feints, no dramatic crescendo.",
+      "file": "previews/4C.wav"
+    },
+    {
+      "id": "5A",
+      "map": "Serre engloutie",
+      "title": "Racines sous verre",
+      "direction": "Beauté fragile",
+      "seed": 261003501,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Low harp, bass clarinet, muted chamber strings. Gentle flowing 6/8 at 78 BPM. Soft suspended resonances, lush submerged botanical greenhouse, fragile beautiful islands. Sparse harp opening, incomplete bass clarinet melody enters, strings gradually turn harmony quietly uneasy, finish delicately.",
+      "file": "previews/5A.wav"
+    },
+    {
+      "id": "5B",
+      "map": "Serre engloutie",
+      "title": "Sous les feuilles",
+      "direction": "Embuscade feutrée",
+      "seed": 261003502,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Upright bass, felt acoustic piano, low clarinet, very delicate brushed drums. Intimate dark acoustic chamber jazz at 96 BPM, slightly behind the beat, stealthy stalking rather than lounge music. Start bass alone and sparse piano chords, short cautious clarinet replies, then withdraw into spaces. Hidden opponent among wet greenhouse gardens.",
+      "file": "previews/5B.wav"
+    },
+    {
+      "id": "5C",
+      "map": "Serre engloutie",
+      "title": "Les passages verts",
+      "direction": "Circulation et poursuite",
+      "seed": 261003503,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Low wooden marimba, muted nylon guitar, pizzicato cello, soft hand drums. Rounded acoustic timbres, nimble interlocking patterns at 108 BPM. Begin a three-note marimba cell, guitar answers with an offset phrase, cello adds a brief push before returning to the opening. Crossing routes between green islands, light tactical pursuit.",
+      "file": "previews/5C.wav"
+    },
+    {
+      "id": "6A",
+      "map": "Cœur d’horloge",
+      "title": "La treizième valse",
+      "direction": "Élégance inquiétante",
+      "seed": 261003601,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Acoustic string quartet, bassoon, felt piano. Restrained eerie chamber waltz in 3/4 at 108 BPM. Precise soft pizzicato, short bowed phrases, subtly displaced accents. Start bassoon and plucked strings, introduce a poised little melody, fragment it, leave the underlying dance pulse. Elegant dangerous duel around a giant pendulum.",
+      "file": "previews/6A.wav"
+    },
+    {
+      "id": "6B",
+      "map": "Cœur d’horloge",
+      "title": "L’échappement",
+      "direction": "Précision nerveuse",
+      "seed": 261003602,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Viola and cello ostinato, muted prepared acoustic piano, soft low drum. Dry articulated chamber music in 7/8 grouped 2+2+3 at 98 BPM. Start a spare repeated figure, gradually add displaced accents and change register, use clear musical rests, return to the sparse figure. Precise nervous anticipation in a vast brass clock mechanism.",
+      "file": "previews/6B.wav"
+    },
+    {
+      "id": "6C",
+      "map": "Cœur d’horloge",
+      "title": "Le poids des heures",
+      "direction": "Grandeur et menace",
+      "seed": 261003603,
+      "prompt": "Original instrumental acoustic background score for a tactical robot duel. Restrained quiet opening, short musical phrases with rests, gentle tension building halfway, thin arrangement that leaves room for combat sounds, warm natural recorded instruments. No singing, no voices, no electronic synthesizers, no environmental sound effects. Real pipe organ using quiet soft stops, low cellos, muted French horns, very rare soft bass drum. Solemn restrained chamber score at 64 BPM, deep resonance but controlled bass. Begin almost solo quiet organ, cellos create slow motion, horns mark one brief modest summit, recede. An ancient massive steel and brass clock, each duel commitment matters.",
+      "file": "previews/6C.wav"
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "approved_by_user": true,
+  "integrated_in_game": true,
+  "tracks": [
+    {
+      "arena": "heliostat",
+      "kind": "selection",
+      "choice": "4A",
+      "source": "audio-lab\\map-music-previews\\raw\\4A.wav",
+      "path": "art\\audio\\maps\\heliostat_selection.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.007658,
+      "sha256": "a1734871342edc1c7dc6013b03e43ba09970ff5b0d2fca162ab1ec3962003e7d"
+    },
+    {
+      "arena": "heliostat",
+      "kind": "combat",
+      "choice": "4C",
+      "source": "audio-lab\\map-combat-music\\raw\\4C.wav",
+      "path": "art\\audio\\maps\\heliostat_combat.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.002993,
+      "sha256": "48f98744410ec0a370d33f9851a0e7566081eeb97b27e6889604f6f4bca795aa"
+    },
+    {
+      "arena": "heliostat",
+      "kind": "combat_alternate",
+      "choice": "4A",
+      "source": "audio-lab\\map-combat-music\\raw\\4A.wav",
+      "path": "art\\audio\\maps\\heliostat_combat_alternate.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.01038,
+      "sha256": "ca6ca710a70fdcd89018e80ff14058da2e543ce6b1f9487731b69d78ca21d4a6"
+    },
+    {
+      "arena": "tideglass",
+      "kind": "selection",
+      "choice": "5B",
+      "source": "audio-lab\\map-music-previews\\raw\\5B.wav",
+      "path": "art\\audio\\maps\\tideglass_selection.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.003895,
+      "sha256": "b55388c352fda9f9d9d8d72ecdd20fb7ef91047f4e5cb995958107e3153a51b1"
+    },
+    {
+      "arena": "tideglass",
+      "kind": "combat",
+      "choice": "5C",
+      "source": "audio-lab\\map-combat-music\\raw\\5C.wav",
+      "path": "art\\audio\\maps\\tideglass_combat.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.009423,
+      "sha256": "7e6028511e911830e4aad338da1dd89c27ba17af494898c423360d35ca52afa1"
+    },
+    {
+      "arena": "tideglass",
+      "kind": "combat_alternate",
+      "choice": "5A",
+      "source": "audio-lab\\map-combat-music\\raw\\5A.wav",
+      "path": "art\\audio\\maps\\tideglass_combat_alternate.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.000273,
+      "sha256": "61db3b869251a6104be72b7c51d37a28f36445d0deb9a67879f5221406028885"
+    },
+    {
+      "arena": "clockwork",
+      "kind": "selection",
+      "choice": "6A",
+      "source": "audio-lab\\map-music-previews\\raw\\6A.wav",
+      "path": "art\\audio\\maps\\clockwork_selection.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.001619,
+      "sha256": "41007e5d1c02967ce03aff0c520f1b4f527620e385e3c10724b57a2a5139d615"
+    },
+    {
+      "arena": "clockwork",
+      "kind": "combat",
+      "choice": "6A",
+      "source": "audio-lab\\map-combat-music\\raw\\6A.wav",
+      "path": "art\\audio\\maps\\clockwork_combat.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.008218,
+      "sha256": "4ac6c7ddda0f7a531d1afc5c127298ae099fbbcdf9fad3975c1d8bdb6395249c"
+    },
+    {
+      "arena": "clockwork",
+      "kind": "combat_alternate",
+      "choice": "6B",
+      "source": "audio-lab\\map-combat-music\\raw\\6B.wav",
+      "path": "art\\audio\\maps\\clockwork_combat_alternate.wav",
+      "duration_seconds": 30,
+      "loop_begin_seconds": 0.12,
+      "loop_seam_max_delta": 0.000517,
+      "sha256": "c903c6f8e7008382394a6decd97511b6e6c8f67e76198e441b494d6488b597c5"
+    }
+  ],
+  "combat_alternate_choices": {
+    "heliostat": "4A",
+    "tideglass": "5A",
+    "clockwork": "6B"
+  },
+  "alternate_selection": "assistant selected at user request",
+  "combat_schedule": "primary 0-30s, alternate 30-60s, primary 60-90s; repeat, live unpaused round time"
+}

@@ -526,17 +526,17 @@ func _close_workshop_edge() -> void:
 	var wall := MeshInstance3D.new()
 	wall.name = "WorkshopRightWall"
 	var wall_mesh := BoxMesh.new()
-	wall_mesh.size = Vector3(0.22, 7.2, 12.0)
+	wall_mesh.size = Vector3(0.22, 7.2, 7.2)
 	wall.mesh = wall_mesh
 	wall.material_override = material
-	wall.position = Vector3(8.85, 3.6, -0.25)
+	wall.position = Vector3(8.85, 3.6, -2.25)
 	world.add_child(wall)
-	for index in 11:
+	for index in 8:
 		var rib := MeshInstance3D.new()
 		rib.mesh = BoxMesh.new()
 		(rib.mesh as BoxMesh).size = Vector3(0.07, 7.0, 0.055)
 		rib.material_override = material
-		rib.position = Vector3(8.70, 3.5, -5.0 + index)
+		rib.position = Vector3(8.70, 3.5, -5.0 + index * 0.85)
 		world.add_child(rib)
 
 
@@ -547,8 +547,8 @@ func _build_environment() -> void:
 	settings.background_mode = Environment.BG_COLOR
 	settings.background_color = Color("#334650")
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color("#bdb8ac")
-	settings.ambient_light_energy = 0.30
+	settings.ambient_light_color = Color("#b2bdc2")
+	settings.ambient_light_energy = 0.26
 	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	settings.glow_enabled = true
 	settings.glow_intensity = 0.32
@@ -565,10 +565,10 @@ func _build_environment() -> void:
 	var fill := DirectionalLight3D.new()
 	fill.name = "CoolFrontFill"
 	fill.rotation_degrees = Vector3(-20, -15, 0)
-	fill.light_color = Color("#cbd0ce")
-	fill.light_energy = 0.40
+	fill.light_color = Color("#b3c6d0")
+	fill.light_energy = 0.36
 	world.add_child(fill)
-	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.65, 1.0, -1.5), Color("#ffcf91"), 2.8, 5.0, 46.0)
+	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.8, 1.6, -2.1), Color("#ffcf91"), 4.0, 5.0, 58.0)
 	_add_spot("HeroKey", Vector3(2.8, 5.2, 2.3), Vector3(0, 1.6, 0), Color("#edf3ef"), 4.5, 8.0, 40.0)
 
 

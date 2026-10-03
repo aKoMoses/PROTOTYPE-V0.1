@@ -15,6 +15,7 @@ const EQUIPMENT_FOCUS := preload("res://scripts/forge_garage_focus.gd")
 const TRAINING_DEMO := preload("res://scripts/forge_training_demo.gd")
 const INSTALLATION := preload("res://scripts/forge_build_installation.gd")
 const MODULE_INSTALLATION := preload("res://scripts/forge_module_installation.gd")
+const AMBIENCE_AUDIO := preload("res://scripts/forge_ambience_audio.gd")
 const MODULE_STATIONS := preload("res://scripts/forge_module_stations.gd")
 const WEAPON_RACK := preload("res://scripts/forge_weapon_rack.gd")
 const LIBRARY := preload("res://scripts/garage_build_library.gd")
@@ -30,6 +31,7 @@ const AMBER := Color("#f5b844")
 const CREAM := Color("#eee5ce")
 const CYAN := Color("#69e0e8")
 const CATEGORY_TITLES := {"offensive": "OFFENSIF", "defensive": "DÉFENSIF", "mobility": "MOBILITÉ", "passive": "PASSIF"}
+const BUILD_STEPS := ["weapon", "offensive", "defensive", "mobility", "passive"]
 const TAGS := {
 	"agile": "Rapidité", "polyvalent": "Équilibre", "puissant": "Résistance",
 	"blaster": "Tir précis · charge", "shotgun": "Salves rapprochées", "mekatana": "Combo · mêlée", "longshot": "Longue portée",
@@ -119,6 +121,14 @@ var _build_actions: Array[Button] = []
 var _equipment_display: Node3D
 var _display_id := ""
 var _arena_enabled := false
+var _creating := false
+var _journey_step := -1
+var _entry_choices: Dictionary = {}
+var _edit_choices: Dictionary = {}
+var _journey_labels: Array[Label] = []
+var _edit_selector: OptionButton
+var _summary_name: LineEdit
+var _library_button: Button
 
 
 func _ready() -> void:
@@ -170,8 +180,9 @@ func _ready() -> void:
 	get_viewport().mouse_exited.connect(_clear_station_hover)
 	_layout()
 	_refresh()
-	_show_garage(false)
+	_show_entry(false)
 	_sync_visibility()
+	add_child(AMBIENCE_AUDIO.new())
 
 
 func _process(delta: float) -> void:
@@ -304,7 +315,7 @@ func set_loadout(value: Dictionary) -> void:
 
 
 func draft_state() -> Dictionary:
-	return {"loadout": loadout.duplicate(true), "name": build_name, "id": build_id}
+	return {"loadout": loadout.duplicate(true), "name": build_name, "id": build_id, "creating": _creating, "step": _journey_step}
 
 
 func restore_draft(value: Dictionary) -> void:
@@ -314,8 +325,13 @@ func restore_draft(value: Dictionary) -> void:
 	loadout = LOADOUT.sanitize(value.get("loadout", loadout))
 	build_name = LIBRARY.normalize_name(str(value.get("name", build_name)))
 	build_id = str(value.get("id", build_id))
+	_creating = bool(value.get("creating", false))
+	_journey_step = clampi(int(value.get("step", -1)), 0, BUILD_STEPS.size()) if _creating else -1
 	_refresh()
-	_show_detail(_category, str(loadout[_category]))
+	if _creating and _journey_step < BUILD_STEPS.size():
+		_open_station(BUILD_STEPS[_journey_step])
+	else:
+		_show_garage(false)
 
 
 func is_dirty() -> bool:
@@ -353,7 +369,11 @@ func _choose_arena(identifier: String) -> void:
 func _select_equipment(category: String, identifier: String) -> void:
 	if installation.active or module_installation.active:
 		return
+	if _creating and _journey_step < BUILD_STEPS.size() and category != BUILD_STEPS[_journey_step]:
+		return
 	if str(loadout.get(category, "")) == identifier:
+		if _creating and _journey_step < BUILD_STEPS.size():
+			_advance_journey()
 		return
 	if category == "weapon" or identifier in MODULE_INSTALLATION.REAL_MODULES:
 		_hide_equipment_display()
@@ -383,12 +403,13 @@ func _select_equipment(category: String, identifier: String) -> void:
 	elif category in CATEGORY_TITLES:
 		module_installation.audio.play("lock")
 	equipment_selected.emit(category, str(loadout[category]))
+	if _creating and _journey_step < BUILD_STEPS.size():
+		_advance_journey()
 
 
 func _preview_equipment(category: String, identifier: String) -> void:
 	if category in CATEGORY_TITLES or category == "weapon":
-		if _compact_layout:
-			_view = "detail"
+		_view = "detail"
 		_show_detail(category, identifier)
 		_layout()
 		_focus_selection()
@@ -411,13 +432,10 @@ func _module_mounted(category: String, identifier: String) -> void:
 func _module_completed(identifier: String) -> void:
 	_cinema.hide()
 	_ui.show()
-	var kind: String = module_installation.category
-	_open_station(kind)
-	if _compact_layout:
-		_view = "detail"
-	_show_detail(kind, identifier)
-	_layout()
-	_focus_selection()
+	if _creating and _journey_step < BUILD_STEPS.size():
+		_advance_journey()
+	else:
+		_show_garage()
 	_notice(LOADOUT.display_name(identifier) + " installé")
 
 
@@ -435,6 +453,9 @@ func _module_cancelled() -> void:
 
 func _save_build() -> void:
 	if installation.active or module_installation.active:
+		return
+	if _creating and _journey_step < BUILD_STEPS.size():
+		_notice("Choisis les cinq équipements avant de sauvegarder.")
 		return
 	module_installation.cancel()
 	_finish_rename()
@@ -497,6 +518,10 @@ func _finish_save() -> void:
 	_focus_selection()
 	stage.react_to_installation(saved)
 	_save_and_play = false
+	if saved and not launch:
+		_creating = false
+		_journey_step = -1
+		_show_garage()
 	if launch:
 		start_requested.emit()
 
@@ -523,11 +548,21 @@ func _request_back() -> void:
 		return
 	if _rename_panel.visible:
 		_rename_panel.hide()
-	elif _view == "detail" and _compact_layout:
+	elif _view == "entry":
+		back_requested.emit()
+	elif _view == "detail":
 		_show_catalog(_category)
 		focus.show_station(_category) if _category != "robot" else focus.show_overview()
+	elif _creating and _journey_step < BUILD_STEPS.size() and _view in ["catalog", "detail"]:
+		if _journey_step > 0:
+			_journey_step -= 1
+			_open_station(BUILD_STEPS[_journey_step])
+		else:
+			_show_entry()
 	elif not _hub_mode:
 		_show_garage()
+	elif _view != "entry":
+		_show_entry()
 	else:
 		back_requested.emit()
 
@@ -544,7 +579,7 @@ func _sync_visibility() -> void:
 		if installation != null:
 			installation.cancel()
 	elif focus != null and module_installation != null and not module_installation.active:
-		_show_garage(false)
+		_show_entry(false)
 
 
 func _layout() -> void:
@@ -670,6 +705,7 @@ func _build_interface() -> void:
 	_build_rename_panel()
 	_build_experience_controls()
 	_build_cinematic_interface()
+	_build_journey_interface()
 	for id in ["classic", "hazards", "test"]:
 		var button := _button(id, Vector2.ZERO, Vector2(109, 48), _choose_arena.bind(id))
 		button.hide()
@@ -709,7 +745,7 @@ func _build_catalog(category: String) -> void:
 		button.name = "Garage%s" % str(identifier).to_pascal_case()
 		button.custom_minimum_size = Vector2(190, 135)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		button.tooltip_text = LOADOUT.category_description(identifier)
+		button.tooltip_text = LOADOUT.display_name(identifier)
 		for state in ["normal", "hover", "pressed", "focus"]:
 			button.add_theme_stylebox_override(state, _style(state != "normal"))
 		button.pressed.connect(_preview_equipment.bind(category, str(identifier)))
@@ -806,7 +842,8 @@ func _open_demo() -> void:
 
 
 func _primary_style(button: Button) -> void:
-	button.add_theme_color_override("font_color", Color("#292017"))
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(key, Color("#292017"))
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style := _style(true)
 		style.bg_color = Color("#696456") if state == "disabled" else (AMBER if state == "normal" else Color("#ffd484"))
@@ -826,9 +863,9 @@ func _build_footer() -> void:
 	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_test_button = _button("TESTER", Vector2.ZERO, Vector2(150, 52), _test_build)
 	_test_button.name = "GarageTest"
-	_save_button = _button("JOUER", Vector2.ZERO, Vector2(240, 52), _save_then_play, true)
-	_save_button.name = "GarageSaveAndPlay"
-	_save_button.tooltip_text = "Sauvegarder le build puis lancer le duel"
+	_save_button = _button("SAUVEGARDER", Vector2.ZERO, Vector2(240, 52), _save_build, true)
+	_save_button.name = "GarageSave"
+	_save_button.tooltip_text = "Sauvegarder le build et rester dans le garage"
 	_primary_style(_save_button)
 	_status = _label("", Vector2.ZERO, Vector2(430, 28), 15, CYAN)
 	_ui.add_child(_status)
@@ -940,23 +977,27 @@ func _finish_rename() -> void:
 
 
 func _new_build() -> void:
-	if installation.active:
+	if installation.active or module_installation.active:
 		return
 	module_installation.cancel()
+	_creating = true
+	_journey_step = 0
 	build_id = ""
 	build_name = "BUILD %d" % int(_library.next_id)
 	loadout = LOADOUT.defaults()
 	_refresh()
-	_show_detail(_category, str(loadout[_category]))
-	_rename_build()
+	_open_station(BUILD_STEPS[0])
 
 
 func _duplicate_build() -> void:
 	if installation.active:
 		return
 	build_id = ""
+	_creating = false
+	_journey_step = -1
 	build_name = LIBRARY.normalize_name(build_name + " COPIE")
 	_refresh_build_names()
+	_show_garage()
 	_rename_build()
 
 
@@ -964,12 +1005,15 @@ func _select_build(index: int) -> void:
 	if installation.active or index < 0 or index >= _library.builds.size():
 		return
 	module_installation.cancel()
+	_creating = false
+	_journey_step = -1
 	var entry: Dictionary = _library.builds[index]
 	build_id = entry.id
 	build_name = entry.name
 	loadout = entry.loadout.duplicate(true)
 	_refresh()
 	_show_detail(_category, str(loadout[_category]))
+	_show_garage()
 
 
 func _refresh_build_names() -> void:
@@ -985,6 +1029,18 @@ func _refresh_build_names() -> void:
 	_build_selector.select(selected)
 	_build_selector.set_item_text(selected, build_name + (" •" if is_dirty() else ""))
 	_hub_caption.text = build_name
+	if _edit_selector != null:
+		_entry_choices["MODIFIER UN BUILD"].get_node("HubIcon").texture = _icons.get_icon(str(loadout.robot))
+		_edit_selector.clear()
+		for entry in _library.builds:
+			_edit_selector.add_item(build_name if entry.id == build_id else str(entry.name))
+		if selected >= _edit_selector.item_count:
+			_edit_selector.add_item(build_name)
+		_edit_selector.select(selected)
+		for kind in _edit_choices:
+			var card: Button = _edit_choices[kind]
+			card.get_node("HubIcon").texture = _icons.get_icon(str(loadout[kind]))
+			card.get_node("EquipmentName").text = LOADOUT.display_name(str(loadout[kind]))
 	_save_state.text = "BROUILLON •" if is_dirty() else "SAUVEGARDÉ"
 	_save_state.add_theme_color_override("font_color", AMBER if is_dirty() else CYAN)
 
@@ -1041,13 +1097,110 @@ func _build_cinematic_interface() -> void:
 	_cinema.hide()
 
 
+func _build_journey_interface() -> void:
+	for title in ["MODIFIER UN BUILD", "CRÉER UN BUILD"]:
+		var card := _journey_card(title, str(loadout.robot) if title == "MODIFIER UN BUILD" else "blaster", _begin_edit if title == "MODIFIER UN BUILD" else _new_build)
+		_entry_choices[title] = card
+	for kind in BUILD_STEPS:
+		var title: String = "ARME" if kind == "weapon" else CATEGORY_TITLES[kind]
+		var card := _journey_card(title, str(loadout[kind]), _open_station.bind(kind))
+		var equipped := _label("", Vector2.ZERO, Vector2(200, 24), 13)
+		equipped.name = "EquipmentName"
+		equipped.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		equipped.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		card.add_child(equipped)
+		_edit_choices[kind] = card
+		var step := _label(title, Vector2.ZERO, Vector2(130, 24), 14, CREAM, true)
+		step.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_ui.add_child(step)
+		_journey_labels.append(step)
+	_edit_selector = OptionButton.new()
+	_edit_selector.name = "EditBuildSelector"
+	_edit_selector.fit_to_longest_item = false
+	_edit_selector.clip_text = true
+	_edit_selector.add_theme_font_size_override("font_size", 17)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		_edit_selector.add_theme_stylebox_override(state, _style(state != "normal"))
+	_edit_selector.item_selected.connect(_select_build)
+	_ui.add_child(_edit_selector)
+	_summary_name = LineEdit.new()
+	_summary_name.name = "CompletedBuildName"
+	_summary_name.max_length = 28
+	_summary_name.placeholder_text = "Nom du build"
+	_summary_name.add_theme_font_size_override("font_size", 18)
+	_summary_name.text_changed.connect(func(value: String) -> void:
+		build_name = LIBRARY.normalize_name(value)
+		_refresh_build_names())
+	_ui.add_child(_summary_name)
+	_library_button = _button("MES BUILDS", Vector2.ZERO, Vector2(150, 48), _show_builds)
+	_library_button.name = "ManageGarageBuilds"
+
+
+func _journey_card(title: String, identifier: String, action: Callable) -> Button:
+	var card := _button("", Vector2.ZERO, Vector2(220, 130), action)
+	card.name = title.to_pascal_case().replace(" ", "")
+	var icon := TextureRect.new()
+	icon.name = "HubIcon"
+	icon.texture = _icons.get_icon(identifier)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(icon)
+	var label := _label(title, Vector2.ZERO, Vector2(200, 30), 18, CREAM, true)
+	label.name = "HubTitle"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card.add_child(label)
+	return card
+
+
+func _show_entry(animated: bool = true) -> void:
+	if installation != null and installation.active:
+		return
+	if module_installation != null and module_installation.active:
+		module_installation.cancel(false)
+	_hub_mode = false
+	_view = "entry"
+	_rename_panel.hide()
+	_hide_equipment_display()
+	_training_demo.close_enlarged()
+	_training_demo.hide()
+	_layout()
+	if focus != null:
+		focus.set_process(is_visible_in_tree())
+		focus.show_garage(animated)
+	_highlight_station("")
+
+
+func _begin_edit() -> void:
+	_creating = false
+	_journey_step = -1
+	if build_id.is_empty():
+		for index in _library.builds.size():
+			if str(_library.builds[index].id) == str(_library.active):
+				_select_build(index)
+				return
+	_refresh_build_names()
+	_show_garage()
+
+
+func _advance_journey() -> void:
+	_journey_step += 1
+	if _journey_step < BUILD_STEPS.size():
+		_open_station(BUILD_STEPS[_journey_step])
+	else:
+		_summary_name.text = build_name
+		_show_garage()
+
+
 func _show_garage(animated: bool = true) -> void:
 	if installation != null and installation.active:
 		return
 	if module_installation != null and module_installation.active:
 		module_installation.cancel(false)
 	_hub_mode = true
-	_view = "hub"
+	_view = "summary" if _creating and _journey_step == BUILD_STEPS.size() else "hub"
+	if _view == "summary":
+		_summary_name.text = build_name
 	_hide_equipment_display()
 	_training_demo.close_enlarged()
 	_training_demo.hide()
@@ -1074,6 +1227,8 @@ func _open_weapon_rack() -> void:
 
 
 func _open_station(category: String) -> void:
+	if _creating and _journey_step < BUILD_STEPS.size() and category != BUILD_STEPS[_journey_step]:
+		return
 	if category == "weapon":
 		_open_weapon_rack()
 	else:
@@ -1141,6 +1296,10 @@ func _hide_equipment_display() -> void:
 func _focus_selection() -> void:
 	if focus == null or _view not in ["catalog", "detail"]:
 		return
+	if _category in BUILD_STEPS:
+		_hide_equipment_display()
+		focus.show_station(_category)
+		return
 	if _compact_layout and _view == "catalog":
 		_hide_equipment_display()
 		if _category == "robot":
@@ -1150,28 +1309,7 @@ func _focus_selection() -> void:
 		return
 	var bounds: AABB = stage.robot.global_transform * stage._robot_pick_bounds
 	bounds = bounds.grow(0.25)
-	if _category == "weapon":
-		if _equipment_display == null:
-			_equipment_display = Node3D.new()
-			_equipment_display.name = "CatalogWeaponDisplay"
-			_equipment_display.position = Vector3(0, 1.9, 0)
-			stage.world.add_child(_equipment_display)
-		if _display_id != _preview_id:
-			for child in _equipment_display.get_children():
-				child.free()
-			var model := (stage.WEAPON_MODELS[_preview_id] as PackedScene).instantiate() as Node3D
-			_equipment_display.add_child(model)
-			var raw: AABB = stage._bounds(model)
-			model.position -= raw.get_center()
-			var longest := maxf(raw.size.x, maxf(raw.size.y, raw.size.z))
-			var axis := Vector3.RIGHT if raw.size.x == longest else (Vector3.UP if raw.size.y == longest else Vector3.BACK)
-			_equipment_display.basis = Basis(Quaternion(axis, Vector3.RIGHT)).scaled(Vector3.ONE * 2.8 / maxf(longest, 0.001))
-			_display_id = _preview_id
-		_equipment_display.show()
-		stage.robot.hide()
-		bounds = (_equipment_display.global_transform * stage._bounds(_equipment_display)).grow(0.35)
-	else:
-		_hide_equipment_display()
+	_hide_equipment_display()
 	focus.show_catalog_preview(_category, _preview_id, bounds)
 
 
@@ -1196,8 +1334,9 @@ func _show_detail(category: String, identifier: String) -> void:
 	_preview_id = identifier
 	stage.module_stations.highlight_item(identifier if category in CATEGORY_TITLES else "")
 	stage.weapon_rack.highlight_item(identifier if category == "weapon" else "")
-	equip_button.disabled = str(loadout.get(category, "")) == identifier
-	equip_button.text = "INSTALLÉ  ✓" if equip_button.disabled else "INSTALLER"
+	var guided := _creating and _journey_step < BUILD_STEPS.size()
+	equip_button.disabled = str(loadout.get(category, "")) == identifier and not guided
+	equip_button.text = "VALIDER L’ARME" if guided and category == "weapon" else ("VALIDER LE MODULE" if guided else ("INSTALLÉ  ✓" if equip_button.disabled else "INSTALLER"))
 	_detail_icon.texture = _icons.get_icon(identifier)
 	_detail_title.text = LOADOUT.display_name(identifier)
 	_detail_description.text = LOADOUT.category_description(identifier)

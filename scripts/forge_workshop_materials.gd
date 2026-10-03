@@ -13,10 +13,10 @@ const IMPORTED := {
 	"oiled_metal": ["dark", Color("#30383c")],
 	"rusted_iron": ["steel", Color("#454b4c")],
 	"exposed_metal": ["edge", Color("#929c9d")],
-	"workshop_concrete": ["concrete", Color("#7b7b70")],
-	"scarred_workbench": ["wood", Color("#8e6441")],
-	"workshop_ochre": ["steel", Color("#ac7737")],
-	"toolbox_red": ["steel", Color("#713f34")],
+	"workshop_concrete": ["concrete", Color("#747c7c")],
+	"scarred_workbench": ["wood", Color("#a27c54")],
+	"workshop_ochre": ["steel", Color("#bc893e")],
+	"toolbox_red": ["steel", Color("#87473a")],
 	"equipment_cases": ["steel", Color("#595e4d")],
 }
 var _imported: Dictionary = {}

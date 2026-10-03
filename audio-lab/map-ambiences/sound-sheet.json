@@ -1,0 +1,382 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "provider": "local Stability AI",
+  "runtime": "official optimized TFLite",
+  "steps": 8,
+  "cfg": 1.0,
+  "negative_prompt": "music, melody, singing, speech, voices, narration, gunshots, explosions, drill, jackhammer, machine gun, alarm siren, harsh high pitched squeal, clipping, distortion, low fidelity",
+  "negative_prompt_effect": "Not applied by the runtime when cfg=1.0; exclusions also appear in positive prompts.",
+  "integrated_in_game": false,
+  "semantic_acceptance": "pending user audition",
+  "maps": {
+    "heliostat": {
+      "number": 4,
+      "title": "Héliostat",
+      "color": "#e8b45a",
+      "direction": "Vent chaud, collecteurs solaires et métal sous tension.",
+      "beds": [
+        "heliostat-wind",
+        "heliostat-hum"
+      ],
+      "events": [
+        [
+          "heliostat-creak",
+          5.5,
+          0.8
+        ],
+        [
+          "heliostat-mirror",
+          11,
+          1
+        ],
+        [
+          "heliostat-sweep",
+          16,
+          1
+        ],
+        [
+          "heliostat-creak",
+          25,
+          0.65
+        ],
+        [
+          "heliostat-mirror",
+          31,
+          0.8
+        ],
+        [
+          "heliostat-sweep",
+          35,
+          0.85
+        ]
+      ]
+    },
+    "tideglass": {
+      "number": 5,
+      "title": "Serre engloutie",
+      "color": "#69c7b5",
+      "direction": "Clapotis, feuilles humides et pompes sous la végétation.",
+      "beds": [
+        "tideglass-water",
+        "tideglass-leaves",
+        "tideglass-pump"
+      ],
+      "events": [
+        [
+          "tideglass-drop",
+          4,
+          0.8
+        ],
+        [
+          "tideglass-barge",
+          10,
+          1
+        ],
+        [
+          "tideglass-drop",
+          17.3,
+          0.65
+        ],
+        [
+          "tideglass-drop",
+          27,
+          0.75
+        ],
+        [
+          "tideglass-barge",
+          33,
+          0.8
+        ],
+        [
+          "tideglass-drop",
+          39.2,
+          0.6
+        ]
+      ]
+    },
+    "clockwork": {
+      "number": 6,
+      "title": "Cœur d’horloge",
+      "color": "#baa8e5",
+      "direction": "Engrenages profonds, battement lent et mouvements pesants.",
+      "beds": [
+        "clockwork-gears"
+      ],
+      "events": [
+        [
+          "clockwork-beat",
+          3.0,
+          1
+        ],
+        [
+          "clockwork-beat",
+          6.2,
+          0.7
+        ],
+        [
+          "clockwork-beat",
+          9.4,
+          1
+        ],
+        [
+          "clockwork-beat",
+          12.600000000000001,
+          0.7
+        ],
+        [
+          "clockwork-beat",
+          15.8,
+          1
+        ],
+        [
+          "clockwork-beat",
+          19.0,
+          0.7
+        ],
+        [
+          "clockwork-beat",
+          22.200000000000003,
+          1
+        ],
+        [
+          "clockwork-beat",
+          25.400000000000002,
+          0.7
+        ],
+        [
+          "clockwork-beat",
+          28.6,
+          1
+        ],
+        [
+          "clockwork-beat",
+          31.8,
+          0.7
+        ],
+        [
+          "clockwork-beat",
+          35.0,
+          1
+        ],
+        [
+          "clockwork-beat",
+          38.2,
+          0.7
+        ],
+        [
+          "clockwork-click",
+          6.6,
+          0.75
+        ],
+        [
+          "clockwork-pendulum",
+          12,
+          1
+        ],
+        [
+          "clockwork-cover",
+          15,
+          1
+        ],
+        [
+          "clockwork-brass",
+          20,
+          0.75
+        ],
+        [
+          "clockwork-click",
+          26.3,
+          0.7
+        ],
+        [
+          "clockwork-pendulum",
+          31,
+          0.85
+        ],
+        [
+          "clockwork-cover",
+          34,
+          0.85
+        ]
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "heliostat-wind",
+      "arena": "heliostat",
+      "label": "Vent chaud",
+      "kind": "ambience",
+      "generation_seconds": 24,
+      "duration": 22,
+      "rms_db": -33,
+      "prompt": "Warm dry wind moving slowly across an open sun baked stone courtyard, soft wide natural air movement with subtle dusty turbulence, medium distant perspective, steady restrained continuous environmental bed, no abrupt gusts, no music or voices",
+      "seed": 26100340
+    },
+    {
+      "id": "heliostat-hum",
+      "arena": "heliostat",
+      "label": "Collecteurs solaires",
+      "kind": "ambience",
+      "generation_seconds": 12,
+      "duration": 10,
+      "rms_db": -38,
+      "prompt": "Distant large solar collector quietly humming with low electrical transformer vibration inside a dry open courtyard, soft physical low frequency resonance, steady smooth continuous environmental texture, no high whine, no music or voices",
+      "seed": 26100341
+    },
+    {
+      "id": "heliostat-creak",
+      "arena": "heliostat",
+      "label": "Métal qui chauffe",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.25,
+      "rms_db": -33,
+      "prompt": "One restrained thermal expansion creak of a warm copper panel on a steel frame, slow dry metal flex with one tiny settling tick, medium distance outdoors, single brief irregular event followed by silence, clean isolated realistic sound effect, no rhythmic knocking",
+      "seed": 26100342
+    },
+    {
+      "id": "heliostat-mirror",
+      "arena": "heliostat",
+      "label": "Rotation du miroir",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.15,
+      "rms_db": -27,
+      "prompt": "One heavy solar mirror rotating a short distance on an oiled steel bearing, smooth quiet geared actuator movement ending in a muted mechanical lock click, close outdoor perspective, one short movement then silence, clean isolated realistic sound effect, no drill or grinding",
+      "seed": 26100343
+    },
+    {
+      "id": "heliostat-sweep",
+      "arena": "heliostat",
+      "label": "Souffle du balayage solaire",
+      "kind": "accent",
+      "generation_seconds": 5,
+      "duration": 2.8,
+      "rms_db": -30,
+      "prompt": "One broad wave of heated air passing across a stone courtyard, soft low turbulent air swelling gently then receding, warm dry physical pressure wash with no explosive attack, medium distance, single smooth passing event then silence, clean isolated environmental sound effect",
+      "seed": 26100344
+    },
+    {
+      "id": "tideglass-water",
+      "arena": "tideglass",
+      "label": "Eau contre les îlots",
+      "kind": "ambience",
+      "generation_seconds": 24,
+      "duration": 22,
+      "rms_db": -32,
+      "prompt": "Water gently lapping against stone island edges inside a spacious abandoned greenhouse basin, small rounded ripples with soft roomy natural reflections, medium perspective, calm continuous environmental bed, no violent splashes, no music or voices",
+      "seed": 26100345
+    },
+    {
+      "id": "tideglass-leaves",
+      "arena": "tideglass",
+      "label": "Feuillage humide",
+      "kind": "ambience",
+      "generation_seconds": 12,
+      "duration": 10,
+      "rms_db": -39,
+      "prompt": "Broad wet fern and palm leaves softly rustling in a faint breeze inside a spacious greenhouse, delicate irregular leafy friction, medium distant perspective, restrained continuous organic environmental texture, no rain, no birds or insects, no music or voices",
+      "seed": 26100346
+    },
+    {
+      "id": "tideglass-pump",
+      "arena": "tideglass",
+      "label": "Pompes lointaines",
+      "kind": "ambience",
+      "generation_seconds": 12,
+      "duration": 10,
+      "rms_db": -39,
+      "prompt": "A distant old water circulation pump running quietly below a greenhouse floor, deep muffled mechanical hum with smooth water movement in pipes, very soft steady continuous physical environmental texture, no rattling, no repeating impacts, no alarm, no music or voices",
+      "seed": 26100347
+    },
+    {
+      "id": "tideglass-drop",
+      "arena": "tideglass",
+      "label": "Goutte dans le bassin",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 0.85,
+      "rms_db": -32,
+      "prompt": "One small water droplet falling from a leaf into a calm greenhouse pool, a delicate rounded plip with a short soft natural reflection, medium distance, one isolated event and silence, clean realistic sound effect, no repeated dripping, no music",
+      "seed": 26100348
+    },
+    {
+      "id": "tideglass-barge",
+      "arena": "tideglass",
+      "label": "Barge flottante",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.5,
+      "rms_db": -31,
+      "prompt": "One heavy floating metal planter shifting gently on calm water, short restrained oiled hinge creak and a soft buoyant water lap, medium perspective in a spacious greenhouse, one slow brief movement then silence, clean isolated realistic sound effect, no loud grinding",
+      "seed": 26100349
+    },
+    {
+      "id": "clockwork-gears",
+      "arena": "clockwork",
+      "label": "Roulement des engrenages",
+      "kind": "ambience",
+      "generation_seconds": 24,
+      "duration": 22,
+      "rms_db": -34,
+      "prompt": "Large brass and steel clock gears rolling slowly deep inside a spacious mechanical chamber, soft weighty low rubbing resonance with restrained air movement, distant perspective, smooth continuous environmental bed, no rapid ticking, no drill or jackhammer, no melody or voices",
+      "seed": 26100350
+    },
+    {
+      "id": "clockwork-beat",
+      "arena": "clockwork",
+      "label": "Battement mécanique grave",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 0.65,
+      "rms_db": -31,
+      "prompt": "One slow large clock escapement engaging, a soft heavy rounded wooden and brass tock with a short muted low resonance, medium distant perspective inside a mechanical chamber, single isolated beat then silence, no sharp high ticking, no musical drum",
+      "seed": 26100351
+    },
+    {
+      "id": "clockwork-click",
+      "arena": "clockwork",
+      "label": "Cliquet de laiton",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 0.45,
+      "rms_db": -35,
+      "prompt": "One small brass clock ratchet tooth settling into place, delicate dry metal click with a tiny muted mechanical rattle, medium distance, one short irregular event then silence, clean isolated realistic sound effect, no repeated ticking, no music",
+      "seed": 26100352
+    },
+    {
+      "id": "clockwork-pendulum",
+      "arena": "clockwork",
+      "label": "Passage du balancier",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.2,
+      "rms_db": -28,
+      "prompt": "One massive steel pendulum passing through air, low smooth weighty air whoosh with a faint bearing friction, close passing perspective inside a spacious clock mechanism, single broad sweep then silence, clean isolated physical sound effect, no explosion or laser",
+      "seed": 26100353
+    },
+    {
+      "id": "clockwork-cover",
+      "arena": "clockwork",
+      "label": "Rotation d’un abri",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.4,
+      "rms_db": -28,
+      "prompt": "One heavy steel shelter rotating on a brass geared platform, short slow restrained mechanical rolling movement ending in one padded metal stop, medium distance inside a clock chamber, one brief action then silence, clean isolated sound effect, no continuous grinding or drill",
+      "seed": 26100354
+    },
+    {
+      "id": "clockwork-brass",
+      "arena": "clockwork",
+      "label": "Vibration du laiton",
+      "kind": "accent",
+      "generation_seconds": 4,
+      "duration": 1.6,
+      "rms_db": -36,
+      "prompt": "One large brass housing softly vibrating after internal clock machinery shifts, warm muted low metal resonance decaying naturally, distant perspective in a spacious chamber, one quiet event then silence, clean isolated realistic sound effect, no musical bell or melody",
+      "seed": 26100355
+    }
+  ]
+}

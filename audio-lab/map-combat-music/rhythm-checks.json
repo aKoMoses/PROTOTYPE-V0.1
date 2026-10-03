@@ -1,0 +1,294 @@
+{
+  "note": "Periodicity from onset autocorrelation is approximate: half/double time and subdivisions may coexist. This is not a listening judgment or a certified musical tempo.",
+  "files_checked": 9,
+  "tracks": [
+    {
+      "id": "4A",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -16.18,
+      "peak_dbfs": -1.81,
+      "target_bpm": 172,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 172.3,
+        "correlation": 0.701
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 114.8,
+          "correlation": 0.708
+        },
+        {
+          "bpm_periodicity": 172.3,
+          "correlation": 0.701
+        },
+        {
+          "bpm_periodicity": 68.9,
+          "correlation": 0.697
+        },
+        {
+          "bpm_periodicity": 86.1,
+          "correlation": 0.654
+        }
+      ],
+      "transient_peaks_first_two_seconds": 11,
+      "sha256": "afd439588527f525ae41003637eed6fa39ce2e4218ca61c2c020957984a409ae"
+    },
+    {
+      "id": "4B",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -19.6,
+      "peak_dbfs": -0.72,
+      "target_bpm": 176,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 172.3,
+        "correlation": 0.239
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 117.5,
+          "correlation": 0.386
+        },
+        {
+          "bpm_periodicity": 87.6,
+          "correlation": 0.374
+        },
+        {
+          "bpm_periodicity": 172.3,
+          "correlation": 0.239
+        },
+        {
+          "bpm_periodicity": 70.8,
+          "correlation": 0.205
+        }
+      ],
+      "transient_peaks_first_two_seconds": 2,
+      "sha256": "cfca3a91a37a6ae45cd70c8de43071989aabbc401c51436f6eb74595dd83c58e"
+    },
+    {
+      "id": "4C",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -18.06,
+      "peak_dbfs": -1.02,
+      "target_bpm": 180,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 178.2,
+        "correlation": 0.607
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 120.2,
+          "correlation": 0.662
+        },
+        {
+          "bpm_periodicity": 71.8,
+          "correlation": 0.617
+        },
+        {
+          "bpm_periodicity": 178.2,
+          "correlation": 0.607
+        },
+        {
+          "bpm_periodicity": 90.7,
+          "correlation": 0.495
+        }
+      ],
+      "transient_peaks_first_two_seconds": 19,
+      "sha256": "31f9032660047fbb8ab62b32804e9ffe34755a5a7c23255101565389260736f5"
+    },
+    {
+      "id": "5A",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -24.75,
+      "peak_dbfs": -1.99,
+      "target_bpm": 170,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 172.3,
+        "correlation": 0.563
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 84.7,
+          "correlation": 0.602
+        },
+        {
+          "bpm_periodicity": 172.3,
+          "correlation": 0.563
+        },
+        {
+          "bpm_periodicity": 68.0,
+          "correlation": 0.489
+        },
+        {
+          "bpm_periodicity": 112.3,
+          "correlation": 0.486
+        }
+      ],
+      "transient_peaks_first_two_seconds": 11,
+      "sha256": "0e38c3bf8c82a58196451106af04930765a846239eba9a3181d8628a583c61c9"
+    },
+    {
+      "id": "5B",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -20.21,
+      "peak_dbfs": -0.72,
+      "target_bpm": 174,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 172.3,
+        "correlation": 0.52
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 86.1,
+          "correlation": 0.763
+        },
+        {
+          "bpm_periodicity": 172.3,
+          "correlation": 0.52
+        },
+        {
+          "bpm_periodicity": 114.8,
+          "correlation": 0.439
+        },
+        {
+          "bpm_periodicity": 68.9,
+          "correlation": 0.417
+        }
+      ],
+      "transient_peaks_first_two_seconds": 9,
+      "sha256": "aae29b3ae93356b0cdabb33e48d19f739a5d1565e60462e1fcaa8044a7703307"
+    },
+    {
+      "id": "5C",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -15.55,
+      "peak_dbfs": -0.72,
+      "target_bpm": 178,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 178.2,
+        "correlation": 0.57
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 89.1,
+          "correlation": 0.596
+        },
+        {
+          "bpm_periodicity": 178.2,
+          "correlation": 0.57
+        },
+        {
+          "bpm_periodicity": 117.5,
+          "correlation": 0.495
+        },
+        {
+          "bpm_periodicity": 70.8,
+          "correlation": 0.474
+        }
+      ],
+      "transient_peaks_first_two_seconds": 11,
+      "sha256": "0220babb0fc0ddbdbd940b9d7bad0466d531be8b8986612c2319588d8c1f1e35"
+    },
+    {
+      "id": "6A",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -25.41,
+      "peak_dbfs": -0.72,
+      "target_bpm": 180,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 178.2,
+        "correlation": 0.546
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 178.2,
+          "correlation": 0.546
+        },
+        {
+          "bpm_periodicity": 90.7,
+          "correlation": 0.488
+        },
+        {
+          "bpm_periodicity": 71.8,
+          "correlation": 0.338
+        },
+        {
+          "bpm_periodicity": 120.2,
+          "correlation": 0.317
+        }
+      ],
+      "transient_peaks_first_two_seconds": 14,
+      "sha256": "bd43d8cb57d5205abd91cda9a9e2de78a78066ed6ec4947a6c03562f08365757"
+    },
+    {
+      "id": "6B",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -29.86,
+      "peak_dbfs": -0.72,
+      "target_bpm": 172,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 172.3,
+        "correlation": 0.774
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 86.1,
+          "correlation": 0.783
+        },
+        {
+          "bpm_periodicity": 172.3,
+          "correlation": 0.774
+        },
+        {
+          "bpm_periodicity": 114.8,
+          "correlation": 0.714
+        },
+        {
+          "bpm_periodicity": 68.9,
+          "correlation": 0.699
+        }
+      ],
+      "transient_peaks_first_two_seconds": 11,
+      "sha256": "878aa714fb78458b6269f7485d0a6e24d0412244beff8a95b36bd64c7e655d82"
+    },
+    {
+      "id": "6C",
+      "duration_seconds": 30.0,
+      "channels": 2,
+      "first_second_rms_dbfs": -19.8,
+      "peak_dbfs": -0.72,
+      "target_bpm": 166,
+      "rhythmic_periodicity_near_target": {
+        "bpm_periodicity": 166.7,
+        "correlation": 0.271
+      },
+      "strongest_periodicities": [
+        {
+          "bpm_periodicity": 82.0,
+          "correlation": 0.331
+        },
+        {
+          "bpm_periodicity": 166.7,
+          "correlation": 0.271
+        },
+        {
+          "bpm_periodicity": 66.3,
+          "correlation": 0.155
+        },
+        {
+          "bpm_periodicity": 110.0,
+          "correlation": 0.084
+        }
+      ],
+      "transient_peaks_first_two_seconds": 6,
+      "sha256": "f66581c43e542d34fdf783d0619cc301617a38a5e66632cfae9fda0fde865a16"
+    }
+  ]
+}

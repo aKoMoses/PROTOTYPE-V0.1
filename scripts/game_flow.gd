@@ -12,6 +12,7 @@ const SOLO_SETUP_SCREEN := preload("res://scripts/ui/solo_setup_screen.gd")
 const MENU_NAVIGATION := preload("res://scripts/ui/menu_navigation.gd")
 const BUILD_LIBRARY := preload("res://scripts/garage_build_library.gd")
 const PRECOMBAT_SCREEN := preload("res://scripts/ui/precombat_screen.gd")
+const ARENA_MUSIC := preload("res://scripts/arena_music.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
@@ -135,6 +136,7 @@ var _countdown_image: TextureRect
 var _countdown_digit_index := -1
 var _countdown_audio: AudioStreamPlayer
 var _match_music: AudioStreamPlayer
+var _arena_music: Node
 var _menu_music: AudioStreamPlayer
 var _menu_music_tween: Tween
 var _menu_music_active := false
@@ -208,6 +210,9 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 			(_match_music.stream as AudioStreamWAV).loop_begin = 0
 			(_match_music.stream as AudioStreamWAV).loop_end = int(_match_music.stream.get_length() * (_match_music.stream as AudioStreamWAV).mix_rate)
 	add_child(_match_music)
+	_arena_music = ARENA_MUSIC.new()
+	add_child(_arena_music)
+	_arena_music.configure(_match_music)
 	_menu_music = AudioStreamPlayer.new()
 	_menu_music.bus = &"Music"
 	_menu_music.name = "MenuMusic"
@@ -261,6 +266,8 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		_forge_garage.call("restore_draft", draft)
 
 func _process(delta: float) -> void:
+	if current_screen == Screen.COMBAT and round_phase == RoundPhase.LIVE and not _pause_active:
+		_arena_music.advance_round(delta)
 	if _skip_intro != null:
 		_skip_intro.visible = current_screen == Screen.COMBAT and round_phase == RoundPhase.COUNTDOWN and not _pause_active and _countdown_remaining > COUNTDOWN_SECONDS
 	if not _pause_active and round_phase == RoundPhase.COUNTDOWN:
@@ -478,10 +485,12 @@ func _show_screen(screen: Screen) -> void:
 	if _round_end_feedback != null:
 		_round_end_feedback.reset()
 	if _solo_setup != null:
-		_close_solo_setup()
+		_close_solo_setup(screen == Screen.COMBAT)
 	if _skip_intro != null:
 		_skip_intro.hide()
 	current_screen = screen
+	if screen != Screen.COMBAT:
+		_arena_music.stop_selection(0.25)
 	if screen != Screen.RESULT:
 		_result_audio.stop()
 	_set_menu_music_active(screen in [Screen.MENU, Screen.SETTINGS, Screen.LOBBY])
@@ -620,9 +629,12 @@ func _open_solo_setup() -> void:
 	_preview_solo_arena()
 	selector.grab_focus()
 
-func _close_solo_setup() -> void:
+func _close_solo_setup(keep_music := false) -> void:
 	var was_open := _solo_setup.visible
 	_solo_setup.hide()
+	if was_open and not keep_music:
+		_arena_music.stop_selection(0.25)
+		_set_menu_music_active(current_screen == Screen.MENU)
 	if not _solo_camera_state.is_empty():
 		var rig: Node3D = main.get_node("CameraRig")
 		var camera: Camera3D = rig.get_node("Camera3D")
@@ -654,6 +666,12 @@ func _preview_solo_arena() -> void:
 	camera.fov = 48
 	camera.h_offset = -7.0
 	camera.look_at(Vector3.ZERO, Vector3.UP)
+	_play_arena_selection()
+
+func _play_arena_selection() -> void:
+	var custom: bool = _arena_music.select(_arena_variant)
+	_set_menu_music_active(not custom and current_screen == Screen.MENU)
+	_set_garage_music_active(false)
 
 
 func _launch_solo() -> void:
@@ -670,7 +688,7 @@ func _launch_solo() -> void:
 		if not BUILD_LIBRARY.save_local(library):
 			_status_label.text = "Sauvegarde indisponible ; duel lancé avec le loadout choisi."
 		loadout = LOADOUT.sanitize(entry.loadout)
-		_close_solo_setup()
+		_close_solo_setup(true)
 		_start_duel()
 		return
 	_open_solo_setup()
@@ -1486,14 +1504,12 @@ func _set_garage_music_active(active: bool) -> void:
 		_garage_music_tween.tween_callback(_garage_music.stop)
 
 func _start_match_music() -> void:
-	if _match_music.stream == null:
-		return
-	_match_music.stop()
-	_match_music.stream_paused = false
-	_match_music.play()
+	var arena := "classic" if main != null and is_instance_valid(main.get("network_match")) else _arena_variant
+	_arena_music.start_combat(arena)
 
 func _stop_match_music() -> void:
-	_match_music.stop()
+	_arena_music.stop_combat()
+	_arena_music.stop_selection()
 
 func _build_pause() -> void:
 	_pause_panel = _center_panel(430, 310)
@@ -1849,7 +1865,8 @@ func _start_duel() -> void:
 		main.call("start_duel", loadout)
 	_show_screen(Screen.COMBAT)
 	_begin_round_countdown()
-	_start_match_music()
+	if not _arena_music.has_theme(_arena_variant):
+		_start_match_music()
 
 func on_actor_died(actor: Node) -> void:
 	if _round_resolved or current_screen != Screen.COMBAT or round_phase != RoundPhase.LIVE:
@@ -1913,6 +1930,9 @@ func _show_round_result() -> void:
 
 func _begin_round_countdown() -> void:
 	_round_end_feedback.reset()
+	if _arena_music.has_theme(_arena_variant):
+		_arena_music.stop_combat()
+		_play_arena_selection()
 	round_phase = RoundPhase.COUNTDOWN
 	_countdown_remaining = PRECOMBAT_SECONDS if round_number == 1 and not bool(_solo_options.get("quick", false)) else COUNTDOWN_SECONDS
 	if _combat_feedback != null:
@@ -1956,6 +1976,8 @@ func _begin_fight() -> void:
 	if round_phase != RoundPhase.COUNTDOWN:
 		return
 	round_phase = RoundPhase.FIGHT
+	if _arena_music.has_theme(_arena_variant):
+		_start_match_music()
 	_countdown_remaining = 0.0
 	_fight_remaining = FIGHT_SECONDS
 	_update_countdown_overlay()
@@ -1965,6 +1987,8 @@ func _begin_live_round() -> void:
 	if round_phase != RoundPhase.COUNTDOWN and round_phase != RoundPhase.FIGHT:
 		return
 	round_phase = RoundPhase.LIVE
+	if _arena_music.has_theme(_arena_variant) and not _match_music.playing:
+		_start_match_music()
 	_countdown_remaining = 0.0
 	_fight_remaining = 0.0
 	if main != null and main.has_method("activate_round"):
@@ -2048,6 +2072,7 @@ func _toggle_pause() -> void:
 		get_tree().paused = true
 		_countdown_audio.stream_paused = true
 		_match_music.stream_paused = true
+		_arena_music.set_paused(true)
 		_set_combat_audio_paused(true)
 		if touch_controls != null:
 			touch_controls.visible = false
@@ -2070,6 +2095,7 @@ func _end_pause(resume_game: bool) -> void:
 	get_tree().paused = false
 	_countdown_audio.stream_paused = false
 	_match_music.stream_paused = false
+	_arena_music.set_paused(false)
 	_set_combat_audio_paused(false)
 	if current_screen == Screen.COMBAT:
 		_navigation_backdrop.visible = false
@@ -2110,7 +2136,8 @@ func _restart() -> void:
 		main.call("start_duel", loadout, true)
 	_show_screen(Screen.COMBAT)
 	_begin_round_countdown()
-	_start_match_music()
+	if not _arena_music.has_theme(_arena_variant):
+		_start_match_music()
 
 func _return_menu() -> void:
 	_end_pause(false)

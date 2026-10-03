@@ -1,0 +1,39 @@
+"""Approved environmental directions; musical tracks belong to another chat."""
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SR = 44100
+RUNTIME = Path(r"C:\Users\BOTTEROOOW\Tools\stable-audio-3\optimized\tflite")
+PYTHON = RUNTIME / ".venv/Scripts/python.exe"
+CLI = RUNTIME / "scripts/sa3_tflite.py"
+INSPECTION_PYTHON = Path(r"C:\Users\BOTTEROOOW\.codex\runtimes\stable-audio-3\.venv\Scripts\python.exe")
+INSPECTOR = Path(r"C:\Users\BOTTEROOOW\.codex\skills\generate-local-sfx\scripts\inspect_sfx.py")
+NEGATIVE = "music, melody, singing, speech, voices, narration, gunshots, explosions, drill, jackhammer, machine gun, alarm siren, harsh high pitched squeal, clipping, distortion, low fidelity"
+
+# Separate one-source generations retain control over each layer and event.
+# id, map, label, kind, generation seconds, candidate seconds, RMS dBFS, prompt
+ROWS = [
+    ("heliostat-wind", "heliostat", "Vent chaud", "ambience", 24, 22, -33, "Warm dry wind moving slowly across an open sun baked stone courtyard, soft wide natural air movement with subtle dusty turbulence, medium distant perspective, steady restrained continuous environmental bed, no abrupt gusts, no music or voices"),
+    ("heliostat-hum", "heliostat", "Collecteurs solaires", "ambience", 12, 10, -38, "Distant large solar collector quietly humming with low electrical transformer vibration inside a dry open courtyard, soft physical low frequency resonance, steady smooth continuous environmental texture, no high whine, no music or voices"),
+    ("heliostat-creak", "heliostat", "Métal qui chauffe", "accent", 4, 1.25, -33, "One restrained thermal expansion creak of a warm copper panel on a steel frame, slow dry metal flex with one tiny settling tick, medium distance outdoors, single brief irregular event followed by silence, clean isolated realistic sound effect, no rhythmic knocking"),
+    ("heliostat-mirror", "heliostat", "Rotation du miroir", "accent", 4, 1.15, -27, "One heavy solar mirror rotating a short distance on an oiled steel bearing, smooth quiet geared actuator movement ending in a muted mechanical lock click, close outdoor perspective, one short movement then silence, clean isolated realistic sound effect, no drill or grinding"),
+    ("heliostat-sweep", "heliostat", "Souffle du balayage solaire", "accent", 5, 2.8, -30, "One broad wave of heated air passing across a stone courtyard, soft low turbulent air swelling gently then receding, warm dry physical pressure wash with no explosive attack, medium distance, single smooth passing event then silence, clean isolated environmental sound effect"),
+    ("tideglass-water", "tideglass", "Eau contre les îlots", "ambience", 24, 22, -32, "Water gently lapping against stone island edges inside a spacious abandoned greenhouse basin, small rounded ripples with soft roomy natural reflections, medium perspective, calm continuous environmental bed, no violent splashes, no music or voices"),
+    ("tideglass-leaves", "tideglass", "Feuillage humide", "ambience", 12, 10, -39, "Broad wet fern and palm leaves softly rustling in a faint breeze inside a spacious greenhouse, delicate irregular leafy friction, medium distant perspective, restrained continuous organic environmental texture, no rain, no birds or insects, no music or voices"),
+    ("tideglass-pump", "tideglass", "Pompes lointaines", "ambience", 12, 10, -39, "A distant old water circulation pump running quietly below a greenhouse floor, deep muffled mechanical hum with smooth water movement in pipes, very soft steady continuous physical environmental texture, no rattling, no repeating impacts, no alarm, no music or voices"),
+    ("tideglass-drop", "tideglass", "Goutte dans le bassin", "accent", 4, .85, -32, "One small water droplet falling from a leaf into a calm greenhouse pool, a delicate rounded plip with a short soft natural reflection, medium distance, one isolated event and silence, clean realistic sound effect, no repeated dripping, no music"),
+    ("tideglass-barge", "tideglass", "Barge flottante", "accent", 4, 1.5, -31, "One heavy floating metal planter shifting gently on calm water, short restrained oiled hinge creak and a soft buoyant water lap, medium perspective in a spacious greenhouse, one slow brief movement then silence, clean isolated realistic sound effect, no loud grinding"),
+    ("clockwork-gears", "clockwork", "Roulement des engrenages", "ambience", 24, 22, -34, "Large brass and steel clock gears rolling slowly deep inside a spacious mechanical chamber, soft weighty low rubbing resonance with restrained air movement, distant perspective, smooth continuous environmental bed, no rapid ticking, no drill or jackhammer, no melody or voices"),
+    ("clockwork-beat", "clockwork", "Battement mécanique grave", "accent", 4, .65, -31, "One slow large clock escapement engaging, a soft heavy rounded wooden and brass tock with a short muted low resonance, medium distant perspective inside a mechanical chamber, single isolated beat then silence, no sharp high ticking, no musical drum"),
+    ("clockwork-click", "clockwork", "Cliquet de laiton", "accent", 4, .45, -35, "One small brass clock ratchet tooth settling into place, delicate dry metal click with a tiny muted mechanical rattle, medium distance, one short irregular event then silence, clean isolated realistic sound effect, no repeated ticking, no music"),
+    ("clockwork-pendulum", "clockwork", "Passage du balancier", "accent", 4, 1.2, -28, "One massive steel pendulum passing through air, low smooth weighty air whoosh with a faint bearing friction, close passing perspective inside a spacious clock mechanism, single broad sweep then silence, clean isolated physical sound effect, no explosion or laser"),
+    ("clockwork-cover", "clockwork", "Rotation d’un abri", "accent", 4, 1.4, -28, "One heavy steel shelter rotating on a brass geared platform, short slow restrained mechanical rolling movement ending in one padded metal stop, medium distance inside a clock chamber, one brief action then silence, clean isolated sound effect, no continuous grinding or drill"),
+    ("clockwork-brass", "clockwork", "Vibration du laiton", "accent", 4, 1.6, -36, "One large brass housing softly vibrating after internal clock machinery shifts, warm muted low metal resonance decaying naturally, distant perspective in a spacious chamber, one quiet event then silence, clean isolated realistic sound effect, no musical bell or melody"),
+]
+CUES = [dict(id=r[0], arena=r[1], label=r[2], kind=r[3], generation_seconds=r[4], duration=r[5], rms_db=r[6], prompt=r[7], seed=26100340+i) for i, r in enumerate(ROWS)]
+
+MAPS = {
+    "heliostat": dict(number=4, title="Héliostat", color="#e8b45a", direction="Vent chaud, collecteurs solaires et métal sous tension.", beds=["heliostat-wind", "heliostat-hum"], events=[("heliostat-creak", 5.5, .8), ("heliostat-mirror", 11, 1), ("heliostat-sweep", 16, 1), ("heliostat-creak", 25, .65), ("heliostat-mirror", 31, .8), ("heliostat-sweep", 35, .85)]),
+    "tideglass": dict(number=5, title="Serre engloutie", color="#69c7b5", direction="Clapotis, feuilles humides et pompes sous la végétation.", beds=["tideglass-water", "tideglass-leaves", "tideglass-pump"], events=[("tideglass-drop", 4, .8), ("tideglass-barge", 10, 1), ("tideglass-drop", 17.3, .65), ("tideglass-drop", 27, .75), ("tideglass-barge", 33, .8), ("tideglass-drop", 39.2, .6)]),
+    "clockwork": dict(number=6, title="Cœur d’horloge", color="#baa8e5", direction="Engrenages profonds, battement lent et mouvements pesants.", beds=["clockwork-gears"], events=[("clockwork-beat", 3+i*3.2, .7 if i%2 else 1) for i in range(12)] + [("clockwork-click", 6.6, .75), ("clockwork-pendulum", 12, 1), ("clockwork-cover", 15, 1), ("clockwork-brass", 20, .75), ("clockwork-click", 26.3, .7), ("clockwork-pendulum", 31, .85), ("clockwork-cover", 34, .85)]),
+}

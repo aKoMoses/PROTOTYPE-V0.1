@@ -1,5 +1,39 @@
 # Forge : garage officiel 3D
 
+## Décor et cadrage PC / téléphone — passe du 3 octobre 2026
+
+Le décor visible possède désormais un mur de béton à joints et soubassement en tôle,
+des conduites, un coffret électrique et une grille d'aération. La passerelle comprend
+un caillebotis, des supports, une plinthe et une échelle. La fenêtre possède un encadrement
+profond, un appui et des loquets. L'établi accueille des outils aux silhouettes distinctes,
+un étau avec moteur en réparation, un plateau de pièces et un bidon d'huile. La servante
+avant possède des tiroirs, poignées, roulettes et outils ; les caisses ont des couvercles,
+fermetures, renforts et plaques, et la caisse avant est ouverte avec une pièce à l'intérieur.
+Le sol reçoit des marquages, un caniveau et une texture intégrant les traces d'usage aux
+pieds des équipements. Les travées voisines sont plus détaillées et plus proches.
+
+Le cadre du téléphone reste centré sur le robot. Les fenêtres PC non compactes montrent
+l'atelier entier, avec un recul supplémentaire réglable à la molette dans la zone du décor.
+Le zoom est progressif et borné ; il est ignoré sur téléphone, au-dessus de l'interface,
+pendant une rotation du robot et dans les vues de râtelier. Les vues de sélection conservent
+leur cadrage et le mouvement discret de caméra conserve sa pause durant les interactions.
+La cloison droite est plus courte pour dégager la vue sur le hangar voisin.
+
+Le décor principal reste un mesh statique fusionné, avec quinze surfaces dont la vitre
+séparée à l'exécution, et environ 78 000 triangles. Les détails des travées voisines restent
+dans les huit lots existants. Aucun traitement d'animation ni lumière supplémentaire n'est
+ajouté. `tools/build_forge_garage.py --workshop-only` reconstruit le décor avec Blender et
+conserve le GLB du bras ; la texture de sol est embarquée dans le GLB et la source Blender.
+
+Vérification locale : import Godot 4.7.2 sans erreur ; captures Vulkan Mobile à 1280×720,
+1920×1080, 844×390 avec zone sûre, et 667×375 dans `captures/forge-decor/`.
+`tools/capture_forge_decor.gd` valide le cadrage du robot, le recul PC, la molette, les vrais
+événements souris, le toucher simulé, les pauses et l'arrêt hors écran : 40 contrôles réussis.
+Le script capture également les cinq râteliers sur PC et au format téléphone. L'ancien
+`test_forge_garage_focus` passe 225 contrôles sur 230 : cinq attentes de navigation héritées
+ne correspondent plus au parcours de création/modification ajouté en parallèle. Les
+performances et le rendu sur un véritable téléphone ne sont pas validés par ces captures.
+
 Garage officiel issu du concept 1, accessible par **GARAGE** dans le menu principal.
 **DUEL SOLO** utilise le dernier build sauvegardé et passe par l'écran de pré-combat.
 Le fonctionnement des brouillons, des builds nommés et de leur sauvegarde est décrit dans [garage-builds.md](garage-builds.md).

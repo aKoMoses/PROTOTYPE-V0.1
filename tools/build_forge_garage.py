@@ -8,7 +8,9 @@ are written only under art/forge-garage, leaving the combat assets untouched.
 from pathlib import Path
 import math
 import random
+import sys
 import bpy
+import numpy as np
 from mathutils import Vector
 
 DEST = Path(__file__).resolve().parent.parent / "art" / "forge-garage"
@@ -89,6 +91,7 @@ cyan = surface("service_indicator", (.02, .65, .75), .3, .3, emission=2.0)
 
 garage = empty("Workshop")
 arm = empty("ServiceArm", (2.35, .28, -.10))
+WORKSHOP_ONLY = "--workshop-only" in sys.argv
 
 
 def finish(obj, name, material, parent, bevel=0):
@@ -182,18 +185,61 @@ def label(name, text, pos, size, mat, parent=garage):
     return obj
 
 
+def workshop_floor():
+    # One exported floor map adds grounded contact wear without a stack of
+    # transparent decals or screen-space ambient occlusion on phone.
+    size = 1024
+    xs = np.linspace(-9.5, 9.5, size, dtype=np.float32)[None, :]
+    zs = np.linspace(-8, 8, size, dtype=np.float32)[:, None]
+    rng = np.random.default_rng(1701)
+    mottling = np.sin(xs*2.4 + np.sin(zs*1.7))*np.cos(zs*2.1)*.025
+    mottling += np.sin(xs*9.1-zs*7.4)*np.cos(zs*5.2+xs*3.1)*.012
+    shade = .30 + mottling + rng.normal(0, .014, (size,size))
+    for x,z,sx,sz,weight in [(-3.9,-1.9,2.1,.8,.10),(-4.35,3.2,.95,.55,.09),
+                           (5.0,-2.4,1.8,1.1,.10),(4.8,3.3,1.0,.65,.07),
+                           (2.35,0,.65,.55,.10),(-6.5,-3.7,.5,.35,.09)]:
+        shade -= np.exp(-((xs-x)/sx)**2-((zs-z)/sz)**2)*weight
+    radial = np.sqrt(xs*xs+zs*zs)
+    shade -= np.exp(-((radial-1.90)/.23)**2)*.052
+    for x,z in [(-.4,2.5),(.25,3.3),(-.18,3.9),(-3.1,.7),(-3.5,1.1)]:
+        shade -= np.exp(-((xs-x)/.10)**2-((zs-z)/.22)**2)*.045
+    rgba = np.ones((size,size,4), dtype=np.float32)
+    for channel,factor in enumerate((1.02,1.01,.96)):
+        rgba[:,:,channel] = np.clip(shade*factor,.06,.5)
+    img = bpy.data.images.new("workshop_floor_albedo", width=size, height=size)
+    img.pixels.foreach_set(rgba.ravel())
+    img.pack()
+    mat = surface("workshop_floor", (1,1,1), 0, .97)
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    slab = box("ConcreteSlab", (0,-.14,0), (19,.25,16), mat, bevel=0)
+    uv = slab.data.uv_layers.active
+    for face in slab.data.polygons:
+        for loop in face.loop_indices:
+            point = slab.data.vertices[slab.data.loops[loop].vertex_index].co
+            uv.data[loop].uv = ((point.x+9.5)/19, (-point.y+8)/16)
+
+
 print("FORGE BUILD: workshop shell", flush=True)
-box("ConcreteSlab", (0, -.14, 0), (19, .25, 16), concrete)
+workshop_floor()
 for x in range(-8, 9, 2):
     box("FloorExpansionJoint", (x, -.012, 0), (.022, .012, 15), dark, bevel=0)
 for z in range(-6, 7, 2):
     box("FloorExpansionJoint", (0, -.012, z), (18, .012, .022), dark, bevel=0)
-box("BackWall", (0, 3.7, -5.6), (18, 7.4, .24), rust)
+box("BackWall", (0, 3.7, -5.6), (18, 7.4, .24), concrete)
 box("LeftWall", (-7.5, 3.6, -1.0), (.22, 7.2, 9), dark)
 for x in range(-8, 9):
-    box("CorrugatedSheet", (x, 2.0, -5.43), (.87, 3.6, .055), steel)
+    box("CorrugatedSheet", (x, 1.15, -5.43), (.94, 2.2, .055), steel)
     for rib in (-.35, -.12, .12, .35):
-        box("SheetRib", (x + rib, 2.0, -5.36), (.024, 3.6, .05), rust, bevel=.004)
+        box("SheetRib", (x + rib, 1.15, -5.36), (.024, 2.2, .05), steel, bevel=0)
+    box("WallSkirting", (x, .17, -5.30), (.96, .20, .08), dark)
+    box("WallPaintBand", (x, 2.37, -5.455), (.94, .23, .025), yellow, bevel=0)
+for x in (-7.65, -4.8, -1.9, 7.35):
+    box("ConcretePanelJoint", (x, 5.1, -5.455), (.022, 4.15, .012), dark, bevel=0)
+for y in (3.0, 5.5, 7.0):
+    box("ConcreteHorizontalJoint", (-3.4, y, -5.455), (10.6, .018, .012), dark, bevel=0)
 for x in (-6.3, -3.5, .6, 5.4, 7.6):
     box("ColumnWeb", (x, 3.75, -4.98), (.13, 7.5, .35), dark)
     for dz in (-.19, .19):
@@ -201,11 +247,25 @@ for x in (-6.3, -3.5, .6, 5.4, 7.6):
     box("ColumnFoot", (x, .1, -4.98), (.6, .15, .6), steel)
 for y in (3.7, 6.7):
     box("CrossBeam", (0, y, -4.95), (18, .28, .37), dark)
-box("CatwalkDeck", (-2.3, 4.10, -4.45), (10.1, .15, 1.1), steel)
+box("CatwalkDeck", (-2.3, 4.10, -4.45), (10.1, .12, 1.1), dark)
+for i in range(67):
+    box("CatwalkGrating", (-7.25 + i * .15, 4.18, -4.45), (.035, .035, 1.02), edge, bevel=0)
+for z in (-4.95, -4.44, -3.93):
+    box("CatwalkLongitudinal", (-2.3, 4.20, z), (10.1, .025, .035), steel, bevel=0)
 for x in (-6.8, -5.3, -3.8, -2.3, -.8, .7, 2.2):
-    box("CatwalkUpright", (x, 4.63, -3.88), (.045, 1.05, .045), rust)
+    box("CatwalkUpright", (x, 4.66, -3.88), (.065, 1.05, .065), steel)
+    box("RailFoot", (x, 4.22, -3.88), (.18, .045, .16), edge)
+    box("CatwalkBrace", (x, 3.90, -4.47), (.095, .28, 1.10), dark)
 for y in (4.3, 5.12):
-    box("CatwalkRail", (-2.3, y, -3.88), (10.1, .045, .045), rust)
+    box("CatwalkRail", (-2.3, y, -3.88), (10.1, .065, .065), yellow)
+box("CatwalkToeBoard", (-2.3, 4.26, -3.9), (10.1, .15, .035), steel)
+# Access ladder stays beside the bench, away from all equipment pick volumes.
+for x in (-6.9, -6.3):
+    pipe("LadderRail", [(x,.10,-3.70),(x,4.22,-3.70),(x,4.78,-4.04)], .042, yellow)
+    for y in (.6, 2.2, 3.9):
+        box("LadderBracket", (x,y,-4.20), (.12,.07,.95), steel)
+for i in range(13):
+    pipe("LadderRung", [(-6.90,.28+i*.30,-3.70),(-6.30,.28+i*.30,-3.70)], .025, edge)
 
 # Window panels are deliberately separate from a bevelled structural grid.
 for i in range(5):
@@ -215,15 +275,45 @@ for x in (1.13, 2.16, 3.14, 4.12, 5.10, 6.1):
     box("WindowMullion", (x, 4.0, -5.25), (.065, 2.82, .1), dark)
 for y in (2.62, 3.55, 4.45, 5.37):
     box("WindowCrossbar", (3.6, y, -5.25), (5.05, .065, .1), dark)
+for x in (1.04, 6.18):
+    box("WindowRecessSide", (x, 4.0, -5.30), (.18, 3.03, .38), steel)
+for y in (2.50, 5.49):
+    box("WindowRecessRail", (3.61, y, -5.29), (5.30, .17, .38), steel)
+box("WindowSill", (3.61, 2.46, -5.04), (5.46, .10, .67), concrete)
+for x in (1.60, 3.57, 5.57):
+    box("WindowLatch", (x, 3.59, -5.16), (.15,.045,.08), edge)
 pipe("WallConduit", [(-6.4, 3.5, -5), (-5.8, 3.5, -5), (-5.8, 2.9, -5), (-4.4, 2.9, -5)], .038, edge)
-label("BayNumber", "BAY 01", (-5.9, 5.85, -5.24), .40, yellow)
+label("BayNumber", "BAY 01", (-5.9, 5.85, -5.24), .58, yellow)
+for x in (-6.6, -.70):
+    pipe("UpperWallPipe", [(x,7.20,-5.16),(x,6.65,-5.16),(x+.26,6.40,-5.16),(x+.26,5.47,-5.16),(x+.53,5.22,-5.16),(x+1.05,5.22,-5.16)], .070, steel)
+    for y in (5.8,6.8):
+        box("PipeClamp", (x,y,-5.22), (.20,.09,.15), edge)
+pipe("CableTrunk", [(-6.9,6.8,-5.21),(-3.7,6.8,-5.21),(-3.7,5.63,-5.21),(-2.75,5.63,-5.21)], .034, dark)
+box("ElectricalCabinet", (-.38, 2.95, -5.09), (.66,1.13,.37), steel, bevel=.045)
+box("ElectricalDoor", (-.38, 2.95, -4.875), (.57,1.02,.07), dark)
+box("ElectricalHandle", (-.15, 2.9, -4.816), (.032,.23,.06), edge)
+label("ElectricalWarning", "24 V", (-.60, 3.19, -4.826), .15, yellow)
+pipe("CabinetSupply", [(-.38,3.52,-5.09),(-.38,3.80,-5.09),(-1.0,3.80,-5.09),(-1.0,6.7,-5.09)], .032, dark)
+# Recessed exhaust grille, large enough to read in the desktop establishing view.
+cylinder("VentSurround", (-1.95,6.05,-5.24), .62,.18, steel, horizontal=True, vertices=24)
+cylinder("VentDarkWell", (-1.95,6.05,-5.115), .53,.025, dark, horizontal=True, vertices=24)
+for offset in (-.36,-.18,0,.18,.36):
+    length = 2 * math.sqrt(.49**2-offset**2)
+    box("VentGrille", (-1.95,6.05+offset,-5.085), (length,.035,.025), edge, bevel=0)
+for offset in (-.24,.24):
+    box("VentVertical", (-1.95+offset,6.05,-5.06), (.035,.87,.025), steel, bevel=0)
 
 print("FORGE BUILD: workbench and workshop props", flush=True)
-box("WorkbenchTop", (-3.9, 1.08, -1.95), (3.7, .18, 1.15), wood)
+box("WorkbenchTop", (-3.9, 1.08, -1.95), (3.7, .23, 1.25), wood, bevel=.025)
+for z in (-2.24,-1.94,-1.64):
+    box("WorkbenchPlankSeam", (-3.9, 1.199, z), (3.58,.004,.009), dark, bevel=0)
 box("WorkbenchFrontLip", (-3.9, 1.0, -1.34), (3.8, .14, .10), steel)
 for x in (-5.52, -2.3):
     for z in (-2.35, -1.55):
-        box("WorkbenchLeg", (x, .5, z), (.09, 1.0, .09), dark)
+        box("WorkbenchLeg", (x, .5, z), (.12, 1.0, .12), dark)
+        box("WorkbenchFoot", (x, .06, z), (.25, .08, .24), steel)
+box("WorkbenchLowerShelf", (-3.9,.25,-1.95), (3.43,.06,1.02), dark)
+box("BenchPartsBin", (-3.08,.43,-1.87), (.76,.30,.66), olive, bevel=.04)
 box("DrawerCabinet", (-4.45, .51, -1.95), (1.45, .96, .87), red)
 for i in range(5):
     box("DrawerFront", (-4.45, .16 + .17 * i, -1.50), (1.36, .145, .03), red)
@@ -233,20 +323,48 @@ box("ToolPegboard", (-3.92, 2.25, -2.74), (3.65, 1.85, .13), yellow)
 for x in range(16):
     for y in range(7):
         cylinder("PegboardHole", (-5.56 + x * .215, 1.48 + y * .25, -2.662), .017, .006, dark, horizontal=True, vertices=8)
-for i in range(11):
-    x = -5.34 + i * .27
-    length = .37 + (i % 4) * .08
-    box("HangingSpanner", (x, 2.34 - length * .30, -2.60), (.035, length, .036), edge)
-    box("SpannerJaw", (x - .038, 2.38, -2.60), (.036, .10, .035), edge)
-    box("SpannerJaw", (x + .038, 2.38, -2.60), (.036, .10, .035), edge)
-    box("ToolHook", (x, 2.53, -2.56), (.055, .026, .10), dark)
+for x, length in ((-5.35,.61),(-5.03,.49),(-4.74,.38)):
+    box("SpannerShaft", (x,2.29-length*.42,-2.56), (.06,length,.055), edge)
+    box("SpannerShoulder", (x,2.40,-2.56), (.18,.10,.055), steel)
+    for dx in (-.073,.073):
+        jaw=box("SpannerJaw", (x+dx,2.47,-2.56), (.055,.15,.055), edge)
+        jaw.rotation_euler.y = math.radians(-12 if dx < 0 else 12)
+    box("ToolHook", (x,2.39,-2.48), (.045,.022,.12), dark)
+box("HammerHead", (-4.25,2.43,-2.55), (.37,.13,.12), steel)
+box("HammerHandle", (-4.25,2.13,-2.55), (.078,.56,.07), wood)
+box("HammerGrip", (-4.25,1.92,-2.55), (.09,.19,.09), rubber)
+for dx in (-.07,.07):
+    grip=box("PliersGrip", (-3.83+dx,2.08,-2.53), (.075,.34,.07), red)
+    grip.rotation_euler.y = math.radians(18 if dx < 0 else -18)
+    box("PliersJaw", (-3.83+dx*.5,2.40,-2.53), (.065,.23,.055), edge)
+cylinder("PliersJoint", (-3.83,2.26,-2.48), .065,.045, steel, horizontal=True, vertices=12)
+for x,y,length in ((-3.42,2.10,.49),(-3.16,2.16,.38)):
+    box("DriverShaft", (x,y+.16,-2.54), (.025,length*.52,.025), edge)
+    box("DriverHandle", (x,y-length*.2,-2.54), (.095,length*.46,.08), yellow)
+box("DrillBattery", (-2.69,1.91,-2.50), (.26,.11,.15), dark)
+box("DrillGrip", (-2.68,2.06,-2.5), (.12,.28,.12), rubber)
+box("DrillHousing", (-2.72,2.27,-2.50), (.39,.18,.17), red, bevel=.04)
+pipe("DrillChuck", [(-2.52,2.27,-2.50),(-2.37,2.27,-2.50)], .06, steel)
+pipe("DrillBit", [(-2.37,2.27,-2.50),(-2.23,2.27,-2.50)], .016, edge)
 box("BenchLampStrip", (-3.9, 3.29, -2.58), (3.7, .045, .08), lamp_glass)
 box("BenchLampHousing", (-3.9, 3.32, -2.6), (3.85, .08, .15), dark)
-for i in range(6):
-    box("ToolOnBench", (-5.2 + i * .25, 1.20, -1.90 + (i % 2) * .14), (.08, .07, .28), steel)
+box("BenchRepairMat", (-3.74,1.207,-1.93), (.92,.018,.55), rubber, bevel=.01)
+box("OpenPartsTray", (-4.70,1.24,-1.68), (.50,.06,.34), steel)
+for i in range(4):
+    cylinder("TrayBolt", (-4.85+i*.095,1.286,-1.68), .024,.04, edge, vertices=6)
+box("LooseDriverHandle", (-3.7,1.235,-1.71), (.23,.055,.055), red)
+pipe("LooseDriverShaft", [(-3.82,1.235,-1.71),(-4.08,1.235,-1.71)], .012, edge)
+box("BenchOilTin", (-5.24,1.38,-2.18), (.20,.34,.16), olive)
+pipe("OilTinSpout", [(-5.24,1.54,-2.18),(-5.24,1.67,-2.18),(-5.09,1.70,-2.18)], .02, edge)
 cylinder("BenchViceBase", (-2.65, 1.23, -1.56), .18, .12, dark)
 box("BenchViceJaw", (-2.65, 1.36, -1.55), (.4, .2, .22), steel)
 box("BenchViceSlot", (-2.65, 1.47, -1.55), (.042, .012, .22), dark)
+pipe("ViceScrew", [(-2.65,1.33,-1.43),(-2.65,1.33,-1.18)], .028, edge)
+pipe("ViceHandle", [(-2.65,1.22,-1.18),(-2.65,1.45,-1.18)], .017, steel)
+cylinder("RepairMotor", (-2.65,1.58,-1.55), .12,.31, steel, horizontal=True, vertices=16)
+cylinder("RepairMotorShaft", (-2.65,1.58,-1.32), .041,.16, edge, horizontal=True, vertices=12)
+for y in (1.55,1.61):
+    box("RepairMotorFin", (-2.65,y,-1.56), (.31,.018,.23), dark)
 pipe("PendantCable", [(-3.65, 6.4, -1.4), (-3.65, 3.9, -1.4)], .018, rubber)
 bpy.ops.mesh.primitive_cone_add(vertices=48, radius1=.53, radius2=.17, depth=.37)
 pendant = finish(bpy.context.object, "PendantShade", dark, garage)
@@ -259,19 +377,64 @@ for x, y, z, w, h, d in [(4.0,.38,-2.0,1.4,.75,.8), (4.2,1.02,-2.2,1.18,.54,.76)
                          (5.6,.42,-1.9,1.55,.8,1.0), (5.55,1.25,-2.1,1.25,.8,.86),
                          (4.8,.32,-3.8,1.7,.65,1.0), (6.5,.45,-3.4,1.2,.9,1.0)]:
     box("EquipmentCase", (x,y,z), (w,h,d), olive, bevel=.065)
+    box("CaseLidSeam", (x,y+h*.30,z+d*.5+.018), (w*.92,.018,.018), dark, bevel=0)
+    box("CaseLid", (x,y+h*.46,z), (w*1.025,.075,d*1.025), olive, bevel=.025)
     for dx in (-w * .34, w * .34):
         box("CaseStrap", (x+dx,y,z+d*.5+.012), (.05,h,.03), dark)
         box("CaseStrapTop", (x+dx,y+h*.5+.012,z), (.05,.03,d), dark)
         box("CaseLatch", (x+dx,y+h*.15,z+d*.5+.04), (.10,.15,.06), edge)
     box("CaseHandle", (x,y+h*.10,z+d*.5+.04), (.25,.055,.07), dark)
+    for dx in (-w*.43,w*.43):
+        box("CaseCorner", (x+dx,y-h*.37,z+d*.5+.018), (.14,.16,.035), steel)
+    box("CaseLabelPlate", (x,y-h*.14,z+d*.5+.025), (.32,.14,.013), dark, bevel=0)
+    label("CaseStencil", "P / 01", (x-.14,y-h*.14-.04,z+d*.5+.036), .075, edge)
 for i in range(8):
     box("BannerFold", (5.7+i*.055, 2.02, -1.31+math.sin(i)*.025), (.07,1.48,.016), cloth, bevel=0)
 pipe("HydraulicSupply", [(2.9,.08,.7), (3.5,.05,1.3), (3.2,.04,2.1), (1.9,.04,2.7), (1.0,.04,2.35)], .028, rubber)
 pipe("BenchPowerCable", [(-3.7,.2,-1.4), (-3.3,.07,-.8), (-3.5,.035,.8), (-2.3,.035,1.9)], .025, rubber)
-box("ForegroundToolcart", (-4.35,.41,3.2), (1.7,.8,.8), red)
-box("ToolcartTray", (-4.35,.84,3.2), (1.8,.065,.9), dark)
-cylinder("ForegroundCan", (-3.9,1.02,3.23), .09,.30, steel)
-box("ForegroundLid", (4.8,.45,3.3), (1.7,.85,1.0), dark)
+box("ForegroundToolcart", (-4.35,.61,3.2), (1.54,.83,.72), red, bevel=.045)
+box("ToolcartTray", (-4.35,1.045,3.2), (1.72,.07,.87), dark)
+for z in (2.78,3.62):
+    box("ToolcartTrayLip", (-4.35,1.11,z), (1.72,.10,.035), steel)
+for x in (-5.18,-3.52):
+    box("ToolcartSideLip", (x,1.11,3.2), (.035,.10,.86), steel)
+for i in range(4):
+    box("CartDrawer", (-4.35,.38+i*.175,3.577), (1.42,.155,.035), red)
+    box("CartDrawerGap", (-4.35,.29+i*.175,3.60), (1.40,.018,.014), dark, bevel=0)
+    box("CartDrawerHandle", (-4.35,.38+i*.175,3.62), (.79,.032,.062), edge)
+for x in (-4.94,-3.76):
+    for z in (2.96,3.44):
+        wheel=cylinder("CartWheel", (x,.15,z), .13,.09, rubber, horizontal=True, vertices=12)
+        box("CasterFork", (x,.25,z), (.16,.18,.08), steel)
+pipe("CartPushHandle", [(-3.49,.78,2.95),(-3.37,.78,2.95),(-3.37,.78,3.47),(-3.49,.78,3.47)], .026, edge)
+cylinder("ForegroundCan", (-3.9,1.22,3.23), .09,.30, steel, vertices=16)
+box("CartLooseTool", (-4.65,1.105,3.32), (.37,.07,.09), steel)
+box("CartToolGrip", (-4.43,1.105,3.32), (.19,.08,.095), red)
+# Open crate with inset contents and a tilted lid instead of a featureless block.
+box("OpenCaseBase", (4.8,.13,3.3), (1.70,.20,1.0), dark, bevel=.035)
+for x in (4.0,5.6):
+    box("OpenCaseSide", (x,.43,3.3), (.10,.65,1.0), olive)
+for z in (2.85,3.75):
+    box("OpenCaseWall", (4.8,.43,z), (1.70,.65,.10), olive)
+box("OpenCaseInterior", (4.8,.25,3.3), (1.46,.12,.78), rubber)
+box("SpareHousing", (4.65,.40,3.35), (.64,.28,.42), steel, bevel=.055)
+cylinder("SpareHousingPort", (4.65,.57,3.35), .105,.055, edge, vertices=16)
+lid=box("OpenCaseLid", (4.8,.94,2.86), (1.72,.10,1.0), olive, bevel=.025)
+lid.rotation_euler.x = math.radians(-55)
+for x in (4.35,5.25):
+    box("OpenCaseLatch", (x,.57,3.82), (.12,.15,.04), edge)
+box("OpenCaseHandle", (4.8,.43,3.83), (.35,.06,.09), dark)
+
+# Restrained floor markings define the work area without adding clutter.
+for x in (-6.0,6.9):
+    box("FloorBayStripe", (x,-.001,.2), (.085,.006,8.7), yellow, bevel=0)
+for z in (-3.9,4.5):
+    box("FloorBayStripe", (.45,-.001,z), (12.85,.006,.085), yellow, bevel=0)
+box("DrainRecess", (0,-.004,5.2), (11.8,.014,.36), dark, bevel=0)
+for i in range(79):
+    box("DrainGrille", (-5.8+i*.148,.006,5.2), (.027,.012,.33), steel, bevel=0)
+for x in (-5.98,5.98):
+    box("DrainFrame", (x,.003,5.2), (.035,.018,.42), edge, bevel=0)
 
 print("FORGE BUILD: grated service turntable", flush=True)
 cylinder("TurntableFoundation", (0,.08,0), 2.08,.16,dark, vertices=96)
@@ -387,7 +550,10 @@ prepare_meshes(garage,merge=True)
 prepare_meshes(arm)
 scene.frame_set(0)
 bpy.ops.wm.save_as_mainfile(filepath=str(DEST/"source"/"forge_garage.blend"))
-for root,filename,animated in ((garage,"workshop.glb",False),(arm,"service_arm.glb",True)):
+exports = [(garage,"workshop.glb",False)]
+if not WORKSHOP_ONLY:
+    exports.append((arm,"service_arm.glb",True))
+for root,filename,animated in exports:
     bpy.ops.object.select_all(action="DESELECT")
     for obj in descendants(root):
         obj.select_set(True)

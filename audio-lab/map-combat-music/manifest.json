@@ -1,0 +1,107 @@
+{
+  "provider": "local Stability AI",
+  "model": "Stable Audio 3 Medium",
+  "raw_duration_seconds": 32,
+  "preview_duration_seconds": 30,
+  "steps": 8,
+  "cfg": 1.0,
+  "threads": 8,
+  "integrated_in_game": false,
+  "approved_selection_themes": {
+    "heliostat": "4A",
+    "tideglass": "5B",
+    "clockwork": "6A"
+  },
+  "tracks": [
+    {
+      "id": "4A",
+      "map": "Héliostat",
+      "title": "Course dans la lumière",
+      "direction": "Oud rapide et tambours tendus",
+      "target_bpm": 172,
+      "seed": 261003441,
+      "prompt": "172 BPM. Fast aggressive oud picking, sharp spiccato viola and cello, powerful frame drums and dry snare accents. Driving acoustic desert battle music. Short minor oud hooks alternate with rapid bowed string bursts. Full racing rhythm from beat one, tense sun-baked duel. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/4A.wav"
+    },
+    {
+      "id": "4B",
+      "map": "Héliostat",
+      "title": "Cuivre en surchauffe",
+      "direction": "Cordes d’action et accents de cuivre",
+      "target_bpm": 176,
+      "seed": 261003442,
+      "prompt": "176 BPM. Very fast staccato low strings, punchy acoustic drum kit with fast kick and snare, clipped muted brass accents, racing oud countermelody. Intense tightly articulated orchestral battle groove. Start already in the busiest action phrase, urgent rhythmic pressure without sustained brass chords. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/4B.wav"
+    },
+    {
+      "id": "4C",
+      "map": "Héliostat",
+      "title": "Lames de soleil",
+      "direction": "Guitare sèche et poursuite percussive",
+      "target_bpm": 180,
+      "seed": 261003443,
+      "prompt": "180 BPM. Furious acoustic baritone guitar picking, rapid oud riffs, percussive upright bass, hard dry snare and hand drum rolls. Fast aggressive acoustic chase music with syncopated attack. Short repeating riffs, rapid musical call and response, full drums immediately, continuous forward drive. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/4C.wav"
+    },
+    {
+      "id": "5A",
+      "map": "Serre engloutie",
+      "title": "Chasse entre les îlots",
+      "direction": "Marimba rapide et contretemps",
+      "target_bpm": 170,
+      "seed": 261003551,
+      "prompt": "170 BPM. Racing low marimba ostinato, sharp pizzicato cello, fast bass clarinet figures, hard tightly played acoustic drums. Propulsive dark organic battle music. Dense rapid mallet movement over a clear fast snare pulse, quick syncopated changes, immediate energy, dangerous pursuit through a greenhouse. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/5A.wav"
+    },
+    {
+      "id": "5B",
+      "map": "Serre engloutie",
+      "title": "Sous les feuilles : poursuite",
+      "direction": "Jazz de combat et batterie nerveuse",
+      "target_bpm": 174,
+      "seed": 261003552,
+      "prompt": "174 BPM. Hard-driving acoustic jazz battle music, frantic dry breakbeat drums, very fast upright bass riff, biting acoustic piano stabs, low clarinet playing short nervous minor hooks. Straight fast time, no laid-back swing, no lounge feel. Already at full chase intensity on the opening beat, urgent ambush and counterattack. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/5B.wav"
+    },
+    {
+      "id": "5C",
+      "map": "Serre engloutie",
+      "title": "Traversée sous pression",
+      "direction": "Cordes rapides et tambours organiques",
+      "target_bpm": 178,
+      "seed": 261003553,
+      "prompt": "178 BPM. Fierce rapid spiccato strings and muted nylon guitar picking, forceful low hand drums, dry snare subdivisions, brief low woodwind attacks. Fast organic action score, nervous insistent repeated figures and abrupt accented turns. Strong driving beat from the very beginning, sustained combat intensity. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/5C.wav"
+    },
+    {
+      "id": "6A",
+      "map": "Cœur d’horloge",
+      "title": "La treizième heure : assaut",
+      "direction": "Valse précipitée et cordes tranchantes",
+      "target_bpm": 180,
+      "seed": 261003661,
+      "prompt": "180 BPM. Frantic aggressive chamber battle waltz in fast triple meter. Racing spiccato string quartet, incisive bassoon repeated notes, hard acoustic snare and low drum accents, sharp piano stabs. Fast dance transformed into an urgent duel. Short minor motif chased between strings and bassoon, complete rhythm starts immediately. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/6A.wav"
+    },
+    {
+      "id": "6B",
+      "map": "Cœur d’horloge",
+      "title": "Échappement sous tension",
+      "direction": "Piano martelé et précision rythmique",
+      "target_bpm": 172,
+      "seed": 261003662,
+      "prompt": "172 BPM. Rapid percussive acoustic piano ostinato, fiercely articulated viola and cello, dry racing acoustic drum kit and short muted horn stabs. Tight relentless sixteenth-note motion, tense precise accents, abrupt short phrase changes. Aggressive clockwork battle groove without actual clock or mechanism sounds, immediate fast action. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/6B.wav"
+    },
+    {
+      "id": "6C",
+      "map": "Cœur d’horloge",
+      "title": "Engrenage de combat",
+      "direction": "Course orchestrale et accents lourds",
+      "target_bpm": 166,
+      "seed": 261003663,
+      "prompt": "166 BPM. Racing low string ostinato, fast staccato violins, punchy acoustic kick and snare with brief timpani strokes, sharply clipped brass. Powerful urgent battle music with a clearly fast beat, very short rhythmic motifs. Begin with full moving percussion and strings, no majestic slow organ, no long held notes. Explosive fast action fighting game instrumental. Immediate full rhythmic attack from the first beat, relentless rapid sixteenth-note figures, driving rhythm throughout, strong precise dry percussion. A thirty-second frantic duel, energetic and urgent from start to finish. Natural acoustic instruments, compact arrangement with space between accents for combat effects. No vocals, no synthesizers, no sound effects, no slow introduction, no gradual build, no ambient pads, no halftime groove, no cinematic trailer rise. ",
+      "file": "previews/6C.wav"
+    }
+  ]
+}

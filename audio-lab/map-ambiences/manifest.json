@@ -1,0 +1,620 @@
+{
+  "model": "Stable Audio 3 Small-SFX",
+  "local_only": true,
+  "integrated_in_game": false,
+  "semantic_acceptance": "pending user audition",
+  "preview_note": "Les événements des extraits sont une mise en scène sonore illustrative. Ils ne sont pas synchronisés à une capture du jeu.",
+  "cues": [
+    {
+      "id": "heliostat-wind",
+      "arena": "heliostat",
+      "label": "Vent chaud",
+      "kind": "ambience",
+      "path": "candidates/heliostat-wind.wav",
+      "generation_seconds": 24,
+      "duration_seconds": 20.75,
+      "seed": 26100340,
+      "raw_sha256": "7b09252935b660123cd0f4fb4f9917358fef0668618a07e15d5d6a3a069a165d",
+      "sha256": "cd0726e12614fc9b478e85483ab4d296a205ddbd607c24ae7e7ef32380e373ba",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.0592606218740838,
+      "gain": 0.35392569231915016,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 22.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.001800537109375
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "heliostat-hum",
+      "arena": "heliostat",
+      "label": "Collecteurs solaires",
+      "kind": "ambience",
+      "path": "candidates/heliostat-hum.wav",
+      "generation_seconds": 12,
+      "duration_seconds": 8.75,
+      "seed": 26100341,
+      "raw_sha256": "3d14d5582b28959a700639373a42778c48cbe2540fdc27788b19cf35e7d85980",
+      "sha256": "e4d17e6e020ad3faac856aa3aa6e71745c8c725c89820e33caebebc80f1ea481",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.06927987738426264,
+      "gain": 0.16131211784994545,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 10.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.000335693359375
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "heliostat-creak",
+      "arena": "heliostat",
+      "label": "Métal qui chauffe",
+      "kind": "accent",
+      "path": "candidates/heliostat-creak.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.25,
+      "seed": 26100342,
+      "raw_sha256": "8adb42c5b2843feba85ed304f7e5f586c07eff751e5dcccdecbeb72aac1d52ef",
+      "sha256": "6dbdfa771c48ce0af8bef2da5f47417906ab6655675485ed39d7e56b4cee7a10",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.019749900419753615,
+      "gain": 0.9527557283577323,
+      "processing": {
+        "source_start_seconds": 0.41,
+        "source_end_seconds": 1.5,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "heliostat-mirror",
+      "arena": "heliostat",
+      "label": "Rotation du miroir",
+      "kind": "accent",
+      "path": "candidates/heliostat-mirror.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.15,
+      "seed": 26100343,
+      "raw_sha256": "d05078a182a7e9d4121887ea9414f782a9695b54b97711abaa9b87fc56619374",
+      "sha256": "2e7e506569c0b905ac961a9bdcae9841e46a21163cce9b28e4c5d1b8d118b8cf",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.010465503665295646,
+      "gain": 1.2965980822128222,
+      "processing": {
+        "source_start_seconds": 2.17,
+        "source_end_seconds": 3.16,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "heliostat-sweep",
+      "arena": "heliostat",
+      "label": "Souffle du balayage solaire",
+      "kind": "accent",
+      "path": "candidates/heliostat-sweep.wav",
+      "generation_seconds": 5,
+      "duration_seconds": 2.8,
+      "seed": 26100344,
+      "raw_sha256": "8dd3ea0e1f5cae857ef7d359de5987437dc155c40eba39eae2af2915663a8935",
+      "sha256": "049c1658ff85a4472b1f8b08319f135791b76be2d27f48255f4dc7440f840986",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.0719819122823033,
+      "gain": 0.3296113236652106,
+      "processing": {
+        "source_start_seconds": 0.3,
+        "source_end_seconds": 2.94,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "tideglass-water",
+      "arena": "tideglass",
+      "label": "Eau contre les îlots",
+      "kind": "ambience",
+      "path": "candidates/tideglass-water.wav",
+      "generation_seconds": 24,
+      "duration_seconds": 20.75,
+      "seed": 26100345,
+      "raw_sha256": "b7e26de4ad513c66327a37cf87dd4a1666d29934696cdfaa9aa8c603bb50fb71",
+      "sha256": "7939a51af8caaa4c6c4a7d7dacbb80b359b5b325c7bfea0bfa157337e4a03af4",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.022271180081656888,
+      "gain": 1.0827815867616057,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 22.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.008209228515625
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "tideglass-leaves",
+      "arena": "tideglass",
+      "label": "Feuillage humide",
+      "kind": "ambience",
+      "path": "candidates/tideglass-leaves.wav",
+      "generation_seconds": 12,
+      "duration_seconds": 8.75,
+      "seed": 26100346,
+      "raw_sha256": "942baccff269f74e5e6558e780f8ae2a2f59c5c3df807a7753bb7768f5e833b7",
+      "sha256": "8a2e6c682a84b8035a9094e47344ca30bba31a66f5e8be29a90027e539cdec9f",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.007384984744800775,
+      "gain": 1.5209675772933173,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 10.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.007476806640625001
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "tideglass-pump",
+      "arena": "tideglass",
+      "label": "Pompes lointaines",
+      "kind": "ambience",
+      "path": "candidates/tideglass-pump.wav",
+      "generation_seconds": 12,
+      "duration_seconds": 8.75,
+      "seed": 26100347,
+      "raw_sha256": "9a87ff266c2e83c816c7b60320981b1d889e1b90dc45a7d220def26e7292f28d",
+      "sha256": "c6ec08191da8b726da6d002c99cb239a4fefad6be946a5573f0f13b899ef3aa4",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.042158039135515774,
+      "gain": 0.284464188357214,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 10.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.00091552734375
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "tideglass-drop",
+      "arena": "tideglass",
+      "label": "Goutte dans le bassin",
+      "kind": "accent",
+      "path": "candidates/tideglass-drop.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 0.85,
+      "seed": 26100348,
+      "raw_sha256": "b480624f06fdb9424857a237b98fe59921e7229fbd68777c1e6c2b1267d81d09",
+      "sha256": "a397dd66bfdc7ab4db32bfe04392987aac2427898b119811a13b42af1202429e",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.006916590274366887,
+      "gain": 1.7136978555555258,
+      "processing": {
+        "source_start_seconds": 0.3,
+        "source_end_seconds": 0.99,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "tideglass-barge",
+      "arena": "tideglass",
+      "label": "Barge flottante",
+      "kind": "accent",
+      "path": "candidates/tideglass-barge.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.5,
+      "seed": 26100349,
+      "raw_sha256": "95ccb6b83a57b712826322dd646100399eb478066ec7f262dfc11464a52ed078",
+      "sha256": "7dbac967c39fc63fbb863b7b92e7090cb5342a5cf7474c676d8331faec7b5529",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.013719100841122718,
+      "gain": 2.223369748999246,
+      "processing": {
+        "source_start_seconds": 2.09,
+        "source_end_seconds": 3.43,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-gears",
+      "arena": "clockwork",
+      "label": "Roulement des engrenages",
+      "kind": "ambience",
+      "path": "candidates/clockwork-gears.wav",
+      "generation_seconds": 24,
+      "duration_seconds": 20.75,
+      "seed": 26100350,
+      "raw_sha256": "d66a04efd910cc6fd8feb0c574d04a834ef0c37f5ad750da20831304afef76f7",
+      "sha256": "09482184ebf24b0338e49f792b70c47ba38985a66422989f4bb90a79a040a6d8",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.0691556124167634,
+      "gain": 0.28454550086347463,
+      "processing": {
+        "source_start_seconds": 0.7,
+        "source_end_seconds": 22.7,
+        "loop_crossfade_seconds": 1.25,
+        "loop_seam_jump": 0.001556396484375
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-beat",
+      "arena": "clockwork",
+      "label": "Battement mécanique grave",
+      "kind": "accent",
+      "path": "candidates/clockwork-beat.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 0.65,
+      "seed": 26100351,
+      "raw_sha256": "5750458cb414a89b97c701d5486fb4f321908617f6e51ba36b0520bcfe87e605",
+      "sha256": "616e6dfb233c084e129c5cb7de20a22dcad487460133d33067458c9578179066",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.03994640881559616,
+      "gain": 0.7412728783699618,
+      "processing": {
+        "source_start_seconds": 0.5,
+        "source_end_seconds": 0.99,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-click",
+      "arena": "clockwork",
+      "label": "Cliquet de laiton",
+      "kind": "accent",
+      "path": "candidates/clockwork-click.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 0.45,
+      "seed": 26100352,
+      "raw_sha256": "3170ac63e1f5293ff861b89cf3366d23d1b43a5dc353b2d104c6765af427fd00",
+      "sha256": "aaec378bc773327b22d25ae174f763bd534f8f7cae1d830e58e628a6f208f5f4",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.008289319776524988,
+      "gain": 1.4947336706202057,
+      "processing": {
+        "source_start_seconds": 0.02,
+        "source_end_seconds": 0.31,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-pendulum",
+      "arena": "clockwork",
+      "label": "Passage du balancier",
+      "kind": "accent",
+      "path": "candidates/clockwork-pendulum.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.2,
+      "seed": 26100353,
+      "raw_sha256": "7c7debedd3a5cc0bd3d449bb4b0d2ba40355df6121fb4698df7d239fa1327335",
+      "sha256": "a8ef6195221484987a6e97f4ad2adaa67de576b2eae4fdbec0d711b9bb41f746",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.03049263044044978,
+      "gain": 0.7247581625574891,
+      "processing": {
+        "source_start_seconds": 0.04,
+        "source_end_seconds": 1.08,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-cover",
+      "arena": "clockwork",
+      "label": "Rotation d’un abri",
+      "kind": "accent",
+      "path": "candidates/clockwork-cover.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.4,
+      "seed": 26100354,
+      "raw_sha256": "45b6415d6e8ddf9d06a261d0988677c6029bb09cdaefcd75bd2c3e6a19a0cd07",
+      "sha256": "66fcee934dc59098aeedb7743df7925d9cdb56c1832e7b3e29ba6ac76f5591b0",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.027828035351833633,
+      "gain": 1.0092614826074366,
+      "processing": {
+        "source_start_seconds": 0.11,
+        "source_end_seconds": 1.35,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    },
+    {
+      "id": "clockwork-brass",
+      "arena": "clockwork",
+      "label": "Vibration du laiton",
+      "kind": "accent",
+      "path": "candidates/clockwork-brass.wav",
+      "generation_seconds": 4,
+      "duration_seconds": 1.6,
+      "seed": 26100355,
+      "raw_sha256": "e28d77883a087a4d3a4dcaf722cebf86a3350f7a2263c8fa027da6a8c7fa991a",
+      "sha256": "6abbf190e03f463da90e6ac04db30a8ec3f0f4ea90d24a94172d2a31a6c745a1",
+      "raw_clipped_ratio": 0.0,
+      "raw_rms": 0.012718599700084737,
+      "gain": 0.8991259138466443,
+      "processing": {
+        "source_start_seconds": 0.0,
+        "source_end_seconds": 1.44,
+        "leading_silence_seconds": 0.02,
+        "trailing_silence_seconds": 0.14
+      },
+      "semantic_decision": "pending",
+      "heard_in_picture": null,
+      "technical_quality": "ok"
+    }
+  ],
+  "maps": [
+    {
+      "id": "heliostat",
+      "title": "Héliostat",
+      "number": 4,
+      "direction": "Vent chaud, collecteurs solaires et métal sous tension.",
+      "color": "#e8b45a",
+      "path": "previews/heliostat-ambiance.wav",
+      "bed_path": "previews/heliostat-fond.wav",
+      "duration_seconds": 45,
+      "events": [
+        {
+          "id": "heliostat-creak",
+          "label": "Métal qui chauffe",
+          "at_seconds": 5.5,
+          "gain": 0.8
+        },
+        {
+          "id": "heliostat-mirror",
+          "label": "Rotation du miroir",
+          "at_seconds": 11,
+          "gain": 1
+        },
+        {
+          "id": "heliostat-sweep",
+          "label": "Souffle du balayage solaire",
+          "at_seconds": 16,
+          "gain": 1
+        },
+        {
+          "id": "heliostat-creak",
+          "label": "Métal qui chauffe",
+          "at_seconds": 25,
+          "gain": 0.65
+        },
+        {
+          "id": "heliostat-mirror",
+          "label": "Rotation du miroir",
+          "at_seconds": 31,
+          "gain": 0.8
+        },
+        {
+          "id": "heliostat-sweep",
+          "label": "Souffle du balayage solaire",
+          "at_seconds": 35,
+          "gain": 0.85
+        }
+      ],
+      "mix_gain": 1.025112888731271
+    },
+    {
+      "id": "tideglass",
+      "title": "Serre engloutie",
+      "number": 5,
+      "direction": "Clapotis, feuilles humides et pompes sous la végétation.",
+      "color": "#69c7b5",
+      "path": "previews/tideglass-ambiance.wav",
+      "bed_path": "previews/tideglass-fond.wav",
+      "duration_seconds": 45,
+      "events": [
+        {
+          "id": "tideglass-drop",
+          "label": "Goutte dans le bassin",
+          "at_seconds": 4,
+          "gain": 0.8
+        },
+        {
+          "id": "tideglass-barge",
+          "label": "Barge flottante",
+          "at_seconds": 10,
+          "gain": 1
+        },
+        {
+          "id": "tideglass-drop",
+          "label": "Goutte dans le bassin",
+          "at_seconds": 17.3,
+          "gain": 0.65
+        },
+        {
+          "id": "tideglass-drop",
+          "label": "Goutte dans le bassin",
+          "at_seconds": 27,
+          "gain": 0.75
+        },
+        {
+          "id": "tideglass-barge",
+          "label": "Barge flottante",
+          "at_seconds": 33,
+          "gain": 0.8
+        },
+        {
+          "id": "tideglass-drop",
+          "label": "Goutte dans le bassin",
+          "at_seconds": 39.2,
+          "gain": 0.6
+        }
+      ],
+      "mix_gain": 1.218085017030199
+    },
+    {
+      "id": "clockwork",
+      "title": "Cœur d’horloge",
+      "number": 6,
+      "direction": "Engrenages profonds, battement lent et mouvements pesants.",
+      "color": "#baa8e5",
+      "path": "previews/clockwork-ambiance.wav",
+      "bed_path": "previews/clockwork-fond.wav",
+      "duration_seconds": 45,
+      "events": [
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 3.0,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 6.2,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-click",
+          "label": "Cliquet de laiton",
+          "at_seconds": 6.6,
+          "gain": 0.75
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 9.4,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-pendulum",
+          "label": "Passage du balancier",
+          "at_seconds": 12,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 12.600000000000001,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-cover",
+          "label": "Rotation d’un abri",
+          "at_seconds": 15,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 15.8,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 19.0,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-brass",
+          "label": "Vibration du laiton",
+          "at_seconds": 20,
+          "gain": 0.75
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 22.200000000000003,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 25.400000000000002,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-click",
+          "label": "Cliquet de laiton",
+          "at_seconds": 26.3,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 28.6,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-pendulum",
+          "label": "Passage du balancier",
+          "at_seconds": 31,
+          "gain": 0.85
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 31.8,
+          "gain": 0.7
+        },
+        {
+          "id": "clockwork-cover",
+          "label": "Rotation d’un abri",
+          "at_seconds": 34,
+          "gain": 0.85
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 35.0,
+          "gain": 1
+        },
+        {
+          "id": "clockwork-beat",
+          "label": "Battement mécanique grave",
+          "at_seconds": 38.2,
+          "gain": 0.7
+        }
+      ],
+      "mix_gain": 1.006539280862466
+    }
+  ]
+}
