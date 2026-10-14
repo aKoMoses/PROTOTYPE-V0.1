@@ -95,10 +95,17 @@ publication passent. Ces trois derniers sont exécutés avec le profil GPU actif
 et couvrent l'équipement, le parcours des manches et 2 132 contrôles des visuels
 de modules. La suite complète n'a pas été relancée.
 
-Le correctif est présent dans le dossier de travail et dans le worktree
-`android-gpu-budget`, basé sur la build 69. Il n'est pas encore dans l'APK
-installée sur le téléphone. Le prochain essai doit relever le GPU et les FPS
-sur l'APK modifiée, puis après cinq minutes de duel.
+Le correctif du commit `6f6ec41530549b4143fc1d2a5f982e03d433aa1a` est disponible
+dans la [release 70](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases/tag/v0.2.0-build.70) :
+[télécharger l'APK Android de 319 Mo](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases/download/v0.2.0-build.70/prototype0-android.apk).
+Le paquet habituel `com.prototype0.arena`, version `0.2.0.70`, code `10070`,
+conserve sa signature de publication. L'import, les trois contrôles rapides
+et l'export signé passent dans le workflow 70 ; les signatures v2 et v3 sont
+validées. La suite complète reste désactivée.
+
+Cette APK vient de la branche `codex/android-gpu-budget`, basée sur la build 69.
+Le correctif n'est pas encore intégré sur main. Le prochain essai doit relever
+le GPU et les FPS sur l'APK modifiée, puis après cinq minutes de duel.
 
 Rapport : `outputs/android-gpu-budget/comparison.json`.
 Captures : `comparison-gpu-baseline.png` et `comparison-gpu-budget.png` dans
