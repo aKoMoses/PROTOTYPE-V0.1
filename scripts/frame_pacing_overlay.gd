@@ -10,6 +10,7 @@ var _refresh := 0.0
 var _label: Label
 var _panel: PanelContainer
 var _measured_viewport: Viewport
+var _mobile_budget: Node
 
 func _ready() -> void:
 	name = "FramePacing"
@@ -37,6 +38,10 @@ func _ready() -> void:
 	_label.text = "FPS · mesure…"
 	_panel.add_child(_label)
 	_previous_usec = Time.get_ticks_usec()
+	if OS.has_feature("mobile") or OS.get_cmdline_user_args().has("mobile-performance"):
+		_mobile_budget = load("res://scripts/mobile_combat_budget.gd").new()
+		_mobile_budget.name = "MobileCombatBudget"
+		add_child(_mobile_budget)
 
 func _process(delta: float) -> void:
 	var now := Time.get_ticks_usec()
@@ -48,8 +53,9 @@ func _process(delta: float) -> void:
 	_refresh = 0.0
 	var stats := get_stats()
 	_label.text = "%.0f FPS · %.1f ms\npic %.1f ms · >33 ms : %d" % [stats.fps, stats.average_ms, stats.peak_ms, stats.stalls]
-	if OS.has_feature("mobile") or OS.get_cmdline_user_args().has("static-batching"):
+	if OS.has_feature("mobile") or OS.get_cmdline_user_args().has("static-batching") or OS.get_cmdline_user_args().has("mobile-performance"):
 		_update_renderer_stats()
+		_update_cpu_stats()
 	_label.add_theme_color_override("font_color", Color("#ffb276") if stats.peak_ms > 33.333 else Color("#adebbb"))
 
 func _update_renderer_stats() -> void:
@@ -72,6 +78,17 @@ func _update_renderer_stats() -> void:
 	var gpu_ms := RenderingServer.viewport_get_measured_render_time_gpu(viewport.get_viewport_rid())
 	var gpu_text := "GPU %.1f ms" % gpu_ms if gpu_ms > 0.0 else "GPU —"
 	_label.text += "\n%d appels 3D · %s" % [int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), gpu_text]
+
+func _update_cpu_stats() -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var target := scene.get_node_or_null("TargetDummy")
+	var bot := target.get_node_or_null("TrainingBot") if target != null else null
+	var fog := scene.get_node_or_null("FogOfWar")
+	var bot_ms := float(bot.call("get_runtime_costs").average_ms) if bot != null and bot.has_method("get_runtime_costs") else 0.0
+	var fog_ms := float(fog.get("_last_update_ms")) if fog != null and bool(fog.get("_enabled")) else 0.0
+	_label.text += "\nIA/tick %.1f ms · vision/maj %.1f ms\nMoteur %.1f ms · physique %.1f ms" % [bot_ms, fog_ms, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0]
 
 func _exit_tree() -> void:
 	if is_instance_valid(_measured_viewport):

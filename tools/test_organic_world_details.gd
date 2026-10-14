@@ -92,7 +92,7 @@ func _duel() -> void:
 	director.call("_scan")
 	var foliage := grass.get_node("LayeredHighGrass") as MeshInstance3D
 	director.call("disturb_at", grass.global_position + Vector3.UP * 0.6, Vector3.RIGHT, 1.0)
-	await frames(2)
+	await frames(6) # Allow the mobile cosmetic clock to refresh the material.
 	check(float(foliage.material_override.get_shader_parameter("organic_impulse_strength")) > 0.0, "impacts drive the rendered grass spring")
 	var replacement := foliage.material_override.duplicate() as ShaderMaterial
 	foliage.material_override = replacement

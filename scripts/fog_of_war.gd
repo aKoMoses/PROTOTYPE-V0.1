@@ -42,17 +42,29 @@ var _allocated_world_size := 0.0
 var _last_update_ms := 0.0
 var _cell_size := 0.0
 var _cell_centres := PackedFloat32Array()
+var _history_bounds := Rect2i()
+var _target_bounds := Rect2i()
 
 
 func configure(observer: Node3D, camera: Camera3D) -> void:
 	_observer = observer
 	_camera = camera
+	_apply_device_budget(OS.has_feature("mobile") or OS.get_cmdline_user_args().has("mobile-performance"))
 	_ensure_overlay()
 	_profile_ready = false
 	_refresh_clock = 0.0
 	set_process(true)
 	set_physics_process(true)
 	_sync_parameters()
+
+
+func _apply_device_budget(mobile: bool) -> void:
+	if mobile:
+		# Only the cosmetic opacity field is sampled less often. Actor visibility,
+		# targeting and collision still use their exact gameplay queries.
+		ray_count = mini(ray_count, 192)
+		mask_resolution = mini(mask_resolution, 128)
+		refresh_interval = maxf(refresh_interval, 0.1)
 
 
 func set_enabled(enabled: bool) -> void:
@@ -169,6 +181,8 @@ func _allocate_masks() -> void:
 	_target_bytes.resize(mask_resolution * mask_resolution)
 	_from_bytes.fill(0)
 	_target_bytes.fill(0)
+	_history_bounds = Rect2i()
+	_target_bounds = Rect2i()
 	_from_image = Image.create_from_data(mask_resolution, mask_resolution, false, Image.FORMAT_R8, _from_bytes)
 	_target_image = Image.create_from_data(mask_resolution, mask_resolution, false, Image.FORMAT_R8, _target_bytes)
 	_from_image.generate_mipmaps()
@@ -228,9 +242,19 @@ func _update_cover_profile(snap_profile: bool) -> void:
 			var hit_position: Vector3 = hit.position
 			_ray_distances[index] = Vector2(hit_position.x - origin.x, hit_position.z - origin.z).length()
 	var blend := _profile_blend()
-	if not snap_profile:
-		for index in range(_from_bytes.size()):
-			_from_bytes[index] = roundi(lerpf(float(_from_bytes[index]), float(_target_bytes[index]), blend))
+	if not snap_profile and _from_bytes != _target_bytes:
+		if blend >= 1.0:
+			_from_bytes = _target_bytes.duplicate()
+			_history_bounds = _target_bounds
+		else:
+			# Everything outside these world-space rectangles is already zero.
+			# Do not blend the full arena image in interpreted code at every tick.
+			_history_bounds = _history_bounds.merge(_target_bounds)
+			for z in range(_history_bounds.position.y, _history_bounds.end.y):
+				var row := z * mask_resolution
+				for x in range(_history_bounds.position.x, _history_bounds.end.x):
+					var index := row + x
+					_from_bytes[index] = roundi(lerpf(float(_from_bytes[index]), float(_target_bytes[index]), blend))
 	_target_bytes.fill(0)
 	var padding := maxf(4.0, cover_softness * 3.0)
 	var limit := _radius + padding
@@ -240,6 +264,7 @@ func _update_cover_profile(snap_profile: bool) -> void:
 	var high_x := clampi(ceili((origin.x + limit + half_size) / _cell_size), 0, mask_resolution - 1)
 	var low_z := clampi(floori((origin.z - limit + half_size) / _cell_size), 0, mask_resolution - 1)
 	var high_z := clampi(ceili((origin.z + limit + half_size) / _cell_size), 0, mask_resolution - 1)
+	_target_bounds = Rect2i(low_x, low_z, high_x - low_x + 1, high_z - low_z + 1)
 	# Rasterize only the neighbourhood of this observer. Physics cost remains
 	# ray_count, independent of grid resolution; filtering runs in native code.
 	for z in range(low_z, high_z + 1):
@@ -260,6 +285,7 @@ func _update_cover_profile(snap_profile: bool) -> void:
 			_target_bytes[row + x] = roundi(weight * 255.0)
 	if snap_profile:
 		_from_bytes = _target_bytes.duplicate()
+		_history_bounds = _target_bounds
 	_from_image.set_data(mask_resolution, mask_resolution, false, Image.FORMAT_R8, _from_bytes)
 	_target_image.set_data(mask_resolution, mask_resolution, false, Image.FORMAT_R8, _target_bytes)
 	# Mip levels provide a stable two-dimensional penumbra with two GPU samples,
