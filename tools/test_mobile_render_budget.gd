@@ -16,7 +16,7 @@ func _run() -> void:
 	manager.max_particles = 2
 	manager._apply_device_budget(true)
 	assert(manager.max_effects == 8 and manager.max_decals == 0 and manager.max_particles == 2)
-	assert(is_equal_approx(float(ProjectSettings.get_setting("rendering/scaling_3d/scale.mobile")), 0.75))
+	assert(is_equal_approx(float(ProjectSettings.get_setting("rendering/scaling_3d/scale.mobile")), 0.5))
 	assert(ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size.mobile") == 1024)
 	manager.free()
 	print("PASS: mobile rendering defaults, VFX limits and desktop defaults")
