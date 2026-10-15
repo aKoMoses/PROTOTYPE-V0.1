@@ -1,5 +1,28 @@
 # Fluidité du duel Android et base Performance
 
+## Publication habituelle : build 71
+
+La [release 71](https://github.com/aKoMoses/PROTOTYPE-V0.1/releases/tag/v0.2.0-build.71)
+est la publication numérotée de cette base Performance avec le correctif GPU
+limité aux duels. Les sources sont enregistrées sur GitHub dans le commit
+`943e65eed69411ab8e8d09853949369c9e59513e`, branche
+`codex/performance-preserved`, et ne sont pas intégrées à main.
+Les 3 218 fichiers de la copie de publication ont été comparés aux sources
+locales validées avant le commit ; l'export exclut les captures inutilisées.
+
+Le [workflow 71](https://github.com/aKoMoses/PROTOTYPE-V0.1/actions/runs/38794560306)
+réussit l'import, les trois contrôles courts et les exports Android et Windows.
+La suite complète reste désactivée. Les signatures v2/v3 passent ; le manifeste
+confirme le paquet habituel `com.prototype0.arena`, la version `0.2.0.71` et le
+code `10071`. L'APK de 296 654 167 octets est accessible sans authentification
+et la release apparaît en tête de la liste habituelle des publications.
+SHA-256 fourni par GitHub :
+`a896c814c130a0aac429feee2e81c85262f1650f33f9b5c73afe0d8e7975b77e`.
+
+Cette APK met à jour l'application habituelle des builds 69 et 70.
+L'APK séparée Performance décrite ci-dessous reste la référence de comparaison.
+Les FPS sur XCover doivent encore être mesurés en duel.
+
 ## Version à conserver : Prototype 0 Performance
 
 La référence demandée le 15 octobre 2026 est l'APK **Prototype 0 Performance**
