@@ -24,6 +24,10 @@ class OpenMotionController extends Node:
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -43,7 +47,7 @@ func _initialize() -> void:
 	_test_catalog()
 	_prepare(actor, player, equipment)
 	_check(str(equipment.get("profile")) == "mekatana", "MEKATANA équipé par le bot")
-	_check(float(bot.call("_ideal_combat_range")) <= 2.3, "distance idéale adaptée à la mêlée")
+	_check(is_equal_approx(float(bot.call("_ideal_combat_range")), 2.95), "distance idéale adaptée au dash allongé")
 	player.global_position = actor.global_position + Vector3.FORWARD * 8.0
 	_tick(actor, player, bot, equipment)
 	_check(not equipment.get("_mekatana").is_busy(), "pas d'attaque de mêlée à huit mètres")
@@ -102,7 +106,7 @@ func _prepare(actor: Node3D, player: Node3D, equipment: Node) -> void:
 	player.call("reset_combat_state")
 	player.call("set_gameplay_enabled", true)
 	actor.global_position = Vector3.ZERO
-	player.global_position = Vector3.FORWARD * 2.0
+	player.global_position = Vector3.FORWARD * 2.95
 	equipment.set("next_attack_at", 0.0)
 	equipment.set("_next_module_at", 10000.0)
 	_elapsed = 0.0
@@ -120,6 +124,10 @@ func _record_hit(_target: Node, applied: float, multiplier: float, melee) -> voi
 
 func _test_held_combo(actor: Node3D, player: Node3D, bot: Node, equipment: Node) -> void:
 	_prepare(actor, player, equipment)
+	# Leave the complete 8.7 m combo clear of NorthCenterCover at z = -9.
+	actor.global_position = Vector3(0.0, 0.0, 4.0)
+	player.global_position = actor.global_position + Vector3.FORWARD * 2.95
+	await physics_frame
 	_tick(actor, player, bot, equipment)
 	var melee = equipment.get("_mekatana")
 	melee.hit.connect(Callable(self, "_record_hit").bind(melee))
@@ -136,7 +144,7 @@ func _test_held_combo(actor: Node3D, player: Node3D, bot: Node, equipment: Node)
 	if _hits.size() == 3:
 		for index in range(3):
 			_check(int(_hits[index].step) == index, "maintien bot : ordre des coups %d" % index)
-		var expected := [90.0, 120.0, 240.0]
+		var expected := [130.0, 168.0, 336.0]
 		for index in range(3):
 			_check(absf(float(_hits[index].applied) - expected[index]) < 0.01, "bonus bot : coup %d" % (index + 1))
 	_check(not melee.is_busy() and str(equipment.call("get_action_owner")) == "", "fin du maintien libère le cast")
@@ -150,9 +158,11 @@ func _test_dash_distances(actor: Node3D, player: Node3D, bot: Node, equipment: N
 	_prepare(actor, player, equipment)
 	_tick(actor, player, bot, equipment, false)
 	var melee = equipment.get("_mekatana")
-	var expected := [1.3, 1.9, 2.6]
+	var expected := [1.95, 2.85, 3.90]
 	for rank in range(3):
 		var distance := float(expected[rank])
+		# Measure each dash in the open lane; walls have their own checks below.
+		actor.global_position = Vector3.ZERO
 		var origin := actor.global_position
 		player.global_position = origin + Vector3.FORWARD * (distance + 1.0)
 		await physics_frame
@@ -160,10 +170,10 @@ func _test_dash_distances(actor: Node3D, player: Node3D, bot: Node, equipment: N
 		_tick(actor, player, bot, equipment)
 		_check(melee.is_busy() and int(melee.step) == rank, "engagement du rang %d à sa portée propre" % (rank + 1))
 		_tick(actor, player, bot, equipment, false, float(melee.definition.preparation[rank]))
-		_check(absf(actor.global_position.distance_to(origin) - distance) < 0.01, "dash bot du coup %d parcourt toute sa distance doublée" % (rank + 1))
+		_check(absf(actor.global_position.distance_to(origin) - distance) < 0.01, "dash bot du coup %d parcourt toute sa distance allongée" % (rank + 1))
 		_check((player.global_position - actor.global_position).dot(melee.direction) > 0.9, "cible reste devant après le dash %d" % (rank + 1))
 		_tick(actor, player, bot, equipment, false, 1.0)
-	_check(is_equal_approx(float(equipment.call("get_mekatana_dash_distance")), 1.3), "fin de combo retrouve la distance du premier dash")
+	_check(is_equal_approx(float(equipment.call("get_mekatana_dash_distance")), 1.95), "fin de combo retrouve la distance du premier dash")
 
 
 func _test_combo_spacing(actor: Node3D, player: Node3D, bot: Node, equipment: Node) -> void:
@@ -206,6 +216,9 @@ func _test_direction_and_interruptions(actor: Node3D, player: Node3D, bot: Node,
 	var rig := actor.get("_visual_rig") as Node3D
 	_check(Vector3(rig.get("_mekatana_direction")).dot(locked) > 0.999, "rig bot reçoit la direction engagée")
 	_check((-rig.global_basis.z).dot(locked) > 0.999, "yaw du corps aligné immédiatement pendant le slash")
+	var weapon_visual := rig.get("_mekatana_weapon") as MekatanaVisual
+	weapon_visual._capture_cleave_frame()
+	_check(weapon_visual._cleave_direction.dot(locked) > 0.999, "éventail de particules aligné sur la direction admise du bot")
 	await physics_frame
 	_check(bool(equipment.call("_begin_module_action", "fulguro_punch")), "module prioritaire interrompt la mêlée")
 	_check(not melee.is_busy() and str(equipment.call("get_action_owner")) == "fulguro_punch", "interruption conserve seulement le token du module")
@@ -228,6 +241,13 @@ func _test_direction_and_interruptions(actor: Node3D, player: Node3D, bot: Node,
 	actor.call("take_damage", 10000.0, "fixture", "mekatana_bot_death")
 	_tick(actor, player, bot, equipment)
 	_check(not melee.is_busy(), "mort annule la mêlée")
+	_prepare(actor, player, equipment)
+	player.global_position = actor.global_position + Vector3.RIGHT * 2.95
+	await physics_frame
+	_tick(actor, player, bot, equipment)
+	weapon_visual = actor.get("_visual_rig").get("_mekatana_weapon") as MekatanaVisual
+	weapon_visual._capture_cleave_frame()
+	_check(weapon_visual._cleave_direction.dot(Vector3.RIGHT) > 0.999, "éventail du bot suit une attaque latérale sans dépendre du yaw de son acteur")
 
 
 func _test_feedback(actor: Node3D, player: Node3D, bot: Node, equipment: Node, scene: Node) -> void:
@@ -236,7 +256,7 @@ func _test_feedback(actor: Node3D, player: Node3D, bot: Node, equipment: Node, s
 	player.global_position = Vector3.FORWARD * 8.0
 	await physics_frame
 	_tick(actor, player, bot, equipment, false)
-	_check(bool(equipment.call("_begin_mekatana", actor, Vector3.FORWARD * 2.0, {}, {"aim_error_degrees": 0.0, "prediction_quality": 0.0})), "slash de test engagé à vide")
+	_check(bool(equipment.call("_begin_mekatana", actor, Vector3.FORWARD * 2.95, {}, {"aim_error_degrees": 0.0, "prediction_quality": 0.0})), "slash de test engagé à vide")
 	var weapon: Node = actor.get("_visual_rig").get("_mekatana_weapon")
 	var audio := weapon.get("_audio") as AudioStreamPlayer
 	equipment.call("_update_mekatana", 0.30)
@@ -280,12 +300,12 @@ func _test_no_friendly_fire(actor: Node3D, player: Node3D, bot: Node, equipment:
 	friendly.add_child(collider)
 	scene.add_child(friendly)
 	# Both bodies overlap the same horizontal cleave; their team layer differs.
-	friendly.global_position = Vector3(0.9, 0.0, -1.8)
+	friendly.global_position = Vector3(0.9, 0.0, -2.75)
 	await physics_frame
 	var before := float(player.call("get_health"))
 	_tick(actor, player, bot, equipment)
 	_tick(actor, player, bot, equipment, false, 0.23)
-	_check(is_equal_approx(before - float(player.call("get_health")), 90.0), "cleave du bot atteint le joueur layer 4")
+	_check(is_equal_approx(before - float(player.call("get_health")), 130.0), "cleave du bot atteint le joueur layer 4")
 	_check(friendly.hits == 0 and is_equal_approx(friendly.health, 1000.0), "cleave du bot ignore son voisin allié layer 2")
 	friendly.queue_free()
 	await process_frame
@@ -305,7 +325,7 @@ func _test_collision_motion(actor: Node3D, player: Node3D, bot: Node, equipment:
 	wall.global_position = Vector3(0.0, 1.5, -1.1)
 	await physics_frame
 	var melee = equipment.get("_mekatana")
-	var distances := [1.3, 1.9, 2.6]
+	var distances := [1.95, 2.85, 3.90]
 	for rank in range(3):
 		actor.global_position = Vector3.ZERO
 		player.global_position = Vector3.FORWARD * (float(distances[rank]) + 1.0)

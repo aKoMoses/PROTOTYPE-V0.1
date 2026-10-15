@@ -11,14 +11,20 @@ uniform vec3 organic_impulse_origin = vec3(0.0);
 uniform vec2 organic_impulse_direction = vec2(0.0);
 uniform float organic_impulse_strength = 0.0;
 uniform float organic_impulse_age = 0.0;
+uniform bool scenery_driven = false;
+uniform float scenery_clock = 0.0;
+uniform float scenery_gust = 0.0;
 
 void vertex() {
 	float tip = UV.y * UV.y;
 	vec3 world_base = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float gust = sin(TIME * 1.25 + world_base.x * 0.8 + world_base.z * 0.57 + wind_phase);
-	float flutter = sin(TIME * 2.1 + world_base.z * 2.4 + wind_phase) * 0.018;
+	float clock = scenery_driven ? scenery_clock : TIME;
+	float gust = sin(clock * 1.25 + world_base.x * 0.8 + world_base.z * 0.57 + wind_phase);
+	float flutter = sin(clock * 2.1 + world_base.z * 2.4 + wind_phase) * 0.018;
 	vec2 breeze = normalize(wind_direction + vec2(0.0001)) * (gust * 0.060 + flutter) * wind_strength;
 	VERTEX.xz += breeze * tip;
+	vec3 coherent_wind = (inverse(MODEL_MATRIX) * vec4(wind_direction.x, 0.0, wind_direction.y, 0.0)).xyz;
+	VERTEX += coherent_wind * scenery_gust * tip * 0.16;
 	vec2 away = VERTEX.xz - local_actor_position.xz;
 	float distance_to_actor = length(away);
 	float response = (1.0 - smoothstep(0.18, 0.95, distance_to_actor)) * local_actor_influence;

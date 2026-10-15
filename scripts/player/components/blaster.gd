@@ -14,7 +14,18 @@ func _init(controller: PLAYER_STATE) -> void:
 	name = "BlasterComponent"
 
 
-func reset_blaster_state() -> void:
+func update_heat(delta: float) -> void:
+	var was_overheated: bool = player._blaster_heat.overheated
+	player._blaster_heat.tick(delta)
+	if was_overheated and not player._blaster_heat.overheated and player._attack_label != null and player._attack_label.text == "BLASTER  •  SURCHAUFFE":
+		player._attack_label.text = ""
+	if was_overheated != player._blaster_heat.overheated:
+		player._sync_weapon_readout()
+
+
+func reset_blaster_state(clear_heat: bool = true) -> void:
+	if clear_heat:
+		player._blaster_heat.reset()
 	player._blaster_attack_token += 1
 	player._blaster_attack_busy = false
 	player._blaster_next_attack_ready_at = -10.0
@@ -23,10 +34,13 @@ func reset_blaster_state() -> void:
 	player.cancel_touch_fire()
 	player._action_gate.release(player._blaster_action_token)
 	player._blaster_action_token = 0
+	player._sync_weapon_readout()
 
 
 func _begin_blaster_charge(now: float = -1.0) -> void:
 	if player._weapon_id != "blaster" or player._blaster_charge_active or player._blaster_attack_busy:
+		return
+	if player._blaster_heat_applies() and player._blaster_heat.overheated:
 		return
 	if now < 0.0:
 		now = Time.get_ticks_msec() / 1000.0
@@ -93,10 +107,7 @@ func _cancel_blaster_charge(reason: String = "", release_action: bool = true) ->
 	player._blaster_charge_started_at = -1.0
 	player._blaster_charge_ratio = 0.0
 	player._blaster_ready_cued = false
-	if player._blaster_charge_visual != null:
-		player._blaster_charge_visual.call("set_charge", false, 0.0, 0.0)
-	if player._blaster_light != null:
-		player._blaster_light.light_energy = 0.0
+	player._sync_weapon_readout()
 	if release_action:
 		player._action_gate.release(player._blaster_action_token)
 		player._blaster_action_token = 0
@@ -124,7 +135,8 @@ func _release_blaster_charge() -> void:
 
 
 func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vector3, reserved_action_token: int = 0) -> void:
-	if player._weapon_id != "blaster" or player._blaster_attack_busy:
+	var apply_heat: bool = player._blaster_heat_applies()
+	if player._weapon_id != "blaster" or player._blaster_attack_busy or (apply_heat and player._blaster_heat.overheated):
 		if reserved_action_token != 0:
 			player._action_gate.release(reserved_action_token)
 			if player._blaster_action_token == reserved_action_token:
@@ -168,6 +180,8 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	origin = player._safe_projectile_origin(origin)
 	player._create_muzzle_burst(origin, shot_direction, Color("#64e9ff"), 1.0 + charge_ratio * 0.65, player._blaster_muzzle)
 	player._spawn_blaster_projectile(origin, damage, charge_ratio, token, shot_direction, player.emit_passive_weapon())
+	if apply_heat:
+		player._blaster_heat.commit_shot(charge_ratio)
 	player._action_gate.release(action_token)
 	if player._blaster_action_token == action_token:
 		player._blaster_action_token = 0
@@ -175,9 +189,8 @@ func _fire_blaster_projectile(damage: float, charge_ratio: float, direction: Vec
 	# may continue visually beyond that window without blocking the next shot.
 	player._blaster_attack_busy = false
 	if player._attack_label != null:
-		player._attack_label.text = "BLASTER  •  TIR %d DÉGÂTS" % roundi(damage)
-	if player._blaster_light != null:
-		player._blaster_light.light_energy = 0.0
+		player._attack_label.text = "BLASTER  •  SURCHAUFFE" if player._blaster_heat.overheated else "BLASTER  •  TIR %d DÉGÂTS" % roundi(damage)
+	player._sync_weapon_readout()
 
 
 func _play_blaster_recoil(charge_ratio: float) -> void:
@@ -274,7 +287,13 @@ func _update_blaster_charge_visual(delta: float) -> void:
 	if player._blaster_charge_visual == null:
 		return
 	var ratio := clampf(player._blaster_charge_ratio, 0.0, 1.0)
-	player._blaster_charge_visual.call("set_charge", player._blaster_charge_active, ratio, delta)
+	var overheated: bool = player._weapon_id == "blaster" and player._blaster_heat.overheated and not player.is_real_dead()
+	player._blaster_charge_visual.call("set_charge", player._blaster_charge_active, ratio, delta, overheated, player._blaster_heat.fraction())
+	if overheated:
+		if player._blaster_light != null:
+			player._blaster_light.light_color = Color("#ff5946")
+			player._blaster_light.light_energy = 0.50
+		return
 	if not player._blaster_charge_active:
 		if player._blaster_light != null:
 			player._blaster_light.light_energy = 0.0

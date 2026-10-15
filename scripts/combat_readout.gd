@@ -33,9 +33,14 @@ var _blaster_coil: Line2D
 var _blaster_progress_track: Panel
 var _blaster_progress_fill: ColorRect
 var _blaster_progress_tip: ColorRect
+var _blaster_heat_track: ColorRect
+var _blaster_heat_fill: ColorRect
+var _blaster_warning: Panel
+var _blaster_warning_label: Label
 var _latest_popup: Node3D
 var _latest_healing_popup: Node3D
 var _damage_serial := 0
+var _cinematic_mode := false
 
 
 func configure(accent: Color, display_name: String = "JOUEUR", damage_side: float = 1.0) -> void:
@@ -101,16 +106,22 @@ func set_shotgun_ammo(active: bool, ammo: int, capacity: int, reloading: bool, p
 		_ammo_highlights[index].color = Color("#e8ab7c") if loaded else Color("#b87c5b") if loading else Color("#555352")
 
 
-func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
+func set_blaster_charge(active: bool, charging: bool, progress: float, heat: float = 0.0, overheated: bool = false, cooling_remaining: float = 0.0) -> void:
 	if _blaster_coil == null:
 		return
 	_show_blaster = active
 	_sync_weapon_badge()
-	_blaster_coil_recess.visible = active
-	_blaster_coil.visible = active
+	_blaster_coil_recess.visible = active and not overheated
+	_blaster_coil.visible = active and not overheated
 	_blaster_progress_track.visible = active
-	_blaster_progress_fill.visible = active and charging
-	_blaster_progress_tip.visible = active and charging and progress > 0.02
+	_blaster_progress_fill.visible = active and charging and not overheated
+	_blaster_progress_tip.visible = active and charging and not overheated and progress > 0.02
+	_blaster_heat_track.visible = active and heat > 0.0
+	_blaster_heat_track.color = Color("#632d29") if overheated else Color("#344a50")
+	_blaster_heat_fill.size.x = 266.0 * clampf(heat, 0.0, 1.0)
+	_blaster_heat_fill.color = Color("#ff7960") if overheated else Color("#ffc069")
+	_blaster_warning.visible = active and overheated
+	_blaster_warning_label.text = "SURCHAUFFE · %.1f s" % maxf(0.0, cooling_remaining)
 	if not active:
 		return
 	var ratio := clampf(progress, 0.0, 1.0)
@@ -138,7 +149,9 @@ func _sync_weapon_badge() -> void:
 
 
 func show_damage(amount: float) -> void:
-	if amount <= 0.0:
+	# Cinematic menus hide this whole readout. Building invisible Label3Ds
+	# still allocates rendering resources and causes recurring shot-time stalls.
+	if amount <= 0.0 or _cinematic_mode or not is_visible_in_tree():
 		return
 	if _latest_popup == null or not is_instance_valid(_latest_popup) or not bool(_latest_popup.call("can_merge")):
 		_damage_serial += 1
@@ -154,7 +167,7 @@ func show_damage(amount: float) -> void:
 
 
 func show_healing(amount: float) -> void:
-	if amount <= 0.0:
+	if amount <= 0.0 or _cinematic_mode or not is_visible_in_tree():
 		return
 	if _latest_healing_popup == null or not is_instance_valid(_latest_healing_popup) or not bool(_latest_healing_popup.call("can_merge")):
 		_damage_serial += 1
@@ -176,6 +189,7 @@ func clear_damage_numbers() -> void:
 
 
 func set_cinematic_mode(enabled: bool) -> void:
+	_cinematic_mode = enabled
 	if _sprite != null:
 		_sprite.visible = not enabled
 
@@ -193,7 +207,7 @@ func _build() -> void:
 	_viewport.transparent_bg = true
 	_viewport.disable_3d = true
 	_viewport.gui_disable_input = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	add_child(_viewport)
 	var root := Control.new()
 	root.name = "HealthBarUI"
@@ -310,7 +324,7 @@ func _build() -> void:
 	_blaster_coil_recess = Panel.new()
 	_blaster_coil_recess.name = "BlasterCoilRecess"
 	_blaster_coil_recess.position = Vector2(124, 83)
-	_blaster_coil_recess.size = Vector2(63, 23)
+	_blaster_coil_recess.size = Vector2(63, 21)
 	_blaster_coil_recess.add_theme_stylebox_override("panel", _panel_style(Color("#1b292c"), Color("#466d70"), 1, 4))
 	_blaster_coil_recess.visible = false
 	root.add_child(_blaster_coil_recess)
@@ -342,6 +356,29 @@ func _build() -> void:
 	_blaster_progress_tip.size = Vector2(3, 4)
 	_blaster_progress_tip.visible = false
 	_blaster_progress_track.add_child(_blaster_progress_tip)
+	_blaster_warning = Panel.new()
+	_blaster_warning.name = "BlasterOverheatWarning"
+	_blaster_warning.position = Vector2(17, 82)
+	_blaster_warning.size = Vector2(266, 26)
+	_blaster_warning.add_theme_stylebox_override("panel", _panel_style(Color("#421e20"), Color("#ff7960"), 1, 3))
+	_blaster_warning.visible = false
+	root.add_child(_blaster_warning)
+	_blaster_warning_label = _label("", 16, Color("#ffb29a"))
+	_blaster_warning_label.name = "OverheatCountdown"
+	_blaster_warning_label.size = Vector2(266, 21)
+	_blaster_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_blaster_warning.add_child(_blaster_warning_label)
+	_blaster_heat_track = ColorRect.new()
+	_blaster_heat_track.name = "BlasterHeatTrack"
+	_blaster_heat_track.position = Vector2(17, 104)
+	_blaster_heat_track.size = Vector2(266, 4)
+	_blaster_heat_track.color = Color("#632d29")
+	_blaster_heat_track.visible = false
+	root.add_child(_blaster_heat_track)
+	_blaster_heat_fill = ColorRect.new()
+	_blaster_heat_fill.name = "BlasterHeatFill"
+	_blaster_heat_fill.size = Vector2(0, 4)
+	_blaster_heat_track.add_child(_blaster_heat_fill)
 	for index in 2:
 		var segment := ColorRect.new()
 		segment.name = "LongshotSegment%d" % (index + 1)

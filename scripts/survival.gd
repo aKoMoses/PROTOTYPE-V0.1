@@ -1023,6 +1023,7 @@ func _setup_hud_editor() -> void:
 func _open_hud_editor() -> void:
 	if _hud_editor == null or _hud_editor.visible:
 		return
+	MenuTransition.present("Personnalisation de l’interface…")
 	_pause_overlay.visible = false
 	_pause_panel.visible = false
 	_spell_bar.visible = true
@@ -1032,6 +1033,7 @@ func _open_hud_editor() -> void:
 	_hud_editor.begin(_hud_controller)
 
 func _on_hud_editor_closed() -> void:
+	MenuTransition.present("Menu de survie…")
 	_vitals.call("set_example", false)
 	_pause_overlay.visible = true
 	_pause_panel.visible = true
@@ -1389,6 +1391,7 @@ func _pause_run() -> void:
 	_pause_overlay.visible = true
 	_pause_panel.visible = true
 	_touch.visible = false
+	MenuTransition.present("Menu de survie…")
 
 func _resume_run() -> void:
 	if _state != "pause":
@@ -1428,12 +1431,12 @@ func _clear_enemies() -> void:
 func _restart() -> void:
 	_set_combat_sound_state(false, true)
 	get_tree().paused = false
-	get_tree().call_deferred("change_scene_to_file", "res://scenes/survival.tscn")
+	MenuTransition.change_scene("res://scenes/survival.tscn", "Nouvelle partie de survie…")
 
 func _return_menu() -> void:
 	_set_combat_sound_state(false, true)
 	get_tree().paused = false
-	get_tree().call_deferred("change_scene_to_file", "res://scenes/main.tscn")
+	MenuTransition.change_scene("res://scenes/main.tscn", "Retour au menu principal…")
 
 func _set_combat_sound_state(paused: bool, clear_voices: bool = false) -> void:
 	var sfx := get_node_or_null("/root/GameSfx")

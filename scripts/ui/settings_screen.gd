@@ -14,6 +14,7 @@ var _touch_value: Label
 var _volumes: Dictionary = {}
 var _zoom: HSlider
 var _zoom_value: Label
+var _active_page := -1
 
 func configure(flow: Node) -> void:
 	_flow = flow
@@ -42,6 +43,9 @@ func configure(flow: Node) -> void:
 	_refresh_keys()
 
 func _select_page(index: int) -> void:
+	if _active_page >= 0 and index != _active_page and is_visible_in_tree():
+		MenuTransition.present(["Audio et confort…", "Réglage des commandes…", "Réglage de l’interface…"][index])
+	_active_page = index
 	_cancel_capture()
 	for i in range(_pages.size()):
 		_pages[i].visible = i == index

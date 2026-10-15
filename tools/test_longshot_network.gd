@@ -63,7 +63,7 @@ func _run() -> void:
 	_check(int(host.call("get_longshot_shots_fired")) == 1, "host commits one real shot")
 	var fired: Array = recorder.events.filter(func(e: Dictionary) -> bool: return e.action == "longshot_fired" and e.actor == host)
 	_check(fired.size() == 1 and not bool(fired[0].data.enhanced), "host ignores client's enhanced flag")
-	_check(float(target.call("get_health")) < 920.0 and float(target.call("get_health")) > 850.0, "normal host projectile damages once")
+	_check(absf((float(target.call("get_max_health")) - float(target.call("get_health"))) - 120.0) < 1.0, "normal host projectile damages once")
 	_check(int(host.call("get_longshot_cycle_count")) == 1, "only successful host damage earns an impact")
 	host.call("receive_action", "longshot", {"enhanced": true})
 	await create_timer(0.12).timeout

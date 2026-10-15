@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const PELTO_SMASH := preload("res://scripts/pelto_smash.gd")
 const TARGET_DUMMY := preload("res://scripts/target_dummy.gd")
 const AIM_MODIFIER := preload("res://scripts/player_aim_modifier.gd")
@@ -8,6 +10,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -48,8 +54,8 @@ func _initialize() -> void:
 
 func _test_central_values() -> void:
 	var values: Dictionary = PELTO_SMASH.definition()
-	if absf(float(values.outbound_damage) + float(values.return_damage) - 260.0) > 0.01:
-		_failures.append("Données : le total des deux passages n'est pas 260/1000 PV")
+	if absf(float(values.outbound_damage) + float(values.return_damage) - 340.0) > 0.01:
+		_failures.append("Données : le total des deux passages n'est pas 340 dégâts")
 	if absf(float(values.max_range) - 9.0) > 0.01 or absf(float(values.width) - 2.5) > 0.01 or absf(float(values.front_thickness) - 0.7) > 0.01:
 		_failures.append("Données : portée, largeur ou épaisseur du front incorrecte")
 	if float(values.preparation) + float(values.impact_duration) + float(values.recovery) > 0.55:
@@ -86,8 +92,8 @@ func _test_held_aim_and_release(player: Node, target: Node, scene: Node) -> void
 	var wave := await _wait_for_wave_phase(scene, "outbound")
 	if wave == null or not aimed.is_equal_approx(wave.get("direction")):
 		_failures.append("Visée : le relâchement n'a pas verrouillé la direction")
-	await _wait_for_health(target, 740.0)
-	if absf(float(target.call("get_health")) - 740.0) > 1.0:
+	await _wait_for_health(target, (BASE_HEALTH - 340.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 340.0)) > 1.0:
 		_failures.append("Visée : cible à 8 m non touchée aux deux passages (PV=%.1f, direction=%s)" % [float(target.call("get_health")), aimed])
 	await create_timer(0.4).timeout
 
@@ -98,21 +104,21 @@ func _test_tap_and_cancel(player: Node, target: Node) -> void:
 	player.call("end_touch_action", "offensive")
 	if not bool(player.call("is_pelto_preparing")):
 		_failures.append("Tap : la préparation minimale est sautée")
-	await _wait_for_health(target, 740.0)
+	await _wait_for_health(target, (BASE_HEALTH - 340.0))
 	await create_timer(0.4).timeout
 	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
 	player.call("begin_touch_action", "offensive")
 	player.call("cancel_touch_action", "offensive")
 	await create_timer(0.4).timeout
-	if str(player.get("_pelto_phase")) != "" or float(target.call("get_health")) < 999.0:
+	if str(player.get("_pelto_phase")) != "" or float(target.call("get_health")) < (BASE_HEALTH - 1.0):
 		_failures.append("Visée : annulation tactile déclenche une vague")
 
 
 func _test_extended_range(player: Node, target: Node) -> void:
 	await _prepare(player, target, Vector3(0.0, 0.0, -8.2))
 	_cast(player)
-	await _wait_for_health(target, 740.0)
-	if absf(float(target.call("get_health")) - 740.0) > 1.0:
+	await _wait_for_health(target, (BASE_HEALTH - 340.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 340.0)) > 1.0:
 		_failures.append("Portée : cible à 8,2 m hors de la vague")
 	await create_timer(0.4).timeout
 
@@ -302,14 +308,14 @@ func _cast(player: Node) -> void:
 func _test_two_passes(player: Node, target: Node) -> void:
 	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
 	_cast(player)
-	await _wait_for_health(target, 840.0)
-	if absf(float(target.call("get_health")) - 840.0) > 1.0:
+	await _wait_for_health(target, (BASE_HEALTH - 200.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Aller : dégâts progressifs ou touche unique incorrects")
 	if not target.call("get_active_effect_types").has("SLOW"):
 		_failures.append("Aller : ralentissement absent")
-	await _wait_for_health(target, 740.0)
-	if absf(float(target.call("get_health")) - 740.0) > 1.0:
-		_failures.append("Retour : total supérieur ou inférieur à 260")
+	await _wait_for_health(target, (BASE_HEALTH - 340.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 340.0)) > 1.0:
+		_failures.append("Retour : total supérieur ou inférieur à 340")
 	await _wait_for_pull_end(target)
 	if target.global_position.z <= -2.25:
 		_failures.append("Retour : traction de 0,9 m absente (z=%.2f)" % target.global_position.z)
@@ -325,11 +331,11 @@ func _test_multiple_targets_progressively(player: Node, target: Node, scene: Nod
 	far_target.call("reset_combat_state")
 	far_target.global_position = Vector3(0.0, 0.0, -5.0)
 	_cast(player)
-	await _wait_for_health(target, 840.0)
-	if float(far_target.call("get_health")) < 999.5:
+	await _wait_for_health(target, (BASE_HEALTH - 200.0))
+	if float(far_target.call("get_health")) < (BASE_HEALTH - 0.5):
 		_failures.append("Progression : deux cibles distantes ont été touchées simultanément")
-	await _wait_for_health(far_target, 840.0)
-	if absf(float(far_target.call("get_health")) - 840.0) > 1.0:
+	await _wait_for_health(far_target, (BASE_HEALTH - 200.0))
+	if absf(float(far_target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Progression : la cible distante n'a pas été atteinte par le front")
 	far_target.queue_free()
 	await process_frame
@@ -338,10 +344,10 @@ func _test_multiple_targets_progressively(player: Node, target: Node, scene: Nod
 func _test_lateral_exit_avoids_return(player: Node, target: Node) -> void:
 	await _prepare(player, target, Vector3(0.0, 0.0, -3.0))
 	_cast(player)
-	await _wait_for_health(target, 840.0)
+	await _wait_for_health(target, (BASE_HEALTH - 200.0))
 	target.global_position.x = 4.0
 	await create_timer(1.0, true, false, false).timeout
-	if absf(float(target.call("get_health")) - 840.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Sortie latérale : le retour a touché hors de la bande")
 
 
@@ -353,9 +359,9 @@ func _test_return_only_entry(player: Node, target: Node, scene: Node) -> void:
 		_failures.append("Entrée retour : phase retour non observée")
 		return
 	target.global_position = Vector3(0.0, 0.0, -3.0)
-	await _wait_for_health(target, 900.0)
-	if absf(float(target.call("get_health")) - 900.0) > 1.0:
-		_failures.append("Entrée retour : la cible n'a pas reçu exactement les 100 dégâts retour")
+	await _wait_for_health(target, (BASE_HEALTH - 140.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 140.0)) > 1.0:
+		_failures.append("Entrée retour : la cible n'a pas reçu exactement les 140 dégâts retour")
 
 
 func _test_caster_motion_does_not_steer(player: Node, target: Node) -> void:
@@ -363,8 +369,8 @@ func _test_caster_motion_does_not_steer(player: Node, target: Node) -> void:
 	_cast(player)
 	await create_timer(0.50, true, false, false).timeout
 	player.global_position = Vector3(5.0, 0.0, 0.0)
-	await _wait_for_health(target, 840.0)
-	if absf(float(target.call("get_health")) - 840.0) > 1.0:
+	await _wait_for_health(target, (BASE_HEALTH - 200.0))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Trajectoire : le déplacement du lanceur a guidé ou annulé la vague")
 
 
@@ -375,7 +381,7 @@ func _test_wall_stops_wave(player: Node, target: Node, scene: Node) -> void:
 	await process_frame
 	_cast(player)
 	await create_timer(1.4, true, false, false).timeout
-	if absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Mur : dégâts appliqués à travers l'obstacle")
 	wall.queue_free()
 	await process_frame
@@ -387,7 +393,7 @@ func _test_hard_control_cancels_windup(player: Node, target: Node) -> void:
 	await create_timer(0.20, true, false, false).timeout
 	player.call("apply_stun", 0.5, "test")
 	await create_timer(0.50, true, false, false).timeout
-	if str(player.get("_pelto_phase")) != "" or absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if str(player.get("_pelto_phase")) != "" or absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Interruption : une vague a été créée après contrôle dur avant impact")
 
 
@@ -406,7 +412,7 @@ func _test_low_fps_sweep(player: Node, target: Node, scene: Node) -> void:
 	wave.call("configure", player, Vector3.ZERO, Vector3(0.0, 0.0, -1.0), "test", "pelto:low_fps")
 	wave.set_physics_process(false)
 	wave.call("_physics_process", 0.50)
-	if absf(float(target.call("get_health")) - 840.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Basse fréquence : le balayage a manqué une cible entre deux positions")
 	wave.queue_free()
 	await process_frame
@@ -420,8 +426,8 @@ func _test_bot_uses_pelto(player: Node, target: Node) -> void:
 	if str(bot.get("_attack_mode")) != "pelto":
 		_failures.append("Bot : PELTO SMASH non sélectionné à moyenne portée")
 	else:
-		await _wait_for_health(player, 840.0)
-		if float(player.call("get_health")) > 841.0:
+		await _wait_for_health(player, (BASE_HEALTH - 200.0))
+		if float(player.call("get_health")) > (BASE_HEALTH - 199.0):
 			_failures.append("Bot : la vague partagée n'a pas touché le joueur")
 	target.call("set_training_bot_enabled", false)
 

@@ -53,6 +53,7 @@ func reveal(local: Dictionary, opponent: Dictionary, duration := 8.0) -> void:
 	var builds := [local_loadout, opponent_loadout]
 	for side in range(2):
 		_portraits[side].call("set_chassis", str(builds[side].robot))
+		_portraits[side].call("start_preparation")
 		for i in range(CATEGORIES.size()):
 			var identifier := str(builds[side][CATEGORIES[i]])
 			_rows[side][i].icon.texture = _equipment_icons.get_icon(identifier)

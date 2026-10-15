@@ -110,7 +110,7 @@ func _test_automatic_fast_pass(player: Node3D, kit: Node) -> void:
 		if not bool(player.call("is_dash_active")):
 			break
 	_check(dash_started, "dash de validation déclenché")
-	_check(is_equal_approx(float(player.call("get_health")), 800.0), "dash collecte automatiquement le kit")
+	_check(is_equal_approx(float(player.call("get_health")), float(player.call("get_max_health")) * 1.30 - 500.0), "dash collecte automatiquement le kit")
 	_check(not bool(kit.call("is_available")), "dash ne consomme le kit qu'une fois")
 
 
@@ -122,8 +122,8 @@ func _test_fraction_cap_and_status(player: Node3D, kit: Node) -> void:
 	player.global_position = kit.global_position
 	kit.call("set_collection_active", true)
 	var applied := float(kit.call("try_collect", player))
-	_check(is_equal_approx(applied, 300.0), "soin égal à 30 % des PV maximum")
-	_check(is_equal_approx(float(player.call("get_health")), 800.0), "barre de vie mise à jour avec le soin")
+	_check(is_equal_approx(applied, float(player.call("get_max_health")) * 0.30), "soin égal à 30 % des PV maximum")
+	_check(is_equal_approx(float(player.call("get_health")), float(player.call("get_max_health")) * 1.30 - 500.0), "barre de vie mise à jour avec le soin")
 	var healing_popup: Node = null
 	var readout: Node = player.get_node_or_null("WorldUIAnchor/PlayerHealthReadout")
 	if readout != null:
@@ -131,7 +131,7 @@ func _test_fraction_cap_and_status(player: Node3D, kit: Node) -> void:
 			if str(child.name).begins_with("HealingNumber"):
 				healing_popup = child
 	var healing_label: Label3D = healing_popup.get("_label") as Label3D if healing_popup != null else null
-	_check(healing_label != null and healing_label.text == "+300", "montant réellement récupéré affiché immédiatement")
+	_check(healing_label != null and healing_label.text == "+%d" % int(applied), "montant réellement récupéré affiché immédiatement")
 	_check("SLOW" in (player.call("get_active_effect_types") as Array), "le soin conserve les effets de statut")
 	_check(not bool(kit.call("is_available")), "kit indisponible pendant la recharge")
 	var kit_visual := kit.get_node("ConsumableKit") as Node3D
@@ -178,7 +178,7 @@ func _test_single_consumer(player: Node3D, bot: Node3D, kit: Node) -> void:
 	var first := float(kit.call("try_collect", player))
 	var second := float(kit.call("try_collect", bot))
 	_check(first > 0.0 and is_zero_approx(second), "une disponibilité ne soigne qu'un seul acteur")
-	_check(is_equal_approx(float(bot.call("get_health")), 600.0), "le second acteur n'est pas soigné")
+	_check(is_equal_approx(float(bot.call("get_health")), float(bot.call("get_max_health")) - 400.0), "le second acteur n'est pas soigné")
 
 
 func _test_dead_actor(bot: Node3D, kit: Node) -> void:
@@ -224,7 +224,7 @@ func _test_wall_occlusion(scene: Node3D, player: Node3D) -> void:
 func _test_respawn_with_occupant(player: Node3D, kit: Node) -> void:
 	player.call("reset_combat_state")
 	kit.call("reset_for_round", false)
-	kit.set("respawn_delay", 0.05)
+	kit.set("respawn_delay", 0.50)
 	player.call("take_damage", 600.0, "test", "repair_respawn_first")
 	player.global_position = kit.global_position
 	player.force_update_transform()
@@ -233,7 +233,7 @@ func _test_respawn_with_occupant(player: Node3D, kit: Node) -> void:
 	_check(float(kit.call("try_collect", player)) > 0.0, "premier ramassage avant réapparition")
 	player.call("take_damage", 200.0, "test", "repair_respawn_waiting")
 	var health_before := float(player.call("get_health"))
-	await create_timer(0.12).timeout
+	await create_timer(0.55).timeout
 	await physics_frame
 	await process_frame
 	_check(float(player.call("get_health")) > health_before, "acteur déjà sur le socle soigné à la réapparition")

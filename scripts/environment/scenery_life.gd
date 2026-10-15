@@ -3,6 +3,7 @@ extends Node3D
 const PAPER := preload("res://scripts/environment/scenery_paper.gdshader")
 const AIR := preload("res://scripts/environment/scenery_atmosphere.gdshader")
 const OIL := preload("res://scripts/environment/scenery_oil.gdshader")
+const WIND := preload("res://scripts/environment/scenery_wind.gd")
 const MAX_STATIONS := 16
 const MAX_LOOSE := 24
 const MAX_OIL := 8
@@ -248,6 +249,11 @@ func _draw_loose(delta: float, focus: Vector3) -> void:
 			entry.velocity = Vector3.ZERO
 			entry.lift = 0.0
 			continue
+		if not _low:
+			var gust := WIND.strength(wind_clock(), entry.at)
+			entry.velocity += WIND.DIRECTION * gust * delta * (1.8 if entry.kind == "paper" else 1.0)
+			if entry.kind == "paper":
+				entry.lift = maxf(float(entry.lift), gust * 0.35)
 		_advance_loose(entry, delta)
 		var key := "papers" if entry.kind == "paper" else "cans"
 		var batch: MultiMesh = _batches[key]
@@ -299,7 +305,7 @@ func _draw_hanging(delta: float, focus: Vector3) -> void:
 	for entry in _hanging:
 		var enabled := entry in selected
 		var wind := sin(_clock * 0.8 + float(entry.phase)) * 0.035 + sin(_clock * 0.27) * 0.015
-		var target := wind if enabled and not _low else 0.0
+		var target := wind + WIND.strength(wind_clock(), entry.anchor) * 0.10 if enabled and not _low else 0.0
 		entry.velocity += (target - float(entry.angle)) * delta * 15.0
 		entry.velocity *= exp(-delta * 2.5)
 		entry.angle = clampf(float(entry.angle) + float(entry.velocity) * delta, -0.40, 0.40)
@@ -310,6 +316,24 @@ func _draw_hanging(delta: float, focus: Vector3) -> void:
 		batch.set_instance_color(count, Color.WHITE)
 		count += 1
 	batch.visible_instance_count = count
+
+func wind_clock() -> float:
+	return float(_organic.get("_clock")) if _organic != null else _clock
+
+func apply_airflow(at: Vector3, outward: Vector3, power: float, delta: float) -> void:
+	if _low or not _workshop.is_visible_in_tree() or power <= 0.02:
+		return
+	var focus := (_scene.get_node("CameraRig") as Node3D).global_position
+	for entry in _near(_loose, focus, "at", 6):
+		var offset: Vector3 = entry.at - at
+		offset.y = 0.0
+		var distance := offset.length()
+		if distance < 1.8 and offset.dot(outward) > -0.05:
+			var force := power * (1.0 - distance / 1.8)
+			entry.velocity += outward * force * minf(delta, 0.05) * (4.2 if entry.kind == "paper" else 2.4)
+			entry.velocity = (entry.velocity as Vector3).limit_length(2.0)
+			if entry.kind == "paper":
+				entry.lift = maxf(float(entry.lift), force * 0.4)
 
 func _draw_oil(focus: Vector3) -> void:
 	var batch: MultiMesh = _batches.oil

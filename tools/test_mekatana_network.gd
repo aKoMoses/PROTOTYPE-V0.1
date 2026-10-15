@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 ## Local authority/replica checks. This does not substitute a two-device
 ## internet session; it exercises the same action and pose packet handlers.
 const ACTOR := preload("res://scripts/network_player.gd")
@@ -52,7 +54,7 @@ func _reset() -> void:
 		actor.call("set_gameplay_enabled", true)
 		actor.set("aim_direction", Vector3.RIGHT)
 	_host.global_position = Vector3.ZERO
-	_target.global_position = Vector3(2.7, 0.0, 0.0)
+	_target.global_position = Vector3(3.35, 0.0, 0.0)
 	_replica.global_position = Vector3(10.0, 0.0, 0.0)
 	_replica.collision_layer = 0
 	_recorder.events.clear()
@@ -81,12 +83,12 @@ func _run() -> void:
 	match_controller.call("_set_remote_pose", {"position": Vector3(20.0, 0.0, 0.0), "aim": Vector3.BACK, "velocity": Vector3.BACK * 5.0})
 	_check(_host.global_position.is_equal_approx(locked_position) and Vector3(_host.get("aim_direction")).is_equal_approx(Vector3.RIGHT) and Vector3(attack.direction).is_equal_approx(Vector3.RIGHT), "pose packets cannot teleport or rotate an admitted preparation")
 	_host.call("_update_movement", 0.12)
-	_check(str(attack.phase) == "active" and is_equal_approx(_host.global_position.x, 1.3) and is_equal_approx(float(_target.call("get_health")), 1000.0), "authoritative doubled dash runs before active damage")
+	_check(str(attack.phase) == "active" and is_equal_approx(_host.global_position.x, 1.95) and is_equal_approx(float(_target.call("get_health")), BASE_HEALTH), "authoritative extended dash runs before active damage")
 	var active_position := _host.global_position
 	match_controller.call("_set_remote_pose", {"position": Vector3(20.0, 0.0, 0.0), "aim": Vector3.BACK})
 	_check(_host.global_position.is_equal_approx(active_position) and Vector3(_host.get("aim_direction")).is_equal_approx(Vector3.RIGHT), "active slash also keeps the accepted remote pose locked")
 	_host.call("_update_movement", 0.02)
-	_check(is_equal_approx(float(_target.call("get_health")), 910.0), "host alone applies the first 90-damage melee hit")
+	_check(is_equal_approx(float(_target.call("get_health")), BASE_HEALTH - 130.0), "host alone applies the first 130-damage melee hit")
 	_host.call("_update_movement", 0.5)
 	for rank in [1, 2]:
 		_target.global_position = _host.global_position + Vector3.RIGHT * (float(attack.definition.dash_distance[rank]) + 1.4)
@@ -95,7 +97,7 @@ func _run() -> void:
 		_host.call("receive_action", "mekatana", {"step": 0})
 		_check(int(attack.step) == rank, "host retains its authoritative combo rank despite client rank data")
 		_host.call("_update_movement", 1.0)
-	_check(is_equal_approx(float(_target.call("get_health")), 550.0), "authoritative network actor resolves all per-target multipliers")
+	_check(is_equal_approx(float(_target.call("get_health")), BASE_HEALTH - 634.0), "authoritative network actor resolves all per-target multipliers")
 	match_controller.free()
 	await _reset()
 	_target.global_position = _replica.global_position + Vector3.RIGHT * 4.0
@@ -105,7 +107,7 @@ func _run() -> void:
 	var replica_attack: RefCounted = _replica.get("_mekatana_attack")
 	_check(replica_attack.is_busy() and int(replica_attack.step) == 2 and not bool(replica_attack.damage_enabled), "reliable visual event displays the host's third swing with damage disabled")
 	_replica.call("_update_movement", 1.0)
-	_check(is_equal_approx(float(_target.call("get_health")), 1000.0) and _recorder.events.is_empty(), "visual replica never deals damage or rebroadcasts an accepted action")
+	_check(is_equal_approx(float(_target.call("get_health")), BASE_HEALTH) and _recorder.events.is_empty(), "visual replica never deals damage or rebroadcasts an accepted action")
 	_replica.call("receive_snapshot", _host.call("network_snapshot"))
 	_check(str(_replica.call("get_weapon_id")) == "mekatana", "Mekatana equipment survives host snapshot replication")
 	await _reset()
@@ -135,13 +137,13 @@ func _run() -> void:
 	_host.call("_update_movement", 0.06)
 	_host.call("apply_stun", 0.5, "mekatana_network_test")
 	_host.call("_update_movement", 1.0)
-	_check(not attack.is_busy() and int(attack.next_step) == 0 and is_equal_approx(float(_target.call("get_health")), 1000.0), "authoritative interruption removes the prepared hit and combo")
+	_check(not attack.is_busy() and int(attack.next_step) == 0 and is_equal_approx(float(_target.call("get_health")), BASE_HEALTH), "authoritative interruption removes the prepared hit and combo")
 	await _reset()
 	_host.call("receive_action", "mekatana", {})
 	_host.call("_update_movement", 0.06)
 	_host.call("receive_action", "weapon", {"weapon": "blaster"})
 	_host.call("_update_movement", 1.0)
-	_check(not attack.is_busy() and str(_host.call("get_weapon_id")) == "blaster" and is_equal_approx(float(_target.call("get_health")), 1000.0), "network weapon change cancels a pending melee hit")
+	_check(not attack.is_busy() and str(_host.call("get_weapon_id")) == "blaster" and is_equal_approx(float(_target.call("get_health")), BASE_HEALTH), "network weapon change cancels a pending melee hit")
 	await _reset()
 	_replica.call("receive_action", "mekatana", {"step": 1}, true)
 	_host.call("take_damage", 5000.0, "mekatana_network_test", "mekatana_network_death")

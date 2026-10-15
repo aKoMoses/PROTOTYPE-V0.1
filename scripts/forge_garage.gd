@@ -1001,6 +1001,8 @@ func _update_station_buttons() -> void:
 func _show_garage(animated: bool = true) -> void:
 	if installation != null and installation.active:
 		return
+	if animated and not _hub_mode and is_visible_in_tree():
+		MenuTransition.present("Ouverture du garage…")
 	if module_installation != null and module_installation.active:
 		module_installation.cancel(false)
 	_hub_mode = true
@@ -1075,6 +1077,9 @@ func _navigate(title: String) -> void:
 
 
 func _show_catalog(kind: String) -> void:
+	if is_visible_in_tree() and (_hub_mode or kind != _category):
+		var destination := "Choix du châssis…" if kind == "robot" else "Râtelier d’armes…" if kind == "weapon" else "Modules %s…" % str(CATEGORY_TITLES.get(kind, "")).to_lower()
+		MenuTransition.present(destination)
 	_hub_mode = false
 	_category = kind
 	_module_panel.show()

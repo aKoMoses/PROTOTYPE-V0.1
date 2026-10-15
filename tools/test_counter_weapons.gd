@@ -55,7 +55,7 @@ func run() -> void:
 		enemy_guard.update(0.08)
 		var successes := enemy_guard.successes
 		await emit_weapon(weapon)
-		check(float(target.call("get_health")) == 1000, "real emitted %s intercepted" % weapon)
+		check(float(target.call("get_health")) == DATA.MAX_HEALTH, "real emitted %s intercepted" % weapon)
 		check(enemy_guard.successes == successes + 1, "real %s triggers once" % weapon)
 		if weapon == "longshot":
 			check(int(player.call("get_longshot_cycle_count")) == 0 and player.get("_longshot_state").speed_remaining == 0.0, "counter grants neither precision nor hit mobility")
@@ -70,7 +70,7 @@ func run() -> void:
 		await emit_weapon(weapon)
 		check(guard.surcharge_remaining == 0, "real %s consumes reward at emission" % weapon)
 		check(guard.explosions == count + 1, "real %s explodes once" % weapon)
-		check(float(target.call("get_health")) < 990, "real %s keeps primary damage plus explosion" % weapon)
+		check(float(target.call("get_health")) < (DATA.MAX_HEALTH - 10.0), "real %s keeps primary damage plus explosion" % weapon)
 		weapon_prepare(weapon)
 		target.global_position = Vector3(7, 0, 0)
 		await physics_frame
@@ -108,8 +108,8 @@ func test_multiple_cleave() -> void:
 	melee.start(Vector3.FORWARD)
 	melee.update(0.23)
 	check(guard.explosions == explosions_before + 1, "real two-target cleave emits one explosion")
-	check(is_equal_approx(float(target.call("get_health")), 830), "cleave direct target receives one primary and one secondary hit")
-	check(is_equal_approx(other.health, 830), "cleave second enemy receives secondary damage only once (health %.1f)" % other.health)
+	check(is_equal_approx(float(target.call("get_health")), (DATA.MAX_HEALTH - 210.0)), "cleave direct target receives one primary and one secondary hit")
+	check(is_equal_approx(other.health, 790), "cleave second enemy receives secondary damage only once (health %.1f)" % other.health)
 	melee.cancel()
 	melee = null
 	other.queue_free()
@@ -122,13 +122,13 @@ func test_charged_and_obstacle() -> void:
 	guard.surcharge_remaining = 3.0
 	player.call("_fire_blaster_projectile", 50.0, 1.0, Vector3.FORWARD)
 	await create_timer(0.4).timeout
-	check(is_equal_approx(float(target.call("get_health")), 870.0), "fully charged blaster adds only fixed 80")
+	check(is_equal_approx(float(target.call("get_health")), (DATA.MAX_HEALTH - 130.0)), "fully charged blaster adds only fixed 80")
 	weapon_prepare("longshot")
 	player.get("_longshot_state").hits = 2
 	await physics_frame
 	guard.surcharge_remaining = 3.0
 	await emit_weapon("longshot")
-	check(is_equal_approx(float(target.call("get_health")), 1000.0 - float(DATA.WEAPON_DEFINITIONS.longshot.damage) * float(DATA.WEAPON_DEFINITIONS.longshot.enhanced_damage_multiplier) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "execution Longshot adds fixed surcharge once")
+	check(is_equal_approx(float(target.call("get_health")), DATA.MAX_HEALTH - float(DATA.WEAPON_DEFINITIONS.longshot.damage) * float(DATA.WEAPON_DEFINITIONS.longshot.enhanced_damage_multiplier) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "execution Longshot adds fixed surcharge once")
 	weapon_prepare("blaster")
 	var wall := StaticBody3D.new()
 	wall.collision_layer = 1
@@ -145,7 +145,7 @@ func test_charged_and_obstacle() -> void:
 	var explosions_before := guard.explosions
 	await emit_weapon("blaster")
 	check(guard.surcharge_remaining == 0 and guard.explosions == explosions_before, "real wall collision consumes reward without explosion")
-	check(float(target.call("get_health")) == 1000, "wall-stopped boosted projectile deals no damage")
+	check(float(target.call("get_health")) == DATA.MAX_HEALTH, "wall-stopped boosted projectile deals no damage")
 	wall.queue_free()
 	await process_frame
 
@@ -167,7 +167,7 @@ func test_execution_guard() -> void:
 	enemy_guard.begin()
 	enemy_guard.update(0.08)
 	await emit_weapon("longshot")
-	check(float(target.call("get_health")) == 1000 and behind.health == 1000, "real Counter stops execution before the next victim")
+	check(float(target.call("get_health")) == DATA.MAX_HEALTH and behind.health == 1000.0, "real Counter stops execution before the next victim")
 	check(int(player.call("get_longshot_cycle_count")) == 0 and player.get("_longshot_state").speed_remaining == 0.0, "blocked execution is consumed and grants no mobility")
 	behind.queue_free()
 	await process_frame
@@ -234,7 +234,7 @@ func test_network_guard() -> void:
 	check(client.call("is_counter_guarding"), "host guard phase replicated")
 	enemy.call("receive_action", "blaster", {"surcharge": true, "ratio": 1.0})
 	await create_timer(0.3).timeout
-	check(float(host.call("get_health")) == 1000 and float(host.call("get_surcharge_remaining")) > 0, "host alone intercepts real projectile and grants charge")
+	check(float(host.call("get_health")) == DATA.MAX_HEALTH and float(host.call("get_surcharge_remaining")) > 0, "host alone intercepts real projectile and grants charge")
 	client.call("receive_snapshot", host.call("network_snapshot"))
 	check(float(client.call("get_surcharge_remaining")) > 0 and not client.call("is_counter_guarding"), "reward and end of protection replicated")
 	var client_guard := COUNTER.component(client)
@@ -242,7 +242,7 @@ func test_network_guard() -> void:
 	check(not client_guard.intercept(attack), "replica cannot award success independently")
 	host.call("receive_action", "blaster", {})
 	await create_timer(0.35).timeout
-	check(is_equal_approx(float(enemy.call("get_health")), 1000.0 - float(DATA.WEAPON_DEFINITIONS.blaster.damage) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "network return weapon applies primary plus fixed surcharge")
+	check(is_equal_approx(float(enemy.call("get_health")), DATA.MAX_HEALTH - float(DATA.WEAPON_DEFINITIONS.blaster.damage) - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)), "network return weapon applies primary plus fixed surcharge")
 	check(float(host.call("get_surcharge_remaining")) == 0, "network host consumes reward once")
 	client.call("receive_snapshot", host.call("network_snapshot"))
 	check(float(client.call("get_surcharge_remaining")) == 0, "consumption replicated")

@@ -106,7 +106,7 @@ func run() -> void:
 	guard.update(0.08)
 	var impact := FULGURO.resolve_strike(target, [player], Vector3.BACK, 200, 150, 0.75, "test", "fulguro")
 	check(impact == null and not player.call("is_fulguro_projected"), "counter Fulguro without residual projection")
-	check(float(player.call("get_health")) == 1000, "counter Fulguro cancels direct damage")
+	check(float(player.call("get_health")) == DATA.MAX_HEALTH, "counter Fulguro cancels direct damage")
 	prepare()
 	player.call("_perform_counter")
 	guard.update(0.08)
@@ -117,7 +117,7 @@ func run() -> void:
 	melee.definition.dash_distance = [0.0, 0.0, 0.0]
 	check(melee.start(Vector3.BACK), "melee starts")
 	melee.update(0.15)
-	check(float(player.call("get_health")) == 1000 and guard.phase == "recovery", "melee intercepted")
+	check(float(player.call("get_health")) == DATA.MAX_HEALTH and guard.phase == "recovery", "melee intercepted")
 	melee.cancel()
 	melee = null
 	prepare()
@@ -134,7 +134,7 @@ func run() -> void:
 		player.call("passive_weapon_damage", target, 20, "player", "boost:%d" % i, attack, target.global_position + Vector3.UP * 0.85)
 	check(absf(before - float(target.call("get_health")) - 120.0 - float(DATA.MODULE_DEFINITIONS.counter.surcharge_damage)) < 0.01, "six primary hits plus only one strengthened explosion including direct target")
 	check(guard.explosions == explosion_count + 1, "one explosion for composed/perforating attack")
-	check(float(player.call("get_health")) == 1000, "owner immune to own explosion")
+	check(float(player.call("get_health")) == DATA.MAX_HEALTH, "owner immune to own explosion")
 	prepare()
 	guard.surcharge_remaining = 3.0
 	attack = player.call("emit_passive_weapon")
@@ -142,7 +142,7 @@ func run() -> void:
 	target_guard.begin()
 	target_guard.update(0.08)
 	player.call("passive_weapon_damage", target, 20, "player", "countered", attack)
-	check(float(target.call("get_health")) == 1000 and bool(attack.counter_attack.resolved), "countered boosted attack loses reward without explosion")
+	check(float(target.call("get_health")) == DATA.MAX_HEALTH and bool(attack.counter_attack.resolved), "countered boosted attack loses reward without explosion")
 	prepare()
 	guard.surcharge_remaining = 3.0
 	attack = player.call("emit_passive_weapon")

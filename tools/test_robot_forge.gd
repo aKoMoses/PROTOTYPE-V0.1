@@ -6,6 +6,10 @@ var _save_existed := false
 var _saved_bytes := PackedByteArray()
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	_save_existed = FileAccess.file_exists(LOADOUT.SAVE_PATH)
 	if _save_existed:
 		_saved_bytes = FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH)
@@ -42,7 +46,7 @@ func _initialize() -> void:
 	_check(is_equal_approx(stage.robot_animator.current_animation_position, stopped_time), "animation suspendue hors de la forge")
 	flow.call("_open_equipment")
 	source_model.free()
-	for entry in [["agile", 800.0, 6.0], ["polyvalent", 1000.0, 5.0], ["puissant", 1200.0, 4.0]]:
+	for entry in [["agile", 1200.0, 6.0], ["polyvalent", 1500.0, 5.0], ["puissant", 1800.0, 4.0]]:
 		var identifier: String = entry[0]
 		var button: Button = choices[identifier]
 		_check(flow.call("_equipment_icon", identifier) != null, "portrait présent : " + identifier)
@@ -68,14 +72,14 @@ func _initialize() -> void:
 	_check(not garage.get("installation").active and LOADOUT.load_local().robot == "puissant" and flow.get("loadout").robot == "puissant", "la fin du travail du bras transmet le build sauvegarde au duel")
 	flow.call("_start_duel")
 	await process_frame
-	_check(float(player.call("get_max_health")) == 1200.0 and float(player.call("get_health")) == 1200.0, "PV du Puissant au départ du duel")
+	_check(float(player.call("get_max_health")) == 1800.0 and float(player.call("get_health")) == 1800.0, "PV du Puissant au départ du duel")
 	var health_label := player.get_node("WorldUIAnchor/PlayerHealthReadout/HealthBarViewport/HealthBarUI/HealthNumber") as Label
-	_check(health_label.text == "1200", "barre de vie synchronisée avec le robot")
+	_check(health_label.text == "1800", "barre de vie synchronisée avec le robot")
 	scene.call("prepare_round", flow.get("loadout"))
-	_check(float(player.call("get_health")) == 1200.0 and float(player.call("get_current_move_speed")) == 4.0, "châssis conservé à la manche suivante")
-	player.call("take_damage", 600.0, "test", "half_health")
+	_check(float(player.call("get_health")) == 1800.0 and float(player.call("get_current_move_speed")) == 4.0, "châssis conservé à la manche suivante")
+	player.call("take_damage", 900.0, "test", "half_health")
 	player.call("set_robot", "agile")
-	_check(float(player.call("get_health")) == 400.0, "changement de châssis conserve le pourcentage de PV")
+	_check(float(player.call("get_health")) == 600.0, "changement de châssis conserve le pourcentage de PV")
 	player.call("set_robot", "unknown")
 	_check(player.call("get_robot_id") == "polyvalent" and float(player.call("get_current_move_speed")) == 5.0, "fallback du joueur")
 	flow.set_process(false)
@@ -89,7 +93,7 @@ func _initialize() -> void:
 	current_scene = training
 	await process_frame
 	var trainee: Node = training.get("player")
-	_check(trainee.call("get_robot_id") == "puissant" and float(trainee.call("get_max_health")) == 1200.0, "entraînement utilise le robot sauvegardé")
+	_check(trainee.call("get_robot_id") == "puissant" and float(trainee.call("get_max_health")) == 1800.0, "entraînement utilise le robot sauvegardé")
 	training.queue_free()
 	await process_frame
 	var survival: Node = load("res://scenes/survival.tscn").instantiate()
@@ -98,11 +102,11 @@ func _initialize() -> void:
 	await process_frame
 	survival.call("_choose_weapon", "blaster")
 	var survivor: Node = survival.get("player")
-	_check(survivor.call("get_robot_id") == "puissant" and float(survivor.call("get_health")) == 1200.0, "survie utilise le robot sauvegardé")
+	_check(survivor.call("get_robot_id") == "puissant" and float(survivor.call("get_health")) == 1800.0, "survie utilise le robot sauvegardé")
 	var survival_build: Dictionary = survival.get("progression").build()
 	survival_build.upgrades["passive"] = {"tempo": 1}
 	survivor.call("configure_survival_build", survival_build)
-	_check(float(survivor.call("get_max_health")) == 1450.0 and float(survivor.call("get_current_move_speed")) == 4.0, "bonus de survie ajouté aux PV du robot")
+	_check(float(survivor.call("get_max_health")) == 2050.0 and float(survivor.call("get_current_move_speed")) == 4.0, "bonus de survie ajouté aux PV du robot")
 	(survival.get("_music") as AudioStreamPlayer).stop()
 	await create_timer(0.1).timeout
 	survival.queue_free()

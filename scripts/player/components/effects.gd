@@ -235,7 +235,7 @@ func _is_weapon_recoil_running(tweens: Array[Tween]) -> bool:
 
 
 func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
-	var origin := player.global_position + Vector3.UP * 0.9
+	var origin: Vector3 = player._projectile_support_origin()
 	var query := PhysicsRayQueryParameters3D.create(origin, muzzle)
 	query.collision_mask = 1 | 2 | 4 | 8
 	query.collide_with_areas = true

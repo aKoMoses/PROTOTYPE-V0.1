@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 # Headless integration and bounded-lifetime stress of the production VFX.
 const STEP := 1.0 / 60.0
 const STRESS_SECONDS := 180.0
@@ -212,7 +214,7 @@ func _test_budget_preserves_damage() -> void:
 		_player.call("_spawn_blaster_projectile", start, 20.0, 0.0, 5000 + index, (endpoint - start).normalized())
 	_scene.call("_trim_fx_budget")
 	await create_timer(0.65).timeout
-	var damage := 1000.0 - float(_target.call("get_health"))
+	var damage := BASE_HEALTH - float(_target.call("get_health"))
 	_check(absf(damage - 400.0) < 0.1, "20 damage-bearing projectiles survive visual budget pressure (damage %.1f)" % damage)
 	_target.call("reset_combat_state")
 	_manager.call("clear")
@@ -234,7 +236,7 @@ func _test_weapon_motion() -> void:
 		_player.call("_fire_blaster_projectile", expected_damage, charge, direction)
 		await create_timer(0.4).timeout
 		_player.call("clear_touch_inputs")
-		var damage := 1000.0 - float(_target.call("get_health"))
+		var damage := BASE_HEALTH - float(_target.call("get_health"))
 		_check(_player.position.distance_to(before) > 0.1 and absf(damage - expected_damage) < 0.1, "moving blaster charge %.1f retains exact damage %.1f" % [charge, damage])
 	_target.call("reset_combat_state")
 	_manager.call("clear")

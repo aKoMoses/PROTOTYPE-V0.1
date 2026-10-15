@@ -5,6 +5,8 @@ const HALO := preload("res://scripts/environment/workshop_glow_live.gdshader")
 const FIXTURE := preload("res://scripts/environment/workshop_fixture.gd")
 const VAPOUR := preload("res://scripts/environment/workshop_vapour.gdshader")
 const SCENERY_LIFE := preload("res://scripts/environment/scenery_life.gd")
+const ECOSYSTEM := preload("res://scripts/environment/workshop_ecosystem.gd")
+const WIND := preload("res://scripts/environment/scenery_wind.gd")
 const MAX_CIRCUITS := 128
 const MAX_FIXTURES := 16
 const MAX_PENDANTS := 16
@@ -62,6 +64,7 @@ func _prepare() -> void:
 	set_process(true)
 	_process(0.0)
 	SCENERY_LIFE.install(self)
+	ECOSYSTEM.install(self)
 
 func _collect_circuits() -> void:
 	var neon_index := 0
@@ -527,7 +530,7 @@ func _update_fixtures(delta: float, focus: Vector3) -> void:
 			continue
 		admitted += 1
 		var floor_y := _floor_y(fixture.to_global(Vector3(0.62, 0, 0.02)))
-		fixture.call("animate", _clock, delta, circuit.power, _low, floor_y, Vector3(0.94, 0, -0.34) + entry.gust)
+		fixture.call("animate", _clock, delta, circuit.power, _low, floor_y, WIND.velocity(_wind_clock(), fixture.global_position) + entry.gust)
 		if bool(fixture.get("arc_active")):
 			circuit.arc = 0.42
 	set_meta("active_service_fixtures", admitted)
@@ -541,7 +544,7 @@ func _update_pendants(delta: float, focus: Vector3) -> void:
 		var enabled: bool = not _low and admitted < ACTIVE_PENDANTS and entry.at.distance_squared_to(focus) < 230.0
 		entry.shadow.visible = enabled
 		# A culled pendant retains its authored geometry, but stops secondary motion.
-		var target := sin(_clock * 0.82 + float(circuit.phase)) * 0.035 if enabled else 0.0
+		var target := sin(_clock * 0.82 + float(circuit.phase)) * 0.035 + WIND.strength(_wind_clock(), entry.at) * 0.045 if enabled else 0.0
 		var step := minf(delta, 0.05)
 		entry.velocity += (target - float(entry.angle)) * 12.0 * step
 		entry.velocity *= exp(-step * 2.6)
@@ -568,6 +571,10 @@ func _floor_y(at: Vector3) -> float:
 	if terrain != null and "arena_variant" in _scene and str(_scene.get("arena_variant")) == "test":
 		return float(terrain.call("height_at", at))
 	return 0.0
+
+func _wind_clock() -> float:
+	var organic := _scene.get_node_or_null("OrganicWorldDetails")
+	return float(organic.get("_clock")) if organic != null else _clock
 
 func _contact(at: Vector3, direction: Vector3, _surface: String, power: float) -> void:
 	if not _initialized or not _workshop.is_visible_in_tree():
@@ -601,11 +608,11 @@ func reset_transients() -> void:
 		entry.shadow.hide()
 		var circuit := _circuits[int(entry.circuit)]
 		var light := circuit.light.get_ref() as OmniLight3D
-		if light != null:
+		if light != null and light.is_inside_tree():
 			light.global_position = entry.at
 		if circuit.pool != null:
 			var pool := circuit.pool.get_ref() as MeshInstance3D
-			if pool != null:
+			if pool != null and pool.is_inside_tree():
 				pool.global_position = circuit.pool_at
 	for circuit in _circuits:
 		circuit.arc = 0.0

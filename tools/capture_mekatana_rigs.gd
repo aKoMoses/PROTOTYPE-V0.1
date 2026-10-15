@@ -12,9 +12,15 @@ func _initialize() -> void:
 
 
 func run() -> void:
+	var overlay := root.get_node_or_null("FramePacing") as CanvasLayer
+	if overlay != null:
+		overlay.hide()
 	stage = Node3D.new()
 	root.add_child(stage)
 	current_scene = stage
+	var vfx := load("res://scripts/vfx_manager.gd").new() as Node3D
+	vfx.name = "VFXManager"
+	stage.add_child(vfx)
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("#25323d")
@@ -27,11 +33,21 @@ func run() -> void:
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-44, -32, 0)
 	stage.add_child(light)
+	var floor := MeshInstance3D.new()
+	var floor_mesh := BoxMesh.new()
+	floor_mesh.size = Vector3(18.0, 0.05, 14.0)
+	floor.mesh = floor_mesh
+	floor.position.y = -0.025
+	var floor_material := StandardMaterial3D.new()
+	floor_material.albedo_color = Color("#29393e")
+	floor_material.roughness = 0.88
+	floor.material_override = floor_material
+	stage.add_child(floor)
 	var camera := Camera3D.new()
 	stage.add_child(camera)
-	camera.position = Vector3(0.0, 3.5, -8.0)
-	camera.look_at(Vector3(0, 1.7, -0.2))
-	camera.fov = 42.0
+	camera.position = Vector3(0.0, 6.5, -8.5)
+	camera.look_at(Vector3(0, 1.2, -0.65))
+	camera.fov = 45.0
 	camera.current = true
 	player = load("res://scripts/player.gd").new() as CharacterBody3D
 	player.name = "Player"
@@ -65,16 +81,41 @@ func run() -> void:
 	for step in range(3):
 		for tick in range(9):
 			await advance_pose(step, "preparation", float(tick) / 8.0)
-		for tick in range(13):
-			var progress := float(tick) / 12.0
+		for tick in range(9):
+			var progress := float(tick) / 8.0
 			await advance_pose(step, "active", progress)
-			if tick in [0, 6, 12]:
-				var pose := "start" if tick == 0 else "middle" if tick == 6 else "end"
-				await save("%02d_coup_%d_%s" % [step * 3 + 1 + tick / 6, step + 1, pose])
+			if tick in [0, 4, 8]:
+				var pose := "start" if tick == 0 else "middle" if tick == 4 else "end"
+				await save("%02d_coup_%d_%s" % [step * 3 + 1 + tick / 4, step + 1, pose])
 		for tick in range(12):
 			await advance_pose(step, "recovery", float(tick) / 11.0)
 		rig.clear_mekatana_pose()
 		bot.clear_mekatana_pose()
+	player.call("reset_combat_state")
+	player.global_position = Vector3(-2.2, 0.0, 0.0)
+	player.set("aim_direction", Vector3.FORWARD)
+	actor.call("reset_combat_state")
+	actor.global_position = Vector3(-2.2, 0.0, -3.15)
+	bot.set_mekatana_direction(Vector3.BACK)
+	bot.update_visual(0.016, Vector3.ZERO, player.global_position, false, false, false)
+	camera.position = Vector3(4.0, 5.0, -7.5)
+	camera.look_at(Vector3(-2.2, 1.0, -2.8))
+	await physics_frame
+	await process_frame
+	player.call("_perform_mekatana_attack")
+	player.call("_update_mekatana_attack", 0.165)
+	rig.update_visual_state(Vector3.ZERO, Vector3.FORWARD, 0.0, 5.0, 0.016)
+	rig.animation_tree.advance(0.016)
+	rig.skeleton.advance(0.016)
+	await rig.skeleton.skeleton_updated
+	await process_frame
+	await save("10_contact")
+	var damage := float(actor.call("get_max_health")) - float(actor.call("get_health"))
+	print("MEKATANA_CONTACT_DAMAGE ", damage)
+	if not is_equal_approx(damage, 130.0):
+		push_error("Contact capture must show a real accepted first strike")
+		quit(1)
+		return
 	print("MEKATANA_CAPTURE_PASS player+bot idle and 9 slash poses")
 	current_scene = null
 	stage.queue_free()
@@ -98,7 +139,7 @@ func advance_pose(step: int, phase: String, progress: float) -> void:
 
 func save(filename: String) -> void:
 	await RenderingServer.frame_post_draw
-	var output := "res://.godot/mekatana-review/" + filename + ".png"
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.godot/mekatana-review"))
+	var output := "res://outputs/katana-polish/render/" + filename + ".png"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://outputs/katana-polish/render"))
 	var result := root.get_texture().get_image().save_png(output)
 	print("CAPTURE ", output, " ", error_string(result))

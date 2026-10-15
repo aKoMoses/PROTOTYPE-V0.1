@@ -18,6 +18,8 @@ func configure(item: String, category: String, aspect: String, level: int = 3) -
 	var build := {"weapon": "blaster", "offensive": "javelin", "defensive": "static_shield", "mobility": "pyro_boots", "passive": "", "upgrades": {}, "evolutions": {}, "synergies": [], "aspects": {category: {"path": aspect, "rank": level}}}
 	build[category] = item
 	player.configure_survival_build(build)
+	# Each aspect is an independent combat fixture, rather than a mid-wave upgrade.
+	player.reset_blaster_state()
 	player.set_gameplay_enabled(true)
 	player.combat_state.reset()
 	player.passive_state.reset()
@@ -39,6 +41,7 @@ func tick(seconds: float) -> void:
 	var remaining := seconds
 	while remaining > 0.0:
 		var delta := minf(remaining, 1.0 / 60.0)
+		player._blaster_heat.tick(delta)
 		if player.is_javelin_charging():
 			player._update_javelin_charge(delta)
 		remaining -= delta

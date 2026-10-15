@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const FULGURO := preload("res://scripts/fulguro_punch.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
 
@@ -7,6 +9,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -73,10 +79,10 @@ func _test_minimum_charge(player: Node, target: Node) -> void:
 	player.call("begin_touch_action", "offensive")
 	player.call("end_touch_action", "offensive")
 	await create_timer(0.20, true, false, false).timeout
-	if absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Charge minimale : frappe partie avant 0,35 s")
 	await _wait_projection_cycle(target)
-	if absf(float(target.call("get_health")) - 800.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Charge minimale : dégâts de base incorrects")
 
 
@@ -84,11 +90,11 @@ func _test_held_charge(player: Node, target: Node) -> void:
 	await _prepare(player, target, Vector3(0.0, 0.0, -2.85))
 	player.call("begin_touch_action", "offensive")
 	await create_timer(0.72, true, false, false).timeout
-	if str(player.get("_fulguro_phase")) != "preparation" or absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if str(player.get("_fulguro_phase")) != "preparation" or absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Charge maintenue : départ automatique avant le plafond")
 	player.call("end_touch_action", "offensive")
 	await _wait_projection_cycle(target)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if damage <= 200.0 or damage >= 400.0:
 		_failures.append("Charge intermédiaire : dégâts non amplifiés (%.1f)" % damage)
 
@@ -98,7 +104,7 @@ func _test_maximum_charge(player: Node, target: Node) -> void:
 	player.call("_begin_fulguro_charge")
 	player.set("_fulguro_elapsed", 3.0)
 	player.call("_update_fulguro_attack", 0.0)
-	if absf(float(target.call("get_health")) - 600.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 400.0)) > 1.0:
 		_failures.append("Charge maximale : portée 4 m ou dégâts 400 incorrects")
 
 
@@ -106,7 +112,7 @@ func _test_free_projection(player: Node, target: Node) -> void:
 	await _prepare(player, target, Vector3(0.0, 0.0, -1.55))
 	player.call("_perform_fulguro_punch")
 	await _wait_projection_cycle(target)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - 200.0) > 1.0:
 		_failures.append("Projection libre : dégâts %.1f au lieu de 200" % damage)
 	if bool(target.call("is_stunned")):
@@ -121,7 +127,7 @@ func _test_wall_crush(player: Node, target: Node, scene: Node) -> void:
 	await process_frame
 	player.call("_perform_fulguro_punch")
 	await _wait_projection_cycle(target)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - 350.0) > 1.0:
 		_failures.append("Écrasement : dégâts %.1f au lieu de 350" % damage)
 	if not bool(target.call("is_stunned")):
@@ -140,7 +146,7 @@ func _test_oblique_wall_crush(player: Node, target: Node, scene: Node) -> void:
 	await process_frame
 	player.call("_perform_fulguro_punch")
 	await _wait_projection_cycle(target)
-	if absf(float(target.call("get_health")) - 650.0) > 1.0 or not bool(target.call("is_stunned")):
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 350.0)) > 1.0 or not bool(target.call("is_stunned")):
 		_failures.append("Écrasement oblique : dégâts ou stun incorrects")
 	wall.queue_free()
 	await process_frame
@@ -182,7 +188,7 @@ func _test_wall_blocks_strike(player: Node, target: Node, scene: Node) -> void:
 	await process_frame
 	player.call("_perform_fulguro_punch")
 	await create_timer(0.48, true, false, false).timeout
-	if absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Mur interposé : cible touchée à travers le mur")
 	wall.queue_free()
 	await process_frame
@@ -206,7 +212,7 @@ func _test_dash_interaction(player: Node, target: Node) -> void:
 	if absf(player.global_position.distance_to(dash_origin) - dash_distance) > 0.30:
 		_failures.append("Dash + frappe : distance dash altérée (z=%.2f)" % player.global_position.z)
 	await _wait_projection_cycle(target)
-	if absf(float(target.call("get_health")) - 800.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 200.0)) > 1.0:
 		_failures.append("Dash + frappe : frappe non résolue depuis la position courante")
 
 
@@ -216,7 +222,7 @@ func _test_hard_control_cancels(player: Node, target: Node) -> void:
 	await create_timer(0.08, true, false, false).timeout
 	player.set("_stasis_remaining", 0.50)
 	await create_timer(0.42, true, false, false).timeout
-	if str(player.get("_fulguro_phase")) != "" or absf(float(target.call("get_health")) - 1000.0) > 0.1:
+	if str(player.get("_fulguro_phase")) != "" or absf(float(target.call("get_health")) - BASE_HEALTH) > 0.1:
 		_failures.append("Contrôle dur : préparation non annulée")
 
 
@@ -288,7 +294,7 @@ func _test_bot_uses_shared_punch(player: Node, target: Node) -> void:
 	var bot: Node = target.get_node("TrainingBot")
 	bot.call("_begin_attack", target, player)
 	await _wait_until_projected(player)
-	if float(player.call("get_health")) > 801.0 or not bool(player.call("is_fulguro_projected")):
+	if float(player.call("get_health")) > (BASE_HEALTH - 199.0) or not bool(player.call("is_fulguro_projected")):
 		_failures.append("Bot : FULGURO PUNCH n’utilise pas les règles partagées")
 	target.call("set_training_bot_enabled", false)
 

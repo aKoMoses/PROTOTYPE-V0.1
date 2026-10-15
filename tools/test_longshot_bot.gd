@@ -62,7 +62,7 @@ func _run() -> void:
 	collision.position.y = 0.85
 	probe.add_child(collision)
 	current_scene.add_child(probe)
-	probe.position = Vector3(0, 0, -20)
+	probe.position = Vector3(0, 0, -50)
 	await physics_frame
 	_check(equipment.get("profile") == "longshot", "bot accepts Longshot loadout")
 	_check(float(controller.call("_ideal_combat_range")) >= 16.0, "bot chooses a distance where bonus can build")
@@ -100,11 +100,16 @@ func _run() -> void:
 			_check(state.shots_fired == emitted, "switch during flight retains cycle and active projectile")
 		# Moving the shooter after launch cannot alter the projectile's distance.
 		body.position = Vector3(12, 0, 0)
-		await create_timer(0.5).timeout
+		await create_timer(50.0 / speed + 0.10).timeout
 		_check(probe.hit_count == before_hits + 1, "bot projectile damages exactly once")
 		if not impacts.is_empty():
 			var expected: float = STATE.damage_at_distance(float(impacts.back().distance), enhanced)
 			_check(is_equal_approx(probe.damage_taken - before_damage, expected), "bot damage follows travelled distance after shooter moves")
+		# An unlimited piercing shot remains live beyond this fixture's only target.
+		# Remove it before selecting the next emitted projectile by node name.
+		if is_instance_valid(projectile):
+			projectile.queue_free()
+		await process_frame
 	_check(enhanced_ranks == [3, 6, 9, 12, 15], "bot execution follows two successful hits")
 	_check(is_equal_approx(float(equipment.call("get_speed_multiplier")), 1.2), "bot receives speed after a successful hit")
 	state.tick(0.71)

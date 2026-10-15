@@ -1,9 +1,15 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -39,8 +45,8 @@ func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:
 	_prepare(player, target, Vector3(0.0, 0.0, -2.0))
 	player.call("_perform_javelin")
 	await _wait_for_module(player)
-	if absf(float(target.call("get_health")) - 860.0) > 1.0:
-		_failures.append("Javelin : dégâts %.2f au lieu de 140" % (1000.0 - float(target.call("get_health"))))
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 180.0)) > 1.0:
+		_failures.append("Javelin : dégâts %.2f au lieu de 180" % (BASE_HEALTH - float(target.call("get_health"))))
 	if not bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin : marque absente")
 	if float(player.call("get_javelin_recast_fraction")) <= 0.0:
@@ -49,7 +55,7 @@ func _test_javelin_mark_and_recast(player: Node, target: Node) -> void:
 	var position_before: Vector3 = player.global_position
 	player.call("_perform_javelin")
 	await process_frame
-	if absf(float(target.call("get_health")) - 860.0) > 1.0:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - 180.0)) > 1.0:
 		_failures.append("Javelin recast : dégâts additionnels")
 	if bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin recast : marque non consommée")
@@ -70,7 +76,7 @@ func _test_javelin_live_collision(player: Node, target: Node) -> void:
 		return
 	target.global_position = Vector3(4.0, 0.0, -5.0)
 	await _wait_for_module(player)
-	if float(target.call("get_health")) < 999.95 or bool(target.call("has_javelin_mark")):
+	if float(target.call("get_health")) < (BASE_HEALTH - 0.05) or bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin : touche ou marque une cible qui a esquivé")
 	_prepare(player, target, Vector3(4.0, 0.0, -5.0))
 	player.call("_perform_javelin")
@@ -80,7 +86,7 @@ func _test_javelin_live_collision(player: Node, target: Node) -> void:
 		return
 	target.global_position = Vector3(projectile.global_position.x, 0.0, -5.0)
 	await _wait_for_module(player)
-	if float(target.call("get_health")) >= 999.95 or not bool(target.call("has_javelin_mark")):
+	if float(target.call("get_health")) >= (BASE_HEALTH - 0.05) or not bool(target.call("has_javelin_mark")):
 		_failures.append("Javelin : ignore une cible entrée dans sa trajectoire")
 
 

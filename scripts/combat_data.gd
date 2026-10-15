@@ -5,13 +5,15 @@ extends RefCounted
 ## Runtime values belong to CombatState instances; these definitions are safe to
 ## reuse for the player, the bot and training mannequins.
 
-const MAX_HEALTH := 1000.0
+## Balance pass: keep the strongest attacks and raise the weaker options.
+## +50% chassis health leaves room to react to charged shots and module bursts.
+const MAX_HEALTH := 1500.0
 const MOVE_SPEED := 5.0
 const DEFAULT_ROBOT := "polyvalent"
 const ROBOT_DEFINITIONS := {
-	"agile": {"max_health": 800.0, "move_speed": 6.0},
+	"agile": {"max_health": MAX_HEALTH * 0.8, "move_speed": 6.0},
 	"polyvalent": {"max_health": MAX_HEALTH, "move_speed": MOVE_SPEED},
-	"puissant": {"max_health": 1200.0, "move_speed": 4.0},
+	"puissant": {"max_health": MAX_HEALTH * 1.2, "move_speed": 4.0},
 }
 ## Presentation-only multiplier shared by the player and every bot visual root.
 ## Keep gameplay roots, collisions and camera settings outside this scale.
@@ -33,22 +35,22 @@ const EFFECT_DEFINITIONS := {
 	EFFECT_SPOTTED: {"display_name": "SPOTTED", "color": Color("#9ffaff")},
 }
 
-# V0.1 starting definitions. Weapon values stay data-driven so future modules
+# Shared balance definitions. Weapon values stay data-driven so future modules
 # can modify them without rewriting the combat controller.
 const WEAPON_DEFINITIONS := {
 	"mekatana": {
 		"counter_trigger": true,
 		"display_name": "Mekatana",
-		"damage": 90.0,
-		"base_damage": [90.0, 100.0, 150.0],
+		"damage": 130.0,
+		"base_damage": [130.0, 140.0, 210.0],
 		"preparation": [0.12, 0.14, 0.18],
-		"active": [0.10, 0.10, 0.13],
-		"recovery": [0.20, 0.23, 0.35],
-		"dash_distance": [1.30, 1.90, 2.60],
-		"melee_range": 2.0,
-		"cleave_width": [2.3, 2.3, 2.5],
+		"active": [0.13, 0.14, 0.16],
+		"recovery": [0.17, 0.19, 0.32],
+		"dash_distance": [1.95, 2.85, 3.90],
+		"melee_range": 2.15,
+		"cleave_width": [2.6, 2.9, 2.8],
 		"cleave_height": 1.8,
-		"max_range": 4.6,
+		"max_range": 6.05,
 		"combo_window": 2.5,
 		"second_bonus": 1.20,
 		"third_bonus": 1.25,
@@ -57,14 +59,15 @@ const WEAPON_DEFINITIONS := {
 	"longshot": {
 		"counter_trigger": true,
 		"display_name": "Longshot",
-		"damage": 90.0,
+		"damage": 120.0,
 		"distance_start": 6.0,
 		"distance_max": 18.0,
 		"distance_multiplier_max": 2.25,
-		"max_range": 32.0,
-		"cooldown": 0.85,
+		"max_range": INF,
+		"aim_preview_range": 128.0,
+		"cooldown": 1.20,
 		"attack_preparation": 0.08,
-		"projectile_speed": 120.0,
+		"projectile_speed": 105.0,
 		"projectile_radius": 0.09,
 		"enhanced_size_multiplier": 1.50,
 		"enhanced_speed_multiplier": 1.25,
@@ -75,12 +78,17 @@ const WEAPON_DEFINITIONS := {
 	"blaster": {
 		"counter_trigger": true,
 		"display_name": "Blaster",
-		"damage": 100.0,
-		"max_damage": 360.0,
-		"cooldown": 0.20,
+		"damage": 70.0,
+		"max_damage": 240.0,
+		"cooldown": 0.30,
 		"charge_time": 0.45,
-		"max_range": 24.0,
-		"projectile_speed": 57.6,
+		"heat_capacity": 100.0,
+		"heat_per_shot": 20.0,
+		"heat_per_charged_shot": 35.0,
+		"heat_cooling_delay": 0.80,
+		"heat_cooling_per_second": 50.0,
+		"max_range": 16.0,
+		"projectile_speed": 40.0,
 		"charged_speed_multiplier": 2.0,
 		"charged_size_multiplier": 3.2,
 		"charge_slow_multiplier": 1.0,
@@ -90,13 +98,13 @@ const WEAPON_DEFINITIONS := {
 		"counter_trigger": true,
 		"display_name": "Shotgun",
 		"pellets_per_shot": 6,
-		"pellet_damage": 28.0,
+		"pellet_damage": 60.0,
 		"pellet_angles": [-14.0, -8.0, -3.0, 3.0, 8.0, 14.0],
 		"hitbox_radius": 0.78,
 		"pellet_speed": 22.0,
 		"max_range": 7.0,
 		"falloff_start": 3.0,
-		"minimum_damage": 8.0,
+		"minimum_damage": 16.0,
 		"attack_preparation": 0.10,
 		"attack_recovery": 0.60,
 		"magazine_size": 3,
@@ -107,7 +115,7 @@ const WEAPON_DEFINITIONS := {
 const MODULE_DEFINITIONS := {
 	"rocket_basket": {
 		"category": "offensive", "preparation": 0.30, "cast_move_multiplier": 0.85,
-		"projectiles": 5, "damage": 35.0, "health": 40.0,
+		"projectiles": 5, "damage": 50.0, "health": 40.0,
 		"speed": 10.0, "turn_rate": 12.0, "collision_radius": 0.18,
 		"launch_half_angle": 30.0, "homing_delay": 0.28, "homing_ramp": 0.18,
 		"slow_percent": 7.0, "slow_duration": 3.0,
@@ -129,8 +137,8 @@ const MODULE_DEFINITIONS := {
 		"speed": 20.0,
 		"charged_speed": 36.0,
 		"collision_radius": 0.12,
-		"damage": 140.0,
-		"charged_damage": 280.0,
+		"damage": 180.0,
+		"charged_damage": 360.0,
 		"mark_duration": 2.5,
 		"charged_mark_duration": 5.0,
 		"teleport_distance": 1.4,
@@ -157,8 +165,7 @@ const MODULE_DEFINITIONS := {
 		"recovery": 0.20,
 		"max_knockback_distance": 4.0,
 		"max_knockback_duration": 0.35,
-		# Prototype 0 uses 1 000 PV. These fixed values preserve the requested
-		# 20/15 proportions from a 100-PV reference without percentage damage.
+		# Fixed burst reference: the health increase does not scale this damage.
 		"damage": 200.0,
 		"wall_damage": 150.0,
 		"wall_stun": 1.0,
@@ -175,12 +182,10 @@ const MODULE_DEFINITIONS := {
 		"outbound_speed": 13.0,
 		"return_pause": 0.08,
 		"return_speed": 18.0,
-		# Prototype 0 uses 1 000 PV. These values preserve the requested
-		# 16 + 10 damage split from a 100-PV reference.
-		"outbound_damage": 160.0,
+		"outbound_damage": 200.0,
 		"outbound_slow_percent": 20.0,
 		"outbound_slow_duration": 0.8,
-		"return_damage": 100.0,
+		"return_damage": 140.0,
 		"return_slow_percent": 25.0,
 		"return_slow_duration": 1.1,
 		"pull_distance": 1.5,
@@ -212,7 +217,7 @@ const MODULE_DEFINITIONS := {
 		"activation_range": 20.0,
 		"mark_speed": 65.0,
 		"minimum_travel_time": 0.12,
-		"shield_amount": 150.0,
+		"shield_amount": MAX_HEALTH * 0.15,
 		"shield_duration": 3.0,
 		"duration": 3.0,
 		"speed_multiplier": 1.35,
@@ -226,7 +231,7 @@ const MODULE_DEFINITIONS := {
 		"damage": 120.0,
 		"burn_duration": BURN_DURATION,
 		"burn_damage_per_second": BURN_DAMAGE_PER_SECOND,
-		"shield_amount": 150.0,
+		"shield_amount": MAX_HEALTH * 0.15,
 		"shield_duration": 3.0,
 		"cooldown": 10.0,
 	},

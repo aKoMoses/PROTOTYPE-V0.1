@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8ioqwyeg3eye"
-path="res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.ctex"
+path.s3tc="res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.s3tc.ctex"
+path.etc2="res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3bec96589899f28f00bb392b8fe76433"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://art/modules/rocket_basket_rocket_ivory_roughness.png"
-dest_files=["res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.ctex"]
+dest_files=["res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.s3tc.ctex", "res://.godot/imported/rocket_basket_rocket_ivory_roughness.png-8bb6f9c9cc43eb7c412609578912c56c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

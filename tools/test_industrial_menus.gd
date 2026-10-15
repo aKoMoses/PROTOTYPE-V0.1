@@ -188,6 +188,7 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 func _click(point: Vector2) -> void:
+	await _wait_navigation()
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.position = point
@@ -197,3 +198,9 @@ func _click(point: Vector2) -> void:
 	event.pressed = false
 	root.push_input(event)
 	await process_frame
+	await _wait_navigation()
+
+func _wait_navigation() -> void:
+	var deadline := Time.get_ticks_msec() + 10000
+	while root.get_node("MenuTransition").call("is_busy") and Time.get_ticks_msec() < deadline:
+		await process_frame

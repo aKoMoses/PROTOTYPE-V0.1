@@ -23,12 +23,14 @@ var _joystick_vector := Vector2.ZERO
 var _aim_vector := Vector2.ZERO
 var _module_aim_vector := Vector2.ZERO
 var _fire_feedback_remaining := 0.0
+var _cancel_feedback_remaining := 0.0
 var _inputs_suspended := false
 var _hud_layout: Dictionary = {}
 var _reserved_rects: Array[Rect2] = []
 var _editor_test := false
 var _editor_editing := false
 var _module_visual := MODULE_VISUAL.new()
+var _cancel_canvas: Control
 
 
 func _ready() -> void:
@@ -37,6 +39,18 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested()
 	_hud_layout = HUD_LAYOUT.load_active()
+	# The minimap uses layer 2. Only the transient cancel target goes above it;
+	# the configurable joysticks and module buttons keep their existing order.
+	var cancel_layer := CanvasLayer.new()
+	cancel_layer.name = "SpellCancelOverlay"
+	cancel_layer.layer = 3
+	add_child(cancel_layer)
+	_cancel_canvas = Control.new()
+	_cancel_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cancel_layer.add_child(_cancel_canvas)
+	_cancel_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_cancel_canvas.draw.connect(func() -> void: _draw_cancel_zone(_cancel_canvas, _layout_scale()))
+	_cancel_canvas.visible = is_visible_in_tree()
 	queue_redraw()
 
 
@@ -62,6 +76,8 @@ func _notification(what: int) -> void:
 		reset_inputs()
 	elif what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
 		reset_inputs()
+		if _cancel_canvas != null:
+			_cancel_canvas.hide()
 
 
 func _exit_tree() -> void:
@@ -73,6 +89,12 @@ func _process(delta: float) -> void:
 	if suspended and not _inputs_suspended:
 		reset_inputs()
 	_inputs_suspended = suspended
+	var desktop_action := _desktop_cancel_action()
+	if _cancel_canvas != null:
+		_cancel_canvas.visible = not _editor_editing and _can_accept_gameplay_inputs() and (not suspended or not desktop_action.is_empty() or _cancel_feedback_remaining > 0.0)
+	_cancel_feedback_remaining = maxf(0.0, _cancel_feedback_remaining - delta)
+	if _cancel_canvas != null:
+		_cancel_canvas.queue_redraw()
 	if not visible:
 		_module_visual.reset()
 		return
@@ -82,7 +104,11 @@ func _process(delta: float) -> void:
 
 
 func _can_accept_inputs() -> bool:
-	if not is_visible_in_tree() or get_tree().paused or player == null or not is_instance_valid(player):
+	return is_visible_in_tree() and _can_accept_gameplay_inputs()
+
+
+func _can_accept_gameplay_inputs() -> bool:
+	if get_tree().paused or player == null or not is_instance_valid(player):
 		return false
 	if player.has_method("is_gameplay_enabled") and not bool(player.call("is_gameplay_enabled")):
 		return false
@@ -203,6 +229,7 @@ func reset_inputs() -> void:
 	_aim_vector = Vector2.ZERO
 	_module_aim_vector = Vector2.ZERO
 	_fire_feedback_remaining = 0.0
+	_cancel_feedback_remaining = 0.0
 	if player != null and is_instance_valid(player):
 		if player.has_method("clear_touch_inputs"):
 			player.call("clear_touch_inputs")
@@ -238,6 +265,86 @@ func _action_centers() -> Dictionary:
 
 func _action_radius(action: String) -> float:
 	return _widget_radius(action + "_button")
+
+
+func _can_cancel_action(action: String) -> bool:
+	return not action.is_empty() and player != null and is_instance_valid(player) and player.has_method("can_cancel_aimed_action") and bool(player.call("can_cancel_aimed_action", action))
+
+
+func _desktop_cancel_action() -> String:
+	if _editor_editing or DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or not _can_accept_gameplay_inputs() or not player.has_method("can_cancel_aimed_action"):
+		return ""
+	for action in ["offensive", "mobility"]:
+		if bool(player.call("can_cancel_aimed_action", action, false)):
+			return action
+	return ""
+
+
+func _try_cancel_desktop_at(position: Vector2) -> bool:
+	var action := _desktop_cancel_action()
+	if action.is_empty():
+		return false
+	var rect := _cancel_zone_rect()
+	if position.distance_to(rect.get_center()) > rect.size.x * 0.5:
+		return false
+	player.call("cancel_aimed_action", action, false)
+	_cancel_feedback_remaining = 0.35
+	if _cancel_canvas != null:
+		_cancel_canvas.queue_redraw()
+	return true
+
+
+func _has_cancellable_action() -> bool:
+	for action in _action_touches.values():
+		if _can_cancel_action(str(action)):
+			return true
+	return false
+
+
+func _cancel_zone_for_safe_rect(safe: Rect2) -> Rect2:
+	var scale := _layout_scale_for_rect(safe)
+	var extent := Vector2.ONE * minf(112.0 * scale, minf(safe.size.x, safe.size.y))
+	var margin := 16.0 * scale
+	return Rect2(Vector2(safe.end.x - extent.x - margin, safe.position.y + 100.0 * scale), extent)
+
+
+func _cancel_zone_rect() -> Rect2:
+	var safe := _safe_rect()
+	var rect := _cancel_zone_for_safe_rect(safe)
+	var obstacles: Array[Rect2] = _reserved_rects.duplicate()
+	if _widget_visible("weapon_button") and not bool(player.get("survival_mode")):
+		obstacles.append(get_widget_rect("weapon_button"))
+	# Keep the transient target below Pause/Menu and a relocated weapon button.
+	for attempt in range(obstacles.size() + 1):
+		var previous_y := rect.position.y
+		for obstacle in obstacles:
+			if rect.intersects(obstacle):
+				rect.position.y = obstacle.end.y + 8.0 * _layout_scale()
+		if rect.position.y == previous_y:
+			break
+	rect.position.y = minf(rect.position.y, safe.end.y - rect.size.y)
+	return rect
+
+
+func _draw_cancel_zone(canvas: Control, scale: float) -> void:
+	if not _has_cancellable_action() and _desktop_cancel_action().is_empty() and _cancel_feedback_remaining <= 0.0:
+		return
+	var rect := _cancel_zone_rect()
+	var center := rect.get_center()
+	var radius := rect.size.x * 0.5
+	var feedback := _cancel_feedback_remaining > 0.0
+	var color := Color("#ffb19d") if feedback else Color("#ff7968")
+	canvas.draw_circle(center, radius, Color(0.20, 0.045, 0.035, 0.86))
+	canvas.draw_arc(center, radius, 0.0, TAU, 48, color, 3.0 * scale, true)
+	var cross_center := center - Vector2(0.0, 10.0 * scale)
+	var cross := 10.0 * scale
+	canvas.draw_line(cross_center - Vector2(cross, cross), cross_center + Vector2(cross, cross), color, 4.0 * scale, true)
+	canvas.draw_line(cross_center + Vector2(-cross, cross), cross_center + Vector2(cross, -cross), color, 4.0 * scale, true)
+	var label := "ANNULÉ" if feedback else "ANNULER"
+	var font := ThemeDB.fallback_font
+	var font_size := int(14.0 * scale)
+	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	canvas.draw_string(font, center + Vector2(-width * 0.5, 30.0 * scale), label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
 func _draw() -> void:
@@ -340,6 +447,16 @@ func _draw_charge_feedback(center: Vector2, radius: float, scale: float) -> void
 			state = str(player.call("get_mobile_blaster_input_state"))
 		if player.has_method("get_blaster_charge_ratio"):
 			progress = clampf(float(player.call("get_blaster_charge_ratio")), 0.0, 1.0)
+		if player.has_method("get_blaster_heat_fraction") and str(player.call("get_weapon_id")) == "blaster":
+			var heat := clampf(float(player.call("get_blaster_heat_fraction")), 0.0, 1.0)
+			var heat_color := Color("#ff7960") if state == "overheated" else Color("#ffc069")
+			draw_arc(center, radius + 17.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * heat, 56, _with_opacity(heat_color, "aim"), 4.0 * scale, true)
+	if state == "overheated":
+		var label := "SURCHAUFFE"
+		var font := ThemeDB.fallback_font
+		var font_size := int(13 * scale)
+		var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		draw_string(font, center + Vector2(-width * 0.5, -radius - 25.0 * scale), label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, _with_opacity(Color("#ff7960"), "aim"))
 	if state == "charging":
 		draw_arc(center, radius + 8.0 * scale, -PI * 0.5, -PI * 0.5 + TAU * progress, 56, _with_opacity(Color(0.34, 0.91, 1.0, 0.94), "aim"), 7.0 * scale, true)
 	elif state == "ready":
@@ -365,6 +482,10 @@ func _draw_action(center: Vector2, radius: float, color: Color, label: String, i
 
 
 func _input(event: InputEvent) -> void:
+	# Desktop aiming uses keyboard holds while the touch joysticks are hidden.
+	if event is InputEventMouseMotion and event.device != InputEvent.DEVICE_ID_EMULATION and _try_cancel_desktop_at(event.position):
+		get_viewport().set_input_as_handled()
+		return
 	if _editor_editing or not _can_accept_inputs():
 		return
 	var handled := false
@@ -374,12 +495,22 @@ func _input(event: InputEvent) -> void:
 			reset_inputs()
 			handled = true
 		else:
-			handled = _begin_touch(touch.index, touch.position) if touch.pressed else _end_touch(touch.index)
+			if touch.pressed:
+				handled = _begin_touch(touch.index, touch.position)
+			else:
+				if _action_touches.has(touch.index):
+					_update_touch(touch.index, touch.position)
+				handled = _end_touch(touch.index)
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
 		handled = _update_touch(drag.index, drag.position)
 	elif _editor_test and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION and not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse", false)):
-		handled = _begin_touch(-2, event.position) if event.pressed else _end_touch(-2)
+		if event.pressed:
+			handled = _begin_touch(-2, event.position)
+		else:
+			if _action_touches.has(-2):
+				_update_touch(-2, event.position)
+			handled = _end_touch(-2)
 	elif _editor_test and event is InputEventMouseMotion and event.device != InputEvent.DEVICE_ID_EMULATION and not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse", false)):
 		handled = _update_touch(-2, event.position)
 	if handled:
@@ -421,6 +552,8 @@ func _begin_touch(index: int, position: Vector2) -> bool:
 		# Keep the rejected finger owned by this button so it cannot migrate to a
 		# joystick, but never forward its release to an already-running cast.
 		_action_touches[index] = action if _press_action(action) else ""
+		if not str(_action_touches[index]).is_empty():
+			_cancel_feedback_remaining = 0.0
 		if _action_touches[index] == "offensive":
 			_module_aim_vector = Vector2.ZERO
 		return true
@@ -434,6 +567,19 @@ func _update_touch(index: int, position: Vector2) -> bool:
 	if index == _aim_touch:
 		_update_aim(position)
 		return true
+	var action := str(_action_touches.get(index, ""))
+	if _can_cancel_action(action):
+		var cancel_rect := _cancel_zone_rect()
+		if position.distance_to(cancel_rect.get_center()) <= cancel_rect.size.x * 0.5:
+			player.call("cancel_aimed_action", action)
+			# Consume this finger until it lifts: leaving the zone cannot revive the
+			# cast, and the release must never become a shot or a fresh activation.
+			_action_touches[index] = ""
+			if action == "offensive":
+				_module_aim_vector = Vector2.ZERO
+			_cancel_feedback_remaining = 0.35
+			queue_redraw()
+			return true
 	if str(_action_touches.get(index, "")) == "offensive" and player.has_method("is_pelto_preparing") and bool(player.call("is_pelto_preparing")):
 		_module_aim_vector = ((position - _widget_center("offensive_button")) / (_action_radius("offensive") * 1.55)).limit_length(1.0)
 		player.call("set_pelto_touch_aim", _module_aim_vector)

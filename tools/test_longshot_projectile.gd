@@ -28,6 +28,7 @@ func _run() -> void:
 	await _test_overlap_and_muzzle_guard()
 	await _test_multiple_colliders()
 	await _test_range_and_shooter_movement()
+	await _test_unlimited_range()
 	await _test_magnetic_area()
 	await _test_execution_piercing()
 	for failure in _failures:
@@ -72,7 +73,7 @@ func _test_state() -> void:
 	_check(is_equal_approx(STATE.distance_multiplier(maximum + 100.0), 2.25), "distance bonus remains capped")
 	_check(is_equal_approx(STATE.damage_at_distance(maximum, true), base * 4.05), "enhanced maximum combines both multipliers")
 	_check(is_equal_approx(STATE.damage_at_distance(maximum, true, definition, 2.0), base * 8.1), "power scales base once")
-	_check(LOADOUT.stat_line("longshot").begins_with("90–203 dégâts"), "Forge stat line displays current distance damage")
+	_check(LOADOUT.stat_line("longshot").begins_with("120–270 dégâts"), "Forge stat line displays current distance damage")
 	var description := LOADOUT.category_description("longshot")
 	_check(description.contains("6 à 18 m") and description.contains("+125 %") and description.contains("projectile"), "Forge explains travelled distance and increased bonus")
 	_check(absf(STATE.distance_multiplier(start + 0.001) - STATE.distance_multiplier(start)) < 0.001, "progression has no damage step")
@@ -117,6 +118,22 @@ func _test_execution_piercing() -> void:
 	_check(blocked_contacts.size() == 1, "a rejected damage impact stops execution before later victims")
 	await process_frame
 	await _remove(actors + [wall])
+
+
+func _test_unlimited_range() -> void:
+	for enhanced in [false, true]:
+		var shot := _shot(Vector3(0, 1, 0), 105.0, INF, 0.135 if enhanced else 0.09)
+		shot.set("_piercing", enhanced)
+		var result := _record(shot)
+		shot._physics_process(2.0)
+		_check(int(result.count) == 0 and shot.global_position.is_equal_approx(Vector3(0, 1, -210)), "unlimited shot remains live beyond gameplay and preview distances")
+		_check(not shot.has_meta("ai_projectile_endpoint") and Vector3(shot.get_meta("ai_projectile_velocity")).is_finite(), "unlimited motion contains no infinite coordinates or artificial endpoint")
+		var wall := _box(Vector3(0, 1, -240), Vector3(3, 2, 0.012))
+		await _settle()
+		shot._physics_process(1.0)
+		_check(int(result.count) == 1 and result.hit.get("collider") == wall, "normal and execution unlimited shots still stop at a distant thin wall")
+		_check(absf(float(result.distance) - 239.994) < 0.01, "unlimited impact keeps actual travelled distance")
+		await _remove([wall])
 
 
 func _test_first_collision() -> void:

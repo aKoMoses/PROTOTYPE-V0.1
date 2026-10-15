@@ -482,7 +482,10 @@ func _build_ui() -> void:
 	options_column.add_child(HSeparator.new())
 	options_column.add_child(_button("SOIGNER  F9", _heal_player, "warm", 48))
 	options_column.add_child(_button("50 % PV  F10", _half_health, "warm", 48))
-	options_column.add_child(_button("DÉFIS GUIDÉS", func() -> void: _challenges.open(), "primary", 44))
+	options_column.add_child(_button("DÉFIS GUIDÉS", func() -> void:
+		MenuTransition.present("Défis guidés…")
+		_challenges.open()
+	, "primary", 44))
 	var keyboard_hint := _label("Flèches + Entrée : naviguer.\nTab ou Échap : reprendre.", 14)
 	keyboard_hint.add_theme_color_override("font_color", Color("#aebfc1"))
 	options_column.add_child(keyboard_hint)
@@ -860,6 +863,7 @@ func _setup_hud_editor() -> void:
 func _open_hud_editor() -> void:
 	if _hud_editor == null or _hud_editor.visible:
 		return
+	MenuTransition.present("Personnalisation de l’interface…")
 	_menu.visible = false
 	_menu_dim.visible = false
 	_spell_bar.visible = true
@@ -869,6 +873,7 @@ func _open_hud_editor() -> void:
 	_hud_editor.begin(_hud_controller)
 
 func _on_hud_editor_closed() -> void:
+	MenuTransition.present("Menu d’entraînement…")
 	_vitals.call("set_example", false)
 	_menu.visible = true
 	_menu_dim.visible = true
@@ -973,13 +978,15 @@ func _toggle_menu() -> void:
 	if not _menu.visible:
 		_update_spell_bar()
 	_update_status()
+	if _menu.visible:
+		MenuTransition.present("Menu d’entraînement…")
 
 func _return_to_main_menu() -> void:
 	if _challenges != null:
 		_challenges.stop()
 	_set_combat_sound_state(false, true)
 	get_tree().paused = false
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	MenuTransition.change_scene("res://scenes/main.tscn", "Retour au garage…" if get_tree().has_meta("garage_return_draft") else "Retour au menu principal…")
 
 func _set_combat_sound_state(paused: bool, clear_voices: bool = false) -> void:
 	var sfx := get_node_or_null("/root/GameSfx")

@@ -455,7 +455,29 @@ func get_visual_aim_point() -> Vector3:
 	return Vector3.FORWARD * 4.0 + Vector3.UP * 0.92
 
 
+var _physics_average_ms := 0.0
+var _physics_peak_ms := 0.0
+var _physics_cost_clock := 0.0
+
+func get_runtime_costs() -> Dictionary:
+	if not is_physics_processing():
+		return {"average_ms": 0.0, "peak_ms": 0.0}
+	return {"average_ms": _physics_average_ms, "peak_ms": _physics_peak_ms}
+
+
 func _physics_process(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_tick_bot(delta)
+	var cost := float(Time.get_ticks_usec() - started) / 1000.0
+	_physics_average_ms = lerpf(_physics_average_ms, cost, minf(1.0, delta * 3.0))
+	_physics_cost_clock += delta
+	if _physics_cost_clock >= 1.0:
+		_physics_cost_clock = 0.0
+		_physics_peak_ms = 0.0
+	_physics_peak_ms = maxf(_physics_peak_ms, cost)
+
+
+func _tick_bot(delta: float) -> void:
 	if not enabled or delta <= 0.0:
 		return
 	var bot_body := get_parent() as Node3D
@@ -1064,6 +1086,10 @@ func _select_tactical_destination(bot_body: Node3D, player: Node3D) -> void:
 	_has_tactical_destination = false
 	var best_score := INF
 	for index in range(mini(4, ranked.size())):
+		# Detour penalties are non-negative and this list is sorted. Remaining
+		# candidates cannot improve a winner already below their base score.
+		if float(ranked[index].score) >= best_score:
+			break
 		var candidate: Vector3 = ranked[index].position
 		var route: float = _navigation.route_distance(bot_body, candidate, _elapsed, duel_arena_limit)
 		if route == INF:
@@ -1112,12 +1138,15 @@ func _select_shelter_bush(bot_body: Node3D, for_ambush: bool) -> Dictionary:
 		for offset_value in offsets:
 			var point := center + Vector3(offset_value)
 			point.y = 0.0
+			var base_score := float(candidates[index].score) + _candidate_crowd_penalty(bot_body, point)
+			if base_score + _route_score_lower_bound(bot_body, point) * 0.32 >= best_score:
+				continue
 			if not BUSH_STATE.contains(bush, point) or not _navigation.is_destination_clear(bot_body, point, duel_arena_limit):
 				continue
 			var route: float = _navigation.route_distance(bot_body, point, _elapsed, duel_arena_limit)
 			if route == INF or route > 13.0:
 				continue
-			var score := float(candidates[index].score) + route * 0.32 + _candidate_crowd_penalty(bot_body, point)
+			var score := base_score + route * 0.32
 			if score < best_score:
 				best_score = score
 				best = {"bush": bush, "position": point}
@@ -1212,6 +1241,15 @@ func _candidate_crowd_penalty(bot_body: Node3D, candidate: Vector3) -> float:
 	return penalty
 
 
+func _route_score_lower_bound(bot_body: Node3D, destination: Vector3) -> float:
+	# Route scores reuse origin/goal cells. Each old endpoint may differ by
+	# one cell diagonal, so account for both before pruning a cached score.
+	# Flatten Y exactly as navigation does, including on raised platforms.
+	var origin := Vector2(bot_body.global_position.x, bot_body.global_position.z)
+	var goal := Vector2(destination.x, destination.z)
+	return maxf(0.0, origin.distance_to(goal) - 2.83 * BOT_NAVIGATION.CELL_SIZE)
+
+
 func _update_diagnostic_label() -> void:
 	if _diagnostic_label == null or not diagnostics_enabled:
 		return
@@ -1261,6 +1299,16 @@ func _update_repair_target(bot_body: Node3D, player: Node3D) -> bool:
 		var retry_at := float(_repair_retry_after.get(candidate.get_instance_id(), 0.0))
 		if _elapsed < retry_at:
 			continue
+		var player_distance := _last_observed_position.distance_to(candidate.global_position) if _has_last_observed_position else 20.0
+		var danger := maxf(0.0, 9.0 - player_distance) * 1.25
+		if _has_last_observed_position and _position_exposed_from_known(bot_body, _last_observed_position, candidate.global_position):
+			danger += 3.5
+		var danger_cost := danger * (0.55 if ratio < 0.28 else 1.0)
+		var retention_bonus := 2.0 if candidate == _repair_target else 0.0
+		# Waiting can only add cost. Avoid a route search when even the lower
+		# bound cannot improve the already evaluated kit, with the same rules.
+		if _route_score_lower_bound(bot_body, candidate.global_position) + danger_cost - retention_bonus >= best_score:
+			continue
 		var travel_distance: float = _navigation.route_distance(bot_body, candidate.global_position, _elapsed, SURVIVAL_ARENA_LIMIT if survival_role != "" else duel_arena_limit)
 		if travel_distance == INF:
 			continue
@@ -1271,17 +1319,11 @@ func _update_repair_target(bot_body: Node3D, player: Node3D) -> bool:
 		var waiting_time := maxf(0.0, respawn - arrival)
 		if returning and (waiting_time > 2.0 or respawn > 6.0):
 			continue
-		var player_distance := _last_observed_position.distance_to(candidate.global_position) if _has_last_observed_position else 20.0
 		# Prefer short routes, but penalise pads controlled by the opponent or
 		# exposed to a direct firing lane. The bot can still choose a dangerous
 		# pad when it is the only viable repair source.
-		var danger := maxf(0.0, 9.0 - player_distance) * 1.25
-		if _has_last_observed_position and _position_exposed_from_known(bot_body, _last_observed_position, candidate.global_position):
-			danger += 3.5
 		# With critical health the actual heal matters more than an ideal firing lane.
-		var score := travel_distance + danger * (0.55 if ratio < 0.28 else 1.0) + waiting_time * REPAIR_MOVE_SPEED
-		if candidate == _repair_target:
-			score -= 2.0 # Keep a planned route unless another objective is clearly better.
+		var score := travel_distance + danger_cost + waiting_time * REPAIR_MOVE_SPEED - retention_bonus
 		if score < best_score:
 			best_score = score
 			best = candidate

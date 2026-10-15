@@ -4,6 +4,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -55,7 +59,7 @@ func _test_magnetic_field(player: Node, target: Node, scene: Node) -> void:
 	player.call("set_weapon", "shotgun")
 	player.call("_perform_shotgun_attack")
 	await create_timer(0.70, true, false, false).timeout
-	if float(target.call("get_health")) >= 999.0:
+	if float(target.call("get_health")) >= float(target.call("get_max_health")) - 1.0:
 		_failures.append("Magnetic Field : les tirs du propriétaire ne traversent pas")
 	var sight_exclusions: Array[RID] = [target.get_rid()]
 	var target_visible: bool = player.call("_solid_path_clear", player.global_position, target.global_position, sight_exclusions)

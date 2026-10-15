@@ -15,6 +15,7 @@ const EQUIPMENT_CARD := preload("res://scripts/equipment_card.gd")
 const EQUIPMENT_ICONS := preload("res://scripts/equipment_icons.gd")
 const ROBOT_FORGE_PREVIEW := preload("res://scripts/robot_forge_preview.gd")
 const FORGE_GARAGE := preload("res://scripts/forge_garage.gd")
+const MENU_PERFORMANCE := preload("res://scripts/menu_performance.gd")
 const EQUIPMENT_FORGE_PREVIEW := preload("res://scripts/equipment_forge_preview.gd")
 const COOLDOWN_RING := preload("res://scripts/cooldown_ring.gd")
 const NETWORK_LOBBY := preload("res://scripts/network_lobby.gd")
@@ -25,6 +26,7 @@ const TRIAL_DUMMY_SCRIPT := preload("res://scripts/training_dummy.gd")
 const HUD_VITALS_SCRIPT := preload("res://scripts/hud_vitals.gd")
 const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
+var _navigation_ready := false
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
 const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
@@ -98,6 +100,7 @@ var _menu_panel: Control
 var _menu_settings_button: Button
 var _equipment_panel: Control
 var _forge_garage: Control
+var _menu_performance: MENU_PERFORMANCE
 var _title_label: Label
 var _status_label: Label
 var _equipment_content: HBoxContainer
@@ -217,6 +220,12 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 	_combat_feedback = FEEDBACK.attach(main, player)
 	_combat_feedback.register_target(target)
 	_setup_hud_editor()
+	_menu_performance = MENU_PERFORMANCE.new()
+	add_child(_menu_performance)
+	_menu_performance.configure(main)
+	# Prepare before the first menu becomes interactive.
+	# Later navigation only shows this cached garage; it never constructs it.
+	_prepare_forge_garage()
 	if touch_controls != null and touch_controls.has_method("set_control_scale"):
 		touch_controls.call("set_control_scale", _settings.touch_scale)
 	_show_screen(Screen.MENU)
@@ -225,6 +234,7 @@ func configure(owner: Node, player_node: Node, target_node: Node, touch_node: No
 		get_tree().remove_meta("garage_return_draft")
 		_open_equipment()
 		_forge_garage.call("restore_draft", draft)
+	_navigation_ready = true
 
 func _process(delta: float) -> void:
 	if _skip_intro != null:
@@ -258,6 +268,8 @@ func _process(delta: float) -> void:
 		_update_countdown_overlay()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if MenuTransition.is_busy():
+		return
 	if current_screen == Screen.EQUIPMENT and _forge_garage != null and _forge_garage.installation.active:
 		get_viewport().set_input_as_handled()
 		return
@@ -279,6 +291,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _screen_root != null:
+		if MenuTransition.is_busy():
+			return
 		if current_screen == Screen.EQUIPMENT and _forge_garage != null and _forge_garage.installation.active:
 			return
 		if main != null and is_instance_valid(main.get("network_match")):
@@ -432,8 +446,11 @@ func _clear_screen() -> void:
 		child.visible = false
 
 func _show_screen(screen: Screen) -> void:
+	if _navigation_ready and screen != current_screen and screen != Screen.RESULT:
+		var destinations := {Screen.MENU: "Menu principal…", Screen.EQUIPMENT: "Ouverture du garage…", Screen.SETTINGS: "Ouverture des réglages…", Screen.LOBBY: "Salons multijoueurs…", Screen.COMBAT: "Préparation du duel…"}
+		MenuTransition.present(destinations.get(screen, "Chargement…"))
 	if _solo_setup != null:
-		_close_solo_setup()
+		_close_solo_setup(false)
 	if _skip_intro != null:
 		_skip_intro.hide()
 	current_screen = screen
@@ -468,6 +485,8 @@ func _show_screen(screen: Screen) -> void:
 		main.call("set_menu_mode", screen != Screen.COMBAT)
 	if main != null and main.has_method("set_menu_showcase_enabled"):
 		main.call("set_menu_showcase_enabled", screen == Screen.MENU)
+	if _menu_performance != null:
+		_menu_performance.set_parked(screen in [Screen.EQUIPMENT, Screen.SETTINGS, Screen.LOBBY])
 	_layout_navigation_panels.call_deferred()
 
 func _touch_preview_requested() -> bool:
@@ -642,6 +661,8 @@ func _store_solo_options() -> void:
 
 
 func _open_solo_setup() -> void:
+	if not _solo_setup.visible:
+		MenuTransition.present("Préparation du duel solo…")
 	_solo_options = EXPERIENCE.read()
 	_select_arena(_arena_variant)
 	var badge: OptionButton = _solo_setup.find_child("MasteryBadge", true, false)
@@ -656,13 +677,15 @@ func _open_solo_setup() -> void:
 	_layout_navigation_panels.call_deferred()
 	_solo_setup.find_child("SoloDifficulty", true, false).grab_focus()
 
-func _close_solo_setup() -> void:
+func _close_solo_setup(animate: bool = true) -> void:
+	if animate and _solo_setup.visible:
+		MenuTransition.present("Menu principal…")
 	_solo_setup.hide()
 	_solo_backdrop.hide()
 
 
 func _launch_solo() -> void:
-	_close_solo_setup()
+	_close_solo_setup(false)
 	_open_equipment()
 
 
@@ -828,11 +851,10 @@ func _build_equipment() -> void:
 	_open_equipment_category("robot")
 
 
-func _open_forge_garage() -> void:
-	if current_screen != Screen.EQUIPMENT:
-		return
+func _prepare_forge_garage() -> void:
 	if _forge_garage == null:
 		_forge_garage = FORGE_GARAGE.new()
+		_forge_garage.hide()
 		_screen_root.add_child(_forge_garage)
 		_forge_garage.connect("build_saved", _on_garage_build_saved)
 		_forge_garage.connect("test_requested", _on_garage_test_requested)
@@ -840,6 +862,16 @@ func _open_forge_garage() -> void:
 		_forge_garage.connect("back_requested", _close_forge_garage)
 		_forge_garage.connect("start_requested", _start_duel)
 		_forge_garage.connect("arena_selected", _on_garage_arena_selected)
+		_forge_garage.call("set_loadout", loadout)
+		# Render the cached preview once while still hidden, so its first
+		# visible opening can reuse prepared rendering resources too.
+		var preview: SubViewport = _forge_garage.get("stage").get("viewport")
+		preview.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _open_forge_garage() -> void:
+	if current_screen != Screen.EQUIPMENT:
+		return
+	_prepare_forge_garage()
 	_forge_garage.call("set_loadout", loadout)
 	var arena_options := main != null and main.has_method("set_arena_variant")
 	var arena: String = _arena_variant if arena_options else "classic"
@@ -1660,6 +1692,9 @@ func _setup_hud_editor() -> void:
 func _open_hud_editor() -> void:
 	if _hud_editor == null or _hud_editor.visible:
 		return
+	if _menu_performance != null:
+		_menu_performance.set_parked(false)
+	MenuTransition.present("Personnalisation de l’interface…")
 	_editor_from_pause = _pause_active
 	if touch_controls != null and touch_controls.has_method("reset_inputs"):
 		touch_controls.call("reset_inputs")
@@ -1683,6 +1718,7 @@ func _on_hud_saved(_layout: Dictionary) -> void:
 	_hud_controller.apply()
 
 func _on_hud_editor_closed() -> void:
+	MenuTransition.present("Menu de pause…" if _editor_from_pause else "Ouverture des réglages…")
 	_hud.get_node("PlayerVitals").call("set_example", false)
 	if _editor_from_pause:
 		_pause_panel.visible = true
@@ -1694,6 +1730,8 @@ func _on_hud_editor_closed() -> void:
 			main.call("set_menu_mode", true)
 	if touch_controls != null:
 		touch_controls.visible = _editor_from_pause and (DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or _touch_preview_requested())
+	if _menu_performance != null and not _editor_from_pause:
+		_menu_performance.set_parked(true)
 
 func _on_hud_test_started() -> void:
 	_screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1777,17 +1815,17 @@ func _on_hud_test_finished() -> void:
 func _open_training_ground() -> void:
 	_end_pause(false)
 	_stop_match_music()
-	get_tree().change_scene_to_file("res://scenes/training_ground.tscn")
+	MenuTransition.change_scene("res://scenes/training_ground.tscn", "Terrain d’entraînement…")
 
 func _open_beginner_tutorial() -> void:
 	_end_pause(false)
 	_stop_match_music()
-	get_tree().change_scene_to_file("res://scenes/beginner_tutorial.tscn")
+	MenuTransition.change_scene("res://scenes/beginner_tutorial.tscn", "Ouverture du tutoriel…")
 
 func _open_survival() -> void:
 	_end_pause(false)
 	_stop_match_music()
-	get_tree().change_scene_to_file("res://scenes/survival.tscn")
+	MenuTransition.change_scene("res://scenes/survival.tscn", "Préparation de la survie…")
 
 func _start_duel() -> void:
 	_solo_setup.hide()
@@ -2007,6 +2045,7 @@ func _toggle_pause() -> void:
 			touch_controls.visible = false
 		_navigation_backdrop.visible = true
 		_pause_panel.visible = true
+		MenuTransition.present("Menu de pause…")
 		_layout_navigation_panels.call_deferred()
 		_update_countdown_overlay()
 

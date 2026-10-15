@@ -37,6 +37,9 @@ var last_grip_world := Transform3D.IDENTITY
 var shot_time := KICK_TIME + RECOVERY_TIME
 var shot_strength := 1.0
 var recoil_weight := 0.0
+var corner_offset := Vector3.ZERO
+var corner_roll := 0.0
+var corner_forward := Vector3.FORWARD
 var punch_phase := ""
 var punch_progress := 0.0
 var pelto_phase := ""
@@ -170,11 +173,26 @@ func _process_modification_with_delta(delta: float) -> void:
 		_rotate_global(rig_skeleton, right_arm_index, 0.55 * amount)
 		_rotate_global(rig_skeleton, right_forearm_index, -0.30 * amount)
 		_rotate_global(rig_skeleton, right_hand_index, -0.15 * amount)
+	_apply_corner_peek(rig_skeleton)
 	last_right_hand_world = rig_skeleton.global_transform * rig_skeleton.get_bone_global_pose(right_hand_index)
 	if support_enabled:
 		_solve_support_arm(rig_skeleton)
 	if was_active and not is_shot_active():
 		shot_finished.emit()
+
+
+func _apply_corner_peek(rig_skeleton: Skeleton3D) -> void:
+	if corner_offset.is_zero_approx():
+		return
+	var hand_before := rig_skeleton.get_bone_global_pose(right_hand_index).origin
+	# Roll around the firing axis: the barrel stays parallel to the live aim.
+	var forward := (rig_skeleton.global_basis.inverse() * corner_forward).normalized()
+	_rotate_global_axis(rig_skeleton, spine_index, forward, corner_roll)
+	var hand_after := rig_skeleton.get_bone_global_pose(right_hand_index).origin
+	var translation := rig_skeleton.global_basis.inverse() * corner_offset + hand_before - hand_after
+	var parent := rig_skeleton.get_bone_parent(spine_index)
+	var parent_basis := rig_skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
+	rig_skeleton.set_bone_pose_position(spine_index, rig_skeleton.get_bone_pose_position(spine_index) + parent_basis.inverse() * translation)
 
 
 func _apply_fulguro_pose(rig_skeleton: Skeleton3D) -> void:

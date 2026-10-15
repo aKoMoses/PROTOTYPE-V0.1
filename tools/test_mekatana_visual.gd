@@ -143,6 +143,7 @@ func run() -> void:
 		check(bot.left_grip_error < 0.10, "moving bot support grip remains held")
 		check((-rig.global_basis.z).normalized().dot(direction) > 0.999, "moving player locks body to attack direction")
 		check((-bot.global_basis.z).normalized().dot(direction) > 0.999, "moving bot locks body to attack direction")
+	await _test_cleave_presentation(sword as MekatanaVisual, stage)
 	print("MEKATANA_VISUAL ", "PASS" if failures == 0 else "FAIL", " checks=", checks, " failures=", failures)
 	for audio in root.find_children("*", "AudioStreamPlayer", true, false):
 		audio.stop()
@@ -152,6 +153,43 @@ func run() -> void:
 	await process_frame
 	await process_frame
 	quit(0 if failures == 0 else 1)
+
+
+func _test_cleave_presentation(sword: MekatanaVisual, stage: Node3D) -> void:
+	rig.update_visual_state(Vector3.ZERO, Vector3.FORWARD, 0.0, 5.0, 0.016)
+	sword.set_phase(0, "preparation", 0.5)
+	sword._process(0.016)
+	check(not sword._cleave.visible, "preparation does not advertise an active hitbox")
+	sword.set_phase(0, "active", 0.5)
+	sword._process(0.0)
+	var bounds := sword._cleave.mesh.get_aabb()
+	check(sword._cleave.visible and absf(bounds.size.x - 2.6) < 0.02 and absf(bounds.size.z - 2.15) < 0.02, "rendered fan matches combat metres despite visual rig scale")
+	check(sword._cleave_sparks.visible and sword._sparks.size() <= 44, "cleave particles remain visible within a fixed per-weapon budget")
+	var mesh_id := sword._cleave.mesh.get_instance_id()
+	sword._process(0.016)
+	check(sword._cleave.mesh.get_instance_id() == mesh_id, "cleave geometry reuses its mesh instead of allocating an effect each frame")
+	sword.clear_mekatana_pose()
+	sword._process(0.016)
+	check(not sword._cleave.visible and not sword._cleave_sparks.visible and sword._sparks.is_empty(), "interruption removes footprint and particles immediately")
+	var wall := StaticBody3D.new()
+	wall.collision_layer = 1
+	var collider := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(4.0, 1.6, 0.1)
+	collider.shape = box
+	wall.add_child(collider)
+	stage.add_child(wall)
+	wall.global_position = rig.global_position + Vector3(0.0, 0.8, -0.9)
+	await physics_frame
+	await process_frame
+	sword.set_phase(0, "active", 0.5)
+	sword._process(0.0)
+	check(sword._cleave.mesh.get_aabb().size.z < 0.90, "visible cleave stops at the same cover mask as damage")
+	sword.set_phase(0, "recovery", 0.0)
+	sword._process(0.26)
+	check(not sword._cleave.visible and not sword._cleave_sparks.visible, "cleave afterglow retires during recovery")
+	wall.queue_free()
+	sword.clear_mekatana_pose()
 
 
 func check(condition: bool, message: String) -> void:

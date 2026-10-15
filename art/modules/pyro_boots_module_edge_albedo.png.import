@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d2y7ovjg7eapd"
-path="res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.ctex"
+path.s3tc="res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.s3tc.ctex"
+path.etc2="res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1b345f8bb490956b0cc1abe9db5a37fb"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://art/modules/pyro_boots_module_edge_albedo.png"
-dest_files=["res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.ctex"]
+dest_files=["res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.s3tc.ctex", "res://.godot/imported/pyro_boots_module_edge_albedo.png-2dbb0bb3f1a4a901846d292e8abf4102.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

@@ -353,11 +353,12 @@ func get_weapon_aim_preview() -> Dictionary:
 		radius = float(player._longshot_definition["projectile_radius"])
 		if player.is_longshot_enhanced_ready():
 			radius *= float(player._longshot_definition["enhanced_size_multiplier"])
-		maximum = float(player._longshot_definition["max_range"])
+		# Only the guide is bounded; the live Longshot keeps flying until impact.
+		maximum = float(player._longshot_definition["aim_preview_range"])
 		mask |= 4
 	direction = ARENA_TRAVERSAL.shot_direction(player, start, direction)
 	return {"origin": start, "direction": direction, "range": maximum, "radius": radius,
-		"mask": mask, "exclude": excluded, "support": player.global_position + Vector3.UP * 0.9,
+		"mask": mask, "exclude": excluded, "support": player._projectile_support_origin(radius),
 		"weapon": player._weapon_id}
 
 
@@ -640,6 +641,11 @@ func _update_attack(force_action_blocked: bool = false) -> void:
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	var processed_touch_request := false
+	if player.is_blaster_overheated():
+		player._desktop_blaster_tap_buffered = false
+		player.cancel_touch_fire()
+		player._attack_hold_last = wants_to_attack
+		return
 	if not player._touch_fire_requests.is_empty():
 		player._process_touch_fire_request()
 		processed_touch_request = true
@@ -838,6 +844,8 @@ func set_touch_attack_held(value: bool) -> void:
 func begin_touch_fire() -> void:
 	if player._touch_fire_active or not player._gameplay_enabled or player.is_real_dead():
 		return
+	if player._weapon_id == "blaster" and player.is_blaster_overheated():
+		return
 	if not player._touch_attack_rearm_required and (player._action_incapacitated() or player._action_gate.is_kind(PLAYER_STATE.ACTION_GATE.Kind.MODULE) or player._action_gate.was_claimed_this_frame()):
 		_queue_command({"type": "weapon", "touch": true, "released": false, "direction": player._normalized_aim_direction()})
 		return
@@ -911,6 +919,8 @@ func cancel_touch_fire(reason: String = "") -> void:
 
 
 func get_mobile_blaster_input_state() -> StringName:
+	if player._weapon_id == "blaster" and player.is_blaster_overheated():
+		return &"overheated"
 	if player._weapon_id != "blaster" or not player._touch_fire_active:
 		return &"aim"
 	if not player._blaster_charge_active:
@@ -946,6 +956,41 @@ func end_touch_action(action: String, touch: bool = true) -> void:
 		player._release_javelin_charge()
 	if action == "offensive" and player._offensive_module_id == "fulguro_punch":
 		player._release_fulguro_charge()
+
+
+func can_cancel_aimed_action(action: String, touch: bool = true) -> bool:
+	var module_id := _module_id(action)
+	if not ((action == "offensive" and module_id in ["fulguro_punch", "javelin", "pelto_smash"]) or (action == "mobility" and module_id == "eclipse")):
+		return false
+	if str(_queued_command.get("type", "")) == "module" and str(_queued_command.get("action", "")) == action and bool(_queued_command.get("touch", false)) == touch and not bool(_queued_command.get("released", false)):
+		return true
+	match module_id:
+		"eclipse": return player._eclipse.aiming and player._eclipse.touch_owned == touch
+		"pelto_smash": return player.is_pelto_preparing() and player._pelto_aim_held and not player._pelto_release_requested and player._desktop_pelto_aim_held != touch
+		"javelin": return player.is_javelin_charging() and player._javelin_release_at < 0.0 and player._desktop_javelin_charge_held != touch
+		"fulguro_punch": return player.is_fulguro_charging() and not player._fulguro_release_requested and player._desktop_fulguro_charge_held != touch
+	return false
+
+
+func cancel_aimed_action(action: String, touch: bool = true) -> void:
+	if not can_cancel_aimed_action(action, touch):
+		return
+	if str(_queued_command.get("type", "")) == "module" and str(_queued_command.get("action", "")) == action:
+		_queued_command.clear()
+		return
+	var module_id := _module_id(action)
+	match module_id:
+		"eclipse": player._eclipse.cancel(player)
+		"pelto_smash": player._cancel_pelto_smash()
+		"javelin": player._cancel_javelin_charge()
+		"fulguro_punch":
+			player._cancel_fulguro_attack()
+			player._desktop_fulguro_charge_held = false
+	# Preparation reserves the offensive cooldown before a strike exists.
+	# An intentional aim cancel spends no cast; interruptions keep their cost.
+	player._module_cooldowns.erase(module_id)
+	if player._attack_label != null:
+		player._attack_label.text = ""
 
 
 func cancel_touch_action(action: String) -> void:

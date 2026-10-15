@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const PREFS := preload("res://scripts/review_preferences.gd")
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const PROGRESSION := preload("res://scripts/survival_progression.gd")
@@ -205,7 +207,7 @@ func _test_training() -> void:
 	check(challenge.active == "fulguro_punch" and not challenge.completed and ground.player.global_position == Vector3(-24, 0, -33), "reset restarts the active challenge with its original setup")
 	challenge.stop()
 	check(LOADOUT.load_local() == original and ground.player.global_position.is_equal_approx(origin), "training restores position and never persists temporary challenge loadout")
-	check(ground._fixed_targets[1].combat_state.max_health == 1000.0 and ground._shooter_target.visible, "training restores target health, collisions and visibility")
+	check(ground._fixed_targets[1].combat_state.max_health == BASE_HEALTH and ground._shooter_target.visible, "training restores target health, collisions and visibility")
 	ground._remove_all_fixed()
 	await process_frame
 	challenge.start("javelin")

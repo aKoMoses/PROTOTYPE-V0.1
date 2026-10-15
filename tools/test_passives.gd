@@ -5,6 +5,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -31,15 +35,15 @@ func _test_baroud(player: Node) -> void:
 	player.call("reset_combat_state")
 	player.call("set_passive", "baroud")
 	var initial := float(player.call("get_health"))
-	var trigger_damage := float(player.call("take_damage", 1200.0, "enemy", "baroud_trigger"))
+	var trigger_damage := float(player.call("take_damage", initial * 2.0, "enemy", "baroud_trigger"))
 	if trigger_damage != 0.0:
 		_failures.append("Baroud : le coup déclencheur inflige des dégâts à la jauge")
 	if absf(float(player.call("get_health")) - initial) > 0.01:
 		_failures.append("Baroud : PV normaux modifiés au déclenchement")
-	if float(player.call("get_baroud_remaining")) < 2.4 or float(player.call("get_baroud_health")) < 999.0:
+	if float(player.call("get_baroud_remaining")) < 2.4 or float(player.call("get_baroud_health")) < PASSIVE_STATE.BAROUD_MAX_HEALTH - 1.0:
 		_failures.append("Baroud : jauge ou durée initiale incorrecte")
 	var follow_up := float(player.call("take_damage", 200.0, "enemy", "baroud_followup"))
-	if absf(follow_up - 200.0) > 0.01 or float(player.call("get_baroud_health")) > 810.0:
+	if absf(follow_up - 200.0) > 0.01 or float(player.call("get_baroud_health")) > PASSIVE_STATE.BAROUD_MAX_HEALTH - 190.0:
 		_failures.append("Baroud : dégâts suivants mal appliqués à la jauge")
 	if float(player.call("heal", 100.0, "test")) != 0.0:
 		_failures.append("Baroud : soin accepté pendant la dernière chance")
@@ -55,7 +59,7 @@ func _test_omnivamp(player: Node, target: Node) -> void:
 	player.call("set_passive", "omnivamp")
 	player.call("take_damage", 800.0, "setup", "omnivamp_setup")
 	target.call("reset_combat_state")
-	target.call("take_damage", 980.0, "setup", "target_setup")
+	target.call("take_damage", float(target.call("get_max_health")) - 20.0, "setup", "target_setup")
 	var before := float(player.call("get_health"))
 	var effective := float(target.call("take_damage", 100.0, "player", "omnivamp_overkill"))
 	if absf(effective - 20.0) > 0.01:

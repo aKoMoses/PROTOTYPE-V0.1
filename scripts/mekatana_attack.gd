@@ -85,7 +85,10 @@ func update(delta: float) -> void:
 		var duration := _duration(phase)
 		var portion := minf(remaining, maxf(0.0, duration - _elapsed))
 		if phase == "preparation" and portion > 0.0:
-			var motion := direction * float(definition.dash_distance[step]) * portion / duration
+			# Integrate the curve rather than its velocity: distance stays exact
+			# even when one frame crosses a phase, or the attack speed changes.
+			var distance_fraction := dash_progress((_elapsed + portion) / duration) - dash_progress(_elapsed / duration)
+			var motion := direction * float(definition.dash_distance[step]) * distance_fraction
 			if _move_callback.is_valid():
 				_move_callback.call(motion)
 			elif _actor is CharacterBody3D:
@@ -247,9 +250,7 @@ func _sweep(from_fraction: float, to_fraction: float) -> void:
 		var b := end_point - origin
 		var local_a := Vector3(a.dot(right), a.y, a.dot(direction))
 		var local_b := Vector3(b.dot(right), b.y, b.dot(direction))
-		var lower := Vector3(-half_width - radius, -float(definition.cleave_height) * 0.5, -radius)
-		var upper := Vector3(half_width + radius, float(definition.cleave_height) * 0.5, reach + radius)
-		var fraction := _segment_box_entry(local_a, local_b, lower, upper)
+		var fraction := segment_cleave_entry(local_a, local_b, half_width, reach, float(definition.cleave_height), radius)
 		if fraction < 0.0:
 			continue
 		var contact := start_point.lerp(end_point, fraction)
@@ -320,3 +321,44 @@ static func _segment_box_entry(a: Vector3, b: Vector3, lower: Vector3, upper: Ve
 			if entry > exit_fraction:
 				return -1.0
 	return entry
+
+
+static func dash_progress(amount: float) -> float:
+	return smoothstep(0.0, 1.0, clampf(amount, 0.0, 1.0))
+
+
+static func cleave_boundary(values: Dictionary, rank: int, segments: int = 32) -> PackedVector2Array:
+	# The same half ellipse defines both the hit volume and its visible rim.
+	var half_width := float(values.cleave_width[clampi(rank, 0, 2)]) * 0.5
+	var reach := float(values.melee_range)
+	var points := PackedVector2Array()
+	for index in range(segments + 1):
+		var angle := lerpf(-PI * 0.5, PI * 0.5, float(index) / float(segments))
+		points.append(Vector2(sin(angle) * half_width, cos(angle) * reach))
+	return points
+
+
+static func segment_cleave_entry(a: Vector3, b: Vector3, half_width: float, reach: float, height: float, radius: float) -> float:
+	# Target radius provides forgiving edge contact. Test the full swept segment
+	# against the rounded footprint and height slab, including fast crossings.
+	var width := maxf(half_width + radius, 0.001)
+	var depth := maxf(reach + radius, 0.001)
+	var lower := Vector3(-width, -height * 0.5, -radius)
+	var upper := Vector3(width, height * 0.5, depth)
+	var entry := _segment_box_entry(a, b, lower, upper)
+	if entry < 0.0:
+		return -1.0
+	var exit_fraction := 1.0 - _segment_box_entry(b, a, lower, upper)
+	var start := Vector2(a.x / width, a.z / depth)
+	var motion := Vector2((b.x - a.x) / width, (b.z - a.z) / depth)
+	var quadratic := motion.length_squared()
+	if quadratic < 0.000001:
+		return entry if start.length_squared() <= 1.0 else -1.0
+	var linear := 2.0 * start.dot(motion)
+	var discriminant := linear * linear - 4.0 * quadratic * (start.length_squared() - 1.0)
+	if discriminant < -0.000001:
+		return -1.0
+	var root := sqrt(maxf(0.0, discriminant))
+	entry = maxf(entry, (-linear - root) / (2.0 * quadratic))
+	exit_fraction = minf(exit_fraction, (-linear + root) / (2.0 * quadratic))
+	return entry if entry <= exit_fraction + 0.000001 else -1.0

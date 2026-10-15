@@ -60,11 +60,14 @@ func _run() -> void:
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true
+	await _wait_navigation()
 	root.push_input(escape, true)
 	await process_frame
+	await _wait_navigation()
 	_check(int(flow.get("current_screen")) == 1 and official.get("_hub_mode"), "Escape returns from the catalog to the garage")
 	root.push_input(escape, true)
 	await process_frame
+	await _wait_navigation()
 	_check(int(flow.get("current_screen")) == 0, "a second Escape returns from the garage to the menu")
 	flow.call("_open_equipment")
 	_check(official.get("loadout").weapon == "shotgun" and loadout_script.load_local() == saved_before_selection, "draft survives reopening and the combat build remains saved separately")
@@ -99,3 +102,8 @@ func _check(condition: bool, message: String) -> void:
 	checks += 1
 	if not condition:
 		failures.append(message)
+
+func _wait_navigation() -> void:
+	var deadline := Time.get_ticks_msec() + 10000
+	while root.get_node("MenuTransition").call("is_busy") and Time.get_ticks_msec() < deadline:
+		await process_frame

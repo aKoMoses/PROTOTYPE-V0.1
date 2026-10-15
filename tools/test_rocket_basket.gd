@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const BASKET := preload("res://scripts/rocket_basket.gd")
 const ROCKET := preload("res://scripts/homing_rocket.gd")
 const STATE := preload("res://scripts/combat_state.gd")
@@ -76,7 +78,7 @@ func _run() -> void:
 	for index in range(rockets.size() - 1):
 		check(rockets[index].global_position.distance_to(rockets[index + 1].global_position) > 0.30, "Les roquettes s'écartent malgré une cible commune")
 	await frames(100)
-	check(is_equal_approx(enemy.get_health(), 825.0), "Cinq vrais impacts infligent 175 dégâts")
+	check(is_equal_approx(enemy.get_health(), BASE_HEALTH - 250.0), "Cinq vrais impacts infligent 250 dégâts")
 	check(is_equal_approx(enemy.combat_state.get_slow_percent(), 35.0), "Les cinq slows s'additionnent à 35 %")
 	check(enemy.combat_state.has_effect("BURN"), "BURN seulement après la salve complète")
 	check(is_equal_approx(float(cooldowns.rocket_basket), 6.0), "Recharge réduite de 40 % exactement")
@@ -90,7 +92,7 @@ func _run() -> void:
 	check(is_equal_approx(rockets[0].get_health(), 20.0), "Les roquettes ont quelques PV et encaissent un tir")
 	rockets[0].take_damage(20.0, "enemy", "two")
 	await frames(100)
-	check(is_equal_approx(enemy.get_health(), 860.0), "Une roquette détruite ne touche pas")
+	check(is_equal_approx(enemy.get_health(), BASE_HEALTH - 200.0), "Une roquette détruite ne touche pas")
 	check(is_equal_approx(enemy.combat_state.get_slow_percent(), 28.0), "Quatre impacts : 28 % de slow")
 	check(not enemy.combat_state.has_effect("BURN"), "Quatre impacts ne brûlent pas")
 	check(float(cooldowns.rocket_basket) == 10.0, "Quatre impacts ne remboursent pas")
@@ -107,7 +109,7 @@ func _run() -> void:
 	await frames(2)
 	BASKET.launch(caster, Vector3.FORWARD, "test", "wall", cooldowns)
 	await frames(80)
-	check(enemy.get_health() == 1000.0, "Aucune roquette ne traverse un mur fin")
+	check(enemy.get_health() == BASE_HEALTH, "Aucune roquette ne traverse un mur fin")
 	check(get_nodes_in_group(ROCKET.GROUP).is_empty(), "Collision murale détruit les cinq roquettes")
 	wall.global_position.z = -0.4
 	await frames(2)
@@ -139,7 +141,7 @@ func _run() -> void:
 	nearer.add_to_group("prototype0_combat_bots")
 	nearer.global_position = first.global_position + Vector3(0.2, -0.9, 0)
 	check(first._nearest_target() == nearer, "Recherche continue du plus proche, sans cône de visée")
-	nearer.combat_state.apply_damage(1000.0)
+	nearer.combat_state.apply_damage(nearer.combat_state.max_health)
 	check(first._nearest_target() == enemy, "Réacquisition après la mort de la cible")
 	BASKET.clear(caster)
 	await frames(2)

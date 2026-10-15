@@ -183,7 +183,7 @@ func _initialize() -> void:
 	shotgun_scene.call("_begin_wave_combat")
 	var shotgun_player := shotgun_scene.get_node("Player")
 	_check(str(shotgun_player.call("get_weapon_id")) == "shotgun", "départ au Shotgun")
-	_check(float(shotgun_player.get("_shotgun_pellet_damage")) < 20.0, "Shotgun affaibli au départ")
+	_check(float(shotgun_player.get("_shotgun_pellet_damage")) < float(CombatData.WEAPON_DEFINITIONS.shotgun.pellet_damage), "Shotgun affaibli au départ")
 	# Emission waits for the final skeleton pose after preparation. Observe each
 	# actual projectile after its initialization, rather than one platform-specific
 	# instant or its name (Godot renames the second and subsequent siblings).
@@ -219,7 +219,7 @@ func _initialize() -> void:
 	alternate.upgrades.passive.tempo = 1
 	shotgun_player.call("configure_survival_build", alternate.build())
 	_check(float(shotgun_player.get("_shotgun_recovery")) < 0.60, "voie rythme du Shotgun plus rapide que le duel")
-	_check(float(shotgun_player.call("get_max_health")) == 1250.0, "endurance du passif augmente les PV maximum")
+	_check(float(shotgun_player.call("get_max_health")) == preload("res://scripts/combat_data.gd").MAX_HEALTH + 250.0, "endurance du passif augmente les PV maximum")
 	var evolved: SurvivalProgression = load("res://scripts/survival_progression.gd").new()
 	evolved.choose_weapon("shotgun")
 	evolved.equipment.mobility = "bio_injector"

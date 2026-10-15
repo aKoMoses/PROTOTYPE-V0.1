@@ -14,6 +14,9 @@ uniform vec3 organic_impulse_origin = vec3(0.0);
 uniform vec2 organic_impulse_direction = vec2(0.0);
 uniform float organic_impulse_strength = 0.0;
 uniform float organic_impulse_age = 0.0;
+uniform bool scenery_driven = false;
+uniform float scenery_clock = 0.0;
+uniform float scenery_gust = 0.0;
 
 void vertex() {
 	// Banner UV.y=0 is sewn to the fixed header. Canopy boundaries are fixed
@@ -21,10 +24,12 @@ void vertex() {
 	float free_weight = four_corner_pin
 		? sin(UV.x * 3.141593) * sin(UV.y * 3.141593)
 		: smoothstep(0.0, 0.35, UV.y) * UV.y;
-	float gust = sin(TIME * 1.7 + phase + UV.x * 4.0) * 0.65
-		+ sin(TIME * 2.6 + phase * 1.7 + UV.y * 6.0) * 0.35;
+	float clock = scenery_driven ? scenery_clock : TIME;
+	float gust = sin(clock * 1.7 + phase + UV.x * 4.0) * 0.65
+		+ sin(clock * 2.6 + phase * 1.7 + UV.y * 6.0) * 0.35;
 	vec3 local_wind = (inverse(MODEL_MATRIX) * vec4(wind_direction.x, 0.0, wind_direction.y, 0.0)).xyz;
 	VERTEX += local_wind * (0.065 + gust * 0.105) * free_weight * wind_strength * motion_scale;
+	VERTEX += local_wind * scenery_gust * free_weight * 0.15 * motion_scale;
 	if (four_corner_pin) {
 		VERTEX.y += gust * 0.055 * free_weight * wind_strength * motion_scale;
 	}

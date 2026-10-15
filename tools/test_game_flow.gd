@@ -4,6 +4,10 @@ const LOADOUT := preload("res://scripts/loadout_state.gd")
 var _failures: Array[String] = []
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var save_existed := FileAccess.file_exists(LOADOUT.SAVE_PATH)
 	var save_bytes := FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH) if save_existed else PackedByteArray()
 	var scene: Node = load("res://scenes/main.tscn").instantiate()

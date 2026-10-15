@@ -236,9 +236,13 @@ func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Ve
 	player._end_module_action(action_token, "javelin")
 
 
-func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage: float = 140.0, mark_duration: float = 2.5, shot_range: float = 8.0, power: float = 0.0) -> void:
+func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage: float = -1.0, mark_duration: float = 2.5, shot_range: float = 8.0, power: float = 0.0) -> void:
 	if token != player._javelin_launch_token:
 		return
+	# Live shots supply their frozen charge damage. Compatibility calls use the
+	# equipped definition, including Survival power, instead of a stale number.
+	if damage < 0.0:
+		damage = player._javelin_damage
 	if hit.get("collider") is Node and hit.collider.is_in_group("prototype0_homing_rockets"):
 		hit.collider.take_damage(damage, "player", "javelin:%d" % token)
 		return

@@ -273,6 +273,12 @@ func clear_touch_inputs() -> void:
 		_notify("cancel")
 
 
+func _blaster_heat_applies() -> bool:
+	# Reliable host shots may arrive after the snapshot of their own overheat.
+	# Replicas render those shots without spending the authoritative heat twice.
+	return not (_replaying and not authoritative)
+
+
 func _begin_blaster_charge(now: float = -1.0) -> void:
 	var was_active := _blaster_charge_active
 	super._begin_blaster_charge(now)
@@ -590,7 +596,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 			PROJECTOR.spawn_visual(get_tree().current_scene, data.get("origin", global_position), bool(data.get("emergency", false)))
 		return
 	if action == "contact":
-		_contact_started_at = Time.get_ticks_msec() / 1000.0
+		_contact_started_at = -1.0 if not visual_only and is_blaster_overheated() else Time.get_ticks_msec() / 1000.0
 		return
 	if action == "cancel":
 		_replaying = visual_only
@@ -691,6 +697,7 @@ func receive_action(action: String, data: Dictionary, visual_only := false) -> v
 
 func network_snapshot() -> Dictionary:
 	return {"rockets": ROCKET_BASKET.snapshot(self), "counter": _counter.snapshot(),"combat": combat_state.snapshot(), "position": global_position, "aim": aim_direction,
+		"blaster_heat": _blaster_heat.snapshot(),
 		"projector_passive": _projector_passive_remaining,
 		"knockback": {"active": _fulguro_projection_active, "direction": _fulguro_projection_direction, "distance": _fulguro_projection_distance_remaining, "time": _fulguro_projection_time_remaining},
 		"pull": {"active": _pelto_pull_active, "direction": _pelto_pull_direction, "distance": _pelto_pull_distance_remaining, "time": _pelto_pull_time_remaining},
@@ -751,6 +758,8 @@ func receive_snapshot(value: Dictionary, controls_confirmed := true) -> void:
 	_permutation_speed_remaining = maxf(0.0, float(value.get("permutation_speed", 0.0)))
 	if remote_controlled or controls_confirmed:
 		_counter.restore(value.get("counter", {}))
+		if value.has("blaster_heat"):
+			_blaster_heat.restore(value.blaster_heat)
 	if _counter.phase != "" and not _action_gate.is_kind(ACTION_GATE.Kind.MODULE):
 		_interrupt_weapon_for_module()
 		_action_gate.reset()

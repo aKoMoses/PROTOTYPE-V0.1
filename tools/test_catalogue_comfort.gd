@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const DATA := preload("res://scripts/combat_data.gd")
 const NETWORK := preload("res://scripts/network_player.gd")
 const WALL := preload("res://scripts/magnetic_wall.gd")
@@ -63,7 +65,7 @@ func _run() -> void:
 	target.get("combat_state").grant_shield(500.0, 5.0)
 	var token := int(player.get("_javelin_launch_token"))
 	player.call("_on_javelin_finished", {"collider": target, "position": target.global_position + Vector3.UP}, 1.0, token)
-	check(float(target.call("get_health")) == 1000.0 and float(target.get("combat_state").shield_health) == 360.0, "javelin is absorbed by shield")
+	check(float(target.call("get_health")) == BASE_HEALTH and float(target.get("combat_state").shield_health) == 320.0, "javelin is absorbed by shield")
 	check(bool(player.call("_has_live_javelin_mark")), "absorbed javelin still marks")
 	target.global_position.z = -4.0
 	await physics_frame
@@ -73,7 +75,7 @@ func _run() -> void:
 	setup()
 	await physics_frame
 	player.call("_perform_pyro_boots", Vector3.RIGHT)
-	check(float(target.call("get_health")) == 940.0, "actual dash deals departure damage")
+	check(float(target.call("get_health")) == BASE_HEALTH - 60.0, "actual dash deals departure damage")
 	check(float(player.get("passive_state").inertia_remaining) == 0.0, "inertia waits for dash completion")
 	player.call("_update_dash", 0.18)
 	check(float(player.get("passive_state").inertia_remaining) > 0.0, "completed dash arms inertia")
@@ -81,7 +83,7 @@ func _run() -> void:
 	player.set_meta("combat_team", 1)
 	target.set_meta("combat_team", 1)
 	PYRO.departure(player, [target, target], "test", "friendly")
-	check(float(target.call("get_health")) == 1000.0, "departure excludes teammates")
+	check(float(target.call("get_health")) == BASE_HEALTH, "departure excludes teammates")
 	player.remove_meta("combat_team")
 	target.remove_meta("combat_team")
 	var barrier := StaticBody3D.new()
@@ -95,7 +97,7 @@ func _run() -> void:
 	scene.add_child(barrier)
 	await physics_frame
 	PYRO.departure(player, [target], "test", "covered")
-	check(float(target.call("get_health")) == 1000.0, "departure cannot damage through cover")
+	check(float(target.call("get_health")) == BASE_HEALTH, "departure cannot damage through cover")
 	barrier.position.z = -2.1
 	await physics_frame
 	var placement := WALL.find_placement(player, Vector3.FORWARD, 2.0, 4.0, 2.4)
@@ -159,7 +161,7 @@ func _run() -> void:
 	target.call("reset_combat_state")
 	target.global_position = Vector3(0, 0, -1)
 	PYRO.departure(replica, [target], "test", "replica")
-	check(float(target.call("get_health")) == 1000.0, "replica departure applies no damage")
+	check(float(target.call("get_health")) == BASE_HEALTH, "replica departure applies no damage")
 	replica.set("_stasis_remaining", 1.0)
 	replica.call("receive_action", "stasis_exit", {}, true)
 	check(float(replica.call("get_stasis_remaining")) == 0.0, "replica displays confirmed network exit")
@@ -181,7 +183,7 @@ func _run() -> void:
 	host.opponent = victim
 	await physics_frame
 	PYRO.departure(host, [victim, victim], "player", "network_pyro", Callable(host, "_credit_pyro_damage"))
-	check(float(victim.call("get_health")) == 940.0, "network departure damages one victim once: %.1f" % float(victim.call("get_health")))
+	check(float(victim.call("get_health")) == BASE_HEALTH - 60.0, "network departure damages one victim once: %.1f" % float(victim.call("get_health")))
 	check(float(host.call("get_health")) == 609.0, "network departure heals Omnivamp only once: %.1f" % float(host.call("get_health")))
 	for failure in failures:
 		push_error("CATALOGUE: " + failure)

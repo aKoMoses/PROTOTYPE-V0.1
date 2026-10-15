@@ -72,7 +72,12 @@ func configure(direction: Vector3, speed: float, max_range: float, collision_mas
 	for excluded_rid in excluded:
 		_cast.add_exception_rid(excluded_rid)
 	set_meta("ai_projectile_velocity", _direction * _speed)
-	set_meta("ai_projectile_endpoint", _origin + _direction * _range)
+	# Unlimited shots have no endpoint. Never multiply a direction by infinity:
+	# it produces invalid coordinates and an artificial end for bot avoidance.
+	if is_finite(_range):
+		set_meta("ai_projectile_endpoint", _origin + _direction * _range)
+	elif has_meta("ai_projectile_endpoint"):
+		remove_meta("ai_projectile_endpoint")
 	set_meta("ai_projectile_radius", _radius)
 
 

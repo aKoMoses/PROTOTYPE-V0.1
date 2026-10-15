@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const NET_PLAYER := preload("res://scripts/network_player.gd")
 const SURVIVAL_EFFECTS := preload("res://scripts/survival_evolution_effects.gd")
 var _failures: Array[String] = []
@@ -25,8 +27,8 @@ func _run() -> void:
 	_player = _scene.get_node("Player")
 	_target = _scene.get_node("TargetDummy")
 	await _test_tap()
-	await _test_power(0.775, 210.0, 12.0, 28.0, 3.75)
-	await _test_power(1.20, 280.0, 16.0, 36.0, 5.0)
+	await _test_power(0.775, 270.0, 12.0, 28.0, 3.75)
+	await _test_power(1.20, 360.0, 16.0, 36.0, 5.0)
 	await _test_extended_recast()
 	await _test_front_recast()
 	await _test_survival_recast()
@@ -89,7 +91,7 @@ func _test_tap() -> void:
 	_player.call("_update_javelin_charge", 0.011)
 	_check(_shot() != null and not bool(_player.call("is_module_busy")), "tap did not emit or kept cast lock")
 	await _wait_shot()
-	_check(absf(float(_target.call("get_health")) - 860.0) < 1.0, "tap damage differs from 140")
+	_check(absf(float(_target.call("get_health")) - (BASE_HEALTH - 180.0)) < 1.0, "tap damage differs from 180")
 
 
 func _test_power(seconds: float, damage: float, distance: float, speed: float, mark: float) -> void:
@@ -110,7 +112,7 @@ func _test_power(seconds: float, damage: float, distance: float, speed: float, m
 		_check(is_equal_approx(float(shot.get("_range")), distance), "charged range incorrect")
 		_check(is_equal_approx(float(shot.get("_speed")), speed), "charged speed incorrect")
 	await _wait_shot()
-	_check(absf(1000.0 - float(_target.call("get_health")) - damage) < 1.0, "charged damage incorrect")
+	_check(absf(BASE_HEALTH - float(_target.call("get_health")) - damage) < 1.0, "charged damage incorrect")
 	_check(absf(float(_target.call("get_javelin_mark_remaining")) - mark) < 0.2, "charged mark duration incorrect")
 	_check(float(_player.call("get_javelin_recast_fraction")) > 0.94, "charged mark HUD denominator incorrect")
 	_check(_target.call("get_active_effect_types").has("SPOTTED"), "Javelin mark did not apply SPOTTED")

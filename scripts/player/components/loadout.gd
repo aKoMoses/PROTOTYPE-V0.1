@@ -215,7 +215,7 @@ func configure_survival_build(build: Dictionary) -> void:
 		"defensive": 1.25 * pow(0.65, int(defensive_ranks.get("tempo", 0))),
 		"mobility": 1.25 * pow(0.65, int(mobility_ranks.get("tempo", 0))),
 	}
-	player.reset_blaster_state()
+	player.reset_blaster_state(false)
 	player.reset_shotgun_state()
 	player.reset_module_state()
 	player._reset_action_ownership()
@@ -275,7 +275,7 @@ func set_weapon(weapon_id: String) -> void:
 		return
 	player._cancel_mekatana_attack()
 	player._cancel_longshot_attack()
-	player.reset_blaster_state()
+	player.reset_blaster_state(false)
 	player.reset_shotgun_state()
 	if player.passive_state != null:
 		player.passive_state.clear_triggers()

@@ -630,6 +630,8 @@ func configure_aim_transition(raise_time: float, lower_time: float) -> void:
 
 func set_aim_enabled(enabled: bool, immediate: bool = false) -> void:
 	_aim_requested = enabled
+	if not enabled:
+		set_corner_peek(Vector3.ZERO, 0.0)
 	if enabled and presence_modifier != null:
 		presence_modifier.interrupt_rest()
 		presence_modifier.torso_allowed = false
@@ -637,6 +639,13 @@ func set_aim_enabled(enabled: bool, immediate: bool = false) -> void:
 		_aim_blend_amount = 1.0 if enabled else 0.0
 		_update_weapon_socket_poses()
 	_refresh_aim_state()
+
+
+func set_corner_peek(world_offset: Vector3, roll_degrees: float) -> void:
+	if aim_modifier != null:
+		aim_modifier.corner_offset = world_offset
+		aim_modifier.corner_roll = roll_degrees
+		aim_modifier.corner_forward = get_aim_forward_direction()
 
 
 func _refresh_aim_state() -> void:
@@ -651,6 +660,7 @@ func _refresh_aim_state() -> void:
 		aim_modifier.carrying = _active_action == &""
 		if not enabled:
 			aim_modifier.cancel_shot()
+			set_corner_peek(Vector3.ZERO, 0.0)
 
 
 func _update_aim_blend(delta: float) -> void:

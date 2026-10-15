@@ -288,6 +288,8 @@ func _toggle_menu() -> void:
 	_set_combat_sound_state(tutorial_paused)
 	_update_touch_visibility()
 	_refresh_lesson()
+	if tutorial_paused:
+		MenuTransition.present("Menu du tutoriel…")
 
 func _update_touch_visibility() -> void:
 	if _touch_controls != null:
@@ -305,4 +307,4 @@ func _input(event: InputEvent) -> void:
 func _open_free_training() -> void:
 	get_tree().paused = false
 	_set_combat_sound_state(false, true)
-	get_tree().change_scene_to_file("res://scenes/training_ground.tscn")
+	MenuTransition.change_scene("res://scenes/training_ground.tscn", "Terrain d’entraînement…")

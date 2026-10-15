@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ch833d4c6vj0"
-path="res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.ctex"
+path.s3tc="res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.s3tc.ctex"
+path.etc2="res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "944fb7e8f72db0ed95bd6d49ce0656c8"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://art/modules/rocket_basket_module_steel_albedo.png"
-dest_files=["res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.ctex"]
+dest_files=["res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.s3tc.ctex", "res://.godot/imported/rocket_basket_module_steel_albedo.png-0dd1533d1d4dd243ade307af1e1048dc.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

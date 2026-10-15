@@ -10,6 +10,8 @@ var _counter_next_decision := 0.0
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
 const COMBAT_DATA := preload("res://scripts/combat_data.gd")
+const BLASTER_HEAT := preload("res://scripts/blaster_heat.gd")
+var blaster_heat = BLASTER_HEAT.new()
 const PYRO_BOOTS := preload("res://scripts/pyro_boots.gd")
 const LIVE_PROJECTILE := preload("res://scripts/live_projectile.gd")
 const ROCKET_BASKET := preload("res://scripts/rocket_basket.gd")
@@ -117,6 +119,7 @@ func set_profile(value: String) -> void:
 	var retained_longshot_credits: Dictionary = longshot_state._credited_shots.duplicate()
 	var retained_longshot_generation := _longshot_generation
 	var retained_longshot_recovery := _longshot_next_attack_at
+	var retained_heat: Dictionary = blaster_heat.snapshot()
 	var close_weapon := weapon in ["shotgun", "mekatana"]
 	set_loadout({
 		"weapon": weapon,
@@ -134,6 +137,7 @@ func set_profile(value: String) -> void:
 	longshot_state._credited_shots = retained_longshot_credits
 	_longshot_generation = retained_longshot_generation
 	_longshot_next_attack_at = retained_longshot_recovery
+	blaster_heat.restore(retained_heat)
 	_update_readout()
 
 
@@ -162,6 +166,7 @@ func get_loadout() -> Dictionary:
 
 
 func reset() -> void:
+	blaster_heat.reset()
 	_counter_next_decision = 0.0
 	var rocket_caster := get_parent().get_parent() as Node3D if get_parent() != null else null
 	if rocket_caster != null and rocket_caster.is_inside_tree():
@@ -277,6 +282,8 @@ func get_action_owner() -> String:
 
 
 func _begin_weapon_action() -> bool:
+	if profile == "blaster" and blaster_heat.overheated:
+		return false
 	var token: int = _action_gate.try_acquire(ACTION_GATE.Kind.WEAPON, profile)
 	if token == 0:
 		return false
@@ -350,6 +357,7 @@ func cancel_action(reason: String = "action interrompue") -> void:
 
 
 func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: Node3D, player: Node3D, controller: Node, perception: Dictionary = {}, tuning: Dictionary = {}) -> void:
+	blaster_heat.tick(delta)
 	longshot_state.tick(delta)
 	permutation_speed_remaining = maxf(0.0, permutation_speed_remaining - delta)
 	_counter = COUNTER.ensure(body)
@@ -476,6 +484,8 @@ func tick(delta: float, elapsed: float, visible: bool, observed: Vector3, body: 
 	if elapsed < next_attack_at or reload_remaining > 0.0 or not visible:
 		return
 	if profile == "longshot" and elapsed < _longshot_next_attack_at:
+		return
+	if profile == "blaster" and blaster_heat.overheated:
 		return
 	var maximum := float(COMBAT_DATA.WEAPON_DEFINITIONS[profile]["max_range"])
 	if distance > maximum or not bool(decision_perception.get("line_of_fire", false)):
@@ -1226,6 +1236,9 @@ func _start_reload() -> void:
 
 
 func _fire(body: Node3D, player: Node3D) -> void:
+	if profile == "blaster" and blaster_heat.overheated:
+		_release_weapon_action()
+		return
 	if profile == "longshot" and (_last_tick_elapsed < maxf(next_attack_at, _longshot_next_attack_at) or static_remaining > 0.0 or not is_instance_valid(body) or not is_instance_valid(player)):
 		return
 	if not _action_gate.owns(_weapon_action_token, ACTION_GATE.Kind.WEAPON, profile):
@@ -1294,7 +1307,6 @@ func _launch_longshot(body: Node3D, player: Node3D, muzzle_position: Vector3, di
 	projectile.set_meta("longshot_enhanced", enhanced)
 	projectile.set_meta("ai_projectile_source", body.get_instance_id())
 	projectile.set_meta("ai_projectile_velocity", direction * speed)
-	projectile.set_meta("ai_projectile_endpoint", muzzle_position + direction * float(definition.max_range))
 	projectile.set_meta("ai_projectile_radius", radius)
 	var attack_id := "duel_bot:longshot:%d:%d:%d" % [body.get_instance_id(), _longshot_generation, longshot_state.shots_fired + 1]
 	definition["passive_attack"] = emit_passive_weapon()
@@ -1387,6 +1399,8 @@ func _launch_projectile(body: Node3D, player: Node3D, muzzle: Vector3, direction
 	var shot_damage := float(definition["pellet_damage"]) if profile == "shotgun" else lerpf(float(definition["damage"]), float(definition["max_damage"]), clampf(charge_duration / float(definition["charge_time"]), 0.0, 1.0))
 	var shot_id := "duel_bot:%d:%d:%d:%d" % [body.get_instance_id(), _generation, _shot_serial, pellet]
 	projectile.finished.connect(_resolve_projectile.bind(player, body, shot_profile, shot_damage, shot_id, volley))
+	if profile == "blaster":
+		blaster_heat.commit_shot(power)
 
 
 func _resolve_projectile(hit: Dictionary, distance: float, player: Node3D, body: Node3D, shot_profile: String, base_damage: float, shot_id: String, volley: Dictionary) -> void:

@@ -5,9 +5,9 @@ extends RefCounted
 ## The actor keeps its normal CombatState; Baroud owns only its temporary
 ## last-chance gauge and Omnivamp returns a heal amount from effective damage.
 
-const BAROUD_MAX_HEALTH := 1000.0
+const BAROUD_MAX_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
 const BAROUD_DURATION := 2.5
-const BAROUD_DRAIN_PER_SECOND := 400.0
+const BAROUD_DRAIN_PER_SECOND := BAROUD_MAX_HEALTH / BAROUD_DURATION
 const OMNIVAMP_RATE := 0.15
 const DATA := preload("res://scripts/combat_data.gd")
 const IDS := ["baroud", "omnivamp", "auxiliary_reactor", "tracker", "alternator", "inertia"]

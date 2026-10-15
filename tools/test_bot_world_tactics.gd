@@ -60,7 +60,7 @@ func _test_delayed_observations() -> void:
 	_bot.call("_update_duel_perception", _target, _player, true)
 	_player.set("_blaster_charge_active", true)
 	_player.set("_shotgun_reloading", true)
-	_player.call("take_damage", 400.0, "tactics_test", "observed_health")
+	_player.call("take_damage", float(_player.call("get_max_health")) * 0.40, "tactics_test", "observed_health")
 	_bot.set("_elapsed", 0.10)
 	_bot.call("_update_duel_perception", _target, _player, true)
 	var early: Dictionary = _bot.get("_perception")
@@ -125,7 +125,7 @@ func _test_retreat_cover() -> void:
 	_bot.call("reset_clock")
 	_bot.get("_navigation").invalidate(true)
 	_target.call("reset_combat_state")
-	_target.call("take_damage", 800.0, "tactics_test", "retreat_health")
+	_target.call("take_damage", float(_target.call("get_max_health")) * 0.80, "tactics_test", "retreat_health")
 	_target.global_position = Vector3(0, 0, -2)
 	_player.global_position = Vector3(0, 0, -4)
 	_bot.set("_elapsed", 1.0)
@@ -162,7 +162,7 @@ func _test_repair_detour() -> void:
 	_target.global_position = Vector3(-8, 0, 0)
 	_player.global_position = Vector3(-20, 0, -20)
 	_target.call("reset_combat_state")
-	_target.call("take_damage", 600.0, "tactics_test", "repair_health")
+	_target.call("take_damage", float(_target.call("get_max_health")) * 0.60, "tactics_test", "repair_health")
 	_bot.call("reset_clock")
 	_bot.get("_navigation").invalidate(true)
 	await physics_frame
@@ -176,14 +176,14 @@ func _test_repair_detour() -> void:
 		if seeking:
 			_bot.call("_advance_repair_seek", _target, 0.05)
 		furthest_z = maxf(furthest_z, absf(_target.global_position.z))
-		if float(_target.call("get_health")) > 400.0:
+		if float(_target.call("get_health")) > float(_target.call("get_max_health")) * 0.40:
 			healed = true
 			break
 		if step % 5 == 0:
 			await physics_frame
 	_check(sought_kit, "injured bot selects a distant available kit behind an obstacle")
 	_check(furthest_z > 12.5, "repair path goes around the long wall instead of pushing into it")
-	_check(healed and is_equal_approx(float(_target.call("get_health")), 700.0), "repair detour reaches the kit and applies the shared 30 percent heal")
+	_check(healed and is_equal_approx(float(_target.call("get_health")), float(_target.call("get_max_health")) * 0.70), "repair detour reaches the kit and applies the shared 30 percent heal")
 	print("Repair route final position %s, maximum detour %.2f m, PV %.0f" % [_target.global_position, furthest_z, float(_target.call("get_health"))])
 	barrier.queue_free()
 	kit.queue_free()
@@ -305,7 +305,7 @@ func _test_repair_respawn_and_contest() -> void:
 	_player.global_position = kit.global_position
 	_check(float(kit.call("try_collect", _player)) > 0.0, "respawn fixture consumes a real kit")
 	_prepare_manual_duel(Vector3.ZERO, Vector3(-23, 0, -23))
-	_target.call("take_damage", 600.0, "tactics_test", "returning_kit_health")
+	_target.call("take_damage", float(_target.call("get_max_health")) * 0.60, "tactics_test", "returning_kit_health")
 	kit.set("_respawn_remaining", 7.0)
 	await physics_frame
 	_bot.call("_physics_process", 0.05)
@@ -320,22 +320,22 @@ func _test_repair_respawn_and_contest() -> void:
 		if _bot.call("get_repair_target") == kit and str(_bot.call("get_current_intent")) == "seek_heal":
 			planned_return = true
 		if not bool(kit.call("is_available")) and _target.global_position.distance_to(kit.global_position) < float(kit.call("get_collection_radius")) + 0.1:
-			waited_on_pad = waited_on_pad or is_equal_approx(float(_target.call("get_health")), 400.0)
-		if float(_target.call("get_health")) > 400.0:
+			waited_on_pad = waited_on_pad or is_equal_approx(float(_target.call("get_health")), float(_target.call("get_max_health")) * 0.40)
+		if float(_target.call("get_health")) > float(_target.call("get_max_health")) * 0.40:
 			recovered = true
 			break
 		if step % 5 == 0:
 			await physics_frame
 	_check(planned_return, "injured bot plans its trip before an imminent kit respawn")
 	_check(waited_on_pad, "bot arrives and waits without receiving unavailable healing")
-	_check(recovered and is_equal_approx(float(_target.call("get_health")), 700.0), "bot collects the returning kit once it becomes available")
+	_check(recovered and is_equal_approx(float(_target.call("get_health")), float(_target.call("get_max_health")) * 0.70), "bot collects the returning kit once it becomes available")
 
 	# A partly injured bot can deny a needed heal to a visibly injured opponent.
 	_prepare_manual_duel(Vector3.ZERO, Vector3(12, 0, 0))
 	kit.position = Vector3(5, 0, 0)
 	kit.call("reset_for_round", true)
-	_target.call("take_damage", 250.0, "tactics_test", "contest_bot_health")
-	_player.call("take_damage", 650.0, "tactics_test", "contest_target_health")
+	_target.call("take_damage", float(_target.call("get_max_health")) * 0.25, "tactics_test", "contest_bot_health")
+	_player.call("take_damage", float(_player.call("get_max_health")) * 0.65, "tactics_test", "contest_target_health")
 	_bot.set("_elapsed", 1.0)
 	_bot.call("_update_duel_perception", _target, _player, false)
 	_bot.call("_update_duel_decision", _target, _player)
@@ -352,10 +352,10 @@ func _test_repair_respawn_and_contest() -> void:
 		_target.force_update_transform()
 		await physics_frame
 		await process_frame
-		if float(_target.call("get_health")) > 750.0:
+		if float(_target.call("get_health")) > float(_target.call("get_max_health")) * 0.80:
 			denied = not bool(kit.call("is_available"))
 			break
-	_check(denied and is_equal_approx(float(_target.call("get_health")), 1000.0), "bot reaches and consumes the contested heal before its opponent")
+	_check(denied and is_equal_approx(float(_target.call("get_health")), float(_target.call("get_max_health"))), "bot reaches and consumes the contested heal before its opponent")
 	print("Contested kit final position %s, PV %.0f, available %s, intent %s" % [_target.global_position, float(_target.call("get_health")), str(kit.call("is_available")), str(_bot.call("get_current_intent"))])
 	_target.call("set_training_bot_enabled", false)
 	kit.queue_free()

@@ -270,10 +270,11 @@ func _update_world_ui_anchor() -> void:
 
 
 func _sync_weapon_readout() -> void:
+	player._update_blaster_charge_visual(0.0)
 	if player._health_readout == null:
 		return
 	player._health_readout.call("set_shotgun_ammo", player._weapon_id == "shotgun", player._shotgun_ammo, player._shotgun_magazine_size, player._shotgun_reloading, player.get_shotgun_reload_progress())
-	player._health_readout.call("set_blaster_charge", player._weapon_id == "blaster", player._blaster_charge_active, player.get_blaster_charge_ratio())
+	player._health_readout.call("set_blaster_charge", player._weapon_id == "blaster", player._blaster_charge_active, player.get_blaster_charge_ratio(), player.get_blaster_heat_fraction(), player.is_blaster_overheated(), player.get_blaster_overheat_remaining())
 	if player._health_readout.has_method("set_longshot_cycle"):
 		player._health_readout.call("set_longshot_cycle", player._weapon_id == "longshot", player.get_longshot_cycle_count(), player.is_longshot_enhanced_ready())
 	if player._longshot_visual != null:

@@ -1,11 +1,17 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const DEFINITION: Dictionary = preload("res://scripts/combat_data.gd").WEAPON_DEFINITIONS.blaster
 
 var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -135,7 +141,7 @@ func _test_desktop_full_charge_input(player: Node, target: Node) -> void:
 	await _wait_seconds(0.30)
 	if int(player.get("_blaster_attack_token")) != token_before + 1:
 		_failures.append("PC charge : le relâchement n'a pas produit un tir unique")
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - float(DEFINITION.max_damage)) > 1.2:
 		_failures.append("PC charge : %.2f dégâts au lieu de %.0f" % [damage, DEFINITION.max_damage])
 
@@ -149,7 +155,7 @@ func _test_normal_shot(player: Node, target: Node) -> void:
 	elif not shot_audio.playing:
 		_failures.append("tir normal : nouveau son non joué")
 	await _wait_seconds(0.35)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - float(DEFINITION.damage)) > 0.6:
 		_failures.append("tir normal : %.2f dégâts au lieu de %.0f" % [damage, DEFINITION.damage])
 
@@ -162,7 +168,7 @@ func _test_target_dodges_projectile(player: Node, target: Node) -> void:
 	await _wait_seconds(0.01)
 	target.global_position.x = 3.0
 	await _wait_seconds(0.40)
-	if float(target.call("get_health")) < 999.9:
+	if float(target.call("get_health")) < (BASE_HEALTH - 0.1):
 		_failures.append("cible mobile : un tir esquivé inflige encore des dégâts")
 
 
@@ -180,7 +186,7 @@ func _test_target_enters_projectile_path(player: Node, target: Node) -> void:
 	var distance: float = (target.global_position.z - projectile.global_position.z) / direction.z
 	target.global_position.x = projectile.global_position.x + direction.x * distance
 	await _wait_seconds(0.40)
-	if absf(float(target.call("get_health")) - (1000.0 - float(DEFINITION.damage))) > 0.6:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - float(DEFINITION.damage))) > 0.6:
 		_failures.append("cible mobile : un projectile traversant la cible ne la touche pas")
 
 
@@ -207,13 +213,13 @@ func _test_cooldown(player: Node, target: Node) -> void:
 	player.call("_fire_blaster_projectile", float(DEFINITION.damage), 0.0, Vector3(0.0, 0.0, -1.0))
 	player.call("_fire_blaster_projectile", float(DEFINITION.damage), 0.0, Vector3(0.0, 0.0, -1.0))
 	await _wait_seconds(0.35)
-	var first_damage := 1000.0 - float(target.call("get_health"))
+	var first_damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(first_damage - float(DEFINITION.damage)) > 0.6:
 		_failures.append("cooldown : second tir immédiat accepté")
 	await _wait_seconds(0.20)
 	player.call("_fire_blaster_projectile", float(DEFINITION.damage), 0.0, Vector3(0.0, 0.0, -1.0))
 	await _wait_seconds(0.35)
-	if absf(float(target.call("get_health")) - (1000.0 - float(DEFINITION.damage) * 2.0)) > 0.6:
+	if absf(float(target.call("get_health")) - (BASE_HEALTH - float(DEFINITION.damage) * 2.0)) > 0.6:
 		_failures.append("cooldown : tir après récupération refusé")
 
 
@@ -224,18 +230,20 @@ func _test_sustained_fire(player: Node, target: Node) -> void:
 	for shot in range(3):
 		player.call("_fire_blaster_projectile", float(DEFINITION.damage), 0.0, Vector3.FORWARD)
 		await _wait_seconds(float(DEFINITION.cooldown) + 0.03)
-	if int(player.get("_blaster_attack_token")) != token_before + 3 or absf(float(target.call("get_health")) - 700.0) > 0.6:
-		_failures.append("rafale : trois tirs rapides doivent retirer 300 PV")
-	if Time.get_ticks_msec() - started_at > 950:
-		_failures.append("rafale : cadence renforcée trop lente")
+	if int(player.get("_blaster_attack_token")) != token_before + 3 or absf(float(target.call("get_health")) - (BASE_HEALTH - 3.0 * float(DEFINITION.damage))) > 0.6:
+		_failures.append("rafale : trois tirs rapides doivent infliger trois fois les dégâts du catalogue")
+	var maximum_duration_ms := roundi(3.0 * (float(DEFINITION.cooldown) + 0.03) * 1000.0) + 250
+	if Time.get_ticks_msec() - started_at > maximum_duration_ms:
+		_failures.append("rafale : cadence plus lente que le délai du catalogue")
 
 
 func _test_long_range_and_cover(player: Node, target: Node) -> void:
 	await _prepare(player, target)
 	# Isolate this corridor above the authored arena, with real target collisions.
 	var start := Vector3(0.0, 40.9, 0.0)
+	var target_distance := float(DEFINITION.max_range) - 2.0
 	for power in [0.0, 1.0]:
-		target.global_position = Vector3(0.0, 40.0, -20.0)
+		target.global_position = Vector3(0.0, 40.0, -target_distance)
 		target.call("reset_combat_state")
 		await physics_frame
 		var damage := lerpf(float(DEFINITION.damage), float(DEFINITION.max_damage), power)
@@ -244,9 +252,9 @@ func _test_long_range_and_cover(player: Node, target: Node) -> void:
 		var speed := float(DEFINITION.projectile_speed) * lerpf(1.0, float(DEFINITION.charged_speed_multiplier), power)
 		if not is_equal_approx(float(projectile.get("_speed")), speed):
 			_failures.append("portée : vitesse du plasma incorrecte")
-		await _wait_seconds(20.0 / speed + 0.08)
-		if absf(float(target.call("get_health")) - (1000.0 - damage)) > 0.6:
-			_failures.append("portée : le plasma doit toucher à 20 mètres")
+		await _wait_seconds(target_distance / speed + 0.08)
+		if absf(float(target.call("get_health")) - (BASE_HEALTH - damage)) > 0.6:
+			_failures.append("portée : le plasma doit toucher dans sa portée")
 	var cover := StaticBody3D.new()
 	cover.collision_layer = 1
 	var shape := CollisionShape3D.new()
@@ -260,16 +268,18 @@ func _test_long_range_and_cover(player: Node, target: Node) -> void:
 	await physics_frame
 	player.call("_spawn_blaster_projectile", start, float(DEFINITION.max_damage), 1.0, 912, Vector3.FORWARD)
 	await _wait_seconds(0.35)
-	if float(target.call("get_health")) < 999.9:
+	if float(target.call("get_health")) < (BASE_HEALTH - 0.1):
 		_failures.append("couvert : le plasma surpuissant traverse un mur")
 	cover.queue_free()
-	target.global_position = Vector3(0.0, 40.0, -26.0)
-	target.call("reset_combat_state")
-	await physics_frame
-	player.call("_spawn_blaster_projectile", start, float(DEFINITION.max_damage), 1.0, 913, Vector3.FORWARD)
-	await _wait_seconds(0.35)
-	if float(target.call("get_health")) < 999.9 or current_scene.get_node_or_null("BlasterProjectile") != null:
-		_failures.append("portée : le projectile doit expirer avant 26 mètres")
+	for power in [0.0, 1.0]:
+		target.global_position = Vector3(0.0, 40.0, -float(DEFINITION.max_range) - 2.0)
+		target.call("reset_combat_state")
+		await physics_frame
+		player.call("_spawn_blaster_projectile", start, float(DEFINITION.max_damage), power, 913 + int(power), Vector3.FORWARD)
+		var speed := float(DEFINITION.projectile_speed) * lerpf(1.0, float(DEFINITION.charged_speed_multiplier), power)
+		await _wait_seconds(float(DEFINITION.max_range) / speed + 0.08)
+		if float(target.call("get_health")) < (BASE_HEALTH - 0.1) or current_scene.get_node_or_null("BlasterProjectile") != null:
+			_failures.append("portée : le projectile simple ou chargé doit expirer à la portée maximale")
 
 
 func _test_charge_damage(player: Node, target: Node, hold_time: float, label: String) -> void:
@@ -283,7 +293,7 @@ func _test_charge_damage(player: Node, target: Node, hold_time: float, label: St
 	if not expected_audio.playing:
 		_failures.append("%s : son de tir incorrect" % label)
 	await _wait_seconds(0.40)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	var expected_damage := lerpf(float(DEFINITION.damage), float(DEFINITION.max_damage), ratio)
 	if absf(ratio - minf(1.0, hold_time / float(DEFINITION.charge_time))) > 0.10:
 		_failures.append("%s : progression de charge incorrecte (%.2f)" % [label, ratio])
@@ -328,7 +338,7 @@ func _test_cancel_on_death(player: Node, target: Node) -> void:
 	await _prepare(player, target)
 	player.call("set_passive", "omnivamp")
 	player.call("_begin_blaster_charge")
-	player.call("take_damage", 1000.0, "test", "blaster_death")
+	player.call("take_damage", BASE_HEALTH * 2.0, "test", "blaster_death")
 	await process_frame
 	if bool(player.call("is_blaster_charging")) or absf(float(player.call("get_current_move_speed")) - 5.0) > 0.05:
 		_failures.append("mort pendant charge : état de charge bloqué")
@@ -358,7 +368,7 @@ func _test_mobile_tap_snapshot(player: Node, target: Node) -> void:
 	if actual.dot(expected) < 0.999:
 		_failures.append("mobile tap : direction relâchée perdue (dot %.4f)" % actual.dot(expected))
 	await _wait_seconds(0.36)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - float(DEFINITION.damage)) > 0.8:
 		_failures.append("mobile tap : %.2f dégâts au lieu de %.0f" % [damage, DEFINITION.damage])
 	await _wait_seconds(0.15)
@@ -367,7 +377,7 @@ func _test_mobile_tap_snapshot(player: Node, target: Node) -> void:
 	await _wait_seconds(0.05)
 	player.call("end_touch_fire", Vector2(1.0, 0.0))
 	await _wait_seconds(0.38)
-	if int(player.get("_blaster_attack_token")) != token_before + 2 or absf((1000.0 - float(target.call("get_health"))) - float(DEFINITION.damage) * 2.0) > 1.0:
+	if int(player.get("_blaster_attack_token")) != token_before + 2 or absf((BASE_HEALTH - float(target.call("get_health"))) - float(DEFINITION.damage) * 2.0) > 1.0:
 		_failures.append("mobile tap : gestes courts successifs hors cadence")
 
 
@@ -395,7 +405,7 @@ func _test_mobile_full_charge_release(player: Node, target: Node) -> void:
 	if actual.dot(expected) < 0.999:
 		_failures.append("mobile charge : changement de direction non conservé")
 	await _wait_seconds(0.36)
-	var damage := 1000.0 - float(target.call("get_health"))
+	var damage := BASE_HEALTH - float(target.call("get_health"))
 	if absf(damage - float(DEFINITION.max_damage)) > 1.2:
 		_failures.append("mobile charge : %.2f dégâts au lieu de %.0f" % [damage, DEFINITION.max_damage])
 
@@ -412,7 +422,7 @@ func _test_mobile_cancel_without_shot(player: Node, target: Node) -> void:
 	await _wait_seconds(0.10)
 	if bool(player.call("is_blaster_charging")) or bool(player.get("_touch_fire_active")):
 		_failures.append("mobile annulation : contact/charge encore actifs")
-	if int(player.get("_blaster_attack_token")) != token_before or float(target.call("get_health")) < 999.9:
+	if int(player.get("_blaster_attack_token")) != token_before or float(target.call("get_health")) < (BASE_HEALTH - 0.1):
 		_failures.append("mobile annulation : interruption interprétée comme un tir")
 
 

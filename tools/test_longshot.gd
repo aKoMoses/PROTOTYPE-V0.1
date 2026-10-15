@@ -122,7 +122,7 @@ func _run() -> void:
 
 func _test_damage_and_flight() -> void:
 	var previous_damage := -1.0
-	for distance in [3.0, 12.0, 22.0, 30.0]:
+	for distance in [3.0, 12.0, 22.0, 30.0, 64.0, 192.0]:
 		await _reset_fixture()
 		var shot := await _fire()
 		if bool(shot.get("missing", true)):
@@ -133,7 +133,7 @@ func _test_damage_and_flight() -> void:
 		# path, so the impact must use its new position, never the original aim.
 		_probe.position = origin + direction * (distance + 0.1)
 		_player.position = Vector3(60, 0, 60)
-		await create_timer(0.65).timeout
+		await create_timer(maxf(0.65, distance / float(shot.speed) + 0.10)).timeout
 		_check(_probe.hit_count == 1, "live shot hits the relocated target exactly once at %.0f m" % distance)
 		var impact := _last_hit_on(_probe)
 		_check(not impact.is_empty(), "physical impact recorded at %.0f m" % distance)
@@ -144,7 +144,7 @@ func _test_damage_and_flight() -> void:
 		_check(absf(_probe.total_damage - expected) < 0.03, "absolute normal damage %.2f at %.0f m" % [expected, distance])
 		_check(_probe.total_damage >= previous_damage, "damage progression is monotonic")
 		previous_damage = _probe.total_damage
-	_check(is_equal_approx(previous_damage, 202.5), "long-range damage stays capped at 202.5")
+	_check(is_equal_approx(previous_damage, 270.0), "long-range damage stays capped at 270.0")
 	await _reset_fixture()
 	_player._longshot_state.hits = 2
 	var enhanced := await _fire()
@@ -153,7 +153,7 @@ func _test_damage_and_flight() -> void:
 		_player.position = Vector3(-60, 0, 60)
 		await create_timer(0.5).timeout
 		_check(bool(enhanced.enhanced) and _probe.hit_count == 1, "execution damages each victim only once")
-		_check(absf(_probe.total_damage - 364.5) < 0.03, "execution maximum is 364.5 damage after shooter relocation")
+		_check(absf(_probe.total_damage - 486.0) < 0.03, "execution maximum is 486.0 damage after shooter relocation")
 
 
 func _test_emitted_cycle() -> void:
@@ -183,7 +183,8 @@ func _test_emitted_cycle() -> void:
 		_check(_player.get_longshot_cycle_count() == expected_count, "successful impacts drive precision at rank %d" % rank)
 		_check(_player.is_longshot_enhanced_ready() == (expected_count == 2), "two hits announce execution")
 		_check(int(_player._longshot_visual.get("_cycle_count")) == expected_count and bool(_player._longshot_visual.get("_enhanced_ready")) == (expected_count == 2), "weapon core follows impact state")
-		_check(is_equal_approx(float(shot.get("speed", 0)), 150.0 if bool(shot.get("enhanced", false)) else 120.0), "configured fast projectile")
+		var expected_speed := float(DATA.WEAPON_DEFINITIONS.longshot.projectile_speed) * (float(DATA.WEAPON_DEFINITIONS.longshot.enhanced_speed_multiplier) if bool(shot.get("enhanced", false)) else 1.0)
+		_check(is_equal_approx(float(shot.get("speed", 0)), expected_speed), "configured projectile speed")
 		_check(is_equal_approx(_player.get_current_move_speed(), _player.move_speed * 1.2), "each accepted shot grants speed")
 	_check(enhanced_ranks == [3, 6, 9], "every third successful shot is execution")
 	_player._update_module_cooldowns(0.71)
@@ -258,6 +259,13 @@ func _test_rejections_and_cancellation() -> void:
 	_player._perform_longshot_attack()
 	await create_timer(0.15).timeout
 	_check(_player.get_longshot_shots_fired() == emitted and is_equal_approx(_player._longshot_next_attack_ready_at, ready_at), "weapon switch preserves cycle and recovery deadline")
+	await create_timer(maxf(0.0, ready_at - Time.get_ticks_msec() / 1000.0 - 0.12)).timeout
+	_player._perform_longshot_attack()
+	_check(_player.get_longshot_shots_fired() == emitted and not _player._longshot_attack_busy, "reload rejects a shot near the end of its recovery")
+	await create_timer(maxf(0.0, ready_at - Time.get_ticks_msec() / 1000.0) + 0.03).timeout
+	_player._perform_longshot_attack()
+	await create_timer(0.20).timeout
+	_check(_player.get_longshot_shots_fired() == emitted + 1, "a new shot is accepted once reload completes")
 	for interruption in ["explicit", "switch", "module", "stun", "disable"]:
 		await _reset_fixture()
 		await _fire()
@@ -318,7 +326,7 @@ func _test_instance_lifecycle() -> void:
 func _test_mouse_hold_release() -> void:
 	await _reset_fixture(false)
 	_mouse(true)
-	await _poll_attack_for(1.25)
+	await _poll_attack_for(float(DATA.WEAPON_DEFINITIONS.longshot.cooldown) + 0.40)
 	_check(_player.emissions.size() == 2, "real PC mouse hold automatically repeats at configured cadence")
 	_check(not _player.is_blaster_charging(), "LONGSHOT PC hold has no charge stage")
 	_mouse(false)
@@ -330,7 +338,7 @@ func _test_mouse_hold_release() -> void:
 func _test_touch_hold_release() -> void:
 	await _reset_fixture(false)
 	_player.begin_touch_fire()
-	await _poll_attack_for(1.25)
+	await _poll_attack_for(float(DATA.WEAPON_DEFINITIONS.longshot.cooldown) + 0.40)
 	_check(_player.emissions.size() == 2 and _player._touch_attack_held, "mobile attack contact repeats through existing held command")
 	_check(not _player.is_blaster_charging(), "LONGSHOT mobile hold has no charge stage")
 	_player.end_touch_fire()
@@ -407,11 +415,11 @@ func _test_survival_upgrade() -> void:
 	build.evolutions = {}
 	_player.configure_survival_build(build)
 	_check(_player.get_longshot_shots_fired() == before and _player.get_weapon_id() == "longshot", "Survival stat upgrade preserves carried cycle")
-	_check(is_equal_approx(float(_player._longshot_definition.damage), 90.0 * 1.25), "Survival power rank applies damage multiplier once")
-	_check(is_equal_approx(float(_player._longshot_definition.cooldown), 0.85 * 0.864), "Survival tempo rank applies configured cadence multiplier")
+	_check(is_equal_approx(float(_player._longshot_definition.damage), 120.0 * 1.25), "Survival power rank applies damage multiplier once")
+	_check(is_equal_approx(float(_player._longshot_definition.cooldown), float(DATA.WEAPON_DEFINITIONS.longshot.cooldown) * 0.864), "Survival tempo rank applies configured cadence multiplier")
 	# Reapplying the same rewards must read base settings instead of compounding.
 	_player.configure_survival_build(build)
-	_check(is_equal_approx(float(_player._longshot_definition.damage), 112.5) and _player.get_longshot_shots_fired() == before, "reapplying Survival upgrades neither compounds power nor resets cycle")
+	_check(is_equal_approx(float(_player._longshot_definition.damage), 150.0) and _player.get_longshot_shots_fired() == before, "reapplying Survival upgrades neither compounds power nor resets cycle")
 	# Generic weapon evolution cannot accidentally route this new weapon through
 	# the Blaster's secondary damage and piercing effects.
 	build.evolutions = {"weapon": true}
@@ -423,7 +431,7 @@ func _test_survival_upgrade() -> void:
 		_probe.position = Vector3(shot.origin) + Vector3(shot.direction) * 22.1
 		_player.position = Vector3(60, 0, 60)
 		await create_timer(0.5).timeout
-		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 253.125) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
+		_check(_probe.hit_count == 1 and absf(_probe.total_damage - 337.5) < 0.03, "Survival LONGSHOT applies upgraded distance damage once")
 		_check(_legacy_projectiles == previous_legacy and _probe.status_applications == 0, "Survival LONGSHOT adds no Blaster secondary projectile or burn")
 	_player.apply_loadout(_loadout())
 

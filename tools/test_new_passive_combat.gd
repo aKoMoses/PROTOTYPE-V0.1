@@ -114,7 +114,7 @@ func _test_volley() -> void:
 	var before := float(target.call("get_health"))
 	for pellet in 6:
 		player.call("_resolve_shotgun_projectile", volley, pellet, true, target, 2.0)
-	var expected := 6.0 * 28.0 * 1.30 * DATA.CRIT_MULTIPLIER
+	var expected := 6.0 * float(DATA.WEAPON_DEFINITIONS.shotgun.pellet_damage) * 1.30 * DATA.CRIT_MULTIPLIER
 	check(absf(before - float(target.call("get_health")) - expected) < 0.01, "Real Shotgun: every direct component and critical get exactly +30%")
 
 

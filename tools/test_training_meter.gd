@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -42,7 +44,7 @@ func _initialize() -> void:
 	var after_ko := float(meter.call("get_total_damage"))
 	_check(after_ko > all_damage, "degats effectifs du KO comptes")
 	await create_timer(0.9, true, false, false).timeout
-	_check(is_equal_approx(float(targets[0].call("get_health")), 1000.0), "mannequin regenere apres KO")
+	_check(is_equal_approx(float(targets[0].call("get_health")), BASE_HEALTH), "mannequin regenere apres KO")
 	_check(is_equal_approx(float(meter.call("get_total_damage")), after_ko), "regen ne vide pas la mesure")
 	scene.call("_reset_trial")
 	_check(is_equal_approx(float(meter.call("get_total_damage")), 0.0), "F5 vide la mesure")

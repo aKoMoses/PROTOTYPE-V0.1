@@ -9,18 +9,22 @@ var _fill: ColorRect
 var _clock := 0.0
 var _example := false
 var _longshot_segments: Array[ColorRect] = []
+var _heat_track: ColorRect
+var _heat_fill: ColorRect
+var _shell: StyleBoxFlat
+var _warning_phase := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(280, 90)
 	var background := Panel.new()
-	var shell := StyleBoxFlat.new()
-	shell.bg_color = Color("#20272ae8")
-	shell.border_color = Color("#776b5c")
-	shell.set_border_width_all(1)
-	shell.set_corner_radius_all(6)
-	background.add_theme_stylebox_override("panel", shell)
+	_shell = StyleBoxFlat.new()
+	_shell.bg_color = Color("#20272ae8")
+	_shell.border_color = Color("#776b5c")
+	_shell.set_border_width_all(1)
+	_shell.set_corner_radius_all(6)
+	background.add_theme_stylebox_override("panel", _shell)
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
@@ -50,6 +54,17 @@ func _ready() -> void:
 		segment.visible = false
 		add_child(segment)
 		_longshot_segments.append(segment)
+	_heat_track = ColorRect.new()
+	_heat_track.position = Vector2(12, 82)
+	_heat_track.size = Vector2(256, 7)
+	_heat_track.color = Color("#344a50")
+	_heat_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_heat_track)
+	_heat_fill = ColorRect.new()
+	_heat_fill.position = _heat_track.position
+	_heat_fill.size = _heat_track.size
+	_heat_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_heat_fill)
 	_refresh()
 
 func _label(font_size: int, tint: Color, at: Vector2, dimensions: Vector2) -> Label:
@@ -74,6 +89,8 @@ func set_example(value: bool) -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	if not get_tree().paused:
+		_warning_phase += delta * TAU * 2.0
 	_clock += delta
 	if _clock >= 0.1:
 		_clock = 0.0
@@ -84,6 +101,12 @@ func _refresh() -> void:
 		return
 	for segment in _longshot_segments:
 		segment.visible = false
+	_heat_track.visible = false
+	_heat_fill.visible = false
+	_shell.bg_color = Color("#20272ae8")
+	_shell.border_color = Color("#776b5c")
+	_shell.set_border_width_all(1)
+	_weapon.add_theme_color_override("font_color", Color("#42d9e5"))
 	if _example:
 		_health.text = "PV 64 / 100"
 		_fill.size.x = 256.0 * 0.64
@@ -119,4 +142,24 @@ func _refresh() -> void:
 		else:
 			_weapon.text = "MEKATANA   PRÊT 1 / 3"
 		return
-	_weapon.text = "%s   %d / %d" % [LOADOUT.display_name(weapon_id), int(player.call("get_shotgun_ammo")), int(player.call("get_shotgun_magazine_size"))] if weapon_id == "shotgun" else "%s   CHARGE %d %%" % [LOADOUT.display_name(weapon_id), int(float(player.call("get_blaster_charge_ratio")) * 100.0)]
+	if weapon_id == "blaster":
+		var heat := float(player.call("get_blaster_heat_fraction"))
+		var overheated := bool(player.call("is_blaster_overheated"))
+		var tint := Color("#ff7960") if overheated else Color("#ff9b52") if heat >= 0.7 else Color("#ffc069")
+		_heat_track.visible = true
+		_heat_fill.visible = true
+		_heat_track.color = Color("#632d29") if overheated else Color("#344a50")
+		_heat_fill.size.x = 256.0 * clampf(heat, 0.0, 1.0)
+		_heat_fill.color = tint
+		if overheated:
+			_weapon.text = "SURCHAUFFE   %.1f s" % float(player.call("get_blaster_overheat_remaining"))
+			_weapon.add_theme_color_override("font_color", tint)
+			_shell.bg_color = Color("#421e20ef")
+			_shell.border_color = Color("#cc4e3f").lerp(tint, 0.5 + 0.5 * sin(_warning_phase))
+			_shell.set_border_width_all(2)
+		elif bool(player.call("is_blaster_charging")):
+			_weapon.text = "BLASTER   CHARGE %d %%" % roundi(float(player.call("get_blaster_charge_ratio")) * 100.0)
+		else:
+			_weapon.text = "BLASTER   CHALEUR %d %%" % roundi(heat * 100.0)
+	else:
+		_weapon.text = "%s   %d / %d" % [LOADOUT.display_name(weapon_id), int(player.call("get_shotgun_ammo")), int(player.call("get_shotgun_magazine_size"))]

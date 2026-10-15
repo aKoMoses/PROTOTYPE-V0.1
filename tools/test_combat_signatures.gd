@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const COUNTER := preload("res://scripts/counter.gd")
 const DATA := preload("res://scripts/combat_data.gd")
 const NETWORK_ACTOR := preload("res://scripts/network_player.gd")
@@ -61,7 +63,7 @@ func _run() -> void:
 	await _wait_signature("shotgun")
 	check(feedback._signature.kind == "shotgun", "six real pellets trigger Shotgun signature")
 	check(observed.count("shotgun") == 1, "six pellets confirm the salvo once")
-	check(target.get_health() < 850, "signature follows effective damage")
+	check(target.get_health() < (BASE_HEALTH - 150.0), "signature follows effective damage")
 	check(sounds.count("signature_shotgun") == 1, "one short Shotgun accent")
 	await shot("01-shotgun")
 	var count := observed.size()
@@ -76,7 +78,7 @@ func _run() -> void:
 	await _prepare("longshot")
 	player._perform_longshot_attack()
 	await create_timer(0.25).timeout
-	check(not observed.has("longshot") and target.get_health() < 1000, "normal Longshot hit is not labelled execution")
+	check(not observed.has("longshot") and target.get_health() < BASE_HEALTH, "normal Longshot hit is not labelled execution")
 	await _prepare("longshot")
 	player._longshot_state.hits = 2
 	player._perform_longshot_attack()
@@ -92,7 +94,7 @@ func _run() -> void:
 	player._longshot_state.hits = 2
 	player._perform_longshot_attack()
 	await create_timer(0.25).timeout
-	check(not observed.has("longshot") and is_equal_approx(target.get_health(), 1000.0), "blocked execution never claims success")
+	check(not observed.has("longshot") and is_equal_approx(target.get_health(), BASE_HEALTH), "blocked execution never claims success")
 	await _prepare("blaster")
 	player._perform_counter()
 	var guard := COUNTER.component(player)
@@ -100,7 +102,7 @@ func _run() -> void:
 	var attack := COUNTER.weapon_attack(target, "signature:counter", DATA.WEAPON_DEFINITIONS.blaster)
 	COUNTER.impact(player, 100, "duel_bot", "signature:counter", attack, Vector3.UP)
 	check(observed.count("counter") == 1 and feedback._signature.kind == "counter", "actual intercepted attack confirms Counter immediately")
-	check(is_equal_approx(player.get_health(), 1000.0) and guard.surcharge_remaining > 0.0, "Counter protection and reward preserved")
+	check(is_equal_approx(player.get_health(), BASE_HEALTH) and guard.surcharge_remaining > 0.0, "Counter protection and reward preserved")
 	await shot("03-counter")
 	await _prepare("blaster")
 	target.position = Vector3(0, 0, -1.45)
@@ -118,7 +120,7 @@ func _run() -> void:
 	player._update_fulguro_attack(0.36)
 	await _wait_signature("fulguro_punch")
 	check(observed.count("fulguro_punch") == 1 and feedback._signature.kind == "fulguro_punch", "actual projection against wall confirms crushing")
-	check(target.is_stunned() and is_equal_approx(target.get_health(), 650.0), "wall damage and stun preserved")
+	check(target.is_stunned() and is_equal_approx(target.get_health(), (BASE_HEALTH - 350.0)), "wall damage and stun preserved")
 	await shot("04-fulguro")
 	wall.queue_free()
 	await process_frame
@@ -304,7 +306,8 @@ func _test_lethal_success() -> void:
 	var flow: Node = scene.game_flow
 	flow._round_resolved = false
 	flow.round_phase = flow.RoundPhase.LIVE
-	target.combat_state.health = 200.0
+	# All six pellets must land before the guaranteed critical finishes the kill.
+	target.combat_state.health = float(DATA.WEAPON_DEFINITIONS.shotgun.pellet_damage) * 6.0 * 1.2
 	player._perform_shotgun_attack()
 	await _wait_signature("shotgun")
 	# Round resolution already resets the training actor; the result keeps its death.

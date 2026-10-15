@@ -190,6 +190,8 @@ func _on_rooms_changed(rooms: Array) -> void:
 
 func _on_room_changed(room: Dictionary) -> void:
 	var in_room := not room.is_empty()
+	if is_visible_in_tree() and in_room != _joined.visible:
+		MenuTransition.present("Ouverture du salon…" if in_room else "Salons multijoueurs…")
 	_browser.visible = not in_room
 	_joined.visible = in_room
 	title_label.text = str(room.get("title", "Salon")).to_upper() if in_room else "MULTIJOUEUR"

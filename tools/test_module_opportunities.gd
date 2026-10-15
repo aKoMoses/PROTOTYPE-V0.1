@@ -95,10 +95,10 @@ func _test_cleanse_state() -> void:
 	check(not state.has_effect("BURN") and state.get_slow_percent() == 0.0, "Cleanse removes burn and every slow source")
 	check(events == ["BURN", "SLOW"], "Cleanse emits exactly one removal signal per active ailment")
 	check(state.is_stunned() and state.is_spotted(), "Cleanse preserves stun and tracking")
-	check(state.health == 990.0 and state.shield_health == 50.0, "Cleanse preserves health and shield")
+	check(state.health == DATA.MAX_HEALTH - 10.0 and state.shield_health == 50.0, "Cleanse preserves health and shield")
 	check(state.apply_damage(10.0, "test", "already_hit") == 0.0, "Cleanse preserves attack deduplication")
 	state.update(1.0)
-	check(state.health == 990.0 and state.shield_health == 50.0, "Purified burn cannot resume its ticks")
+	check(state.health == DATA.MAX_HEALTH - 10.0 and state.shield_health == 50.0, "Purified burn cannot resume its ticks")
 
 func _test_stasis() -> void:
 	prepare()
@@ -310,7 +310,7 @@ func _test_pelto(scene: Node) -> void:
 	wave.set_physics_process(false)
 	wave.call("_apply_hit", target, false)
 	wave.call("_apply_hit", target, true)
-	check(float(target.call("get_health")) == 740.0, "Pelto keeps its 160 plus 100 damage")
+	check(float(target.call("get_health")) == DATA.MAX_HEALTH - 340.0, "Pelto keeps its 200 plus 140 damage")
 	check(target.get("combat_state").get_slow_percent() == 25.0 and is_equal_approx(float(target.get("combat_state").get_remaining("SLOW")), 1.1), "Pelto return opens a follow-up window")
 	target.get("combat_state").update(0.5)
 	wave.call("_apply_hit", target, true)
@@ -339,7 +339,7 @@ func _test_wall_opening(scene: Node) -> void:
 		target.call("_update_fulguro_projection", 1.0 / 60.0)
 		if not bool(target.call("is_fulguro_projected")):
 			break
-	check(float(target.call("get_health")) == 650.0, "Wall opening preserves direct and collision damage")
+	check(float(target.call("get_health")) == DATA.MAX_HEALTH - 350.0, "Wall opening preserves direct and collision damage")
 	check(is_equal_approx(float(target.get("combat_state").get_remaining("STUN")), 1.0), "Wall impact leaves a full second to follow up")
 	target.get("combat_state").update(1.01)
 	check(not target.get("combat_state").is_stunned(), "Wall stun expires normally")

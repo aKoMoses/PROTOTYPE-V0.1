@@ -26,6 +26,7 @@ const COMPONENT_SHOTGUN := preload("res://scripts/player/components/shotgun.gd")
 const COMPONENT_DEFENSIVE_MODULES := preload("res://scripts/player/components/defensive_modules.gd")
 const COMPONENT_MOBILITY_MODULES := preload("res://scripts/player/components/mobility_modules.gd")
 const COMPONENT_UTILITY_MODULES := preload("res://scripts/player/components/utility_modules.gd")
+const CORNER_PEEK := preload("res://scripts/player_corner_peek.gd")
 
 var _blaster_component := COMPONENT_BLASTER.new(self)
 var _combat_component := COMPONENT_COMBAT.new(self)
@@ -43,6 +44,7 @@ var _shotgun_component := COMPONENT_SHOTGUN.new(self)
 var _defensive_modules_component := COMPONENT_DEFENSIVE_MODULES.new(self)
 var _mobility_modules_component := COMPONENT_MOBILITY_MODULES.new(self)
 var _utility_modules_component := COMPONENT_UTILITY_MODULES.new(self)
+var _corner_peek := CORNER_PEEK.new(self)
 
 
 func _init() -> void:
@@ -64,6 +66,7 @@ func _init() -> void:
 		_utility_modules_component,
 		_defensive_modules_component,
 		_mobility_modules_component,
+		_corner_peek,
 	]:
 		add_child(component)
 
@@ -193,9 +196,11 @@ func _load_weapon_definitions() -> void:
 func _physics_process(delta: float) -> void:
 	_controls_component.advance_input_time(delta)
 	if not _gameplay_enabled:
+		_corner_peek.reset()
 		velocity = Vector3.ZERO
 		clear_touch_inputs()
 		return
+	_blaster_component.update_heat(delta)
 	if visibility_state != null:
 		visibility_state.update(delta)
 	var baroud_expired: bool = passive_state != null and bool(passive_state.process(delta))
@@ -203,6 +208,7 @@ func _physics_process(delta: float) -> void:
 		_finalize_passive_death()
 	_update_baroud_presentation()
 	if passive_state != null and passive_state.real_dead:
+		_corner_peek.reset()
 		velocity = Vector3.ZERO
 		get_node("/root/GameSfx").reset_locomotion()
 		return
@@ -246,6 +252,7 @@ func _physics_process(delta: float) -> void:
 	_update_pelto_attack(delta)
 	_update_weapon_pose_state(delta)
 	_update_robot_motion(delta)
+	_corner_peek.update(delta)
 	_update_world_ui_anchor()
 	_update_bush_state(delta)
 	if _uses_local_feedback():
@@ -497,6 +504,14 @@ func begin_touch_action(action: String) -> bool:
 
 func end_touch_action(action: String) -> void:
 	_controls_component.end_touch_action(action)
+
+
+func can_cancel_aimed_action(action: String, touch: bool = true) -> bool:
+	return _controls_component.can_cancel_aimed_action(action, touch)
+
+
+func cancel_aimed_action(action: String, touch: bool = true) -> void:
+	_controls_component.cancel_aimed_action(action, touch)
 
 
 func cancel_touch_action(action: String) -> void:
@@ -796,8 +811,8 @@ func reset_combat_state() -> void:
 	_combat_component.reset_combat_state()
 
 
-func reset_blaster_state() -> void:
-	_blaster_component.reset_blaster_state()
+func reset_blaster_state(clear_heat: bool = true) -> void:
+	_blaster_component.reset_blaster_state(clear_heat)
 
 
 func set_weapon(weapon_id: String) -> void:
@@ -1572,7 +1587,7 @@ func _emit_javelin(token: int, action_token: int, origin: Vector3, direction: Ve
 	_projectile_modules_component._emit_javelin(token, action_token, origin, direction, power)
 
 
-func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage: float = 140.0, mark_duration: float = 2.5, shot_range: float = 8.0, power: float = 0.0) -> void:
+func _on_javelin_finished(hit: Dictionary, _distance: float, token: int, damage: float = -1.0, mark_duration: float = 2.5, shot_range: float = 8.0, power: float = 0.0) -> void:
 	_projectile_modules_component._on_javelin_finished(hit, _distance, token, damage, mark_duration, shot_range, power)
 
 
@@ -1640,6 +1655,14 @@ func _safe_projectile_origin(muzzle: Vector3) -> Vector3:
 	return _effects_component._safe_projectile_origin(muzzle)
 
 
+func _projectile_support_origin(radius: float = 0.0) -> Vector3:
+	return _corner_peek.projectile_support_origin(radius)
+
+
+func get_corner_peek_state() -> Dictionary:
+	return _corner_peek.snapshot()
+
+
 func _spawn_blaster_projectile(start: Vector3, damage: float, charge_ratio: float, token: int, shot_direction: Vector3, passive_attack: Dictionary = {}) -> void:
 	_blaster_component._spawn_blaster_projectile(start, damage, charge_ratio, token, shot_direction, passive_attack)
 
@@ -1666,6 +1689,22 @@ func _update_blaster_charge_visual(delta: float) -> void:
 
 func get_blaster_charge_ratio() -> float:
 	return _blaster_component.get_blaster_charge_ratio()
+
+
+func _blaster_heat_applies() -> bool:
+	return true
+
+
+func is_blaster_overheated() -> bool:
+	return _blaster_heat.overheated
+
+
+func get_blaster_heat_fraction() -> float:
+	return _blaster_heat.fraction()
+
+
+func get_blaster_overheat_remaining() -> float:
+	return _blaster_heat.remaining()
 
 
 func is_blaster_charging() -> bool:

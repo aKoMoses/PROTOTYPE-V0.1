@@ -56,7 +56,7 @@ func configure(next_build: Dictionary) -> void:
 	_dash_extra_ready = true
 	if str(build.get("passive", "")) == "baroud":
 		player.passive_state.baroud_duration = 4.0 + rank("passive") * 0.65 + 1.1 * int(build.get("upgrades", {}).get("passive", {}).get("power", 0))
-		player.passive_state.baroud_max_health = maxf(float(player.passive_state.baroud_max_health), float(player.passive_state.baroud_duration) * 400.0 + 200.0)
+		player.passive_state.baroud_max_health = maxf(float(player.passive_state.baroud_max_health), (float(player.passive_state.baroud_duration) + 0.5) * player.PASSIVE_STATE.BAROUD_DRAIN_PER_SECOND)
 	if path("weapon") == "sweeper":
 		var count := 6 + rank("weapon") * 2
 		var angle := 14.0 + rank("weapon") * 7.0

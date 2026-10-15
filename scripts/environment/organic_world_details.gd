@@ -1,6 +1,7 @@
 extends Node3D
 ## Local, bounded scenery responses. Only observes combat; never writes to actors.
 const DETAIL_SHADER := preload("res://scripts/environment/organic_details.gdshader")
+const WIND := preload("res://scripts/environment/scenery_wind.gd")
 const MAX_BITS := 72
 const MAX_STAMPS := 48
 const MAX_MOTES := 18
@@ -126,7 +127,7 @@ func _process(delta: float) -> void:
 func _update_props(delta: float) -> void:
 	for prop in _props:
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var material := mesh.material_override as ShaderMaterial
 		if material == null:
@@ -134,6 +135,9 @@ func _update_props(delta: float) -> void:
 		var state: Dictionary = mesh.get_meta("organic_state")
 		state.age += delta
 		state.cooldown = maxf(0.0, state.cooldown - delta)
+		material.set_shader_parameter("scenery_driven", true)
+		material.set_shader_parameter("scenery_clock", _clock)
+		material.set_shader_parameter("scenery_gust", WIND.strength(_clock, mesh.global_position) * (0.35 if _low() else 1.0))
 		if prop.grass:
 			var relative := mesh.to_local(observer.global_position)
 			var radius := float(mesh.get_parent().get_meta("foliage_radius", 1.28))
@@ -168,7 +172,7 @@ func _disturb(mesh: MeshInstance3D, at: Vector3, direction: Vector3, power: floa
 func disturb_at(at: Vector3, direction: Vector3, power: float, radius: float = 3.6) -> void:
 	for prop in _props:
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var distance := mesh.global_position.distance_to(at)
 		if distance > radius:
@@ -201,7 +205,7 @@ func _shot(socket: Node3D, weapon: String, charge: float) -> void:
 		if not prop.grass:
 			continue
 		var mesh := prop.mesh.get_ref() as MeshInstance3D
-		if mesh == null or not mesh.is_visible_in_tree():
+		if mesh == null or not mesh.is_inside_tree() or not mesh.is_visible_in_tree():
 			continue
 		var centre := mesh.global_position + Vector3.UP * 1.0
 		var closest := Geometry3D.get_closest_point_to_segment(centre, start, end)
@@ -312,7 +316,7 @@ func _ground(at: Vector3, depth: float) -> Dictionary:
 	var terrain := scene.get_node_or_null("TestArena")
 	if terrain != null and "arena_variant" in scene and str(scene.get("arena_variant")) == "test":
 		ground = terrain.get_node_or_null("Ground") as MeshInstance3D
-	if ground == null or ground.mesh == null or not ground.is_visible_in_tree():
+	if ground == null or not ground.is_inside_tree() or ground.mesh == null or not ground.is_visible_in_tree():
 		return {}
 	var local := ground.to_local(at)
 	var bounds := ground.mesh.get_aabb()
@@ -360,7 +364,7 @@ func _update_bits(delta: float) -> void:
 		var velocity: Vector3 = bit.velocity
 		velocity.y -= (1.5 if leaf else GRAVITY) * step
 		if leaf:
-			velocity += (BREEZE * 0.6 + Vector3(sin(_clock * 5.0 + bit.angle), 0.0, cos(_clock * 4.0 + bit.angle)) * 0.5) * step
+			velocity += (WIND.velocity(_clock, bit.at) * 0.6 + Vector3(sin(_clock * 5.0 + bit.angle), 0.0, cos(_clock * 4.0 + bit.angle)) * 0.5) * step
 		var next: Vector3 = bit.at + velocity * step
 		# A bounded sweep keeps chips on the outside of the actual cover face.
 		if not leaf and velocity.length_squared() > 0.2 and _collision_queries < (4 if _low() else 16):
@@ -418,7 +422,7 @@ func _update_ambient(delta: float) -> void:
 		if mote.age >= mote.life:
 			_motes.remove_at(index)
 			continue
-		mote.at += (BREEZE * 0.34 + Vector3(0.0, sin(_clock + mote.phase) * 0.08, 0.0)) * delta
+		mote.at += (WIND.velocity(_clock, mote.at) + Vector3(0.0, sin(_clock + mote.phase) * 0.08, 0.0)) * delta
 
 func _low() -> bool:
 	return int(manager.get("quality")) == 0

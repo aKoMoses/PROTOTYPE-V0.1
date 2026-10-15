@@ -6,6 +6,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_equipment_fixture.call_deferred()
+
+
+func _run_equipment_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene

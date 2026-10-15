@@ -1,7 +1,6 @@
 extends SceneTree
 
 const LOADOUT := preload("res://scripts/loadout_state.gd")
-const FLOW := preload("res://scripts/game_flow.gd")
 var failures: Array[String] = []
 var checks := 0
 var capture := false
@@ -31,7 +30,7 @@ func _run() -> void:
 	await shot("01-home")
 	var saved_build := FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH)
 	(entry.get_child(1) as Button).pressed.emit()
-	await process_frame
+	await scene_changed
 	await process_frame
 	var tutorial: Node = current_scene
 	check(tutorial.name == "BeginnerTutorial", "home button launches the beginner scene")
@@ -132,12 +131,12 @@ func _run() -> void:
 	check(summary_content.get_child(0).get_global_rect().position.y >= 0 and last_summary_button.get_global_rect().end.y <= root.get_visible_rect().size.y, "recap and navigation fit the viewport")
 	check(FileAccess.get_file_as_bytes(LOADOUT.SAVE_PATH) == saved_build, "all lessons preserve saved equipment")
 	tutorial._open_free_training()
-	await process_frame
+	await scene_changed
 	await process_frame
 	check(not paused and current_scene.name == "TrainingGround", "free training opens unpaused")
 	check(current_scene._loadout == LOADOUT.load_local(), "free training restores player's build")
 	current_scene._return_to_main_menu()
-	await process_frame
+	await scene_changed
 	await process_frame
 	check(current_scene.name == "Main" and not paused, "return to home works")
 	var ending: Node = current_scene

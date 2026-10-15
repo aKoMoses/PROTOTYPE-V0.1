@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bdidguv17db3i"
-path="res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.ctex"
+path.s3tc="res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.s3tc.ctex"
+path.etc2="res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "b00cea20b4134377de5ef764bd88a376"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://art/modules/magnetic_field_module_steel_roughness.png"
-dest_files=["res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.ctex"]
+dest_files=["res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.s3tc.ctex", "res://.godot/imported/magnetic_field_module_steel_roughness.png-724f9c5ece857786e39e6ee2c8f5b948.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

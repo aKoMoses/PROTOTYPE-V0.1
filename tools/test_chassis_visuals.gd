@@ -47,7 +47,7 @@ func _run() -> void:
 		if muzzle != null:
 			pose.forward = -muzzle.global_basis.z.normalized()
 	)
-	for entry in [["agile", 0.95, 800.0, 6.0], ["puissant", 1.05, 1200.0, 4.0], ["puissant", 1.05, 1200.0, 4.0], ["agile", 0.95, 800.0, 6.0], ["polyvalent", 1.0, 1000.0, 5.0], ["puissant", 1.05, 1200.0, 4.0]]:
+	for entry in [["agile", 0.95, 1200.0, 6.0], ["puissant", 1.05, 1800.0, 4.0], ["puissant", 1.05, 1800.0, 4.0], ["agile", 0.95, 1200.0, 6.0], ["polyvalent", 1.0, 1500.0, 5.0], ["puissant", 1.05, 1800.0, 4.0]]:
 		var identifier: String = entry[0]
 		player.call("set_robot", identifier)
 		rig.animation_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL

@@ -1,9 +1,15 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var startup_fixture := Node.new()
 	root.add_child(startup_fixture)
 	current_scene = startup_fixture
@@ -36,11 +42,11 @@ func _initialize() -> void:
 				_failures.append("visuel d'effet absent pendant l'effet: " + visual_name)
 		for _frame in range(3):
 			await process_frame
-		if float(target.call("get_health")) >= 1000.0:
+		if float(target.call("get_health")) >= BASE_HEALTH:
 			_failures.append("BURN mannequin non observé")
 		target.call("reset_combat_state")
 		await process_frame
-		if absf(float(target.call("get_health")) - 1000.0) > 0.05:
+		if absf(float(target.call("get_health")) - BASE_HEALTH) > 0.05:
 			_failures.append("reset mannequin ne restaure pas les PV")
 		if not (target.call("get_active_effect_types") as Array).is_empty():
 			_failures.append("reset mannequin conserve un effet")

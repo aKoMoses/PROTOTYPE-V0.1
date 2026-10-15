@@ -7,6 +7,7 @@ const PLAYER_STATE := preload("res://scripts/player/components/player_state.gd")
 const ARENA_TRAVERSAL := preload("res://scripts/arena_traversal.gd")
 
 var player: PLAYER_STATE
+var _impact_feedback_sent := false
 
 
 func _init(controller: PLAYER_STATE) -> void:
@@ -31,6 +32,7 @@ func _perform_mekatana_attack() -> void:
 	if token == 0:
 		return
 	player._mekatana_action_token = token
+	_impact_feedback_sent = false
 	player._mekatana_attack.damage_enabled = player._can_apply_mekatana_damage()
 	var facing := player.aim_direction
 	if not facing.is_finite() or Vector2(facing.x, facing.z).length_squared() < 0.001:
@@ -96,8 +98,11 @@ func _on_mekatana_hit(target: Node3D, _applied: float, multiplier: float) -> voi
 		player._visual_rig.set_mekatana_impact(target, multiplier)
 	# Existing target damage callbacks credit effective damage and Omnivamp.
 	# Presentation never credits it a second time or adds an electrical status.
-	if player._uses_local_feedback() and player._mekatana_attack.step == 2 and multiplier >= 1.6:
-		player._camera_impulse(0.045, 0.025)
+	if player._uses_local_feedback() and not _impact_feedback_sent:
+		_impact_feedback_sent = true
+		var rank: int = player._mekatana_attack.step
+		var weight := clampf(sqrt(multiplier), 1.0, 1.3)
+		player._camera_impulse([0.040, 0.055, 0.075][rank], [0.014, 0.021, 0.032][rank] * weight)
 
 
 func _on_mekatana_finished() -> void:

@@ -1,8 +1,14 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 var failures: Array[String] = []
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	# Run with a known draft, independent of the player's saved chassis.
 	set_meta("garage_test_loadout", preload("res://scripts/loadout_state.gd").defaults())
 	var scene: Node3D = load("res://scenes/training_ground.tscn").instantiate()
@@ -69,7 +75,7 @@ func _initialize() -> void:
 		scene.call("_toggle_option", "unlimited_ammo")
 		_check(bool(player.get("training_unlimited_ammo")), "option munitions illimitées")
 		scene.call("_half_health")
-		_check(is_equal_approx(float(player.call("get_health")), 500.0), "mise à 50 % PV")
+		_check(is_equal_approx(float(player.call("get_health")), BASE_HEALTH * 0.5), "mise à 50 % PV")
 		scene.call("_toggle_menu")
 		var menu := scene.get_node("TrainingUI/TrainingRoot/TrainingMenu")
 		_check(paused and menu.visible, "sous-menu pause le terrain")
@@ -84,8 +90,8 @@ func _initialize() -> void:
 		_check(not paused and not menu.visible and str(scene.get("_tool_mode")) == "place", "placer active l'outil depuis le sous-menu")
 		scene.call("_cancel_tool")
 		_press_key(scene, KEY_F5)
-		_check(is_equal_approx(float(player.call("get_health")), 1000.0), "reset des PV joueur")
-		_check(is_equal_approx(float(targets[0].call("get_health")), 1000.0), "reset des mannequins")
+		_check(is_equal_approx(float(player.call("get_health")), BASE_HEALTH), "reset des PV joueur")
+		_check(is_equal_approx(float(targets[0].call("get_health")), BASE_HEALTH), "reset des mannequins")
 		_check((scene.call("get_training_targets") as Array).size() == 5, "reset conserve les mannequins")
 		scene.call("_remove_all_fixed")
 		_check((scene.call("get_training_targets") as Array).size() == 2, "suppression des mannequins fixes")

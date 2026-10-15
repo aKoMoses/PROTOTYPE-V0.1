@@ -49,10 +49,13 @@ func _ready() -> void:
 	visible = false
 
 
-func set_charge(active: bool, charge: float, delta: float) -> void:
-	visible = active
-	if not active:
+func set_charge(active: bool, charge: float, delta: float, overheated: bool = false, heat: float = 0.0) -> void:
+	visible = active or overheated
+	if not visible:
 		_phase = 0.0
+		return
+	if overheated:
+		_set_overheat(heat, delta)
 		return
 	var power := clampf(charge, 0.0, 1.0)
 	var buildup := power * power
@@ -89,6 +92,37 @@ func set_charge(active: bool, charge: float, delta: float) -> void:
 		arc.visible = power > 0.60 and (full > 0.8 or sin(_phase * 0.55 + index * 2.1) > 0.1)
 		if arc.visible:
 			_update_arc(arc.mesh as ImmediateMesh, index, power)
+
+
+func _set_overheat(heat: float, delta: float) -> void:
+	# Reuse the muzzle geometry: red cooling rings and rising embers are
+	# distinct from the blue plasma that is drawn into the barrel while charging.
+	_phase += maxf(0.0, delta) * 12.0
+	var pulse := 0.5 + 0.5 * sin(_phase)
+	var warmth := clampf(heat, 0.0, 1.0)
+	_energy_material.albedo_color = Color(Color("#ff5946"), 0.80)
+	_core_material.albedo_color = Color("#ffad64")
+	_aura_material.albedo_color = Color(Color("#ff553c"), 0.15 + pulse * 0.05)
+	_aura_material.emission = Color("#ff553c")
+	_core.scale = Vector3.ONE * (0.17 + warmth * 0.06)
+	_aura.scale = Vector3.ONE * (0.50 + pulse * 0.06)
+	for index in _coils.size():
+		var coil := _coils[index]
+		var radius := 0.25 + index * 0.05 + pulse * 0.025
+		coil.scale = Vector3(radius, 0.045, radius)
+		coil.position.z = 0.10 + index * 0.15
+		coil.rotation.y = 0.0
+	var local_up := global_basis.inverse() * Vector3.UP
+	for index in _motes.size():
+		var mote := _motes[index]
+		mote.visible = index < 8
+		var travel := fposmod(_phase * 0.07 + float(index) / 8.0, 1.0)
+		var angle := index * 2.39996
+		mote.position = Vector3(cos(angle) * 0.18, sin(angle) * 0.18, 0.0) + local_up * travel * 0.80
+		mote.rotation = Vector3.ZERO
+		mote.scale = Vector3.ONE * (0.028 * (1.0 - travel))
+	for arc in _arcs:
+		arc.visible = false
 
 
 func _update_arc(mesh: ImmediateMesh, index: int, power: float) -> void:

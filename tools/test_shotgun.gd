@@ -1,9 +1,15 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	_run_balance_fixture.call_deferred()
+
+
+func _run_balance_fixture() -> void:
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
@@ -94,7 +100,7 @@ func _test_six_of_six(player: Node, target: Node) -> void:
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
 	var health := float(target.call("get_health"))
-	if health > 748.0 or health < 718.0:
+	if health > BASE_HEALTH - 540.0 or health < BASE_HEALTH - 570.0:
 		_failures.append("6/6 : %.2f PV, dégâts critiques/BURN incohérents" % health)
 	if not (target.call("get_active_effect_types") as Array).has("BURN"):
 		_failures.append("6/6 : BURN absent")
@@ -107,8 +113,8 @@ func _test_four_of_six(player: Node, target: Node) -> void:
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
 	var health := float(target.call("get_health"))
-	if absf(health - 888.0) > 1.2:
-		_failures.append("4/6 : %.2f PV au lieu de 888" % health)
+	if absf(health - (BASE_HEALTH - 240.0)) > 1.2:
+		_failures.append("4/6 : %.2f PV après quatre plombs de 60 dégâts" % health)
 	if (target.call("get_active_effect_types") as Array).has("BURN"):
 		_failures.append("4/6 : BURN appliqué à tort")
 
@@ -129,7 +135,7 @@ func _test_absorption(player: Node, target: Node, scene: Node) -> void:
 	player.call("_perform_shotgun_attack")
 	await _wait_for_shotgun(player)
 	await _wait_seconds(0.40)
-	if absf(float(target.call("get_health")) - 1000.0) > 0.05:
+	if absf(float(target.call("get_health")) - BASE_HEALTH) > 0.05:
 		_failures.append("absorption : un plomb traverse le mur")
 	if (target.call("get_active_effect_types") as Array).has("BURN"):
 		_failures.append("absorption : BURN appliqué malgré le mur")
@@ -143,7 +149,7 @@ func _test_moving_target(player: Node, target: Node) -> void:
 	await _wait_for_pellet()
 	target.global_position.x = 3.0
 	await _wait_seconds(0.45)
-	if float(target.call("get_health")) < 999.9:
+	if float(target.call("get_health")) < (BASE_HEALTH - 0.1):
 		_failures.append("cible mobile : des plombs esquivés infligent encore des dégâts")
 	_prepare(player, target, Vector3(3.0, 0.0, -3.0))
 	player.call("_perform_shotgun_attack")
@@ -160,7 +166,7 @@ func _test_moving_target(player: Node, target: Node) -> void:
 	var distance: float = (target.global_position.z - pellet.global_position.z) / direction.z
 	target.global_position.x = pellet.global_position.x + direction.x * distance
 	await _wait_seconds(0.45)
-	if float(target.call("get_health")) >= 999.9:
+	if float(target.call("get_health")) >= (BASE_HEALTH - 0.1):
 		_failures.append("cible mobile : des plombs traversant la cible ne la touchent pas")
 
 

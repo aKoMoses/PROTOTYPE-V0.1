@@ -1,5 +1,7 @@
 extends SceneTree
 
+const BASE_HEALTH := preload("res://scripts/combat_data.gd").MAX_HEALTH
+
 const ACTOR := preload("res://scripts/network_player.gd")
 const DATA := preload("res://scripts/combat_data.gd")
 var _failures := 0
@@ -75,12 +77,12 @@ func _run() -> void:
 	await physics_frame
 	b.call("take_damage", 12.0, "player", "duplicate")
 	b.call("take_damage", 12.0, "player", "duplicate")
-	_check(is_equal_approx(float(b.call("get_health")), 988.0), "an attack id cannot damage twice")
+	_check(is_equal_approx(float(b.call("get_health")), (BASE_HEALTH - 12.0)), "an attack id cannot damage twice")
 	_reset(a, b)
 	await physics_frame
 	a.call("receive_action", "blaster", {"ratio": 1.0})
 	await create_timer(0.65).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.damage), "live host projectile hits once; an uncharged request cannot claim full charge")
+	_check(is_equal_approx(float(b.call("get_health")), BASE_HEALTH - CombatData.WEAPON_DEFINITIONS.blaster.damage), "live host projectile hits once; an uncharged request cannot claim full charge")
 	client.call("receive_snapshot", b.call("network_snapshot"))
 	var client_hp := float(client.call("get_health"))
 	client.call("take_damage", 500.0, "fake", "fake")
@@ -91,7 +93,7 @@ func _run() -> void:
 	_check(float(b.get("_stasis_remaining")) > 0.0, "stasis activated by the host")
 	a.call("receive_action", "blaster", {})
 	await create_timer(0.6).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.damage), "stasis blocks an actual incoming projectile")
+	_check(is_equal_approx(float(b.call("get_health")), BASE_HEALTH - CombatData.WEAPON_DEFINITIONS.blaster.damage), "stasis blocks an actual incoming projectile")
 	_reset(a, b, "magnetic_field")
 	await physics_frame
 	b.call("_activate_defensive_module")
@@ -99,12 +101,12 @@ func _run() -> void:
 	_check(is_instance_valid(b.get("_magnetic_wall")), "magnetic protection exists in the host world")
 	a.call("receive_action", "blaster", {})
 	await create_timer(0.6).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 1000.0), "magnetic wall absorbs the live projectile before the actor")
+	_check(is_equal_approx(float(b.call("get_health")), BASE_HEALTH), "magnetic wall absorbs the live projectile before the actor")
 	_reset(a, b)
 	await physics_frame
 	a.call("_perform_offensive_module")
 	await create_timer(0.85).timeout
-	_check(float(b.call("get_health")) < 900.0, "offensive module damage runs on the host")
+	_check(float(b.call("get_health")) < BASE_HEALTH - 100.0, "offensive module damage runs on the host")
 	b.call("apply_spotted", 5.0, "network_effect_test")
 	client.call("receive_snapshot", b.call("network_snapshot"))
 	_check(client.get("combat_state").has_effect(DATA.EFFECT_SPOTTED), "confirmed effects are replicated")
@@ -134,7 +136,7 @@ func _run() -> void:
 	await physics_frame
 	b.call("receive_action", "shotgun", {})
 	await create_timer(0.7).timeout
-	_check(float(a.call("get_health")) < 950.0 and int(b.call("get_shotgun_ammo")) == 2, "shotgun uses physical pellets and authoritative ammunition")
+	_check(float(a.call("get_health")) < BASE_HEALTH - 50.0 and int(b.call("get_shotgun_ammo")) == 2, "shotgun uses physical pellets and authoritative ammunition")
 	client.call("set_gameplay_enabled", true)
 	client.call("set_weapon", "shotgun")
 	client.call("receive_action", "shotgun", {}, true)
@@ -156,7 +158,7 @@ func _run() -> void:
 	_check(bool(a.get("_blaster_charge_active")) and is_equal_approx(float(a.get("_blaster_charge_started_at")), charge_started), "host focus loss and app suspension preserve the remote human's authoritative charge clock")
 	a.call("receive_action", "blaster", {})
 	await create_timer(0.65).timeout
-	_check(is_equal_approx(float(b.call("get_health")), 1000.0 - CombatData.WEAPON_DEFINITIONS.blaster.max_damage), "remote release after host focus loss still delivers full Blaster damage")
+	_check(is_equal_approx(float(b.call("get_health")), BASE_HEALTH - CombatData.WEAPON_DEFINITIONS.blaster.max_damage), "remote release after host focus loss still delivers full Blaster damage")
 	var local := _actor(scene, "LocalFocusProbe", true, false)
 	local.collision_layer = 0
 	local.set_process(false)
@@ -201,7 +203,7 @@ func _run() -> void:
 	client.call("_release_fulguro_charge")
 	_check(relay.requested.has("fulguro_release") and a.get("_fulguro_release_requested"), "guest Fulguro release reaches the host")
 	await create_timer(0.25).timeout
-	_check(float(b.call("get_health")) < 1000.0 and float(a.get("_fulguro_strike_damage")) < float(DATA.MODULE_DEFINITIONS.fulguro_punch.damage_max), "host resolves Fulguro damage from its own charge time")
+	_check(float(b.call("get_health")) < BASE_HEALTH and float(a.get("_fulguro_strike_damage")) < float(DATA.MODULE_DEFINITIONS.fulguro_punch.damage_max), "host resolves Fulguro damage from its own charge time")
 	_reset(a, b, "static_shield", "fulguro_punch")
 	client.call("reset_combat_state")
 	client.call("set_gameplay_enabled", true)

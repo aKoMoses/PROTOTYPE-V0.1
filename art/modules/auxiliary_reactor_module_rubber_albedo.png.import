@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://k0bye1263ftq"
-path="res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.ctex"
+path.s3tc="res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.s3tc.ctex"
+path.etc2="res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a26e10d25e4d3d2fcc599e0b4ff23676"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://art/modules/auxiliary_reactor_module_rubber_albedo.png"
-dest_files=["res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.ctex"]
+dest_files=["res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.s3tc.ctex", "res://.godot/imported/auxiliary_reactor_module_rubber_albedo.png-4d072d71630dade3d268dfdc2a90f09a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

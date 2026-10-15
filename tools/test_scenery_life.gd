@@ -143,8 +143,14 @@ func _map(mode: String) -> void:
 	var rejected: int = life.get("_rejected")
 	var hidden_contact: Vector3 = paper.at + Vector3.UP * 0.15
 	check(not bool(organic.call("_visible", hidden_contact)), mode + " temporary obstacle actually conceals the contact")
+	# Ambient exhaust may move objects while the fixture waits for physics.
+	# A concealed impact must add no response to that existing motion.
+	var before_contact := loose.duplicate(true)
 	manager.call("impact", hidden_contact, Vector3.RIGHT, "metal", 1.2)
-	check(int(life.get("_rejected")) > rejected and loose.all(func(entry: Dictionary) -> bool: return entry.velocity == Vector3.ZERO), mode + " concealed impact creates no scenery impulse")
+	var unchanged := true
+	for index in loose.size():
+		unchanged = unchanged and loose[index].velocity == before_contact[index].velocity and loose[index].lift == before_contact[index].lift
+	check(int(life.get("_rejected")) > rejected and unchanged, mode + " concealed impact creates no scenery impulse")
 	wall.queue_free()
 	await frames(3)
 	life.call("reset_transients")

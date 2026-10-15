@@ -13,14 +13,14 @@ func _initialize() -> void:
 	var state := COMBAT_STATE.new(COMBAT_DATA.MAX_HEALTH)
 	var healing_events: Array[float] = []
 	state.healing_applied.connect(func(amount: float, _source_id: String) -> void: healing_events.append(amount))
-	_assert_close(state.health, 1000.0, "initial PV")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH, "initial PV")
 	_assert_close(state.apply_damage(200.0, "test", "attack-1"), 200.0, "damage effective")
-	_assert_close(state.health, 800.0, "damage reduces PV")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH - 200.0, "damage reduces PV")
 	_assert_close(state.apply_damage(200.0, "test", "attack-1"), 0.0, "duplicate attack ignored")
-	_assert_close(state.apply_damage(1000.0, "test", "attack-overkill"), 800.0, "overkill clamped")
+	_assert_close(state.apply_damage(COMBAT_DATA.MAX_HEALTH * 2.0, "test", "attack-overkill"), COMBAT_DATA.MAX_HEALTH - 200.0, "overkill clamped")
 	_assert_close(state.health, 0.0, "PV reaches zero")
 	state.reset()
-	_assert_close(state.health, 1000.0, "reset restores PV")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH, "reset restores PV")
 	_assert_close(state.heal(0.0), 0.0, "zero heal ignored")
 	_assert_close(state.heal(100.0, "full-health-kit"), 0.0, "full health heal ignored")
 	state.apply_damage(500.0)
@@ -34,11 +34,11 @@ func _initialize() -> void:
 	state.apply_burn(3.5, 20.0, "burn-a")
 	for _step in range(35):
 		state.update(0.1)
-	_assert_close(state.health, 930.0, "isolated BURN deals 70")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH - 70.0, "isolated BURN deals 70")
 	state.apply_burn(3.5, 20.0, "burn-b")
 	for _step in range(35):
 		state.update(0.1)
-	_assert_close(state.health, 860.0, "BURN refresh does not double DPS")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH - 140.0, "BURN refresh does not double DPS")
 
 	state.reset()
 	state.apply_slow(0.4, 30.0, "strong")
@@ -63,9 +63,9 @@ func _initialize() -> void:
 	state.reset()
 	state.apply_burn(1.0, 20.0, "stasis")
 	state.update(0.75, true)
-	_assert_close(state.health, 1000.0, "stasis blocks BURN damage")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH, "stasis blocks BURN damage")
 	state.update(0.25, false)
-	_assert_close(state.health, 995.0, "blocked BURN time is not banked")
+	_assert_close(state.health, COMBAT_DATA.MAX_HEALTH - 5.0, "blocked BURN time is not banked")
 
 	if _failures.is_empty():
 		print("P0-101/102 COMBAT STATE TEST: PASS")

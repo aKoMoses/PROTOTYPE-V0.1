@@ -105,7 +105,7 @@ static func category_description(identifier: String) -> String:
 	match identifier:
 		"blaster":
 			var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["blaster"]
-			return "Plasma surpuissant : %d dégâts par tir, jusqu’à %d en maintenant %.2f s. Tire au relâchement ; pleine mobilité pendant la charge." % [int(weapon.damage), int(weapon.max_damage), float(weapon.charge_time)]
+			return "Plasma : %d dégâts par tir, jusqu’à %d en maintenant %.2f s. Tire au relâchement ; pleine mobilité. Surchauffe après 5 tirs rapides ou 3 charges complètes enchaînés : tir bloqué %.0f s. Espacer les tirs laisse refroidir l’arme." % [int(weapon.damage), int(weapon.max_damage), float(weapon.charge_time), float(weapon.heat_capacity) / float(weapon.heat_cooling_per_second)]
 		"baroud":
 			return "Une dernière chance de riposter. Le premier coup mortel déclenche une jauge de %d PV qui se vide et absorbe les dégâts reçus pendant %.1f s maximum. Tu meurs à la fin du baroud. Une seule fois par vie." % [int(PASSIVE_RULES.BAROUD_MAX_HEALTH), PASSIVE_RULES.BAROUD_DURATION]
 		"omnivamp":
@@ -120,7 +120,7 @@ static func category_description(identifier: String) -> String:
 			return "Réussis un dash Pyro Boots, active Bio Injector ou termine Permutation / Éclipse, puis tire ou frappe dans les %.1f s : ta prochaine attaque ralentit les ennemis touchés de %d %% pendant %.1f s. Le bonus est utilisé même si tu rates. Un dash interrompu, Javelin et le déplacement d’un coup d’arme ne l’activent pas." % [float(data.window), int(data.slow_percent), float(data.slow_duration)]
 		"longshot":
 			var weapon: Dictionary = COMBAT_DATA.WEAPON_DEFINITIONS["longshot"]
-			return "Fusil précis : de %.0f à %.0f m parcourus par le projectile, les dégâts augmentent jusqu’à +%d %%. Deux tirs qui blessent un ennemi préparent EXÉCUTION : dégâts ×%.1f et traversée des ennemis, arrêt aux murs ou sur une attaque bloquée. Rater conserve les impacts acquis ; EXÉCUTION est consommée au tir. Chaque touche donne +%d %% de vitesse pendant %.1f s." % [float(weapon.distance_start), float(weapon.distance_max), roundi((float(weapon.distance_multiplier_max) - 1.0) * 100.0), float(weapon.enhanced_damage_multiplier), roundi((float(weapon.hit_speed_multiplier) - 1.0) * 100.0), float(weapon.hit_speed_duration)]
+			return "Fusil précis à portée illimitée, arrêté par les murs. Recharge entre les tirs : %.2f s. De %.0f à %.0f m parcourus par le projectile, les dégâts augmentent jusqu’à +%d %%. Deux tirs qui blessent un ennemi préparent EXÉCUTION : dégâts ×%.1f et traversée des ennemis, arrêt aux murs ou sur une attaque bloquée. Rater conserve les impacts acquis ; EXÉCUTION est consommée au tir. Chaque touche donne +%d %% de vitesse pendant %.1f s." % [float(weapon.cooldown), float(weapon.distance_start), float(weapon.distance_max), roundi((float(weapon.distance_multiplier_max) - 1.0) * 100.0), float(weapon.enhanced_damage_multiplier), roundi((float(weapon.hit_speed_multiplier) - 1.0) * 100.0), float(weapon.hit_speed_duration)]
 	var descriptions := {
 		"rocket_basket": "5 roquettes autoguidées destructibles, 40 PV chacune. Cast 0,3 s, vitesse −15 %%. Chaque impact : SLOW +%d %% pendant 3 s, jusqu'à %d %% pour ouvrir un tir pendant la poursuite. Les 5 sur une cible : BURN et cooldown −40 %%. Détruites contre les murs ; recherche continue. Nom provisoire." % [int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.slow_percent), int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.slow_percent) * int(COMBAT_DATA.MODULE_DEFINITIONS.rocket_basket.projectiles)],
 		"agile": "Déplacements rapides, châssis léger et moins de PV.",
@@ -152,7 +152,7 @@ static func stat_line(identifier: String) -> String:
 		if identifier == "longshot":
 			var base := float(weapon.get("damage", 0.0))
 			var distance_bonus := float(weapon.get("distance_multiplier_max", 1.0))
-			return "%d–%d dégâts • EXÉCUTION ×%.1f après 2 touches • CD %.2f s" % [roundi(base), roundi(base * distance_bonus), float(weapon.get("enhanced_damage_multiplier", 1.0)), float(weapon.get("cooldown", 0.0))]
+			return "%d–%d dégâts • portée illimitée • EXÉCUTION ×%.1f après 2 touches • recharge %.2f s" % [roundi(base), roundi(base * distance_bonus), float(weapon.get("enhanced_damage_multiplier", 1.0)), float(weapon.get("cooldown", 0.0))]
 		if identifier == "mekatana":
 			var damage: Array = weapon.get("base_damage", [])
 			var dash: Array = weapon.get("dash_distance", [])
@@ -160,7 +160,7 @@ static func stat_line(identifier: String) -> String:
 				return "MÊLÉE • combo de 3 coups"
 			return "%d / %d / %d dégâts • cleave %.1f m • dash %.2f–%.2f m • combo %.1f s" % [int(damage[0]), int(damage[1]), int(damage[2]), float(weapon.get("melee_range", 0.0)), float(dash[0]), float(dash[2]), float(weapon.get("combo_window", 0.0))]
 		if identifier == "blaster":
-			return "%d–%d dégâts • portée %.0f m • charge %.2f s • CD %.2f s" % [int(weapon.get("damage", 0.0)), int(weapon.get("max_damage", weapon.get("damage", 0.0))), float(weapon.get("max_range", 0.0)), float(weapon.get("charge_time", 0.0)), float(weapon.get("cooldown", 0.0))]
+			return "%d–%d dégâts • portée %.0f m • charge %.2f s • CD %.2f s • surchauffe %.0f s" % [int(weapon.damage), int(weapon.max_damage), float(weapon.max_range), float(weapon.charge_time), float(weapon.cooldown), float(weapon.heat_capacity) / float(weapon.heat_cooling_per_second)]
 		return "%d×%d dégâts • %d salves • portée %.0f m" % [int(weapon.get("pellets_per_shot", 0)), int(weapon.get("pellet_damage", 0.0)), int(weapon.get("magazine_size", 0)), float(weapon.get("max_range", 0.0))]
 	if not module.is_empty():
 		if identifier == "rocket_basket":

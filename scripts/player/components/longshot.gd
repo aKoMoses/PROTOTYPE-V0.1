@@ -111,7 +111,8 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	if player.survival_mode and player.survival_evolution_effects != null:
 		excluded.append_array(player.survival_evolution_effects.own_wall_exclusions())
 	projectile.configure(direction, speed, maximum, 1 | 2 | 4 | 8, excluded, radius, enhanced)
-	player._register_projectile_motion(projectile, start, start + direction * maximum, maximum / speed, radius)
+	# configure() supplies motion and radius without an endpoint for unlimited shots.
+	projectile.set_meta("ai_projectile_source", player.get_instance_id())
 	var shot_id := "longshot:%d:%d" % [player.get_instance_id(), player._longshot_attack_token]
 	var passive_attack: Dictionary = {} if visual_only else player.emit_passive_weapon()
 	passive_attack["longshot_generation"] = player._longshot_state.generation
@@ -140,7 +141,7 @@ func _spawn_longshot_projectile(enhanced: bool, shot_number: int, visual_only: b
 	if player._attack_label != null:
 		player._attack_label.text = "LONGSHOT  •  EXÉCUTION" if enhanced else "LONGSHOT  •  %d / 2 IMPACTS" % player._longshot_state.normal_shots()
 	# Check the full physical barrel route without relocating the projectile origin.
-	projectile.resolve_muzzle_guard(player.global_position + Vector3.UP * 0.9)
+	projectile.resolve_muzzle_guard(player._projectile_support_origin(radius))
 	return true
 
 
