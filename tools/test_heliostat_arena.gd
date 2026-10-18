@@ -150,16 +150,16 @@ func _run() -> void:
 	for polygon in solar.get("shadow_polygons"):
 		if not solar.call("exposure_at", centroid(polygon), 0.0):
 			blocked_points += 1
-	check(blocked_points > 10, "rendered blue refuge centroids are mechanically protected")
+	check(blocked_points > 0 and blocked_points == (solar.get("shadow_polygons") as Array).size(), "every rendered blue refuge centroid is mechanically protected")
 	var old_shadows: Array = (solar.get("shadow_polygons") as Array).duplicate(true)
 	solar.call("advance", 1.0)
 	check(old_shadows != solar.get("shadow_polygons"), "sweeping head moves the actual cover shadows")
 	player.set("hp", 1000.0)
 	solar.get("heat").clear()
-	for index in range(84):
+	for index in range(45):
 		player.position = light_point()
 		solar.call("advance", 1.0 / 60.0)
-	check(player.get("hp") == 1000.0 and float(solar.call("get_heat", player)) > 0.60, "quick exposure builds heat without instant damage")
+	check(player.get("hp") == 1000.0 and float(solar.call("get_heat", player)) > 0.55, "brief crossing builds heat while leaving time to reach cover")
 	for index in range(110):
 		player.position = light_point()
 		solar.call("advance", 1.0 / 60.0)
@@ -168,6 +168,21 @@ func _run() -> void:
 	player.position = Vector3(12, 0, -10)
 	solar.call("advance", 0.6)
 	check(player.get("hp") == burnt_hp and float(solar.call("get_heat", player)) < 0.85, "safe ground stops burns and cools gradually")
+	# A real sweep must punish standing still, without following its footprint.
+	# Compare the open centre with a stable refuge behind the rear solar cover.
+	solar.call("reset_round")
+	player.set("hp", 1000.0)
+	bot.set("hp", 1000.0)
+	player.position = Vector3.ZERO
+	bot.position = Vector3(-1.75, 0, 8.0)
+	solar.call("start_round")
+	solar.call("advance", 11.5)
+	var sheltered_hp: float = bot.get("hp")
+	for index in range(240):
+		solar.call("advance", 1.0 / 60.0)
+	check(float(player.get("hp")) <= 850.0, "one solar pass costs an idle exposed fighter at least 15 percent health")
+	check(float(bot.get("hp")) == sheltered_hp, "physical cover prevents burns during the same solar pass")
+	check(float(solar.call("get_heat", bot)) < 0.01, "sheltered fighter remains cool during the pass")
 	solar.call("reset_round")
 	check(float(solar.call("get_heat", player)) == 0.0 and not (solar.get("_light_mesh") as MeshInstance3D).visible, "round reset clears all heat and radiation")
 	check(mirror.get("preset") == 1 and mirror.get("pending") == -1 and mirror.get("rotations") == 0, "round reset restores mirror orientation and locks")
@@ -277,4 +292,15 @@ func _production_bot() -> void:
 	controller.set("_hazard_observed_at", 9.0)
 	var prior := target.position
 	check(bool(controller.call("_update_hazard_avoidance", target, 1.0 / 30.0)) and target.position != prior, "real bot moves away from an exposed solar footprint")
+	solar.call("reset_round")
+	player.call("reset_combat_state")
+	player.position = Vector3.ZERO
+	target.position = Vector3(-1.75, 0, 8.0)
+	solar.call("start_round")
+	solar.call("advance", 15.5)
+	check(float(player.call("get_health")) < float(player.call("get_max_health")) * 0.85, "production player actually loses health when ignoring the broad sweep")
+	var damaged_hp: float = player.call("get_health")
+	player.position = Vector3(-1.75, 0, 8.0)
+	solar.call("advance", 0.6)
+	check(is_equal_approx(float(player.call("get_health")), damaged_hp), "production player stops taking solar damage on reaching physical shelter")
 	scene.call("stop_duel")

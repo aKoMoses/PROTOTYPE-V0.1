@@ -34,6 +34,7 @@ var _pool: Dictionary = {}
 var _meshes: Dictionary = {}
 var _textures: Dictionary = {}
 var _hits: Dictionary = {}
+var _hitstops: Dictionary = {}
 var _hit_materials: Array[StandardMaterial3D] = []
 var _projectile_mesh_pool: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -138,6 +139,11 @@ func _process(delta: float) -> void:
 		hit.remaining -= delta
 		if hit.remaining <= 0.0:
 			_restore_hit(key)
+	for key in _hitstops.keys():
+		var hs: Dictionary = _hitstops[key]
+		hs.remaining -= delta
+		if hs.remaining <= 0.0:
+			_restore_hitstop(key)
 
 
 func muzzle(socket: Node3D, weapon: String, charge: float = 0.0) -> void:
@@ -493,6 +499,34 @@ func hit_flash(actor: Node3D, critical: bool = false) -> void:
 			mesh.material_overlay = _hit_materials[1 if critical else 0]
 
 
+func hitstop(actor: Node3D, duration: float = 0.05) -> void:
+	if not is_instance_valid(actor) or duration <= 0.0:
+		return
+	var tree: AnimationTree = actor.find_child("AnimationTree", true, false) as AnimationTree
+	if tree == null or not is_instance_valid(tree):
+		return
+	var key := actor.get_instance_id()
+	if not _hitstops.has(key):
+		_hitstops[key] = {
+			"tree": weakref(tree),
+			"original_mode": tree.process_mode,
+			"remaining": duration
+		}
+		tree.process_mode = Node.PROCESS_MODE_DISABLED
+	else:
+		_hitstops[key].remaining = maxf(_hitstops[key].remaining, duration)
+
+
+func _restore_hitstop(key: int) -> void:
+	if not _hitstops.has(key):
+		return
+	var entry: Dictionary = _hitstops[key]
+	var tree: AnimationTree = entry.tree.get_ref()
+	if is_instance_valid(tree):
+		tree.process_mode = entry.original_mode
+	_hitstops.erase(key)
+
+
 func surface_for(collider: Node) -> String:
 	return SURFACES.classify(collider)
 
@@ -509,6 +543,8 @@ func clear() -> void:
 		_release(index)
 	for key in _hits.keys():
 		_restore_hit(key)
+	for key in _hitstops.keys():
+		_restore_hitstop(key)
 
 
 func get_debug_counts() -> Dictionary:

@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-15",
+  "engine": "Godot 4.7.2",
+  "reservation": "aa211031-f117-406f-9055-2f09aa307bc2",
+  "result": "Integrated locally and inspected in native Godot captures",
+  "art": "res://art/ui/round-score-forge.png",
+  "art_provenance": "res://art/ui/round-score-forge.source.json",
+  "checks": [
+    {
+      "name": "Editor import and script loading",
+      "result": "PASS",
+      "log": "import.log"
+    },
+    {
+      "name": "Combat HUD",
+      "result": "PASS",
+      "checks": 117,
+      "log": "combat-hud.log"
+    },
+    {
+      "name": "Network HUD (local actors, no cloud session)",
+      "result": "PASS",
+      "checks": 22,
+      "log": "network-hud.log"
+    },
+    {
+      "name": "Round-score panel lifecycle, live text and rendered bounds",
+      "result": "PASS",
+      "checks": 28,
+      "log": "round-score-checks.log"
+    }
+  ],
+  "visual_review": [
+    "solo-1280x720-pc.png",
+    "solo-round-2-score-1-0.png",
+    "solo-960x600-touch.png"
+  ],
+  "sizes": [
+    [
+      1280,
+      720
+    ],
+    [
+      960,
+      600
+    ]
+  ],
+  "save_behavior": "HUD layouts exercised in memory; no HUD-save mutation",
+  "source_changes": "Only score widget construction and preload changed relative to the current shared game_flow.gd baseline"
+}

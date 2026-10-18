@@ -53,7 +53,7 @@ func _run() -> void:
 		for category in ["Offensive", "Defensive", "Mobility"]:
 			var slot: Control = bar.get_node(category + "Slot")
 			var id: String = category.to_lower() + "_slot"
-			_check(slot.is_visible_in_tree() and viewport.grow(1).encloses(layout_controller.call("widget_rect", id)), "le module %s reste dans l'écran à %s" % [category, dimensions])
+			_check(slot.is_visible_in_tree() == not expected_touch and viewport.grow(1).encloses(layout_controller.call("widget_rect", id)), "le module %s est lisible sur PC et remplace par son bouton tactile à %s" % [category, dimensions])
 		_check(not flow.get_node("FlowRoot/CombatHUD/PauseButton").visible, "redimensionner ne réactive pas la pause en ligne")
 		if expected_touch:
 			var leave: Control = match_controller.get("_leave_button")

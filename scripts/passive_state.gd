@@ -21,6 +21,7 @@ var tracker_remaining := 0.0
 var alternator_remaining := 0.0
 var inertia_remaining := 0.0
 var pulse_remaining := 0.0
+var arena_weapon_multiplier := 1.0
 var _epoch := 0
 var _serial := 0
 var _tracker_target := 0
@@ -38,6 +39,7 @@ func clear_triggers() -> void:
 	alternator_remaining = 0.0
 	inertia_remaining = 0.0
 	pulse_remaining = 0.0
+	arena_weapon_multiplier = 1.0
 	_tracker_target = 0
 	_revealed.clear()
 	_reveal_targets.clear()
@@ -82,6 +84,7 @@ func emit_weapon() -> Dictionary:
 		attack["slow_duration"] = float(tuning.slow_duration)
 		inertia_remaining = 0.0
 		pulse_remaining = 0.25
+	attack.multiplier *= arena_weapon_multiplier
 	return attack
 
 

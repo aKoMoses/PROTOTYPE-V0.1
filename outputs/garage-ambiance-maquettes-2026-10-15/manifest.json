@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-15",
+  "reservation": "750222e1-02a2-4fd9-b8c2-177c5392deb1",
+  "status": "approved-direction-implemented-locally",
+  "generator": "image_gen.imagegen built-in",
+  "editTarget": "reference-garage-actuel.png",
+  "referenceCapture": {
+    "engine": "Godot 4.7.2",
+    "renderer": "Vulkan Mobile",
+    "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+    "script": "capture_reference.gd",
+    "log": "capture-reference.log",
+    "temporarySavePaths": true
+  },
+  "prompts": "prompts.md",
+  "files": [
+    {
+      "file": "reference-garage-actuel.png",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 1536248,
+      "sha256": "f5891afbd33aa6d6c02812c64860d849213013b59ca747c65896eb52d0efc5c8"
+    },
+    {
+      "file": "reference-decor-actuel.png",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 1662352,
+      "sha256": "3387a57d1d03d6aeca09a7d4b8c0358af97bd3dd54f632a6cdbe685ec5a86386"
+    },
+    {
+      "file": "reference-modification-actuelle.png",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 1412025,
+      "sha256": "bd0a87be6a0a77f23eba310cb3feb0a85c3c3ffe5549b0970cbfcfda232849aa"
+    },
+    {
+      "file": "01-atelier-chaleureux.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2053932,
+      "sha256": "5a7a3968ba2784ffc0c1df6131b148482b1a566c953bd3205aa96d9c3e745e65"
+    },
+    {
+      "file": "02-maintenance-nocturne.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2047192,
+      "sha256": "7285407331edea73291ce0317dff175cea763d18c17a084f768d6855b461a855"
+    },
+    {
+      "file": "03-fin-de-journee.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2076659,
+      "sha256": "b3d159ac6e22e91641030f7a45e62a07a0c8b96f0c40efb09c19f4d5be5f29f2"
+    },
+    {
+      "file": "04-atelier-mur-exterieur.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2243543,
+      "sha256": "9b4aabe248a6dce935c16fcb21a72a77549bce78e7a8eb64329dfff39e89592f"
+    },
+    {
+      "file": "reference-retour-profondeur.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2513179,
+      "sha256": "29c8129f19071490c666a48906514a7fed7627de4f3d72a1ca4229b433138790"
+    }
+  ],
+  "visualInspection": [
+    "three variants preserve primary scene anchors and two entry commands",
+    "small labels and generated surface details are illustrative",
+    "reflections are stronger than the intended dry concrete production treatment"
+  ],
+  "integration": "Variant 04 implemented as real 3D geometry, materials, lighting and desktop framing; see integration-report.json for actual render evidence.",
+  "revisions": [
+    {
+      "id": "04",
+      "file": "04-atelier-mur-exterieur.png",
+      "generator": "image_gen.imagegen built-in",
+      "editTarget": "reference-retour-profondeur.png",
+      "prompt": "04-prompt-profondeur.txt",
+      "intent": "Unify workshop architecture against a continuous exterior wall; clarify window depth",
+      "visualInspection": "Nested freestanding booth removed, wall connects to roof and floor, window has masonry reveal; generator enlarged window",
+      "integration": "mockup only"
+    }
+  ],
+  "implementationReport": "integration-report.json"
+}

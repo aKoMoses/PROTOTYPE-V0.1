@@ -1,0 +1,42 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+Unable to open Android 'build-tools' directory.
+[   0% ] first_scan_filesystem | Started Initialisation du projet (5 steps)
+[   0% ] first_scan_filesystem | Analyse de la structure des fichiers…
+[  16% ] first_scan_filesystem | Chargement des noms des classes globales…
+[  33% ] first_scan_filesystem | Vérification des GDExtensions…
+[  50% ] first_scan_filesystem | Création des scripts de chargement automatique…
+[  66% ] first_scan_filesystem | Initialisation des extensions…
+GD-Sync version 1.0.2 enabled.
+[  83% ] first_scan_filesystem | Démarrage du scan de fichiers…
+[ DONE ] first_scan_filesystem
+
+
+We are looking for games made with GD-Sync to display on our website!
+If you want to display your game on our website, please submit your game using [url=https://docs.google.com/forms/d/e/1FAIpQLSe83hfE5DDR_Z2ZsKku3HZrNw_VopqHvcwjbYyZc8gOttSJxg/viewform]this form.
+[   0% ] update_scripts_classes | Started Enregistrement des classes globales… (7 steps)
+[   0% ] update_scripts_classes | 
+[  12% ] update_scripts_classes | 
+[  25% ] update_scripts_classes | 
+[  37% ] update_scripts_classes | PrototypeGameFlow
+[  50% ] update_scripts_classes | 
+[  62% ] update_scripts_classes | 
+[  75% ] update_scripts_classes | 
+[ DONE ] update_scripts_classes
+
+[   0% ] reimport | Started Ré-importation des assets (1 steps)
+[   0% ] reimport | Préparation des fichiers pour la réimportation…
+[   0% ] reimport | Exécution des opérations de pré-réimportation…
+[   0% ] reimport | round-score-forge.png
+[  50% ] reimport | Finalisation des importations de ressources…
+[ DONE ] reimport
+
+[   0% ] reimport | Started Ré-importation des assets (1 steps)
+[   0% ] reimport | Exécution des opérations post-réimportation…
+[ DONE ] reimport
+
+[   0% ] loading_editor_layout | Started Chargement de l’éditeur (5 steps)
+[   0% ] loading_editor_layout | Chargement de la disposition de l’éditeur…
+[  16% ] loading_editor_layout | Chargement des docks…
+[ DONE ] loading_editor_layout
+

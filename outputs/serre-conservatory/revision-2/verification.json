@@ -1,0 +1,151 @@
+{
+  "date": "2026-10-15",
+  "status": "local-not-published",
+  "checks": [
+    {
+      "file": "import.log",
+      "errors": false,
+      "warnings": false,
+      "pass": true
+    },
+    {
+      "file": "art-test.log",
+      "errors": false,
+      "warnings": false,
+      "pass": true
+    },
+    {
+      "file": "terrain-test.log",
+      "errors": false,
+      "warnings": false,
+      "pass": true
+    },
+    {
+      "file": "final.log",
+      "errors": false,
+      "warnings": false,
+      "pass": true
+    },
+    {
+      "file": "low.log",
+      "errors": false,
+      "warnings": false,
+      "pass": true
+    }
+  ],
+  "identical_comparison_cameras": true,
+  "normal": {
+    "arenas": {
+      "tideglass": {
+        "camera_position": "(-5.576923, 18.46154, 9.038462)",
+        "camera_rotation": "(-0.863896, 0.0, 0.0)",
+        "center_camera": {
+          "fov": 33.6130332946777,
+          "player_position": "(0.0, 1.35, 7.0)",
+          "position": "(-0.000001, 18.46154, 20.83076)"
+        },
+        "fov": 33.6130332946777,
+        "player_position": "(-7.25, 1.35, -7.5)",
+        "presentation": {
+          "detail_batches": 12,
+          "detail_triangles": 8960,
+          "finished_materials": 10,
+          "id": "tideglass",
+          "initialized": true,
+          "kit_batches": 79,
+          "kit_triangles": 85416,
+          "optional_visible": true,
+          "oriented_prisms": 11,
+          "quality": 1,
+          "recipe": "res://art/environment/arena_recipes/tideglass.tres",
+          "skinned_covers": 5
+        },
+        "render_counts": {
+          "draw_calls": 596,
+          "primitives": 242553
+        },
+        "target_position": "(7.25, 1.35, -7.5)"
+      }
+    },
+    "conservatory": {
+      "batches": 40,
+      "floating_gardens": 2,
+      "initialized": true,
+      "leaves": 705,
+      "planar_reflections": true,
+      "planters": 5,
+      "render_quality": 1,
+      "scene_reflections": true,
+      "visual_only": true
+    },
+    "decor_only": true,
+    "quality": 1,
+    "renderer": "vulkan"
+  },
+  "low": {
+    "arenas": {
+      "tideglass": {
+        "camera_position": "(-5.576923, 18.46154, 9.038462)",
+        "camera_rotation": "(-0.863896, 0.0, 0.0)",
+        "center_camera": {
+          "fov": 33.6130332946777,
+          "player_position": "(0.0, 1.35, 7.0)",
+          "position": "(-0.000001, 18.46154, 20.83076)"
+        },
+        "fov": 33.6130332946777,
+        "player_position": "(-7.25, 1.35, -7.5)",
+        "presentation": {
+          "detail_batches": 12,
+          "detail_triangles": 8960,
+          "finished_materials": 10,
+          "id": "tideglass",
+          "initialized": true,
+          "kit_batches": 79,
+          "kit_triangles": 85416,
+          "optional_visible": false,
+          "oriented_prisms": 11,
+          "quality": 0,
+          "recipe": "res://art/environment/arena_recipes/tideglass.tres",
+          "skinned_covers": 5
+        },
+        "render_counts": {
+          "draw_calls": 588,
+          "primitives": 234679
+        },
+        "target_position": "(7.25, 1.35, -7.5)"
+      }
+    },
+    "conservatory": {
+      "batches": 40,
+      "floating_gardens": 2,
+      "initialized": true,
+      "leaves": 705,
+      "planar_reflections": true,
+      "planters": 5,
+      "render_quality": 0,
+      "scene_reflections": true,
+      "visual_only": true
+    },
+    "decor_only": true,
+    "quality": 0,
+    "renderer": "vulkan"
+  },
+  "hashes": {
+    "scripts/environment/tideglass_conservatory.gd": "c0ed435535225ce6b3d911a9d5295c372ef4eb7c2fd56bc13f0b9b6c8cfed612",
+    "shaders/tideglass_water.gdshader": "8f91391f8b10f1560d54f4ace94b6ffee929aa6236b2fc77a506e66a4d5d5fe6",
+    "shaders/tideglass_stone.gdshader": "762f1389b8d34db2354d015fd0d85fa26824ba4f3e97899d7695a12cdca85fe2"
+  },
+  "artistic_parity": "Not asserted; rendered capture supplied for visual comparison.",
+  "changes": [
+    "Correct smooth outward leaf normals",
+    "Planar scenery reflection with actors excluded",
+    "Analytic water normals and screen-space refraction",
+    "Turquoise absorption, animated floor caustics and softer diagonal roof shadows",
+    "Recessed planter faces and stone steps without brass stripes"
+  ],
+  "limits": [
+    "Android device performance not measured",
+    "Reflection geometry intentionally excludes actors to preserve concealment",
+    "Low quality omits the thin roof shadow layer to avoid shadow-map aliasing."
+  ]
+}

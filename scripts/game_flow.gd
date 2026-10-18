@@ -32,7 +32,7 @@ const PASSIVE_HUD := preload("res://scripts/passive_hud.gd")
 var _equipment_icons = EQUIPMENT_ICONS.new()
 const EQUIPMENT_FRAME: Texture2D = preload("res://art/ui/equipment-frame.png")
 const JAVELIN_RECAST_ICON: Texture2D = preload("res://art/ui/icons/javelin-recast.svg")
-const MATCH_SUMMARY_FRAME: Texture2D = preload("res://art/ui/match-summary-frame.svg")
+const ROUND_SCORE_PANEL := preload("res://scripts/round_score_panel.gd")
 const EQUIPMENT_CATEGORIES := [
 	{"id": "robot", "title": "ROBOT"},
 	{"id": "weapon", "title": "ARME"},
@@ -148,6 +148,7 @@ var _round_end_feedback: CanvasLayer
 var _pause_panel: PanelContainer
 var _result_panel: PanelContainer
 var _transition_dim: ColorRect
+var _low_health_overlay: Panel
 var _settings_panel: Control
 var _lobby_panel: Control
 var _hud_controller
@@ -1207,49 +1208,35 @@ func _build_hud() -> void:
 	_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen_root.add_child(_hud)
-	var score_panel := Control.new()
+	_low_health_overlay = Panel.new()
+	_low_health_overlay.name = "LowHealthOverlay"
+	_low_health_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_low_health_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var danger_style := StyleBoxFlat.new()
+	danger_style.draw_center = false
+	danger_style.border_color = Color(0.95, 0.15, 0.15, 0.12)
+	danger_style.set_border_width_all(3)
+	danger_style.shadow_size = 0
+	_low_health_overlay.add_theme_stylebox_override("panel", danger_style)
+	_low_health_overlay.visible = false
+	_hud.add_child(_low_health_overlay)
+	var score_panel := ROUND_SCORE_PANEL.new()
 	score_panel.name = "MatchSummary"
 	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	score_panel.position = Vector2(-190, 12)
-	score_panel.size = Vector2(380, 50)
+	score_panel.position = Vector2(-200, 12)
+	score_panel.size = ROUND_SCORE_PANEL.PANEL_SIZE
 	score_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(score_panel)
 	var vitals := Control.new()
 	vitals.name = "PlayerVitals"
 	vitals.set_script(HUD_VITALS_SCRIPT)
 	vitals.position = Vector2(22, 102)
-	vitals.size = Vector2(280, 90)
+	vitals.size = Vector2(366, 40)
 	vitals.call("set_player", player)
 	_hud.add_child(vitals)
-	# Health/ammo already follow the player in the arena. Keep the optional fixed
-	# duplicate available in the HUD editor, without cluttering the default duel.
-	var score_backdrop := TextureRect.new()
-	score_backdrop.texture = MATCH_SUMMARY_FRAME
-	score_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	score_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	score_backdrop.stretch_mode = TextureRect.STRETCH_SCALE
-	score_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	score_panel.add_child(score_backdrop)
-	_hud_labels.match = _label("0 — 0", 24, CREAM)
-	_hud_labels.match.position = Vector2(138, 3)
-	_hud_labels.match.size = Vector2(104, 44)
-	_hud_labels.match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hud_labels.match.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	score_panel.add_child(_hud_labels.match)
-	_hud_labels.match_round = _label("MANCHE 1", 14, CREAM)
-	_hud_labels.match_round.position = Vector2(24, 10)
-	_hud_labels.match_round.size = Vector2(110, 30)
-	_hud_labels.match_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hud_labels.match_round.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	score_panel.add_child(_hud_labels.match_round)
-	_hud_labels.phase = _label("PRÉPARATION", 11, CYAN)
-	_hud_labels.phase.position = Vector2(249, 10)
-	_hud_labels.phase.size = Vector2(107, 30)
-	_hud_labels.phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hud_labels.phase.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_hud_labels.phase.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_hud_labels.phase.clip_text = true
-	score_panel.add_child(_hud_labels.phase)
+	_hud_labels.match = score_panel.score_label
+	_hud_labels.match_round = score_panel.round_label
+	_hud_labels.phase = score_panel.phase_label
 	var pause := _button("Ⅱ", Callable(self, "_toggle_pause"), 44)
 	pause.name = "PauseButton"
 	pause.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -1566,7 +1553,17 @@ func _update_hud() -> void:
 	_hud_labels.match.text = "%d — %d" % [player_round_score, bot_round_score]
 	_hud_labels.match_round.text = "MANCHE %d" % maxi(1, round_number)
 	_hud_labels.phase.text = _phase_text()
+	_hud_labels.phase.visible = round_phase != RoundPhase.LIVE and not _hud_labels.phase.text.is_empty()
 	_hud_labels.phase.add_theme_color_override("font_color", AMBER if round_phase == RoundPhase.COUNTDOWN else CYAN)
+	if _low_health_overlay != null:
+		var health := float(player.call("get_health"))
+		var max_hp := maxf(1.0, float(player.call("get_max_health")))
+		var ratio := health / max_hp
+		var is_low := health > 0.0 and ratio <= 0.25 and round_phase == RoundPhase.LIVE and not _pause_active
+		_low_health_overlay.visible = is_low
+		if is_low:
+			var pulse := 0.65 + 0.35 * sin(Time.get_ticks_msec() * 0.006)
+			_low_health_overlay.modulate.a = pulse
 	var spell_modules := {
 		"offensive": str(player.call("get_offensive_module_id")),
 		"defensive": str(player.call("get_defensive_module_id")),
@@ -1615,21 +1612,25 @@ func _update_hud() -> void:
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color("#d5c9ff")
 		elif identifier == "counter":
-			_hud_labels["%s_status" % key].text = "%s • CD %.1f s" % [player.call("get_counter_hud_text"), cooldown]
+			_hud_labels["%s_status" % key].text = ("%.1f s" % cooldown).replace(".", ",") if cooldown > 0.0 else str(player.call("get_counter_hud_text"))
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", Color("#89daff"))
+		elif identifier == "static_shield" and float(player.call("get_stasis_remaining")) > 0.0:
+			_hud_labels["%s_status" % key].text = "SORTIR"
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER)
 		elif identifier == "pyro_boots":
 			var charges := int(player.call("get_pyro_charges"))
-			_hud_labels["%s_status" % key].text = "%d/2 · %.1fs" % [charges, cooldown] if cooldown > 0.0 else "2/2"
+			_hud_labels["%s_status" % key].text = "%d/2" % charges
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", AMBER if charges > 0 else CYAN)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE if charges > 0 else Color("#b7aaa0")
 		elif cooldown > 0.0:
-			_hud_labels["%s_status" % key].text = "%.1f s" % cooldown
-			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
+			_hud_labels["%s_status" % key].text = ("%.1f s" % cooldown).replace(".", ",")
+			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CREAM)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
-			_hud_labels["%s_icon" % key].modulate = Color("#b7aaa0")
+			_hud_labels["%s_icon" % key].texture = _equipment_icons.get_cooldown_icon(identifier)
+			_hud_labels["%s_icon" % key].modulate = Color.WHITE
 		else:
-			_hud_labels["%s_status" % key].text = ""
+			_hud_labels["%s_status" % key].text = "PRÊT"
 			_hud_labels["%s_status" % key].add_theme_color_override("font_color", CYAN)
 			_hud_labels[key].add_theme_color_override("font_color", CREAM)
 			_hud_labels["%s_icon" % key].modulate = Color.WHITE

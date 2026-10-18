@@ -161,7 +161,7 @@ func show_garage(animated: bool = true) -> void:
 	_station_hovered = false
 	_from = stage.camera.global_transform
 	_from_fov = stage.camera.fov
-	_target_fov = 40.0
+	_target_fov = 34.0 if bool(_ui.get_meta("robot_workbench", false)) else 40.0
 	_transition = 0.0 if animated else 1.0
 	stage.set_equipment_focus(false)
 	_clear_effects()
@@ -169,6 +169,9 @@ func show_garage(animated: bool = true) -> void:
 	if not animated:
 		stage.camera.global_transform = _garage_transform()
 		stage.camera.fov = _target_fov
+		# A snapped layout must update its focus plane immediately as well.
+		# This also keeps paused native captures sharp after a window resize.
+		advance(0.0)
 
 
 func set_station_hovered(value: bool) -> void:
@@ -222,12 +225,33 @@ func show_station(kind: String, animated: bool = true) -> void:
 
 
 func _garage_transform() -> Transform3D:
+	if bool(_ui.get_meta("robot_workbench", false)):
+		# A yaw-independent envelope keeps the close shot stable during rotation
+		# and while a different accessory is previewed on the same chassis.
+		var local: AABB = stage._robot_pick_bounds
+		var radius := 0.0
+		var bottom := INF
+		var top := -INF
+		for corner in 8:
+			var point: Vector3 = local.get_endpoint(corner) * stage.robot.scale
+			radius = maxf(radius, Vector2(point.x, point.z).length())
+			bottom = minf(bottom, point.y)
+			top = maxf(top, point.y)
+		# Imported bind-pose bounds include spread arms. Use the resting body
+		# envelope so that those invisible extents cannot shrink the hero shot.
+		radius = minf(radius, (top - bottom) * 0.29)
+		var depth := (top - bottom) * 0.18
+		var hero := AABB(stage.robot.global_position + Vector3(-radius, bottom, -depth), Vector3(radius * 2.0, top - bottom, depth * 2.0)).grow(0.12)
+		var view := cinematic_frame(hero, Vector3(0.14, 0.075, 1.0), 34.0)
+		var pivot := hero.get_center()
+		view.origin = pivot + (view.origin - pivot) * _desktop_zoom * 0.94
+		return view
 	if bool(_ui.get_meta("garage_hero", false)):
 		if not bool(_ui.get_meta("garage_hero_compact", false)):
-			# Desktop has space for an establishing view of the work bay and
-			# neighbouring hangar. Phone keeps the existing close hero envelope.
+			# Show the work bay inside its real room. A lower viewing angle keeps
+			# the camera below the roof, including at the maximum desktop zoom.
 			var workshop := AABB(Vector3(-7.2, 0.0, -3.9), Vector3(15.8, 6.4, 8.0))
-			var view := cinematic_frame(workshop, Vector3(-0.04, 0.23, 1.0), 40.0)
+			var view := cinematic_frame(workshop, Vector3(-0.04, 0.13, 1.0), 40.0)
 			var pivot: Vector3 = stage.robot.global_position + Vector3(0, 1.35, 0)
 			view.origin = pivot + (view.origin - pivot) * _desktop_zoom
 			return view
@@ -330,7 +354,7 @@ func _input(event: InputEvent) -> void:
 	if stage._rotating_robot or stage.arm.active or not frame_rect().has_point(event.position):
 		return
 	var direction := -1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0
-	_desktop_zoom_goal = clampf(_desktop_zoom_goal + direction * 0.12, 0.78, 1.5)
+	_desktop_zoom_goal = clampf(_desktop_zoom_goal + direction * 0.08, 0.92, 1.18) if bool(_ui.get_meta("robot_workbench", false)) else clampf(_desktop_zoom_goal + direction * 0.12, 0.78, 1.5)
 	get_viewport().set_input_as_handled()
 
 
@@ -367,7 +391,8 @@ func advance(delta: float) -> void:
 	stage.camera.fov = lerpf(_from_fov, _target_fov, weight)
 	var lens := stage.camera.attributes as CameraAttributesPractical
 	if lens != null:
-		lens.dof_blur_far_enabled = zone != "garage"
+		var workbench: bool = bool(_ui.get_meta("robot_workbench", false)) and zone == "garage"
+		lens.dof_blur_far_enabled = zone != "garage" or workbench
 		var target := Vector3(0, 1.7, 0)
 		if zone == "station":
 			var provider := _station_provider(station_category)
@@ -377,7 +402,10 @@ func advance(delta: float) -> void:
 			target = _catalog_bounds.get_center()
 		elif zone != "robot" and zone != "garage":
 			target = region_bounds().get_center()
-		lens.dof_blur_far_distance = stage.camera.global_position.distance_to(target) + 2.0
+		lens.dof_blur_far_distance = stage.camera.global_position.distance_to(target) + (1.2 if workbench else 2.0)
+		if workbench:
+			lens.dof_blur_far_transition = 3.2
+			lens.dof_blur_amount = 0.09
 	effect_elapsed = minf(effect_elapsed + delta, EFFECT_TIME)
 	_update_effects()
 

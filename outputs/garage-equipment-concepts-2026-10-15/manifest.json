@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "date": "2026-10-15",
+  "status": "concept-preview-only",
+  "generator": "image_gen.imagegen built-in",
+  "reservation": "852d0410-2efa-408f-a019-98aea521a680",
+  "reference": {
+    "id": "original-garage",
+    "role": "User-provided screenshot; edit target",
+    "path": "C:/Users/BOTTER~1/AppData/Local/Temp/codex-clipboard-fb99cdfa-7383-43f3-9251-011aa809364b.png",
+    "sha256": "9EB3848308ECAC5CC13B472285DE1A18BB447630231754CF095AFC88CD53A814"
+  },
+  "limitations": [
+    "Maquettes d'intention uniquement, pas des captures du jeu modifie.",
+    "Les robots, modules, points de montage et effets sont reinterpretes par la generation.",
+    "Le barillet et ses logements sont illustratifs; quantite et numerotation a adapter au catalogue reel.",
+    "Aucun code, asset de production ou comportement jouable n'a ete modifie."
+  ],
+  "images": [
+    {
+      "id": "robot-interface",
+      "title": "Le robot devient l'interface",
+      "file": "01-robot-interface.png",
+      "generated": "C:/Users/BOTTEROOOW/.codex/generated_images/01a13eef-146c-7cb0-b977-cfa03e17215b/exec-d9018c08-16d7-4a56-816b-3b3b473e0d57.png",
+      "sha256": "B875A9147CFFA542ED6CE26A7144405097BBA60CFD4EBA67BF9A952C03681A22",
+      "bytes": 1966452,
+      "width": 1672,
+      "height": 941,
+      "mode": "edit",
+      "transparent_background": false,
+      "prompt": "Use case: ui-mockup. Produce one polished landscape 16:9 GAME INTERFACE CONCEPT SCREENSHOT, not a concept sheet. Edit the attached image of the existing Prototype 0 garage into proposal 1: THE ROBOT IS THE INTERFACE. Reference image is the current game and is the edit target, preserving its industrial concrete workshop, daylight window, lit tool board, worn cream/red single-eyed robot with cyan eye/core and red pennant, round pedestal, and small yellow service arm. Reframe the same garage much closer, front three-quarter camera at robot chest height. The whole robot including feet occupies about 65 percent screen height, in the center; all of it is visible. Remove the two giant home-menu cards and ALL module storage shelves. No suitcase, no drum carousel, no equipment workbench in the foreground. The equipment UI is attached directly to the robot: five small cream labels on restrained translucent dark strips, with fine subtle connector lines: 'ARME', 'OFFENSIF', 'DÉFENSIF', 'MOBILITÉ', 'PASSIF'. Keep the labels close to the silhouette, not against far screen edges. Show OFFENSIF currently active: a compact curved fan of FOUR beautifully legible module thumbnail buttons opens just to the left of the robot, near its forearm, all grouped tightly enough for short pointer travel. The modules are rocket basket, narrow metal javelin, red-orange mechanical punch gauntlet, compact striking device. The selected mechanical punch button has a warm amber border and the matching forearm on the robot has a thin amber highlight. These are clean interface thumbnails, NOT free-floating physical weapons all over the room. Leave robot torso unobstructed and background readable. At right a small contextual card headed 'FULGURO PUNCH', a short line 'Charge ton poing. Projette la cible.', an amber 'ÉQUIPER' button. Thin black/cream top bar: back arrow, 'GARAGE', small 'MON BUILD'. Bottom center, understated buttons 'TESTER' and 'SAUVEGARDER'. Match the existing cream bold game typography and worn warm industrial art direction; real-time Godot-like render, coherent restrained shadows. Warm amber accent, cyan only for the existing robot lights. The feel is direct interaction with your beloved machine, compact and clear. Avoid huge blank areas, tiny robot, neon hologram rings, neon sci-fi laboratory, dense statistics, invented numbers, extra characters, extra robots, shelves, cases or giant sidebar. No marketing title, no watermark. The screenshot itself must clearly demonstrate clicking the body to choose equipment.",
+      "references": [
+        "original-garage"
+      ],
+      "verification": {
+        "decoded": true,
+        "source_copy_hash_equal": true,
+        "visually_reviewed": true
+      }
+    },
+    {
+      "id": "barillet-mecanique",
+      "title": "Le barillet mecanique de pieces",
+      "file": "02-barillet-mecanique.png",
+      "generated": "C:/Users/BOTTEROOOW/.codex/generated_images/01a13eef-146c-7cb0-b977-cfa03e17215b/exec-ebabfffc-e2c1-4e96-a3da-29a156009798.png",
+      "sha256": "A5CD3083A454D594746ECF924F79423CF40BF4FED02948382A6B3FEA01DE30B0",
+      "bytes": 2145990,
+      "width": 1672,
+      "height": 941,
+      "mode": "edit",
+      "transparent_background": false,
+      "prompt": "Use case: ui-mockup. Make one polished landscape 16:9 GAME INTERFACE CONCEPT SCREENSHOT for Prototype 0 garage equipment, proposal 2: A ROTATING MECHANICAL MODULE DRUM. Image 1 is the original garage, the edit target; image 2 is a supporting consistency reference for robot identity, closer camera distance, lighting and UI typography only. Keep the existing modest industrial workshop with concrete walls, warm tool board, large daylight window, worn cream/red one-eyed robot with cyan round eye and chest core, red pennant, round platform, yellow service arm. Same coherent real-time-game render, no redesign into a different game. Robot is large, complete from head to feet, standing in the right-center and occupying about 60 percent of screen height. The distinctive new object is ONE compact heavy rotating equipment drum in the left-center right next to the robot, at waist height on a sturdy low pedestal. A functional industrial rotary turret, round front plate tilted slightly toward camera, diameter around the robot's torso-and-legs height, six deep radial padded cradles around the circumference, each carrying a tangible module. Real worn metal, visible central axle, cogged outside rim, small motor and mechanical index marks. This is a revolving machine, not rows of shelves, not a slot machine, not a UI inventory wheel, not a suitcase. Several module silhouettes are visible in their fitted cradles: rocket basket, narrow javelin, red mechanical punch gauntlet and compact striking module. The currently selected punch cradle is at the closest lower-right side of the drum, extends toward the robot on a short telescoping rail, and has a small amber status lamp. The existing yellow installation arm reaches between the cradle and the robot, ready to pick the punch up. Composition must communicate the short physical route from storage drum to the robot. Leave the robot silhouette clear. No scattered module racks anywhere. No giant left menu cards. Minimal clean black/cream top header with back arrow and 'GARAGE | MON BUILD'. A restrained compact tab strip directly below the drum reads 'ARMES', 'OFFENSIF', 'DÉFENSIF', 'MOBILITÉ', 'PASSIF', with OFFENSIF in amber. Two modest arrow buttons at the drum sides make browsing obvious, one amber indicator on selected cradle. Small right contextual card: 'FULGURO PUNCH', 'Charge ton poing. Projette la cible.', amber 'INSTALLER' button. Bottom understated buttons 'TESTER' and 'SAUVEGARDER'. Realistic functional proportions, generous clear robot view, readable close-up modules, warm tactile mechanics, cream typography, subdued amber interaction accents. Avoid exploded floating radial UI, body connector labels, case or foreground table, giant machine dwarfing robot, huge text, blue holograms, neon lab, dense statistics, extra robots or characters, watermarks. Show a still moment of an actual usable equipment screen rather than a cinematic illustration.",
+      "references": [
+        "original-garage",
+        "robot-interface"
+      ],
+      "verification": {
+        "decoded": true,
+        "source_copy_hash_equal": true,
+        "visually_reviewed": true
+      }
+    },
+    {
+      "id": "banc-essai",
+      "title": "Le garage sert de banc d'essai",
+      "file": "03-banc-essai.png",
+      "generated": "C:/Users/BOTTEROOOW/.codex/generated_images/01a13eef-146c-7cb0-b977-cfa03e17215b/exec-a2d5b229-e461-4cb4-9484-c14cd24af50c.png",
+      "sha256": "8AF961402C6DB9A9631A2B9F23D08CDBA202B469F8AB5C4ABBA132F21C64E23E",
+      "bytes": 2132845,
+      "width": 1672,
+      "height": 941,
+      "mode": "edit",
+      "transparent_background": false,
+      "prompt": "Use case: ui-mockup. Produce one polished landscape 16:9 GAME INTERFACE CONCEPT SCREENSHOT for Prototype 0 garage equipment, proposal 3: THE GARAGE AS A LIVE TEST BENCH. Image 1 is the original existing garage edit target. Image 2 is a supporting reference for the exact cream/red one-eyed robot identity, close readable framing, warm lighting, UI styling and typography; do not reproduce its body-label interface. Preserve the same recognizable modest industrial concrete workshop: warm amber tool-board lamp, tool board, real daylight through large window, blue-grey structure, worn concrete floor, yellow service arm parked unobtrusively in background. Remove all module storage shelves and the giant left home cards. Do not include a suitcase, equipment drum, radial UI or robot body connector labels. Integrate one small retractable battered padded mechanical striking target in this SAME workshop, just beside the robot, mounted to a stout spring-loaded telescopic floor post with a short sliding floor rail and yellow safety stripe. This is a compact testing fixture inside the garage, not a new arena, not a long shooting corridor. The complete cream/red robot with cyan eye and chest core and small red pennant is large, about 60 percent screen height, in the central-left, seen in front three-quarter profile. Show an exciting but restrained action moment: its equipped red-orange FULGURO PUNCH gauntlet has just hit the target in the central-right; the padded target tilts back on the spring, a few small amber sparks and a short orange motion trace make the feedback tangible, no giant explosions. Legs and feet remain visible in a grounded wide stance. Keep robot and target both readable and close to camera. The empty round robot maintenance pedestal remains behind and slightly to the left, helping recognize the garage. The user should immediately understand selecting a module and trying its actual ability without leaving this screen. Minimal dark/cream top header with back arrow and 'GARAGE | BANC D’ESSAI'. At bottom-left one compact equipment selector: five small tabs 'ARMES', 'OFFENSIF', 'DÉFENSIF', 'MOBILITÉ', 'PASSIF'; OFFENSIF selected amber; immediately below four adjacent square illustrated module buttons for rocket basket, javelin, punch gauntlet, compact striking device. Punch selected with amber border. This interface occupies only the lower fifth and does not cover the robot. Bottom-right a compact contextual panel headed 'FULGURO PUNCH', text 'Maintenir pour charger. Relâcher pour frapper.', a large restrained amber button 'DÉCLENCHER', and a smaller 'SAUVEGARDER' button. Small cream 'ESSAI EN COURS' indicator near the target, no invented damage numbers or stats. Emphasize actual tactile feedback, a fun personal machine, equipment and testing together. Same existing game real-time-render visual language, detailed worn materials, cream text with amber selections, cyan reserved for robot lights. Avoid photoreal live-action robot, hero poster composition, warehouse far view, tiny robot, extra robots or characters, dense overlays, gunfire crossing the room, blue holograms, machine drum, suitcase, shelves, watermarks or marketing caption.",
+      "references": [
+        "original-garage",
+        "robot-interface"
+      ],
+      "verification": {
+        "decoded": true,
+        "source_copy_hash_equal": true,
+        "visually_reviewed": true
+      }
+    }
+  ]
+}

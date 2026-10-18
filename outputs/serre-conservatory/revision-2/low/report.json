@@ -1,0 +1,48 @@
+{
+	"arenas": {
+		"tideglass": {
+			"camera_position": "(-5.576923, 18.46154, 9.038462)",
+			"camera_rotation": "(-0.863896, 0.0, 0.0)",
+			"center_camera": {
+				"fov": 33.6130332946777,
+				"player_position": "(0.0, 1.35, 7.0)",
+				"position": "(-0.000001, 18.46154, 20.83076)"
+			},
+			"fov": 33.6130332946777,
+			"player_position": "(-7.25, 1.35, -7.5)",
+			"presentation": {
+				"detail_batches": 12,
+				"detail_triangles": 8960,
+				"finished_materials": 10,
+				"id": "tideglass",
+				"initialized": true,
+				"kit_batches": 79,
+				"kit_triangles": 85416,
+				"optional_visible": false,
+				"oriented_prisms": 11,
+				"quality": 0,
+				"recipe": "res://art/environment/arena_recipes/tideglass.tres",
+				"skinned_covers": 5
+			},
+			"render_counts": {
+				"draw_calls": 588.0,
+				"primitives": 234679.0
+			},
+			"target_position": "(7.25, 1.35, -7.5)"
+		}
+	},
+	"conservatory": {
+		"batches": 40,
+		"floating_gardens": 2,
+		"initialized": true,
+		"leaves": 705,
+		"planar_reflections": true,
+		"planters": 5,
+		"render_quality": 0,
+		"scene_reflections": true,
+		"visual_only": true
+	},
+	"decor_only": true,
+	"quality": 0,
+	"renderer": "vulkan"
+}

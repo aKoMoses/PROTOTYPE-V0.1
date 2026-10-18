@@ -1,0 +1,220 @@
+{
+  "date": "2026-10-15",
+  "status": "implemented-locally-not-published",
+  "reservation": "750222e1-02a2-4fd9-b8c2-177c5392deb1",
+  "approvedDirection": "04-atelier-mur-exterieur.png",
+  "implementation": [
+    "One exterior masonry wall joins the roof and side returns",
+    "True window opening with recessed transparent glass and distant industrial courtyard",
+    "Single continuous matte floor, lower desktop overview and safe maximum zoom",
+    "Warmer workbench and hero lights; three shadow lights retained"
+  ],
+  "sourceFiles": [
+    {
+      "file": "tools/build_forge_garage.py",
+      "sha256": "3bf8e3866a87903b7e0938c71634ceb13ce37379a6f637163b45854aae6730dd"
+    },
+    {
+      "file": "scripts/forge_garage_hangar.gd",
+      "sha256": "dd2e9cf13e2b67cebe847d89be21c6ac0e07f21987c2e3c85d7092056cd67ac3"
+    },
+    {
+      "file": "scripts/forge_garage_stage.gd",
+      "sha256": "6ea7e375c25556ef5ce13aa81c26ae474e80e0aaf85e0fc8cc75cde484b72f80"
+    },
+    {
+      "file": "scripts/forge_garage_focus.gd",
+      "sha256": "6e27c677df41617bc3e1a3fc990dfccdb25b215f10267027dc5915fbdd1173c5"
+    },
+    {
+      "file": "scripts/forge_workshop_materials.gd",
+      "sha256": "114a85a12ad1d8c6c9488fc54d9ede79f38f994e8664c6c364fce93c39b55819"
+    },
+    {
+      "file": "tools/test_forge_workshop_architecture.gd",
+      "sha256": "700b2a8fb6f92a40f5d4824f4912466e51bc38c5131f1b04d3fb4af2e962df12"
+    },
+    {
+      "file": "tools/capture_forge_workshop_architecture.gd",
+      "sha256": "1c22ccbf6213f19ff4f542a67f17271e8d681d7103fb8a3e6501fa72d2433741"
+    },
+    {
+      "file": "art/forge-garage/workshop.glb",
+      "sha256": "dbda93c04dce56a3bfaffefc29cb63f6ee0d6eb59c5a41852ecf842ae02942a2"
+    },
+    {
+      "file": "art/forge-garage/source/forge_garage.blend",
+      "sha256": "14b0db54e5f15097ea1106e2ff647f667029e022dbd9c3aaab6b14852403dd91"
+    }
+  ],
+  "geometry": {
+    "surfaces": 15,
+    "triangles": 86100
+  },
+  "preservedIndependentWork": {
+    "file": "scripts/forge_module_installation.gd",
+    "sha256": "49617bfe283b7d6aece2f5e84e064a1609c3b975ce574c291957843ba18ed8bf",
+    "note": "Existing local camera correction was inspected, retained and tested against new workshop geometry"
+  },
+  "verification": {
+    "resourceImport": {
+      "status": "pass",
+      "log": "architecture-import.log",
+      "note": "Android build-tools directory warning remains; no Android export attempted"
+    },
+    "architecture": {
+      "status": "pass",
+      "checks": 52,
+      "log": "architecture-test.log"
+    },
+    "installationCamera": {
+      "status": "pass",
+      "installations": 198,
+      "checks": 1190,
+      "log": "installation-camera-test.log"
+    },
+    "buildJourney": {
+      "status": "pass",
+      "checks": 503,
+      "log": "build-journey-test.log"
+    },
+    "captures": {
+      "status": "pass",
+      "renderer": "Godot 4.7.2 Vulkan Forward Mobile on desktop GTX 1660 SUPER",
+      "count": 19,
+      "log": "architecture-capture.log"
+    },
+    "legacyCameraMotion": {
+      "status": "known-baseline-failure",
+      "checks": 92,
+      "baselineFailures": 54,
+      "currentFailures": 54,
+      "identicalFailureMessages": true,
+      "baselineLog": "camera-motion-baseline.log",
+      "currentLog": "camera-motion-test.log",
+      "note": "Old navigation expectations fail identically with original HEAD camera script and current script"
+    }
+  },
+  "limits": [
+    "No full game suite requested or run",
+    "Phone layout is simulated; no real Android device or APK validated",
+    "No performance acceptance claimed",
+    "No commit or remote publication performed"
+  ],
+  "captures": [
+    {
+      "file": "captures/forge-workshop-architecture/installation-auxiliary_reactor-180.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "d27f0b672dc52b567ce1ed9aa9c892432457605e8d53f92ebbd97c546781042b"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-auxiliary_reactor-360.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b3d652efda4f441806877dcda3608e08ff30ebc2fddfb6da739e21130e49e8e2"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-auxiliary_reactor-480.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "4cc82010855df8e6187b622467e969b8d9e1d8662eaf2d90f33fa518fea0bd23"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-pyro_boots-180.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "ad670e24eadaa71eb3fceff8c22a9c334f4f3e3feb37939997c36819c73dce06"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-pyro_boots-360.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "8e4aeaef5e955c6635f2de95fe1b15cfa5221e8fede87efb4382d451d18f10af"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-pyro_boots-480.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "89bb98d4dd6f6a6074629a0c855343f4f3f9a0d95e61b227a02bde26e40e27c5"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-rocket_basket-180.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "0daf6065cad9d2ed57f9a85c8f654c9cad7a0a9f5122e5e2d550ede71d66477a"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-rocket_basket-360.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "8dfedaf201325aadce50365d826f4baba720b277b79043610388f2d970237e18"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/installation-rocket_basket-480.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "15cf5c8a02edbc7de02f91660968debe91b8d17aea2c4a44a5f3db271f830fd3"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-build.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "2d3d10ba496d2a1d146b3b0f21bbd4cdb84520565602585d63b5b3b57904c9a9"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-defensive.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1f20d707d9e4986765eddfcd1af0be4750a460bd3fda661d5cc077661076ea27"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-entry.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "98a90de96a5f84cee1df1b6df526909fba4e69c088efe431edcc232939d07aa2"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-mobility.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "090961a6a3fca93324232f49ed9fabb507ae9b3c9468768ff104c1833f2d75b7"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-offensive.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "fd38140cc4fda28136c4198e19d14e1dcedae1022ce80639750fa494e4b7bf8f"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-passive.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "bc564f0f43999fc7d1111e4d6accba74e475350bb70f900d0c9433369601d005"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-weapon.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "57781d74c26af8b75aaad9f34bea3906d92cc3eaef7a5af477985ff86d3a35d6"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/pc-1920-wide.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b0e8ec43007fa232fd15d178dfc464e50136f82dc8430f299f4c967b48c0dd89"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/phone-844-build.png",
+      "width": 844,
+      "height": 390,
+      "sha256": "f932490a641411cd0e9589be2dc72e1b1a333b602c126540865ed39149f436cf"
+    },
+    {
+      "file": "captures/forge-workshop-architecture/phone-844-entry.png",
+      "width": 844,
+      "height": 390,
+      "sha256": "7a350634b3744ed8dd165defc9c792fc2ec0cf30793d56871a3a4d73ad33cc24"
+    }
+  ]
+}

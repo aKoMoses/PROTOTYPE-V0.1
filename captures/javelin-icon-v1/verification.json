@@ -1,0 +1,13 @@
+{
+	"failures": [],
+	"frames": [
+		"01-native-sizes",
+		"02-garage-catalog",
+		"03-garage-detail",
+		"04-combat-ready",
+		"05-combat-cooldown",
+		"06-touch-cooldown",
+		"07-touch-ready",
+		"08-recast"
+	]
+}

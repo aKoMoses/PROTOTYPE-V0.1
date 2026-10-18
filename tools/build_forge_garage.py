@@ -228,25 +228,45 @@ for x in range(-8, 9, 2):
     box("FloorExpansionJoint", (x, -.012, 0), (.022, .012, 15), dark, bevel=0)
 for z in range(-6, 7, 2):
     box("FloorExpansionJoint", (0, -.012, z), (18, .012, .022), dark, bevel=0)
-box("BackWall", (0, 3.7, -5.6), (18, 7.4, .24), concrete)
-box("LeftWall", (-7.5, 3.6, -1.0), (.22, 7.2, 9), dark)
-for x in range(-8, 9):
-    box("CorrugatedSheet", (x, 1.15, -5.43), (.94, 2.2, .055), steel)
+# One exterior wall, connected to the roof and the lateral workshops. The
+# window is a real opening through 56 cm of masonry, not panes laid over a wall.
+WALL_X = 18.0
+WALL_HEIGHT = 11.6
+WINDOW_LEFT, WINDOW_RIGHT = 1.0, 6.2
+WINDOW_BOTTOM, WINDOW_TOP = 2.5, 6.3
+box("ExteriorWallLeft", ((-WALL_X + WINDOW_LEFT) / 2, WALL_HEIGHT / 2, -5.6),
+    (WALL_X + WINDOW_LEFT, WALL_HEIGHT, .56), concrete)
+box("ExteriorWallRight", ((WINDOW_RIGHT + WALL_X) / 2, WALL_HEIGHT / 2, -5.6),
+    (WALL_X - WINDOW_RIGHT, WALL_HEIGHT, .56), concrete)
+box("ExteriorWallBelowWindow", (3.6, WINDOW_BOTTOM / 2, -5.6),
+    (WINDOW_RIGHT - WINDOW_LEFT, WINDOW_BOTTOM, .56), concrete)
+box("ExteriorWallAboveWindow", (3.6, (WINDOW_TOP + WALL_HEIGHT) / 2, -5.6),
+    (WINDOW_RIGHT - WINDOW_LEFT, WALL_HEIGHT - WINDOW_TOP, .56), concrete)
+for x in range(-17, 18):
+    box("CorrugatedSheet", (x, 1.15, -5.27), (.94, 2.2, .055), steel)
     for rib in (-.35, -.12, .12, .35):
-        box("SheetRib", (x + rib, 1.15, -5.36), (.024, 2.2, .05), steel, bevel=0)
-    box("WallSkirting", (x, .17, -5.30), (.96, .20, .08), dark)
-    box("WallPaintBand", (x, 2.37, -5.455), (.94, .23, .025), yellow, bevel=0)
-for x in (-7.65, -4.8, -1.9, 7.35):
-    box("ConcretePanelJoint", (x, 5.1, -5.455), (.022, 4.15, .012), dark, bevel=0)
-for y in (3.0, 5.5, 7.0):
-    box("ConcreteHorizontalJoint", (-3.4, y, -5.455), (10.6, .018, .012), dark, bevel=0)
-for x in (-6.3, -3.5, .6, 5.4, 7.6):
-    box("ColumnWeb", (x, 3.75, -4.98), (.13, 7.5, .35), dark)
+        box("SheetRib", (x + rib, 1.15, -5.21), (.024, 2.2, .05), steel, bevel=0)
+    box("WallSkirting", (x, .17, -5.16), (.96, .20, .08), dark)
+    box("WallPaintBand", (x, 2.37, -5.29), (.94, .23, .025), yellow, bevel=0)
+for x in (-16, -13, -10, -7.65, -4.8, -1.9, 7.35, 10, 13, 16):
+    box("ConcretePanelJoint", (x, 6.9, -5.312), (.022, 9.3, .012), dark, bevel=0)
+for y in (3.0, 5.5, 8.0, 10.5):
+    for left, right in ((-18, 1.0), (6.2, 18)) if y < WINDOW_TOP else ((-18, 18),):
+        box("ConcreteHorizontalJoint", ((left + right) / 2, y, -5.312),
+            (right - left, .018, .012), dark, bevel=0)
+for x in (-17.6, -12.5, -7.8, -3.5, .6, 6.8, 12.5, 17.6):
+    box("ColumnWeb", (x, WALL_HEIGHT / 2, -4.98), (.13, WALL_HEIGHT, .35), dark)
     for dz in (-.19, .19):
-        box("ColumnFlange", (x, 3.75, -4.98 + dz), (.37, 7.5, .045), rust)
+        box("ColumnFlange", (x, WALL_HEIGHT / 2, -4.98 + dz), (.37, WALL_HEIGHT, .045), rust)
     box("ColumnFoot", (x, .1, -4.98), (.6, .15, .6), steel)
-for y in (3.7, 6.7):
-    box("CrossBeam", (0, y, -4.95), (18, .28, .37), dark)
+for y in (7.2, 11.25):
+    box("CrossBeam", (0, y, -4.95), (36, .28, .37), dark)
+# The overview and maximum zoom remain inside this single roof envelope.
+box("WorkshopRoof", (0, 11.72, 17.1), (36, .22, 46.0), dark, bevel=0)
+for x in (-17.6, -12.5, -7.8, -3.5, .6, 6.8, 12.5, 17.6):
+    box("RoofRafter", (x, 11.35, 17.1), (.25, .5, 46.0), steel)
+for z in (-4.8, 2.8, 10.4, 18.0, 25.6, 33.2, 39.5):
+    box("RoofCrossMember", (0, 11.3, z), (36, .30, .24), dark)
 box("CatwalkDeck", (-2.3, 4.10, -4.45), (10.1, .12, 1.1), dark)
 for i in range(67):
     box("CatwalkGrating", (-7.25 + i * .15, 4.18, -4.45), (.035, .035, 1.02), edge, bevel=0)
@@ -270,18 +290,18 @@ for i in range(13):
 # Window panels are deliberately separate from a bevelled structural grid.
 for i in range(5):
     for j in range(3):
-        box("WarmWindowPane", (1.65 + i * .98, 3.10 + j * .90, -5.34), (.91, .83, .025), warm_glass, bevel=0)
+        box("WarmWindowPane", (1.65 + i * .98, 3.16 + j * 1.22, -5.64), (.91, 1.14, .025), warm_glass, bevel=0)
 for x in (1.13, 2.16, 3.14, 4.12, 5.10, 6.1):
-    box("WindowMullion", (x, 4.0, -5.25), (.065, 2.82, .1), dark)
-for y in (2.62, 3.55, 4.45, 5.37):
-    box("WindowCrossbar", (3.6, y, -5.25), (5.05, .065, .1), dark)
+    box("WindowMullion", (x, 4.40, -5.57), (.065, 3.78, .1), dark)
+for y in (2.55, 3.77, 4.99, 6.24):
+    box("WindowCrossbar", (3.6, y, -5.57), (5.15, .065, .1), dark)
 for x in (1.04, 6.18):
-    box("WindowRecessSide", (x, 4.0, -5.30), (.18, 3.03, .38), steel)
-for y in (2.50, 5.49):
-    box("WindowRecessRail", (3.61, y, -5.29), (5.30, .17, .38), steel)
-box("WindowSill", (3.61, 2.46, -5.04), (5.46, .10, .67), concrete)
+    box("WindowRecessSide", (x, 4.40, -5.52), (.16, 3.96, .76), concrete)
+for y in (2.50, 6.30):
+    box("WindowRecessRail", (3.61, y, -5.52), (5.36, .17, .76), concrete)
+box("WindowSill", (3.61, 2.46, -5.28), (5.46, .10, .98), concrete)
 for x in (1.60, 3.57, 5.57):
-    box("WindowLatch", (x, 3.59, -5.16), (.15,.045,.08), edge)
+    box("WindowLatch", (x, 3.80, -5.49), (.15,.045,.08), edge)
 pipe("WallConduit", [(-6.4, 3.5, -5), (-5.8, 3.5, -5), (-5.8, 2.9, -5), (-4.4, 2.9, -5)], .038, edge)
 label("BayNumber", "BAY 01", (-5.9, 5.85, -5.24), .58, yellow)
 for x in (-6.6, -.70):

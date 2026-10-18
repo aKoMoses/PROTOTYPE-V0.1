@@ -1,0 +1,22 @@
+{
+  "asset": "res://art/ui/round-score-forge.png",
+  "source": "OpenAI built-in image_gen",
+  "created_on": "2026-10-15",
+  "approved_concept": "outputs/round-score-forge/approved-concept.png",
+  "selection": "Second refined version: single continuous plate, lateral mechanisms, lower amber lamps",
+  "generated_file": "exec-ec7c11a0-ec71-4c43-bfb4-d5bc7e8bac61.png",
+  "sha256": "692b400530d169d06fe4363a269a13db4cbd7eef243990ea3e3c64bf9b65b131",
+  "dimensions": [
+    2079,
+    756
+  ],
+  "alpha": true,
+  "atlas_region": [
+    10,
+    78,
+    2062,
+    568
+  ],
+  "live_text": "Rendered by Godot; no baked letters or scores",
+  "prompt": "Use case: background-extraction plus precise-object-edit. Input image is the APPROVED game UI design. Extract ONLY the decorative round scoreboard at the top center into a standalone production game UI texture, with a genuinely transparent background outside the complete scoreboard silhouette.\n\nPreserve the selected scoreboard's EXACT visual identity and proportions: one continuous wide matte dark charcoal plate; bronze beveled thin double border with slightly swept pointed corners; round bronze mechanical collars and small exposed gear teeth on left and right; thin short horizontal pistons protruding from each side; lower copper V-shaped flourish; a small cyan diamond inset at the top middle and matching tiny lower diamond; two clusters of three amber forge lamps underneath. Rich aged brass, blackened steel, soot and subtle engraved edgework. This is the slim single-plaque version actually visible in the reference, not three boxes. Maintain its roughly 4.4 to 1 silhouette aspect ratio.\n\nCrucial edit: REMOVE ALL typography from the face of the plaque: remove \"MANCHE 1\", remove \"0 — 0\", remove all faint ghost lettering too. Reconstruct the empty dark charcoal brushed metal behind them seamlessly. The central plate stays opaque, dark and continuous, with a large clean EMPTY area to overlay real game text. No letters, digits, numbers, punctuation or glyphs anywhere. Keep the small cyan diamonds and amber lamps.\n\nOutput a single isolated score frame only, straight-on orthographic 2D HUD sprite, entire silhouette fully visible. Use a wide landscape canvas snugly fit around the object with just a small even transparent margin, 4.4:1 overall object proportions. No screenshot, no arena, no background, no ground shadow, no checkerboard baked into the image, no text or labels, no second object, no perspective tilt. Genuine alpha transparency around and through the gaps in the mechanism, preserving semitransparent antialiasing and small contained lamp glow. High quality detailed stylized hard-surface game art faithful to the exact approved frame."
+}

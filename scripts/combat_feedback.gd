@@ -21,6 +21,9 @@ var _signature_seen: Dictionary = {}
 var _actor_state: CombatState
 var _last_position := Vector3.ZERO
 var _had_mark := false
+var _context: Label
+var _incoming_remaining := 0.0
+var _incoming_direction := Vector3.ZERO
 
 static func attach(scene: Node, player: Node3D, top: float = 90.0) -> Control:
 	var layer := CanvasLayer.new()
@@ -57,6 +60,22 @@ func _ready() -> void:
 	_signature.name = "SuccessSignature"
 	_signature.notice_top = float(get_meta("notice_top", 90.0))
 	add_child(_signature)
+	_context = Label.new()
+	_context.name = "ContextState"
+	_context.size = Vector2(250, 28)
+	_context.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_context.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_context.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_context.add_theme_font_size_override("font_size", 13)
+	_context.add_theme_color_override("font_color", Color("#f3ddbb"))
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color("#171d20ed")
+	plate.border_color = Color("#80694e")
+	plate.set_border_width_all(1)
+	plate.set_corner_radius_all(4)
+	_context.add_theme_stylebox_override("normal", plate)
+	add_child(_context)
+	_context.hide()
 	bind_actor(actor)
 
 func bind_actor(player: Node3D) -> void:
@@ -117,6 +136,9 @@ func reset_round() -> void:
 	if _signature != null:
 		_signature.clear()
 	_had_mark = false
+	_incoming_remaining = 0.0
+	if _context != null:
+		_context.hide()
 	if is_instance_valid(actor):
 		_last_position = actor.global_position
 	queue_redraw()
@@ -126,6 +148,8 @@ func _process(delta: float) -> void:
 	var live := is_instance_valid(actor) and bool(actor.call("is_gameplay_enabled")) and not bool(actor.call("is_real_dead"))
 	if not live:
 		_notice.hide()
+		_context.hide()
+		_incoming_remaining = 0.0
 		_markers.clear()
 		if not enabled or not _winner_presentation():
 			_signature.clear()
@@ -135,6 +159,8 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	elapsed += delta
+	_incoming_remaining = maxf(0.0, _incoming_remaining - delta)
+	_update_context()
 	if not enabled:
 		_signature.clear()
 	if _remaining > 0.0:
@@ -154,6 +180,35 @@ func _process(delta: float) -> void:
 	_had_mark = has_mark
 	_last_position = actor.global_position
 	queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PAUSED:
+		_incoming_remaining = 0.0
+		if _context != null:
+			_context.hide()
+		queue_redraw()
+
+func _update_context() -> void:
+	_context.hide()
+	if not enabled or _actor_state == null or get_tree().paused:
+		return
+	var labels := {"STUN": "ÉTOURDI", "SLOW": "RALENTI", "BURN": "BRÛLURE", "SPOTTED": "REPÉRÉ"}
+	for effect in labels:
+		var remaining := _actor_state.get_remaining(effect)
+		if remaining <= 0.0:
+			continue
+		var camera := get_viewport().get_camera_3d()
+		if camera == null or camera.is_position_behind(actor.global_position):
+			return
+		var at := camera.unproject_position(actor.global_position)
+		if not get_viewport_rect().has_point(at):
+			return
+		_context.text = ("%s · %.1f s" % [labels[effect], remaining]).replace(".", ",")
+		_context.size.x = maxf(124.0, _context.get_theme_font("font").get_string_size(_context.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 24.0)
+		var safe := get_viewport_rect().grow(-16)
+		_context.position = Vector2(clampf(at.x - _context.size.x * 0.5, safe.position.x, maxf(safe.position.x, safe.end.x - _context.size.x)), clampf(at.y + 34, safe.position.y, maxf(safe.position.y, safe.end.y - 28)))
+		_context.show()
+		return
 
 func observe(id: String, text: String, color: Color = Color("#75e7ec")) -> void:
 	action_observed.emit(id)
@@ -226,6 +281,16 @@ func _received(amount: float, source: String, attack: String) -> void:
 		return
 	var key := damage_kind(source, attack)
 	received[key] = float(received.get(key, 0.0)) + amount
+	# A direction is sampled once from a known visible attacker, never tracked
+	# through cover. Shared-source survival damage cannot identify an attacker.
+	var opponent_source := source.begins_with("duel_bot") or ("opponent" in actor and source.begins_with("player:"))
+	if amount > 0.0 and enabled and opponent_source and _registered.size() == 1 and not _actor_state.processing_burn:
+		var attacker: Node3D = _registered.values()[0].actor.get_ref()
+		if can_present_target(attacker):
+			_incoming_direction = (attacker.global_position - actor.global_position) * Vector3(1, 0, 1)
+			if _incoming_direction.length_squared() > 0.001:
+				_incoming_direction = _incoming_direction.normalized()
+				_incoming_remaining = 0.65
 
 static func damage_kind(source: String, attack: String) -> String:
 	for key in ["fulguro", "javelin", "shotgun", "longshot", "blaster", "mekatana", "pelto", "rocket", "burn", "arena_hazard"]:
@@ -269,7 +334,16 @@ func report() -> String:
 
 func _draw() -> void:
 	var camera := get_viewport().get_camera_3d()
-	if camera == null or not enabled or not _signature.kind.is_empty():
+	if camera == null or not enabled or get_tree().paused:
+		return
+	if _incoming_remaining > 0.0 and is_instance_valid(actor) and not camera.is_position_behind(actor.global_position):
+		var center := camera.unproject_position(actor.global_position + Vector3.UP * 0.1)
+		var toward := camera.unproject_position(actor.global_position + _incoming_direction) - center
+		var angle := toward.angle()
+		var tint := Color("#ff7465", minf(1.0, _incoming_remaining * 3.0))
+		draw_arc(center, 49.0, angle - 0.42, angle + 0.42, 20, Color(0.08, 0.04, 0.03, tint.a), 7.0, true)
+		draw_arc(center, 49.0, angle - 0.42, angle + 0.42, 20, tint, 4.0, true)
+	if not _signature.kind.is_empty():
 		return
 	for marker in _markers:
 		if camera.is_position_behind(marker.at):

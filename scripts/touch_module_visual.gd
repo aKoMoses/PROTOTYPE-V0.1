@@ -82,10 +82,15 @@ func draw_button(canvas: Control, action: String, center: Vector2, radius: float
 			wedge.append(center + Vector2.from_angle(angle) * (radius - 3.0 * scale))
 		canvas.draw_colored_polygon(wedge, _alpha(Color("#78828d"), (0.32 if unavailable else 0.16) * opacity))
 		canvas.draw_arc(center, radius - 1.0, -PI * 0.5 + TAU * fraction, PI * 1.5, 64, _alpha(accent, opacity), 3.5 * scale, true)
-		var text := "%.1f" % float(state.get("remaining", 0.0))
+		var text := ("%.1f" % float(state.get("remaining", 0.0))).replace(".", ",")
 		var baseline := center + Vector2(0, radius * 0.47)
 		canvas.draw_rect(Rect2(baseline + Vector2(-16, -12) * scale, Vector2(32, 16) * scale), _alpha(Color("#101921"), 0.86 * opacity))
 		_draw_text(canvas, text, baseline, 12 * scale, _alpha(Color("#eef1f2"), opacity))
+	if not unavailable and not bool(state.get("recast", false)) and not bool(state.get("preparing", false)):
+		var check_at := center + Vector2(radius * 0.65, radius * 0.65)
+		canvas.draw_circle(check_at, 8.0 * scale, _alpha(Color("#111e26"), opacity))
+		canvas.draw_arc(check_at, 8.0 * scale, 0.0, TAU, 24, _alpha(accent, opacity), 1.5 * scale, true)
+		canvas.draw_polyline(PackedVector2Array([check_at + Vector2(-4, 0) * scale, check_at + Vector2(-1, 3) * scale, check_at + Vector2(5, -4) * scale]), _alpha(accent, opacity), 2.0 * scale, true)
 	var charges := int(state.get("charges", -1))
 	if identifier == "static_shield" and bool(state.get("recast", false)):
 		_draw_text(canvas, "SORTIR", center + Vector2(0, radius * 0.55), 11 * scale, _alpha(Color.WHITE, opacity))

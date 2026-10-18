@@ -17,7 +17,7 @@ var direction := Vector3.FORWARD
 var next_step := 0
 var combo_remaining := 0.0
 var damage_enabled := true
-var target_mask := 2 | 4
+var target_mask := 2 | 4 | 8 # Player cleaves also reach shootable arena commands.
 var _actor: Node3D
 var _source_id := ""
 var _move_callback: Callable

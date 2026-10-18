@@ -13,6 +13,7 @@ const WORK_TIME := 0.80
 const JOINT_NAMES := ["BaseYaw", "Shoulder", "Elbow", "Wrist"]
 const PHASES := ["approach", "pickup", "lift", "carry", "align", "work", "release", "return"]
 const TIMES := [1.55, 0.35, 0.55, 1.70, 0.55, WORK_TIME, 0.35, 1.20]
+const OFFSCREEN_TIMES := [0.50, 0.15, 0.20, 0.75, 0.30, 0.55, 0.25, 0.60]
 const REAL_MODULES := ["pyro_boots", "bio_injector", "rocket_basket", "magnetic_field", "auxiliary_reactor", "fulguro_punch", "static_shield", "javelin", "projector", "pelto_smash", "counter", "permutation", "eclipse", "baroud", "omnivamp", "tracker", "alternator", "inertia"]
 const LIMITS := [Vector2(-180, 180), Vector2(-55, 85), Vector2(18, 145), Vector2(-95, 85)]
 
@@ -63,6 +64,12 @@ var _restoring := false
 var _lens_distance := 10.0
 var _lens_transition := 3.0
 var audio: INSTALLATION_AUDIO
+var offscreen_pickup := false
+var duration := DURATION
+var _times: Array = TIMES.duplicate()
+var _hero_camera := Transform3D.IDENTITY
+var _hero_fov := 40.0
+var _pose_yaw := 0.0
 
 
 func configure(garage_stage: Node, equipment_focus: Node) -> void:
@@ -110,6 +117,12 @@ func begin(identifier: String, kind: String = "") -> bool:
 		return false
 	equipment_id = identifier
 	_source = stations.module_transform(identifier)
+	_times = OFFSCREEN_TIMES.duplicate() if offscreen_pickup else TIMES.duplicate()
+	duration = 0.0
+	for seconds in _times:
+		duration += float(seconds)
+	_hero_camera = stage.camera.global_transform
+	_hero_fov = stage.camera.fov
 	_arm_original = stage.arm.global_transform
 	_robot_yaw = stage.robot.rotation.y
 	_weapon_visible = stage.weapon_socket.visible if is_instance_valid(stage.weapon_socket) else true
@@ -118,7 +131,8 @@ func begin(identifier: String, kind: String = "") -> bool:
 		_lens_distance = lens.dof_blur_far_distance
 		_lens_transition = lens.dof_blur_far_transition
 	stage.end_robot_rotation()
-	stage.robot.rotation.y = stage.ROBOT_YAW
+	if not offscreen_pickup:
+		stage.robot.rotation.y = stage.ROBOT_YAW
 	stage.set_equipment_focus(true)
 	stage.arm.begin_manual_control()
 	_joint_rest.clear()
@@ -129,9 +143,17 @@ func begin(identifier: String, kind: String = "") -> bool:
 	_shoulder_offset = _joints[1].global_position - stage.arm.global_position
 	_source_base = _base_for(_source.origin)
 	_mount_pose = _mount_transform(identifier, category)
+	_pose_yaw = stage.ROBOT_YAW + (PI * 0.78 if _rear_mount() else 0.0)
+	if offscreen_pickup:
+		var depth: float = maxf(2.0, -stage.camera.to_local(stage.robot.global_position + Vector3.UP * 1.5).z)
+		_source = _mount_pose
+		_source.origin = stage.camera.project_position(Vector2(stage.viewport.size) * Vector2(1.35, 0.48), depth)
+		_source_base = _base_for(_source.origin)
 	# Wall hooks release toward the aisle before transport; a high vertical lift
 	# would take the upper weapons beyond the mechanic's articulated reach.
 	_lift_point = _source.origin + (Vector3(0, 0.12, 0.48) if category == "weapon" else Vector3(0, 0.52, 0.24))
+	if offscreen_pickup:
+		_lift_point = _source.origin + Vector3.UP * 0.18
 	_approach_point = _mount_pose.origin + _front() * 0.34
 	active = true
 	mounted_module = false
@@ -166,22 +188,28 @@ func advance(delta: float) -> void:
 		_camera_started = true
 	var remaining := maxf(delta, 0.0)
 	while remaining > 0.00001 and active:
-		var step := minf(remaining, minf(1.0 / 30.0, float(TIMES[_phase_index]) - _phase_elapsed))
+		var step := minf(remaining, minf(1.0 / 30.0, float(_times[_phase_index]) - _phase_elapsed))
 		if step <= 0.00001:
 			_next_phase()
 			continue
 		_phase_elapsed += step
-		elapsed = minf(DURATION, elapsed + step)
+		elapsed = minf(duration, elapsed + step)
 		remaining -= step
 		_advance_motion(step)
-		if active and _phase_elapsed >= float(TIMES[_phase_index]) - 0.00001:
+		if active and _phase_elapsed >= float(_times[_phase_index]) - 0.00001:
 			_next_phase()
 
 
 func _advance_motion(delta: float) -> void:
-	var time := clampf(_phase_elapsed / float(TIMES[_phase_index]), 0.0, 1.0)
+	var time := clampf(_phase_elapsed / float(_times[_phase_index]), 0.0, 1.0)
 	var weight := _ease(time)
 	var old_base: Vector3 = stage.arm.global_position
+	if offscreen_pickup:
+		var pose_weight := _ease(clampf(elapsed / 0.65, 0.0, 1.0))
+		if phase == "return":
+			pose_weight = 1.0 - weight
+		stage.robot.rotation.y = lerp_angle(_robot_yaw, _pose_yaw, pose_weight)
+		stage.pose_for_equipment(category, equipment_id, pose_weight)
 	_mount_pose = _mount_transform(equipment_id, category)
 	if phase == "approach":
 		_drive_to_bay(time)
@@ -214,7 +242,7 @@ func _advance_motion(delta: float) -> void:
 	elif phase == "work":
 		_point_tool(_mount_pose.origin)
 		_orient_payload(1.0)
-		worked_seconds = minf(WORK_TIME, _phase_elapsed)
+		worked_seconds = minf(float(_times[_phase_index]), _phase_elapsed)
 		stage.arm.particles.emitting = time > 0.10 and time < 0.76
 		audio.set_welding(stage.arm.particles.emitting)
 		_pulse.global_position = _mount_pose.origin + _front() * 0.14
@@ -263,6 +291,9 @@ func _next_phase() -> void:
 
 func _drive_to_bay(time: float) -> void:
 	var start := _arm_original.origin
+	if offscreen_pickup:
+		stage.arm.global_position = start.lerp(_source_base, _ease(time))
+		return
 	var shoulder_home := start + _shoulder_offset
 	var shoulder_bay := _source_base + _shoulder_offset
 	var front_z := maxf(2.15, shoulder_bay.z + 0.45)
@@ -278,11 +309,15 @@ func _drive_to_bay(time: float) -> void:
 
 
 func _carry_point(time: float) -> Vector3:
+	if offscreen_pickup:
+		var entry: Vector3 = _approach_point + stage.camera.global_basis.x * 1.3 + Vector3.UP * 0.18
+		return _path([_lift_point, entry, _approach_point], time)
 	var high := minf(3.08, maxf(_lift_point.y, _approach_point.y) + 0.38)
 	var points: Array[Vector3] = [_lift_point, Vector3(2.0, high, maxf(_lift_point.z + 0.40, 0.95)), Vector3(1.75, high, 1.50), _approach_point]
-	# A rear bay takes the right-hand aisle before crossing to the robot.
+	# Leave a rear bay toward the open aisle before crossing the workbench.
+	# The old diagonal kept the payload behind/inside the tool pegboard.
 	if _source.origin.z < -1.5:
-		points[1] = Vector3(2.0, high, _lift_point.z + 0.45)
+		points[1] = Vector3(_lift_point.x, high, 0.95)
 		points[2] = Vector3(2.0, high, 1.50)
 	if _rear_mount():
 		# Stay in the outside aisle until behind the robot, then approach the
@@ -312,13 +347,19 @@ func _base_for(target: Vector3) -> Vector3:
 	var facing := Vector3.BACK
 	if equipment_id in REAL_MODULES and phase in ["carry", "align", "work", "release"]:
 		side = stage.robot.global_basis.x.normalized()
+		if offscreen_pickup:
+			# Work from the socket's side instead of hiding the robot behind the
+			# entire service arm when installing on its opposite forearm.
+			var screen_side: Vector3 = stage.camera.global_basis.x
+			var offset: Vector3 = _mount_pose.origin - stage.robot.global_position
+			side = screen_side * (-1.0 if offset.dot(screen_side) < -0.08 else 1.0)
 		var surface := _front()
 		surface.y = 0.0
 		if surface.length_squared() > 0.01:
 			surface = surface.normalized()
 			# Pickup retains the bay stance; the base turns continuously during
 			# carry before settling on the socket's exposed side.
-			var weight := _ease(_phase_elapsed / float(TIMES[_phase_index])) if phase == "carry" else 1.0
+			var weight := _ease(_phase_elapsed / float(_times[_phase_index])) if phase == "carry" else 1.0
 			facing = facing.lerp(surface, weight)
 	var shoulder := target + side * reach + facing * 0.34
 	shoulder.y = _arm_original.origin.y + _shoulder_offset.y
@@ -470,18 +511,38 @@ func _mount_view_direction() -> Vector3:
 	return Vector3(0.38, 0.13, 1).normalized()
 
 
+func _bay_view_direction() -> Vector3:
+	# Stay on the aisle side of the two lateral walls, like the station views.
+	var side: float = {"weapon": -0.55, "offensive": 0.45, "defensive": -0.55, "passive": 0.45, "mobility": -0.45}.get(category, 0.0)
+	if category == "offensive":
+		return Vector3(0.08, 0.65, 1).normalized()
+	if category == "weapon":
+		return Vector3(-0.12, 0.50, 1).normalized()
+	return Vector3(side, 0.60 if category == "passive" else 0.25, 1).normalized()
+
+
+func _installation_frame(bounds: AABB, direction: Vector3, fov: float) -> Transform3D:
+	var view: Transform3D = focus.cinematic_frame(bounds, direction, fov)
+	# A wide framing must never retreat through the workshop shell. Keep a
+	# near-plane margin and re-aim at the subject if the framing reached a wall.
+	var inside := Vector3(clampf(view.origin.x, -6.95, 8.30), maxf(view.origin.y, 0.60), maxf(view.origin.z, -3.25))
+	if not inside.is_equal_approx(view.origin):
+		view = Transform3D(Basis.looking_at(bounds.get_center() - inside, Vector3.UP), inside)
+	return view
+
+
 func _start_phase_camera() -> void:
+	if offscreen_pickup:
+		return
 	_camera_from = stage.camera.global_transform
 	_camera_fov_from = stage.camera.fov
 	var bounds := AABB(_source.origin - Vector3(0.65, 0.45, 0.40), Vector3(1.30, 0.90, 0.80))
-	var side: float = {"weapon": -0.55, "offensive": -0.40, "defensive": 0.90, "passive": -0.65, "mobility": 0.65}.get(category, 0.26)
-	var direction := Vector3(side, 0.60 if category == "passive" else 0.18, 1).normalized()
+	var direction := _bay_view_direction()
 	_phase_fov = 37.0
 	if phase in ["carry", "lift"]:
-		bounds = bounds.expand(_mount_pose.origin).grow(0.30)
-		direction = Vector3(0.42, 0.19, 1).normalized()
-		if phase == "carry" and equipment_id in REAL_MODULES:
-			direction = _mount_view_direction()
+		# Follow the pickup locally; framing both distant endpoints pushed the
+		# camera outside and a rear-facing socket looked through the entire bay.
+		bounds = bounds.expand(_lift_point).grow(0.15)
 		_phase_fov = 39.0
 	elif phase in ["align", "work", "release"]:
 		bounds = AABB(_mount_pose.origin - Vector3(0.58, 0.48, 0.40), Vector3(1.16, 0.96, 0.80))
@@ -491,20 +552,26 @@ func _start_phase_camera() -> void:
 		_phase_fov = 34.0
 	elif phase == "return":
 		bounds = _provider().bounds(category).grow(0.20)
-		direction = Vector3(side, 0.60 if category == "passive" else 0.12, 1).normalized()
 		_phase_fov = 36.0
-	_phase_camera = focus.cinematic_frame(bounds, direction, _phase_fov)
+	_phase_camera = _installation_frame(bounds, direction, _phase_fov)
 
 
 func _update_camera(delta: float, time: float) -> void:
-	var blend := _ease(minf(_phase_elapsed / minf(float(TIMES[_phase_index]), 0.72), 1.0))
+	if offscreen_pickup:
+		stage.camera.global_transform = _hero_camera
+		stage.camera.fov = _hero_fov
+		return
+	var blend := _ease(minf(_phase_elapsed / minf(float(_times[_phase_index]), 0.72), 1.0))
 	if phase == "carry":
 		var tip: Vector3 = stage.arm.contact.global_position
-		var bounds := AABB(tip - Vector3(0.75, 0.65, 0.60), Vector3(1.50, 1.30, 1.20)).expand(_mount_pose.origin).grow(0.18)
-		var direction := _mount_view_direction() if equipment_id in REAL_MODULES else Vector3(0.38, 0.17, 1).normalized()
-		var tracking: Transform3D = focus.cinematic_frame(bounds, direction, _phase_fov)
+		var bounds := AABB(tip - Vector3(0.90, 0.75, 0.75), Vector3(1.80, 1.50, 1.50))
+		# Turn toward the socket only once the gripper has left the wall bay.
+		var turn := _ease(clampf((time - 0.40) / 0.60, 0.0, 1.0))
+		var direction := _bay_view_direction().slerp(_mount_view_direction(), turn).normalized()
+		var tracking := _installation_frame(bounds, direction, _phase_fov)
 		var desired := _camera_from.interpolate_with(tracking, blend)
 		stage.camera.global_transform = stage.camera.global_transform.interpolate_with(desired, 1.0 - exp(-delta * 9.0))
+		stage.camera.look_at(tip, Vector3.UP)
 	else:
 		stage.camera.global_transform = _camera_from.interpolate_with(_phase_camera, blend)
 	stage.camera.fov = lerpf(_camera_fov_from, _phase_fov, blend)
@@ -587,6 +654,8 @@ func _restore(overview: bool) -> void:
 	for index in _fingers.size():
 		_fingers[index].position = _finger_rest[index]
 	stage.robot.rotation.y = _robot_yaw
+	if offscreen_pickup:
+		stage.clear_equipment_pose()
 	_carriage.visible = false
 	_gripper.visible = false
 	_pulse.light_energy = 0.0
@@ -597,7 +666,10 @@ func _restore(overview: bool) -> void:
 	phase = ""
 	focus.set_process(stage.is_visible_in_tree())
 	if overview and stage.is_visible_in_tree():
-		focus.show_station(category)
+		if offscreen_pickup:
+			focus.show_garage(false)
+		else:
+			focus.show_station(category)
 	_restoring = false
 	set_process(false)
 

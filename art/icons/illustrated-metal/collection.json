@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "date": "2026-10-15",
+  "direction": "Metal illustre - extension de la version 01 approuvee",
+  "generator": "Codex ImageGen, built-in tool",
+  "new_icons": 21,
+  "total_equipment_icons": 22,
+  "reference": "manifest.json documents the preserved approved Javelin.",
+  "shared_prompt": "Use case: game-asset. Asset type: premium illustrated equipment icon for a robot arena game's garage and tiny combat HUD.\nREFERENCE IMAGE 1: the approved Javelin, use ONLY as MATERIAL/RENDERING STYLE reference, not subject or silhouette. REFERENCE IMAGE 2: old module icon family, use ONLY to understand each item's established symbols. Reference image 3 when present: old weapon selection / physical weapons for identity.\nProduce EXACTLY ONE isolated new icon on a GENUINE TRANSPARENT alpha background, square canvas, no scene, no checkerboard, no panel, no badge, no typography, no numbers, no watermark. Make it even more polished than the javelin while keeping its family: beautiful tactile ivory ceramic armor, warm aged copper-orange joints, deep graphite metal, chiseled bevels and selective bright energy accents. Premium hand-painted 3D game illustration, subtle broad brush texture, confident lighting from top left, crisp silhouette, strong chunky forms, restrained purposeful wear. Sophisticated rather than cartoony toy. Do NOT copy the javelin's shape.\nREADABILITY: this asset displays at 48x48px and sometimes 32px. Bold large masses, at most 3 main focal groups, broad negative spaces, simplified mechanical details, no tiny lettering/rivets/microtexture, no clouds of particles, minimal glow. Keep every essential visible pixel within a centered approximately 80 percent width/height area, generous completely transparent margins. Entire object must fit, nothing clipped. A compact, visually satisfying silhouette filling the square. No long thin spindly appendages. Make the energy element beautiful but preserve the material object. No external drop shadow. No ornate frame surrounding the icon.\n",
+  "prompt_assembly": "For each generated asset, the exact prompt is shared_prompt + '\\nSUBJECT AND UNIQUE SILHOUETTE:\\n' + subject.",
+  "style_references": [
+    "art/icons/illustrated-metal/javelin.png",
+    "captures/module-buttons/icons.png"
+  ],
+  "weapon_identity_reference": "captures/responsive-garage/pc-wide-weapon-catalog.png",
+  "assets": [
+    {
+      "id": "rocket_basket",
+      "file": "art/icons/illustrated-metal/rocket_basket.png",
+      "sha256": "8f13d474d6106b870170633697364a453ff77a112b775bf271cafe0826bf465c",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1370850,
+      "family": "offensive",
+      "subject": "PANIER ROQUETTES: a compact copper and dark-metal launch basket holding EXACTLY FIVE chunky ivory guided rockets, five tips clearly separated in a gentle fan, central rocket highest. Small turquoise bands and small copper exhaust collars. Three-quarter frontal angle, beautifully beveled launch housing. No smoke or flames. Main motif: five missiles.",
+      "generation_output": "exec-b7d6b949-00bf-40f8-b85a-8161c6ae5b2d.png"
+    },
+    {
+      "id": "fulguro_punch",
+      "file": "art/icons/illustrated-metal/fulguro_punch.png",
+      "sha256": "dfee4fd9a25ec92713c7bde5db0bc0d2ce5a654d1960d2139d695ea8ba308bf0",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1176588,
+      "family": "offensive",
+      "subject": "FULGURO PUNCH: one enormous mechanical CLOSED FIST punching diagonally upward-right, four large connected ivory knuckles with copper articulation, dark graphite palm, chunky copper forearm cuff. Hot amber-orange energy glowing in one broad seam at the knuckles and two short impact strokes. Fist clenched, strong silhouette, not an open hand, no detached parts. Main motif: charged punch.",
+      "generation_output": "exec-210a87cf-5042-4044-baff-eae3c91983ec.png"
+    },
+    {
+      "id": "pelto_smash",
+      "file": "art/icons/illustrated-metal/pelto_smash.png",
+      "sha256": "0d1c691b34a4b9f05e5ba4d9d92570aa01bd6f83914371d4ab594a67d2a371bd",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1363086,
+      "family": "offensive",
+      "subject": "PELTO SMASH: a heavy armored ivory/copper fist striking DOWN into three angular ochre stone slabs, a broad crescent shockwave sweeping out below the impact. Compact triangular composition, fist above, ground impact below. One small focused turquoise light on wrist; powerful copper/amber ground energy. Main motif: earth-shattering downward smash, clearly different from upward punch.",
+      "generation_output": "exec-4997ceae-99a6-440f-9dba-b3dbd6dccb90.png"
+    },
+    {
+      "id": "magnetic_field",
+      "file": "art/icons/illustrated-metal/magnetic_field.png",
+      "sha256": "af686350878a5b657082affcdef87c519c5c92ba51ada0a6e13df094dc613c45",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1194686,
+      "family": "defensive",
+      "subject": "MAGNETIC FIELD: two stout ivory/copper freestanding vertical shield emitters connected by one curved translucent turquoise ENERGY WALL with three broad horizontal bands. A compact broad dark base joins the pylons. Three-quarter perspective shows the curved barrier. Main motif: protective wall spanning two pillars, not a conventional handheld shield.",
+      "generation_output": "exec-67ee8401-beb2-4749-91e3-371583a112d8.png"
+    },
+    {
+      "id": "static_shield",
+      "file": "art/icons/illustrated-metal/static_shield.png",
+      "sha256": "1a9cf2573b3a69caa2b77a6cf80afb987c1cefddd52e4004b762c436efc7f7df",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1156174,
+      "family": "defensive",
+      "subject": "STATIC SHIELD: a stout OCTAGONAL mechanical stasis shield generator shown almost front-on. Beautiful ivory chamfered outer armor, thick copper inner ring, luminous TURQUOISE faceted center like a smooth energy shield. A few broad graphite support tabs only. Main motif: octagonal invulnerability shield. No arrows or lightning symbols.",
+      "generation_output": "exec-26357c22-0499-4b9f-8b2b-1e2db000f1a3.png"
+    },
+    {
+      "id": "projector",
+      "file": "art/icons/illustrated-metal/projector.png",
+      "sha256": "d2cba10aecb5bec7f80985abafeadd6e33ca573a2817947cdd08d6127af1b6b1",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1095353,
+      "family": "defensive",
+      "subject": "PROJECTOR: a compact ivory/copper GROUND EMITTER PUCK at the center projecting TWO broad turquoise elliptical shockwave rings outward, force-field repulsion. Perspective from slightly above. Dark mechanical center, ivory raised fins around copper puck, one bright cyan center. Main motif: expanding circular repulsion wave; no shield outline, no lightning emblem.",
+      "generation_output": "exec-42c5f93f-9ee2-4328-9319-87383d932739.png"
+    },
+    {
+      "id": "counter",
+      "file": "art/icons/illustrated-metal/counter.png",
+      "sha256": "8104b49a272881662ffe6aeb1aa4f838d7566b06751df49506277602fdce821e",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1021493,
+      "family": "defensive",
+      "subject": "COUNTER: a compact angular ivory and copper KITE SHIELD, tilted three-quarter view, with a single bold curved copper RETURN ARROW sweeping around its front-right edge and a short bright cyan deflected attack streak. Ivory upper face and graphite lower inset. Main motif: parry and return attack; broad simple arrow, no lettering.",
+      "generation_output": "exec-bb1dfddf-f1b9-427b-a168-7ef6eda466b9.png"
+    },
+    {
+      "id": "pyro_boots",
+      "file": "art/icons/illustrated-metal/pyro_boots.png",
+      "sha256": "09c1c51bda859777c0609b6bca294bc62388b483e0acf96a2f282d82ec77eca3",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1097592,
+      "family": "mobility",
+      "subject": "PYRO BOOTS: a dynamic pair of chunky ivory armored ROCKET BOOTS, one slightly higher behind the other, copper-orange toes and turbine heels, dark graphite ankle joints. Two short clean amber-orange exhaust flames below the heels, with tiny bright ivory cores, one subtle turquoise seam on each boot. Main motif: flaming dash boots. Compact composition, no long smoke trail.",
+      "generation_output": "exec-e78cfe32-0aaa-4404-9119-dec64526f1db.png"
+    },
+    {
+      "id": "bio_injector",
+      "file": "art/icons/illustrated-metal/bio_injector.png",
+      "sha256": "d5ce89f73bbe44943f6e35b3ce6a6d1a25a2fa1be70e88058cd83f5b1184e227",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 857789,
+      "family": "mobility",
+      "subject": "BIO INJECTOR: a stout futuristic mechanical BOOSTER SYRINGE angled lower-left to upper-right, thick ivory plunger, copper frame around a bright turquoise-green transparent liquid canister, graphite grips, short clean copper needle. A small simple ivory medical cross-shaped piece attached near upper collar. Compact broad object, not a thin medical drawing. Main motif: speed enhancing injection.",
+      "generation_output": "exec-52ac7fd5-05de-4088-a4e0-09e6a764a2af.png"
+    },
+    {
+      "id": "permutation",
+      "file": "art/icons/illustrated-metal/permutation.png",
+      "sha256": "4f35975c1e6874f1e345322764e86180ed797e4862ad51bd678a2655c7113a95",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1134161,
+      "family": "mobility",
+      "subject": "PERMUTATION: TWO small faceted mechanical ROBOT MASKS facing in opposing directions, one ivory, one dark graphite with ivory trim, both copper joints and a small turquoise lens. TWO broad curved copper arrows encircle them in opposite directions to symbolize swapping places. Subtle violet electrical seam between masks. Main motif: two robots exchanging places. Very clean large shapes, no complex faces.",
+      "generation_output": "exec-9fef4d37-7c0f-422c-9917-557713022fa7.png"
+    },
+    {
+      "id": "eclipse",
+      "file": "art/icons/illustrated-metal/eclipse.png",
+      "sha256": "146220d9564261a93184e2b1d1e5aa08ae549b2a6e8225c286007c650332f946",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 926076,
+      "family": "mobility",
+      "subject": "ECLIPSE: a sculptural ivory-metal CRESCENT sweeping around a deep graphite void orb, copper beveled crescent edge, a focused violet luminous rim and three large vanishing geometric fragments trailing to the left. A small cyan energy notch at the lower tip. Compact forward movement silhouette. Main motif: intangible eclipse/phase dash. No generic teleport doorway, no clock, no surrounding frame.",
+      "generation_output": "exec-e462f444-c586-4b44-8be2-6787ae6fefa1.png"
+    },
+    {
+      "id": "baroud",
+      "file": "art/icons/illustrated-metal/baroud.png",
+      "sha256": "2127d0b9b31031424c087eb84831784df825366899a169dcec4a5c8bc19be573",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1336792,
+      "family": "passive",
+      "subject": "BAROUD D'HONNEUR / LAST STAND: a battered chunky ivory mechanical CHEST ARMOR PLATE, bold central jagged crack opening onto a brilliant AMBER inner reactor, copper reinforcing edges, graphite lower collar. Three short angular copper sparks at bottom communicate a final burst of life. Main motif: cracked armor still fighting. No skull, no text, no heart or generic shield emblem.",
+      "generation_output": "exec-8f334d50-cb84-402c-9eb1-54120768f6c4.png"
+    },
+    {
+      "id": "omnivamp",
+      "file": "art/icons/illustrated-metal/omnivamp.png",
+      "sha256": "516d1a2ec74362e913e3b07dd1087a0b699fcb742dbbfd6fae4539afc491c232",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1079399,
+      "family": "passive",
+      "subject": "OMNIVAMP / LIFESTEAL: a beautiful MECHANICAL HEART, copper-red heart-shaped main body with broad ivory armor side plates and dark graphite seams; a glowing turquoise ECG zigzag runs across the central heart window. Two very small pointed ivory lower plates subtly evoke fangs. Main motif: health recovered by dealing damage. Bold heart shape, no blood drops, no wings.",
+      "generation_output": "exec-49daa7dd-085f-499b-a55a-521bfd02242c.png"
+    },
+    {
+      "id": "auxiliary_reactor",
+      "file": "art/icons/illustrated-metal/auxiliary_reactor.png",
+      "sha256": "d7e0add5cc30e4789a69a5881524cccdf66d1a18cc5e28158f62ba0aaadc6049",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1195884,
+      "family": "passive",
+      "subject": "AUXILIARY REACTOR: a compact chunky vertical industrial REACTOR CARTRIDGE, graphite core inside ivory armor shoulders and copper end caps, a single broad TURQUOISE LIGHTNING BOLT cutout glowing down its center, two small side connectors. Three-quarter view with premium bevels. Main motif: energy reactor that recharges attacks. Not octagonal, no shield, no surrounding arrows, no generic battery text.",
+      "generation_output": "exec-065a6068-5cd5-4bff-af5a-8a6f8f9d9499.png"
+    },
+    {
+      "id": "tracker",
+      "file": "art/icons/illustrated-metal/tracker.png",
+      "sha256": "cc9c6c849c47de06b75ed3520283eb2ba18f4bf4a2583dfac7052144df0143d7",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1020694,
+      "family": "passive",
+      "subject": "TRACKER: one striking large mechanical EYE, ivory almond-shaped armored upper/lower lids, copper inner ring, deep graphite central aperture, brilliant turquoise iris. Four small sturdy copper corner brackets around the eye suggest acquiring a target, with ample negative space. Main motif: target tracking and revealing. No numbers, no HUD fine lines, no face.",
+      "generation_output": "exec-d8a71252-153e-4fb0-819d-22d20f3dc930.png"
+    },
+    {
+      "id": "alternator",
+      "file": "art/icons/illustrated-metal/alternator.png",
+      "sha256": "9f6292ca58632f96ad7332a41b4b71c816b138cde118e84dee0167db0da20ad6",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1184801,
+      "family": "passive",
+      "subject": "ALTERNATOR: a compact diagonal split ivory-and-copper ENERGY COUPLER, two interlocking halves meeting at a large bright turquoise zigzag seam. TWO bold copper curved arrows loop above and below the object to symbolize cycling between module and weapon. Broad compact silhouette, readable separated negative space. Main motif: alternating energy combo. Different from the tall reactor cartridge: shorter wider split capsule with arrows.",
+      "generation_output": "exec-37049f8f-85aa-4d0d-a4db-ca3dda5c8efe.png"
+    },
+    {
+      "id": "inertia",
+      "file": "art/icons/illustrated-metal/inertia.png",
+      "sha256": "accfec48081b367f789eb10b3e25c6a2b2a9d502bad54f2be98de25f3f93f049",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 816576,
+      "family": "passive",
+      "subject": "INERTIA: a broad armored MECHANICAL GAUNTLET viewed from the side in a horizontal rightward dash, angular ivory backplate, copper knuckle band, graphite wrist. THREE short wide turquoise speed strokes trail behind to left, the fist's motion is the subject. Minimal cyan edge energy on the top. Main motif: momentum and slowing strike after movement. Clearly different from Fulguro: low horizontal fist, no flames, no amber explosion.",
+      "generation_output": "exec-febcafb5-7932-462d-a8c7-2aca31c2bf16.png"
+    },
+    {
+      "id": "blaster",
+      "file": "art/icons/illustrated-metal/blaster.png",
+      "sha256": "81b853cc0e6f59456adab61f08ab9cad95ed0f7d1108e2b39a8f6289798ae097",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1019717,
+      "family": "weapon",
+      "subject": "BLASTER: a premium chunky handcrafted sci-fi PLASMA BLASTER with a large glowing turquoise cylindrical chamber in the center, ivory armor panels and copper barrel rings, dark graphite grip and short sturdy stock. Three-quarter side view with barrel pointing upper-right, compact diagonally framed silhouette. Material family like the javelin; physical industrial robot weapon with a thick barrel, not a tiny handgun, no realistic firearm branding, no loose ammunition.",
+      "generation_output": "exec-d24d1fe2-1807-4caf-9d62-c9a2d2bc8b03.png"
+    },
+    {
+      "id": "shotgun",
+      "file": "art/icons/illustrated-metal/shotgun.png",
+      "sha256": "259e2759273383f2eb1934922599d44711496562bf2dfc15cc054fec971d08df",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1012008,
+      "family": "weapon",
+      "subject": "SHOTGUN: a distinctive chunky handcrafted sci-fi DOUBLE-BARREL SHOTGUN, two short thick barrels stacked vertically with copper-orange muzzle rings, ivory upper armor, dark graphite compact stock and grip, small turquoise under-barrel power strip. Three-quarter side view pointing upper-right; much shorter and wider than a sniper rifle. Broad solid shapes, no brand or writing. Main motif: brutal close-range double barrel.",
+      "generation_output": "exec-636e9606-59a7-439e-be00-4b2ee9b2ac08.png"
+    },
+    {
+      "id": "mekatana",
+      "file": "art/icons/illustrated-metal/mekatana.png",
+      "sha256": "67401aaf05747a02a86ddadd9a034f02b027b4153d043ef8465963d615e50918",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 669050,
+      "family": "weapon",
+      "subject": "MEKATANA: one elegant heavy ELECTRIC KATANA, diagonal lower-left handle to upper-right tip. Broad single gently curved ivory-metal blade with a long focused turquoise sharpened energy edge, thick copper rectangular handguard, graphite wrapped grip with copper pommel. Blade more visible than handle, clean chiseled bevels, restrained electric seam, no floating zigzag bolts. Main motif: fast mechanical sword.",
+      "generation_output": "exec-074fd65a-b5f7-478b-ad77-a912799b8758.png"
+    },
+    {
+      "id": "longshot",
+      "file": "art/icons/illustrated-metal/longshot.png",
+      "sha256": "3f24a212e0837bd68c331134b3270444031cb60cd30461b727f8105837a5df03",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 846056,
+      "family": "weapon",
+      "subject": "LONGSHOT: an elegant elongated mechanical PRECISION RIFLE, diagonally lower-left stock to upper-right barrel, long thick ivory barrel shroud with copper muzzle, dark graphite grip and skeletal stock, ONE prominent turquoise scope lens atop copper receiver. To remain readable at 48 pixels, slightly exaggerate the barrel and scope rather than make them spindly. Industrial sci-fi rifle, no branding, no bipod or tiny loose attachments. Main motif: long-range aimed shot.",
+      "generation_output": "exec-8c22ffc8-8fa6-4364-8161-9c643cb9851e.png"
+    }
+  ],
+  "rendering": {
+    "import_size_limit": 256,
+    "mipmaps": true,
+    "transparent_margin": "10% on every side, rounded to integer pixels",
+    "matte_cleanup": "At runtime, source alpha values below 8/255 become fully transparent, then mipmaps are rebuilt.",
+    "disabled_state": "Cached neutral grayscale derived from the same cleaned image, with identical alpha, dimensions and margin.",
+    "legacy_robot_portraits": "Unchanged."
+  },
+  "verification": {
+    "existing_test": "tools/test_touch_module_visual.gd",
+    "native_capture_script": "tools/capture_illustrated_equipment.gd",
+    "native_report": "captures/illustrated-equipment/verification.json"
+  }
+}

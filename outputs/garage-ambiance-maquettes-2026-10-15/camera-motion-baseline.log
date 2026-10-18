@@ -1,0 +1,222 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+ORBIT (960, 540) span=0.19206967949867
+ORBIT (1280, 720) span=0.19670232385397
+ORBIT (2340, 1080) span=0.19809015840292
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation hover pauses the camera at (960, 540)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover freezes current camera pose: (960, 540)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover release resumes without a jump: (960, 540)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation opens the selected family
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: catalog camera remains stationary
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: weapon navigation also freezes the orbit
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation hover pauses the camera at (1280, 720)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover freezes current camera pose: (1280, 720)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover release resumes without a jump: (1280, 720)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation opens the selected family
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: catalog camera remains stationary
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: weapon navigation also freezes the orbit
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: ARMES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MODULES
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation stays accessible during the orbit: MES BUILDS
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation hover pauses the camera at (2340, 1080)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover freezes current camera pose: (2340, 1080)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: hover release resumes without a jump: (2340, 1080)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: navigation opens the selected family
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: catalog camera remains stationary
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+ERROR: FAIL: weapon navigation also freezes the orbit
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://outputs/garage-ambiance-maquettes-2026-10-15/legacy_camera_motion_baseline.gd:56)
+FORGE CAMERA MOTION TEST: FAIL (92 checks; 54 failures)

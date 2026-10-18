@@ -25,6 +25,7 @@ const ICONS := preload("res://scripts/equipment_icons.gd")
 const DISPLAY_FONT := preload("res://art/ui/fonts/RussoOne-Regular.ttf")
 const BODY_FONT := preload("res://addons/GD-Sync/UI/Fonts/Outfit-Regular.ttf")
 const RESPONSIVE_LAYOUT := preload("res://scripts/ui/forge_garage_layout.gd")
+const ROBOT_EQUIPMENT := preload("res://scripts/ui/forge_robot_equipment.gd")
 const DESIGN_SIZE := Vector2(1280, 720)
 const EXPERIENCE := preload("res://scripts/review_preferences.gd")
 const AMBER := Color("#f5b844")
@@ -129,6 +130,8 @@ var _journey_labels: Array[Label] = []
 var _edit_selector: OptionButton
 var _summary_name: LineEdit
 var _library_button: Button
+var robot_equipment: ROBOT_EQUIPMENT
+var _robot_preview := false
 
 
 func _ready() -> void:
@@ -157,6 +160,9 @@ func _ready() -> void:
 	stage.weapon_rack = WEAPON_RACK.new()
 	stage.weapon_rack.configure(stage)
 	stage.world.add_child(stage.weapon_rack)
+	# Storage remains a payload source, outside the visible equipment experience.
+	stage.module_stations.hide()
+	stage.weapon_rack.hide()
 	_build_interface()
 	focus = EQUIPMENT_FOCUS.new()
 	focus.name = "EquipmentFocus"
@@ -171,10 +177,14 @@ func _ready() -> void:
 	module_installation = MODULE_INSTALLATION.new()
 	module_installation.name = "ModuleInstallation"
 	module_installation.configure(stage, focus)
+	module_installation.offscreen_pickup = true
 	add_child(module_installation)
 	module_installation.mounted.connect(_module_mounted)
 	module_installation.completed.connect(_module_completed)
 	module_installation.cancelled.connect(_module_cancelled)
+	robot_equipment = ROBOT_EQUIPMENT.new()
+	_ui.add_child(robot_equipment)
+	robot_equipment.configure(self)
 	resized.connect(_layout)
 	visibility_changed.connect(_sync_visibility)
 	get_viewport().mouse_exited.connect(_clear_station_hover)
@@ -189,8 +199,8 @@ func _process(delta: float) -> void:
 	if installation != null and installation.active and _installation_status != null:
 		_installation_status.text = "Installation · %.1f / 5 s" % installation.elapsed
 	if module_installation != null and module_installation.active:
-		_cinema_phase.text = {"approach": "MISE EN POSITION", "pickup": "PRISE AU RÂTELIER" if module_installation.category == "weapon" else "SAISIE DU MODULE", "lift": "LEVAGE", "carry": "TRANSFERT VERS LE ROBOT", "align": "ALIGNEMENT", "work": "VERROUILLAGE", "release": "ÉQUIPEMENT FIXÉ", "return": "RETRAIT DU BRAS"}.get(module_installation.phase, "INSTALLATION")
-		_cinema_progress.value = clampf(module_installation.elapsed / module_installation.DURATION, 0.0, 1.0)
+		_cinema_phase.text = {"approach": "RÉCUPÉRATION DE LA PIÈCE", "pickup": "PIÈCE SAISIE", "lift": "PRISE EN CHARGE", "carry": "MISE EN PLACE", "align": "ALIGNEMENT", "work": "VERROUILLAGE", "release": "ÉQUIPEMENT FIXÉ", "return": "RETRAIT DU BRAS"}.get(module_installation.phase, "INSTALLATION")
+		_cinema_progress.value = clampf(module_installation.elapsed / module_installation.duration, 0.0, 1.0)
 	if _notice_time > 0:
 		_notice_time -= delta
 		if _notice_time <= 0:
@@ -200,7 +210,7 @@ func _process(delta: float) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if not is_visible_in_tree() or installation.active or module_installation.active:
 		return
-	if _hub_mode:
+	if _hub_mode or (robot_equipment != null and robot_equipment.visible):
 		var pointer := Vector2.ZERO
 		var pressed := false
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -371,6 +381,7 @@ func _select_equipment(category: String, identifier: String) -> void:
 		return
 	if _creating and _journey_step < BUILD_STEPS.size() and category != BUILD_STEPS[_journey_step]:
 		return
+	_restore_robot_preview()
 	if str(loadout.get(category, "")) == identifier:
 		if _creating and _journey_step < BUILD_STEPS.size():
 			_advance_journey()
@@ -382,7 +393,6 @@ func _select_equipment(category: String, identifier: String) -> void:
 		_stop_robot_rotation()
 		_training_demo.close_enlarged()
 		if module_installation.begin(identifier, category):
-			_ui.set_meta("preview_rect", Rect2(20, 70, _ui.size.x - 40, _ui.size.y - 150))
 			_ui.hide()
 			_cinema.show()
 			_cinema_phase.text = "PRISE EN CHARGE"
@@ -408,13 +418,28 @@ func _select_equipment(category: String, identifier: String) -> void:
 
 
 func _preview_equipment(category: String, identifier: String) -> void:
+	if installation.active or module_installation.active:
+		return
 	if category in CATEGORY_TITLES or category == "weapon":
 		_view = "detail"
 		_show_detail(category, identifier)
 		_layout()
 		_focus_selection()
+		var preview := loadout.duplicate(true)
+		preview[category] = identifier
+		stage.set_weapon(str(preview.weapon))
+		stage.set_equipped_modules(preview)
+		_robot_preview = true
 	else:
 		_select_equipment(category, identifier)
+
+
+func _restore_robot_preview() -> void:
+	if not _robot_preview or stage == null:
+		return
+	_robot_preview = false
+	stage.set_weapon(str(loadout.weapon))
+	stage.set_equipped_modules(loadout)
 
 
 func _equip_preview() -> void:
@@ -457,6 +482,7 @@ func _save_build() -> void:
 	if _creating and _journey_step < BUILD_STEPS.size():
 		_notice("Choisis les cinq équipements avant de sauvegarder.")
 		return
+	_restore_robot_preview()
 	module_installation.cancel()
 	_finish_rename()
 	_stop_robot_rotation()
@@ -538,6 +564,7 @@ func _cancel_save() -> void:
 
 func _test_build() -> void:
 	if not installation.active and not module_installation.active:
+		_restore_robot_preview()
 		module_installation.cancel()
 		_finish_rename()
 		test_requested.emit(loadout.duplicate(true))
@@ -552,7 +579,7 @@ func _request_back() -> void:
 		back_requested.emit()
 	elif _view == "detail":
 		_show_catalog(_category)
-		focus.show_station(_category) if _category != "robot" else focus.show_overview()
+		_focus_selection()
 	elif _creating and _journey_step < BUILD_STEPS.size() and _view in ["catalog", "detail"]:
 		if _journey_step > 0:
 			_journey_step -= 1
@@ -586,6 +613,8 @@ func _layout() -> void:
 	if _ui == null:
 		return
 	RESPONSIVE_LAYOUT.apply(self)
+	if robot_equipment != null:
+		robot_equipment.apply_layout()
 	if focus != null:
 		focus.fit_layout()
 
@@ -1158,6 +1187,7 @@ func _show_entry(animated: bool = true) -> void:
 		return
 	if module_installation != null and module_installation.active:
 		module_installation.cancel(false)
+	_restore_robot_preview()
 	_hub_mode = false
 	_view = "entry"
 	_rename_panel.hide()
@@ -1197,6 +1227,7 @@ func _show_garage(animated: bool = true) -> void:
 		return
 	if module_installation != null and module_installation.active:
 		module_installation.cancel(false)
+	_restore_robot_preview()
 	_hub_mode = true
 	_view = "summary" if _creating and _journey_step == BUILD_STEPS.size() else "hub"
 	if _view == "summary":
@@ -1236,6 +1267,8 @@ func _open_station(category: String) -> void:
 
 
 func _pick_station(point: Vector2) -> String:
+	if robot_equipment != null:
+		return robot_equipment.pick_mount(point)
 	var rack_hit: String = stage.weapon_rack.pick(point)
 	return rack_hit if not rack_hit.is_empty() else stage.module_stations.pick(point)
 
@@ -1276,6 +1309,7 @@ func _navigate(title: String) -> void:
 func _show_builds() -> void:
 	if installation.active or module_installation.active:
 		return
+	_restore_robot_preview()
 	_hub_mode = false
 	_view = "builds"
 	_hide_equipment_display()
@@ -1298,7 +1332,7 @@ func _focus_selection() -> void:
 		return
 	if _category in BUILD_STEPS:
 		_hide_equipment_display()
-		focus.show_station(_category)
+		focus.show_garage(false)
 		return
 	if _compact_layout and _view == "catalog":
 		_hide_equipment_display()
@@ -1314,6 +1348,7 @@ func _focus_selection() -> void:
 
 
 func _show_catalog(kind: String) -> void:
+	_restore_robot_preview()
 	_hub_mode = false
 	_view = "catalog"
 	_category = kind

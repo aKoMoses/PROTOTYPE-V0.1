@@ -1,6 +1,6 @@
 extends Node3D
 
-## A round-controlled clock: telegraph, non-damaging sweep, then cover rotation.
+## Strike the spindle to telegraph a non-damaging sweep, then rotate the covers.
 ## The compact arena controller owns pause/lifecycle, sounds and collision casts.
 const GRACE := 4.0
 const WARNING := 1.8
@@ -14,6 +14,7 @@ const COVER_SIZE := Vector3(0.65, 2.0, 3.0)
 const CONTACT_CLEARANCE := 0.70
 const CONTACT_CORRECTION_SPEED := 8.0
 const AMBER := Color("#ffbf54")
+const SWITCH := preload("res://scripts/clockwork_switch.gd")
 
 var controller: Node3D
 var phase := "grace"
@@ -31,6 +32,10 @@ var rotation_marks: Node3D
 var warning_material: StandardMaterial3D
 var cover_material: StandardMaterial3D
 var _minimap_angle := INF
+var command: StaticBody3D
+var activations := 0
+var path_marks: Node3D
+var path_material: StandardMaterial3D
 
 func _ready() -> void:
 	controller = get_parent()
@@ -40,10 +45,10 @@ func _ready() -> void:
 	warning_material = controller.call("_material", Color(1.0, 0.65, 0.2, 0.19), 0.5, AMBER, 0.35)
 	warning_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	cover_material = controller.call("_material", AMBER, 0.5, AMBER, 0.2)
-	var hub := _body("ClockSpindle", CylinderShape3D.new())
-	(hub.get_child(0).shape as CylinderShape3D).radius = 0.72
-	(hub.get_child(0).shape as CylinderShape3D).height = 1.5
-	hub.get_child(0).position.y = 0.75
+	command = SWITCH.new()
+	command.set("mechanism", self)
+	add_child(command)
+	var hub := command
 	controller.call("_cylinder", hub, Vector3(0, 0.65, 0), 0.72, 1.3, brass)
 	controller.call("_cylinder", hub, Vector3(0, 0.14, 0), 1.05, 0.18, dark)
 	for index in range(16):
@@ -87,7 +92,59 @@ func _ready() -> void:
 	warning_sector.material_override = warning_material
 	warning_sector.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(warning_sector)
+	path_material = controller.call("_material", Color("#65e8d1"), 0.3, Color("#65e8d1"), 0.4)
+	path_marks = Node3D.new()
+	path_marks.name = "NextSweepDirection"
+	add_child(path_marks)
+	for index in range(10):
+		var angle := (float(index) + 0.5) * PI / 10.0
+		var arrow := Node3D.new()
+		arrow.position = Vector3(cos(angle), 0, sin(angle)) * (REACH + 0.2)
+		arrow.rotation.y = -angle
+		path_marks.add_child(arrow)
+		for side in [-1.0, 1.0]:
+			var wing: Node3D = controller.call("_box", arrow, Vector3(side * 0.11, 0.055, -0.11), Vector3(0.06, 0.025, 0.34), path_material)
+			wing.rotation.y = -side * PI * 0.25
 	reset_round()
+	set_collision_enabled(bool(controller.get("enabled")))
+
+func set_collision_enabled(value: bool) -> void:
+	command.collision_layer = (1 | 8) if value else 0
+	for cover in covers:
+		cover.collision_layer = 1 if value else 0
+
+func can_trigger() -> bool:
+	return phase == "ready" and bool(controller.get("enabled")) and bool(controller.get("running")) and is_inside_tree() and not get_tree().paused
+
+func request_sweep() -> bool:
+	if not can_trigger():
+		return false
+	activations += 1
+	phase = "warning"
+	remaining = WARNING
+	sweep_start = arm_angle
+	hit.clear()
+	controller.call("_request_sound", "trap_tile_warning", global_position)
+	_update_visuals()
+	return true
+
+func point_in_next_sweep(point: Vector3) -> bool:
+	var offset := point - global_position
+	var radius := Vector2(offset.x, offset.z).length()
+	var angle := fposmod(atan2(offset.z, offset.x) - arm_angle, TAU)
+	return absf(offset.y) < 1.8 and radius >= 1.05 and radius <= REACH + 0.6 and angle <= PI
+
+func get_bot_switch_target(body: Node3D, observed_enemy: Vector3, difficulty: String) -> Node3D:
+	if not can_trigger() or not observed_enemy.is_finite() or not point_in_next_sweep(observed_enemy) or point_in_next_sweep(body.global_position):
+		return null
+	var cadence := 12.0 if difficulty == "easy" else (5.0 if difficulty == "hard" else 8.0)
+	if fmod(float(controller.get("elapsed")), cadence) > 2.5 or body.global_position.distance_to(global_position) > 18.0:
+		return null
+	# Check the front surface of the command: the spindle itself is solid.
+	var near := (body.global_position - command.global_position).normalized()
+	near.y = 0.0
+	var ray := PhysicsRayQueryParameters3D.create(body.global_position + Vector3.UP * 0.9, command.global_position + near.normalized() * 1.03 + Vector3.UP * 1.1, 1)
+	return command if get_world_3d().direct_space_state.intersect_ray(ray).is_empty() else null
 
 func _body(label: String, shape: Shape3D) -> StaticBody3D:
 	var body := StaticBody3D.new()
@@ -121,11 +178,13 @@ func reset_round() -> void:
 	phase = "grace"
 	remaining = GRACE
 	cycles = 0
+	activations = 0
 	pushes = 0
 	cover_angle = 0.0
 	arm_angle = -PI * 0.5
 	sweep_start = arm_angle
 	hit.clear()
+	command.call("reset_round")
 	_apply_covers(cover_angle)
 	_update_visuals()
 
@@ -133,6 +192,8 @@ func advance(delta: float) -> void:
 	# Substeps prevent a fast arm or a long test frame from skipping a robot.
 	var pending := delta
 	while pending > 0.000001:
+		if phase == "ready":
+			break
 		var step := minf(pending, 1.0 / 60.0)
 		pending -= step
 		if phase == "rotate":
@@ -154,11 +215,8 @@ func advance(delta: float) -> void:
 func _next_phase() -> void:
 	match phase:
 		"grace", "rest":
-			phase = "warning"
-			remaining = WARNING
-			sweep_start = arm_angle
-			hit.clear()
-			controller.call("_request_sound", "trap_tile_warning", global_position)
+			phase = "ready"
+			remaining = 0.0
 		"warning":
 			phase = "sweep"
 			remaining = SWEEP
@@ -232,12 +290,19 @@ func _push_actors(delta: float) -> void:
 
 func _update_visuals() -> void:
 	arm.rotation.y = -arm_angle
-	warning_sector.rotation.y = -sweep_start
-	warning_sector.visible = phase in ["warning", "sweep"]
+	var preview_start := arm_angle if phase == "ready" else sweep_start
+	warning_sector.rotation.y = -preview_start
+	warning_sector.visible = phase in ["ready", "warning", "sweep"]
+	path_marks.rotation.y = -preview_start
+	path_marks.visible = warning_sector.visible
 	rotation_marks.visible = phase in ["cover_warning", "rotate"]
 	var pulse := 0.3 + 0.3 * sin(float(controller.get("elapsed")) * 9.0)
 	cover_material.emission_energy_multiplier = pulse if rotation_marks.visible else 0.1
-	warning_material.albedo_color.a = 0.17 if phase == "warning" else 0.08
+	var tint := Color("#65e8d1") if phase == "ready" else AMBER
+	warning_material.albedo_color = Color(tint, 0.055 if phase == "ready" else (0.17 if phase == "warning" else 0.08))
+	path_material.albedo_color = tint
+	path_material.emission = tint
+	command.call("update_state", phase, remaining, float(controller.get("elapsed")))
 	if not is_finite(_minimap_angle) or absf(cover_angle - _minimap_angle) > 0.04:
 		_minimap_angle = cover_angle
 		var main := controller.get_parent()
@@ -246,8 +311,8 @@ func _update_visuals() -> void:
 			tracker.call("_cache_obstacles")
 
 func get_snapshot() -> Dictionary:
-	return {"phase": phase, "remaining": remaining, "busy": 1 if phase != "grace" and phase != "rest" else 0,
-		"events": cycles, "pushes": pushes, "arm_angle": arm_angle, "cover_angle": cover_angle,
+	return {"phase": phase, "remaining": remaining, "busy": 0 if phase in ["grace", "rest", "ready"] else 1,
+		"events": cycles, "activations": activations, "pushes": pushes, "arm_angle": arm_angle, "cover_angle": cover_angle,
 		"phases": [phase], "cover_positions": [covers[0].position, covers[1].position]}
 
 func get_threats() -> Array[Dictionary]:

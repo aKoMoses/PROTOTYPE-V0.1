@@ -1,0 +1,93 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+Unable to open Android 'build-tools' directory.
+[   0% ] first_scan_filesystem | Started Initialisation du projet (5 steps)
+[   0% ] first_scan_filesystem | Analyse de la structure des fichiers…
+[  16% ] first_scan_filesystem | Chargement des noms des classes globales…
+[  33% ] first_scan_filesystem | Vérification des GDExtensions…
+[  50% ] first_scan_filesystem | Création des scripts de chargement automatique…
+[  66% ] first_scan_filesystem | Initialisation des extensions…
+GD-Sync version 1.0.2 enabled.
+[  83% ] first_scan_filesystem | Démarrage du scan de fichiers…
+[ DONE ] first_scan_filesystem
+
+
+We are looking for games made with GD-Sync to display on our website!
+If you want to display your game on our website, please submit your game using [url=https://docs.google.com/forms/d/e/1FAIpQLSe83hfE5DDR_Z2ZsKku3HZrNw_VopqHvcwjbYyZc8gOttSJxg/viewform]this form.
+[   0% ] update_scripts_classes | Started Enregistrement des classes globales… (8 steps)
+[   0% ] update_scripts_classes | 
+[  11% ] update_scripts_classes | 
+[  22% ] update_scripts_classes | 
+[  33% ] update_scripts_classes | 
+[  44% ] update_scripts_classes | MekatanaAttack
+[  55% ] update_scripts_classes | 
+[  66% ] update_scripts_classes | 
+[  77% ] update_scripts_classes | 
+[ DONE ] update_scripts_classes
+
+[   0% ] _update_scan_actions | Started Analyse des actions… (12 steps)
+[   0% ] _update_scan_actions | canvas_banner_albedo.png
+[   7% ] _update_scan_actions | equipment_cases_albedo.png
+[  15% ] _update_scan_actions | oiled_metal_albedo.png
+[  23% ] _update_scan_actions | rusted_iron_albedo.png
+[  30% ] _update_scan_actions | scarred_workbench_albedo.png
+[  38% ] _update_scan_actions | toolbox_red_albedo.png
+[  46% ] _update_scan_actions | workshop.glb
+[  53% ] _update_scan_actions | workshop_concrete_albedo.png
+[  61% ] _update_scan_actions | workshop_ochre_albedo.png
+[  69% ] _update_scan_actions | worn_steel_albedo.png
+[  76% ] _update_scan_actions | ui-combat-2026-10-15-mobile.png
+[  84% ] _update_scan_actions | ui-combat-2026-10-15-pc.png
+[ DONE ] _update_scan_actions
+
+[   0% ] reimport | Started Ré-importation des assets (13 steps)
+[   0% ] reimport | Préparation des fichiers pour la réimportation…
+[   7% ] reimport | Préparation des fichiers pour la réimportation…
+[  14% ] reimport | Préparation des fichiers pour la réimportation…
+[  21% ] reimport | Préparation des fichiers pour la réimportation…
+[  28% ] reimport | Préparation des fichiers pour la réimportation…
+[  35% ] reimport | Préparation des fichiers pour la réimportation…
+[  42% ] reimport | Préparation des fichiers pour la réimportation…
+[  50% ] reimport | Préparation des fichiers pour la réimportation…
+[  57% ] reimport | Préparation des fichiers pour la réimportation…
+[  64% ] reimport | Préparation des fichiers pour la réimportation…
+[  71% ] reimport | Préparation des fichiers pour la réimportation…
+[  78% ] reimport | Préparation des fichiers pour la réimportation…
+[  85% ] reimport | Préparation des fichiers pour la réimportation…
+[   0% ] reimport | Exécution des opérations de pré-réimportation…
+[   0% ] preload_reimporting_scene | Started Préparation des scènes à recharger (1 steps)
+[   0% ] preload_reimporting_scene | Analyse de la scène [vide]
+[  50% ] preload_reimporting_scene | Préparation terminée.
+[ DONE ] preload_reimporting_scene
+
+[   0% ] reimport | workshop_canvas_banner_albedo.png
+[   7% ] reimport | workshop_workshop_floor_albedo.png
+[  14% ] reimport | workshop_oiled_metal_albedo.png
+[  21% ] reimport | workshop_workshop_concrete_albedo.png
+[  28% ] reimport | workshop_worn_steel_albedo.png
+[  35% ] reimport | workshop_workshop_ochre_albedo.png
+[  42% ] reimport | workshop_rusted_iron_albedo.png
+[  50% ] reimport | workshop_scarred_workbench_albedo.png
+[  57% ] reimport | workshop_equipment_cases_albedo.png
+[  64% ] reimport | workshop_toolbox_red_albedo.png
+[  71% ] reimport | ui-combat-2026-10-15-mobile.png
+[  78% ] reimport | ui-combat-2026-10-15-pc.png
+[  85% ] reimport | workshop.glb
+[   0% ] import | Started Importer une scène (104 steps)
+[   0% ] import | Importation de la scène…
+[   1% ] import | Lancement du script personnalisé…
+[  99% ] import | Enregistrement…
+[ DONE ] import
+
+[  92% ] reimport | Finalisation des importations de ressources…
+[ DONE ] reimport
+
+[   0% ] reimport | Started Ré-importation des assets (13 steps)
+[   0% ] reimport | Exécution des opérations post-réimportation…
+[ DONE ] reimport
+
+[   0% ] loading_editor_layout | Started Chargement de l’éditeur (5 steps)
+[   0% ] loading_editor_layout | Chargement de la disposition de l’éditeur…
+[  16% ] loading_editor_layout | Chargement des docks…
+[ DONE ] loading_editor_layout
+

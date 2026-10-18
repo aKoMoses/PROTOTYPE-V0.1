@@ -1,0 +1,6 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+CAMERA RESOLUTION (1280, 720) cycles=66 failures=0
+CAMERA RESOLUTION (960, 540) cycles=132 failures=0
+CAMERA RESOLUTION (2340, 1080) cycles=198 failures=0
+FORGE INSTALLATION CAMERA: PASS (198 installations; 1190 checks; 0 failures)

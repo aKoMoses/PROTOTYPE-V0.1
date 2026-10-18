@@ -10,6 +10,7 @@ var total_healing := 0.0
 var hit_count := 0
 var side := 1.0
 var healing_mode := false
+var is_critical := false
 var _age := 0.0
 var _idle := 0.0
 var _punch := 0.0
@@ -19,9 +20,11 @@ var _ghost: Label3D
 
 func _ready() -> void:
 	position = Vector3(side * 2.55, 2.35, 0.0)
-	_label = _make_label(Color("#72f0a5") if healing_mode else Color("#ff9a3e"), 19)
+	var main_color := Color("#72f0a5") if healing_mode else (Color("#ffe059") if is_critical else Color("#ff9a3e"))
+	var ghost_color := Color(0.32, 1.0, 0.55, 0.34) if healing_mode else (Color(1.0, 0.88, 0.25, 0.45) if is_critical else Color(1.0, 0.34, 0.12, 0.38))
+	_label = _make_label(main_color, 24 if is_critical else 19)
 	add_child(_label)
-	_ghost = _make_label(Color(0.32, 1.0, 0.55, 0.34) if healing_mode else Color(1.0, 0.34, 0.12, 0.38), 23)
+	_ghost = _make_label(ghost_color, 28 if is_critical else 23)
 	_ghost.position = Vector3(0.11, -0.10, 0.02)
 	add_child(_ghost)
 
@@ -30,12 +33,18 @@ func can_merge() -> bool:
 	return is_inside_tree() and _idle <= MERGE_GAP and _age <= MAX_GROUP_AGE
 
 
-func add_damage(amount: float) -> void:
+func add_damage(amount: float, critical: bool = false) -> void:
 	total_damage += amount
 	hit_count += 1
 	_idle = 0.0
-	_punch = 1.0
-	var value := "-%d" % roundi(total_damage)
+	if critical:
+		is_critical = true
+	_punch = 1.4 if is_critical else 1.0
+	if is_critical and _label != null:
+		_label.modulate = Color("#ffe059")
+		if _ghost != null:
+			_ghost.modulate = Color(1.0, 0.88, 0.25, 0.45)
+	var value := "-%d%s" % [roundi(total_damage), "!" if is_critical else ""]
 	_label.text = value
 	_ghost.text = value
 

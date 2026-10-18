@@ -1,0 +1,7 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[AimPose] fire sample=1.433333s frame=86 RMS=0.391469deg/s rotation_tracks=43
+[ReadyPose] fire sample=1.433333s frame=86 arm_rotation_tracks=38
+[PlayerAnimationTree] BasePose + full-body locomotion + low-ready arms + transient upper-body AimPose + skeleton ShotKick/support | locomotion_tracks=9 ready_tracks=38 aim_tracks=43 samples=1.433333/1.433333s
+[PlayerVisualRig] animations=afraid, bow, box_01, fall, fire, idle, run, walk, warm_up | bones=65 | mesh=191 | right=mixamorig_RightHand | left=mixamorig_LeftHand | hips=mixamorig_Hips | forward=+Z | root_motion=Hips(run/walk)
+GARAGE BUILD JOURNEY: PASS (777 checks; 0 failures)

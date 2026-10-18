@@ -794,6 +794,12 @@ func flash_impact(critical: bool = false) -> void:
 	var manager := scene.get_node_or_null("VFXManager") if scene != null else null
 	if manager != null:
 		manager.call("hit_flash", _visual_rig, critical)
+		if critical:
+			manager.call("hitstop", _visual_rig, 0.06)
+	if critical:
+		var rig := scene.get_node_or_null("CameraRig") if scene != null else null
+		if rig != null and rig.has_method("shake"):
+			rig.call("shake", 0.09, 0.07)
 
 
 func _on_health_changed(_current: float, _maximum: float) -> void:
@@ -803,11 +809,12 @@ func _on_health_changed(_current: float, _maximum: float) -> void:
 func _on_damage_applied(amount: float, source_id: String, attack_id: String) -> void:
 	if amount > 0.0:
 		mark_combat_event()
+	var is_crit := attack_id.contains(":critical") or attack_id.ends_with(":wall")
 	if _health_readout != null:
-		_health_readout.call("show_damage", amount)
+		_health_readout.call("show_damage", amount, is_crit)
 	# Burn ticks are damage but have no collision impact.
 	if not attack_id.is_empty():
-		get_node("/root/GameSfx").play_event("impact_critical" if attack_id.contains(":critical") else "impact_robot")
+		get_node("/root/GameSfx").play_event("impact_critical" if is_crit else "impact_robot")
 	# The prototype has one player attacker. Keep attribution on effective PV
 	# removed so Omnivamp also sees criticals and BURN ticks, never overkill.
 	if not (source_id == "player" or source_id.begins_with("player:")):

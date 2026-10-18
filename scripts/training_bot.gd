@@ -528,6 +528,10 @@ func _physics_process(delta: float) -> void:
 		_perception["holding_fire"] = _holding_bush_fire
 		_perception.erase("arena_control_target")
 		var arena_controls := get_tree().current_scene.get_node_or_null("ArenaHazards")
+		if arena_controls != null and arena_controls.has_method("get_bot_control_target") and str(_duel_equipment.get("profile")) != "mekatana":
+			var command_target: Node3D = arena_controls.call("get_bot_control_target", bot_body, _last_observed_position if _has_last_observed_position else Vector3.INF, difficulty_profile)
+			if command_target != null:
+				_perception["arena_control_target"] = command_target
 		if arena_controls != null and arena_controls.has_method("get_bot_mirror_target") and str(_duel_equipment.get("profile")) != "mekatana":
 			var mirror_target: Node3D = arena_controls.call("get_bot_mirror_target", bot_body, _last_observed_position if _has_last_observed_position else Vector3.INF, difficulty_profile)
 			if mirror_target != null:
@@ -808,6 +812,15 @@ func _update_duel_decision(bot_body: Node3D, player: Node3D) -> void:
 	_next_tactical_decision_at = _elapsed + interval + stagger
 	if get_repair_target() != null:
 		return
+	var terrain := ARENA_TRAVERSAL.terrain(bot_body)
+	var sap: Node3D = terrain.get_node_or_null("TidalSap") if terrain != null else null
+	if sap != null and float(_perception.get("bot_health_fraction", 1.0)) > 0.45:
+		var goal: Vector3 = sap.call("get_bot_destination", bot_body)
+		if goal.is_finite():
+			_force_intent("arena_objective", "récupérer la sève et la rapporter sur un îlot")
+			_tactical_destination = goal
+			_has_tactical_destination = true
+			return
 	var known := bool(_perception.get("known", false))
 	var visible := bool(_perception.get("visible", false))
 	var distance := float(_perception.get("distance", INF))
@@ -1687,7 +1700,7 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 	var desired := _tactical_destination if _has_tactical_destination else pursuit_position
 	var base_speed := float(COMBAT_DATA.ROBOT_DEFINITIONS[str(_duel_equipment.get("robot_id"))].move_speed)
 	var speed := base_speed * lerpf(0.80, 1.0, float(_tuning.get("position_quality", 0.68)))
-	if _current_intent in ["search_bush", "hide_bush", "ambush_bush"]:
+	if _current_intent in ["search_bush", "hide_bush", "ambush_bush", "arena_objective"]:
 		_has_angle_destination = false
 	elif target_visible:
 		_has_angle_destination = false
@@ -1703,7 +1716,7 @@ func _update_duel_movement(bot_body: Node3D, pursuit_position: Vector3, target_v
 			desired = _angle_destination
 	else:
 		_has_angle_destination = false
-	if get_duel_profile() == "mekatana" and target_visible:
+	if get_duel_profile() == "mekatana" and target_visible and _current_intent != "arena_objective":
 		var toward := pursuit_position - bot_body.global_position
 		toward.y = 0.0
 		var engagement: Vector2 = _duel_equipment.call("get_mekatana_engagement_range")

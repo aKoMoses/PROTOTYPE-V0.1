@@ -6,27 +6,9 @@ const CATALOG := preload("res://scripts/compact_arena_catalog.gd")
 const HEIGHT := 1.35
 const CYCLE := 24.0
 const HIGH_WATER := 0.90
+const SAP := preload("res://scripts/tideglass_sap.gd")
 const SCALE := CATALOG.LAYOUT_SCALE
-const WATER_SHADER := """
-shader_type spatial;
-render_mode blend_mix, cull_disabled;
-uniform float clock = 0.0;
-varying vec3 world;
-void vertex() { world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
-void fragment() {
-    vec2 p = world.xz;
-    float wave = sin(p.x * 2.1 + p.y * 3.4 - clock * 2.0);
-    float streak = pow(max(0.0, sin(p.x * 6.2 + sin(p.y * 1.7 - clock * 1.8))), 18.0);
-    float ripple = pow(max(0.0, sin(p.y * 4.2 - clock * 3.2 + p.x * 1.2)), 12.0);
-    ALBEDO = mix(vec3(0.025, 0.24, 0.29), vec3(0.075, 0.48, 0.49), wave * 0.2 + 0.45);
-    ALBEDO += vec3(0.25, 0.38, 0.32) * streak * ripple;
-    ROUGHNESS = 0.25;
-    METALLIC = 0.15;
-    NORMAL_MAP = vec3(0.5 + wave * 0.05, 0.5 + sin(p.y * 3.0 - clock) * 0.035, 1.0);
-    NORMAL_MAP_DEPTH = 0.13;
-    ALPHA = 0.74;
-}
-"""
+const CONSERVATORY := preload("res://scripts/environment/tideglass_conservatory.gd")
 
 var surfaces: Array[StaticBody3D] = []
 var islands: Array[PackedVector2Array] = []
@@ -46,6 +28,8 @@ var _readouts: Dictionary = {}
 var _tide_gauges: Array[MeshInstance3D] = []
 var _arrows: Array[Node3D] = []
 var _status: Label3D
+var sap: Node3D
+var conservatory: Node3D
 
 func configure(stage: Node3D) -> void:
 	_stage = stage
@@ -87,10 +71,19 @@ func configure(stage: Node3D) -> void:
 	_status.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_status.position = Vector3(0, 2.6, -12.8)
 	add_child(_status)
+	sap = SAP.new()
+	sap.name = "TidalSap"
+	add_child(sap)
+	sap.call("configure", _stage, self)
 	reset_round()
+	conservatory = CONSERVATORY.new()
+	conservatory.name = "TideglassConservatory"
+	add_child(conservatory)
+	conservatory.call("configure", _stage, self)
 
 func configure_actors(actors: Array[Node3D]) -> void:
 	_actors.assign(actors)
+	sap.call("configure_actors", actors)
 	for actor in _actors:
 		if not is_instance_valid(actor):
 			continue
@@ -100,8 +93,8 @@ func configure_actors(actors: Array[Node3D]) -> void:
 			continue
 		var label := Label3D.new()
 		label.text = "EAU · ATTAQUE BLOQUÉE"
-		label.font_size = 36
-		label.pixel_size = 0.007
+		label.font_size = 30
+		label.pixel_size = 0.008
 		label.outline_size = 8
 		label.modulate = Color("#76e7e7")
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -145,6 +138,8 @@ func reset_round() -> void:
 	water_level = -0.06
 	phase = "basse"
 	active = false
+	if is_instance_valid(sap):
+		sap.call("reset_round")
 	_apply_visuals(0.0)
 
 func advance(delta: float) -> void:
@@ -171,8 +166,16 @@ func advance(delta: float) -> void:
 		var label: Label3D = _readouts.get(actor.get_instance_id())
 		var submerged := is_submerged(actor.global_position)
 		if label != null:
-			label.visible = submerged and not (actor.has_method("is_real_dead") and actor.call("is_real_dead"))
-			label.global_position = actor.global_position + Vector3.UP * 2.6
+			var reward: Dictionary = sap.call("status", actor)
+			var lines: Array[String] = []
+			if not reward.is_empty():
+				lines.append(("SÈVE · REJOINS UN ÎLOT · %ds" if reward.phase == "carried" else "SÈVE +35 %% DÉGÂTS · %ds") % ceili(float(reward.remaining)))
+			if submerged:
+				lines.append("EAU · ATTAQUE BLOQUÉE")
+			label.text = "\n".join(lines)
+			label.modulate = Color("#ffd477") if not reward.is_empty() else Color("#76e7e7")
+			label.visible = not lines.is_empty() and not (actor.has_method("is_real_dead") and actor.call("is_real_dead"))
+			label.global_position = actor.global_position + Vector3.UP * 2.5
 		if not submerged or (actor.has_method("is_real_dead") and actor.call("is_real_dead")):
 			continue
 		var controls := actor.get_node_or_null("ControlsComponent")
@@ -189,6 +192,7 @@ func advance(delta: float) -> void:
 			var motion := destination - actor.global_position
 			actor.global_position += _swept_current(actor, motion)
 			actor.global_position.y = height_at(actor.global_position)
+	sap.call("advance", delta)
 
 func _swept_current(actor: Node3D, motion: Vector3) -> Vector3:
 	for child in actor.get_children():
@@ -215,6 +219,9 @@ func surfaces_rids() -> Array[RID]:
 	return result
 
 func stop() -> void:
+	active = false
+	if is_instance_valid(sap):
+		sap.call("reset_round")
 	for label in _readouts.values():
 		label.visible = false
 
@@ -322,10 +329,8 @@ func _barge_overlaps(point: Vector3, margin: float) -> bool:
 	return false
 
 func _build_water() -> void:
-	var shader := Shader.new()
-	shader.code = WATER_SHADER
 	_water_material = ShaderMaterial.new()
-	_water_material.shader = shader
+	_water_material.shader = preload("res://shaders/tideglass_water.gdshader")
 	var outline := CATALOG.footprint("tideglass")
 	var indices := Geometry2D.triangulate_polygon(outline)
 	var builder := SurfaceTool.new()
@@ -365,6 +370,8 @@ func _apply_visuals(amount: float) -> void:
 	_water.position.y = water_level
 	_water.visible = water_level > 0.015
 	_water_material.set_shader_parameter("clock", elapsed)
+	if is_instance_valid(conservatory):
+		conservatory.call("update_tide", elapsed, water_level)
 	for entry in barges:
 		var body: Node3D = entry.body
 		var destination: Vector3 = (entry.low as Vector3).lerp(entry.high, amount)
@@ -385,8 +392,7 @@ func _apply_visuals(amount: float) -> void:
 	if _status != null:
 		_status.text = "MARÉE " + phase.to_upper()
 		_status.modulate = Color("#ffd17c") if phase == "montante" else Color("#b6ede2")
-	# Float only the collectible's presentation: its collection area stays on
-	# the basin floor, where actors actually walk and receive healing.
+	# Float presentation only: collection stays on the basin floor.
 	for child in _stage.get_children():
 		if child is RepairKit:
 			var visual: Node3D = child.get("_kit_visual")

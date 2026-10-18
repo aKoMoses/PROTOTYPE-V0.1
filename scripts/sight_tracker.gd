@@ -9,7 +9,7 @@ const RED := Color("#f07869")
 const AMBER := Color("#efb565")
 const ARENA_HALF_EXTENT := 29.0
 const MEMORY_SECONDS := 7.0
-const PANEL_SIZE := Vector2(208.0, 208.0)
+const PANEL_SIZE := Vector2(140.0, 140.0)
 
 var _scene: Node3D
 var _player: Node3D
@@ -69,8 +69,8 @@ func _ready() -> void:
 	arena_map.tracker = self
 	_map = arena_map
 	_map.name = "ArenaMap"
-	_map.position = Vector2(13.0, 13.0)
-	_map.size = Vector2(182.0, 182.0)
+	_map.position = Vector2(8.0, 8.0)
+	_map.size = PANEL_SIZE - Vector2(16.0, 16.0)
 	_map.clip_contents = true
 	_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(_map)
@@ -182,7 +182,29 @@ func _process(delta: float) -> void:
 		_age += maxf(delta, 0.0)
 		if _age >= MEMORY_SECONDS:
 			reset_tracking()
+	_avoid_fighters(delta)
 	_map.queue_redraw()
+
+
+func _avoid_fighters(delta: float) -> void:
+	# Only the player's position and an admitted observation may affect opacity.
+	# A hidden opponent must never make the minimap react.
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return
+	var positions: Array[Vector3] = [_player_position]
+	if _opponent_visible:
+		positions.append(_last_position)
+	var panel_rect := Rect2(_panel.position, PANEL_SIZE * _panel.scale).grow(8)
+	var covered := false
+	for at in positions:
+		if camera.is_position_behind(at):
+			continue
+		var foot := camera.unproject_position(at)
+		var head := camera.unproject_position(at + Vector3.UP * 4.5)
+		var fighter := Rect2(Vector2(minf(head.x, foot.x) - 65, minf(head.y, foot.y) - 24), Vector2(absf(head.x - foot.x) + 130, absf(head.y - foot.y) + 48))
+		covered = covered or panel_rect.intersects(fighter)
+	_panel.modulate.a = move_toward(_panel.modulate.a, 0.12 if covered else 1.0, maxf(0.0, delta) * 6.0)
 
 
 func _actor_dead(actor: Node) -> bool:

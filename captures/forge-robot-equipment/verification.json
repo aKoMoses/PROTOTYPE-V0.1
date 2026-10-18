@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-15",
+  "status": "verified-locally-not-published",
+  "reservation": "852d0410-2efa-408f-a019-98aea521a680",
+  "engine": "Godot 4.7.2 stable",
+  "project": "C:/Users/BOTTEROOOW/PROTOTYPE-V0.1",
+  "editor_import": {"passed": true, "log": "import.log"},
+  "equipment_test": {"passed": true, "checks": 598, "installations": 66, "failures": 0, "log": "verification.log"},
+  "production_build_journey": {"passed": true, "checks": 777, "failures": 0, "log": "journey.log"},
+  "native_captures": {"passed": true, "count": 16, "renderer": "Vulkan Forward Mobile", "gpu": "NVIDIA GeForce GTX 1660 SUPER", "log": "capture.log", "main_preview": "03-pc-offensive.png"},
+  "visual_revision": {"reference": "reference-maquette.png", "reference_sha256": "C77647F3C800C6F0BEF614BAC496A02EB5041DF7CEABFA9A7E5AD9652CEB4405", "changes": ["closer lower camera", "tilted compact choice fan", "short contextual card with optional details", "centered actions", "warm hero lighting", "subtle background depth of field", "temporary module highlight"], "reference_limitation": "The image-generated reference also reinterprets the robot and module shapes; production meshes are preserved."},
+  "coverage": ["mouse clicks on body and labels", "preview distinct from installed draft", "three chassis", "three window sizes", "offscreen pickup", "fixed mounting camera", "temporary skeleton poses", "cancel after pickup", "accelerated mounting", "guided creation", "named build persistence", "training draft return", "real menu integration", "simulated touch and safe area", "idle label fade"],
+  "limitations": ["Local PC validation only", "Android device and APK not validated", "The complete historical game test suite was not run", "No commit or publication performed"]
+}

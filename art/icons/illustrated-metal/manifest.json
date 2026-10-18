@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "asset": "javelin",
+  "direction": "01 - Metal illustre",
+  "date": "2026-10-15",
+  "scope": "Javelot seul, validation locale avant extension aux autres armes et modules.",
+  "generator": {
+    "tool": "Codex ImageGen - built-in",
+    "transparent_background": true
+  },
+  "approved_reference": {
+    "filename": "exec-7a667090-df7a-4d73-905e-8cd5c366b4b5.png",
+    "sha256": "7e98df2ed6cb8f94554d32c9154c30453353653e14862ccbbe379c7fd4c32c07",
+    "description": "Maquette 01 selectionnee par le joueur dans la conversation."
+  },
+  "output": {
+    "file": "art/icons/illustrated-metal/javelin.png",
+    "sha256": "6baa899fcc5c141007a6807c47fc48cd9fe1d9a2a3a87e735e07fb46315352df",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ]
+  },
+  "import": {
+    "size_limit": 256,
+    "mipmaps": true,
+    "additional_texture_margin": "10 percent on each side, rounded to full pixels",
+    "desktop_slot": [
+      48,
+      48
+    ]
+  },
+  "cooldown": {
+    "method": "Neutral grayscale derived once per EquipmentIcons instance from the color source, cached as an ImageTexture.",
+    "geometry": "Same alpha, size, region and margin as the ready icon.",
+    "recast": "Existing distinct teleport arrow remains unchanged."
+  },
+  "prompt": "Use case: precise-object-edit / game icon asset extraction.\nThe attached board contains the APPROVED \"01 · MÉTAL ILLUSTRÉ\" Javelin icon. Produce the final production icon only, extracted/recreated faithfully from the LARGE TRIDENT ON THE LEFT. Exactly one isolated mechanical trident on an ACTUAL TRANSPARENT alpha background, square 1024x1024 PNG. Remove ALL presentation-board text, panels, logos, labels, frames, circles, other icons and background. Absolutely no checkerboard baked into image.\nPreserve approved design and art style: rich hand-painted stylized metal, warm ivory beveled panels, copper-orange collar and end cap, broad dark gunmetal grip, three ivory metal prongs with restrained cyan energy edge highlights. Central prong longest, side prongs separated by generous negative space. Diagonal orientation lower-left handle to upper-right tip. Strong material volume, crisp chiseled edges, clean shadow masses, restrained wear, no microtexture noise, no extra bolts. No energy trail or floating particles. No drop-shadow outside the object.\nFor small 48px use, enlarge the trident head roughly 15% relative to its shaft compared with the large board image, keeping the same design. Slightly shorten shaft so the head occupies about the upper 40% of total length. Entire object fills the diagonal of a centered square from roughly (110,900) to (890,100). Keep all visible pixels INSIDE a 9% padding on every side; do not clip tip or handle. Don't add a background badge. This is the actual reusable asset for garage and combat HUD, not another mockup. Only the trident, no text.",
+  "verification": {
+    "capture_script": "tools/capture_javelin_icon_v1.gd",
+    "native_report": "captures/javelin-icon-v1/verification.json",
+    "existing_targeted_test": "tools/test_touch_module_visual.gd"
+  }
+}

@@ -1,0 +1,21 @@
+{
+	"checks": 8927,
+	"failures": [],
+	"frames": [
+		"01-collection",
+		"02-garage-weapon",
+		"02-garage-offensive",
+		"02-garage-defensive",
+		"02-garage-mobility",
+		"02-garage-passive",
+		"03-combat-0-ready",
+		"04-combat-0-cooldown",
+		"03-combat-1-ready",
+		"04-combat-1-cooldown",
+		"03-combat-2-ready",
+		"04-combat-2-cooldown",
+		"03-combat-3-ready",
+		"04-combat-3-cooldown",
+		"05-training"
+	]
+}

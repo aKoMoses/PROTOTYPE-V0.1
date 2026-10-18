@@ -1,0 +1,20 @@
+Use case: precise-object-edit.
+Asset type: corrected architectural concept mockup for an existing stylized Godot robot garage game.
+EDIT TARGET: the attached existing warm garage mockup. The user correctly identified that it looks like a small freestanding fake garage placed inside a second giant garage, with a window impossibly showing outdoors through an internal partition. Correct THIS architectural/depth inconsistency. This requires changing the surrounding architecture, not just lighting or surface detail.
+
+Primary request: turn the displayed workshop into one real, coherent room integrated into the building, with the existing work bay built against the building's actual continuous exterior back wall.
+
+Keep the exact camera viewpoint, 16:9 landscape framing, hero robot identity, cyan eye and chest, red scarf and crest, pose, size and screen position. Preserve the yellow service arm, circular grated platform, workbench, pegboard, red toolbox, equipment racks, green crates, ladder and main mezzanine rail in their existing positions, scale and style. Preserve the flat top GARAGE UI bar and the two left UI cards with their icons and exact French words "MODIFIER UN BUILD" and "CRÉER UN BUILD". Do not redesign or relight UI.
+
+REQUIRED ARCHITECTURAL CORRECTION:
+- Remove the visible freestanding booth silhouette: no thin rear scenic wall stopping halfway up the image with another distant hangar behind it.
+- The workshop BACK WALL IS NOW THE BUILDING'S SINGLE ACTUAL EXTERIOR WALL. It must run continuously from ground to ceiling and across the full visible width of the scene, including above the existing mezzanine. Give it substantial brick/concrete masonry, vertical steel supports and a clear connection to the roof structure.
+- Remove ALL the old extra hangar background behind and above the little booth, including the distant blue upper walkway, rear building layer, side exterior skyline glimpses and space that implies you could walk around behind the window wall. Replace it with the continuous single workshop wall.
+- Remove the small booth's two short detached screen/partition walls and their thin freestanding corner posts. Their useful rack contents remain on real wall supports. The full-size room's right perpendicular structural side wall and roof rafters can create coherent perspective depth; attach them clearly to the continuous rear wall, not to another miniature cubicle.
+- The original rear multi-pane window stays in approximately the same screen position but is visibly set THROUGH THE SINGLE THICK EXTERIOR MASONRY WALL, with a substantial recessed reveal, deep side jamb, lintel and sill. It clearly looks outside to a muted sunlit industrial yard/sky. No other indoor warehouse behind it.
+- The existing mezzanine is a narrow service catwalk bolted and braced along this continuous wall, with plausible bracket supports, ladder and contact shadows.
+- One continuous concrete floor, matching perspective, credible grounding and contact shadows. Keep the platform and yellow marked service area but remove the visual effect of a showroom kit sitting on a separate rectangular stage. Floor is mostly dry matte concrete with restrained grease marks, not wet mirror reflections.
+- Avoid the dollhouse effect: connected wall-to-floor and wall-to-roof junctions, clear consistent human scale, rafters converge with the same camera perspective. The room's visual envelope should feel unified.
+
+Maintain the warm lived-in amber workshop mood, soft cool shadow fill, worn ochre equipment, a few existing tools and parts, and readable central robot. Warm daylight through the now physically credible exterior window; lamp pool over existing pegboard. Grounded stylized realtime game rendering, achievable geometry and materials, not AAA photorealism.
+Only one full screen corrected mockup. No added titles, captions, arrows, explanatory text, watermarks, comparison panels, people or new robots. Do not preserve the old architectural error out of excessive similarity: the complete rear wall and removal of the nested second hangar MUST be clearly visible.

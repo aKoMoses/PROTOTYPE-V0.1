@@ -1,0 +1,35 @@
+{
+	"frames": [
+		{
+			"chassis": "polyvalent",
+			"model": "res://art/player_mecha_animated.glb",
+			"path": "res://captures/module-identity-concepts/vrai-robot-front-v1.png",
+			"size": [
+				1200,
+				1500
+			],
+			"yaw": -0.157079637050629
+		},
+		{
+			"chassis": "polyvalent",
+			"model": "res://art/player_mecha_animated.glb",
+			"path": "res://captures/module-identity-concepts/vrai-robot-front-quarter-v1.png",
+			"size": [
+				1200,
+				1500
+			],
+			"yaw": -0.680678427219391
+		},
+		{
+			"chassis": "polyvalent",
+			"model": "res://art/player_mecha_animated.glb",
+			"path": "res://captures/module-identity-concepts/vrai-robot-rear-quarter-v1.png",
+			"size": [
+				1200,
+				1500
+			],
+			"yaw": -2.51327419281006
+		}
+	],
+	"purpose": "Real game robot reference for concept image edits"
+}

@@ -13,7 +13,7 @@ const IMPORTED := {
 	"oiled_metal": ["dark", Color("#30383c")],
 	"rusted_iron": ["steel", Color("#454b4c")],
 	"exposed_metal": ["edge", Color("#929c9d")],
-	"workshop_concrete": ["concrete", Color("#747c7c")],
+	"workshop_concrete": ["concrete", Color("#8b8578")],
 	"scarred_workbench": ["wood", Color("#a27c54")],
 	"workshop_ochre": ["steel", Color("#bc893e")],
 	"toolbox_red": ["steel", Color("#87473a")],
@@ -76,12 +76,22 @@ func apply_imported(root: Node3D) -> void:
 				if IMPORTED.has(key):
 					var profile: Array = IMPORTED[key]
 					_imported[key] = surface(profile[0], profile[1], original.metallic, original.roughness)
+				elif key == "workshop_floor":
+					# Match the surrounding slab in world space: the old baked
+					# rectangle read as a separate miniature stage inside the room.
+					_imported[key] = surface("concrete", Color("#77756e"), 0.0, 1.0)
 				elif key in ["sunlit_window", "lamp_diffuser", "service_indicator"]:
 					var local := original.duplicate() as StandardMaterial3D
 					local.emission_energy_multiplier = 0.40 if key == "sunlit_window" else (1.2 if key == "lamp_diffuser" else 0.65)
 					if key == "sunlit_window":
-						local.albedo_color = Color("#806c4e")
+						# A real view through the masonry opening; scenery sits metres
+						# beyond the wall, rather than being painted on an opaque pane.
+						local.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+						local.albedo_color = Color(0.79, 0.73, 0.60, 0.16)
+						local.metallic = 0.0
+						local.roughness = 0.86
 						local.albedo_texture = GLASS
+						local.emission_energy_multiplier = 0.025
 						local.emission = Color("#ffd397")
 						local.emission_texture = GLASS
 						local.uv1_triplanar = true

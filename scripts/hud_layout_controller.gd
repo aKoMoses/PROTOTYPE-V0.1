@@ -18,7 +18,11 @@ func _ready() -> void:
 	call_deferred("apply")
 
 func bind_touch(value: Control) -> void:
+	if is_instance_valid(touch) and touch.visibility_changed.is_connected(apply):
+		touch.visibility_changed.disconnect(apply)
 	touch = value
+	if is_instance_valid(touch):
+		touch.visibility_changed.connect(apply)
 	if is_inside_tree():
 		apply()
 
@@ -100,8 +104,14 @@ func _apply_slot(identifier: String) -> void:
 	control.scale = Vector2.ONE * minf(float(item.s), fit)
 	control.position = origin + shift
 	control.modulate.a = float(item.o)
-	control.visible = bool(item.v)
+	var mobile := touch != null and is_instance_valid(touch) and touch.visible and not preview_mode
+	# Touch buttons already carry cooldowns. The passive remains a separate readout.
+	control.visible = bool(item.v) and (not mobile or identifier == "passive_slot")
 	control.z_index = int(item.z)
+	if mobile and identifier == "passive_slot" and controls.has("player_vitals"):
+		var vitals := widget_rect("player_vitals")
+		var at := Vector2(vitals.end.x + 28.0, vitals.get_center().y)
+		control.position = parent.get_global_transform_with_canvas().affine_inverse() * at - original_sizes[identifier] * 0.5 + shift
 	var rect := widget_rect(identifier)
 	var desired := Vector2(clampf(rect.get_center().x, safe.position.x + minf(rect.size.x, safe.size.x) * 0.5, safe.end.x - minf(rect.size.x, safe.size.x) * 0.5), clampf(rect.get_center().y, safe.position.y + minf(rect.size.y, safe.size.y) * 0.5, safe.end.y - minf(rect.size.y, safe.size.y) * 0.5))
 	var original_local := parent.get_global_transform_with_canvas().affine_inverse() * rect.get_center()

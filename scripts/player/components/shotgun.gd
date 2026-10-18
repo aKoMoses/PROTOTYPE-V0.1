@@ -310,6 +310,9 @@ func _update_shotgun_reload(delta: float) -> void:
 	player._shotgun_ammo = player._shotgun_magazine_size
 	player._shotgun_reloading = false
 	player._attack_label.text = ""
+	var sfx: Node = player.get_node_or_null("/root/GameSfx")
+	if sfx != null:
+		sfx.call("play_event", "impact_decor")
 
 
 func _update_shotgun_reload_visual() -> void:

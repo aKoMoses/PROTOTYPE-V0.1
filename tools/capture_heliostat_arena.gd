@@ -12,8 +12,17 @@ func _initialize() -> void:
 
 func _sample(time: float) -> void:
 	solar.call("reset_round")
+	# Sampling several round times must not accumulate damage between images.
+	player.call("reset_combat_state")
+	bot.call("reset_combat_state")
+	var player_at := player.position
+	var bot_at := bot.position
+	player.position.y = 100.0
+	bot.position.y = 100.0
 	solar.call("start_round")
 	solar.call("advance", time)
+	player.position = player_at
+	bot.position = bot_at
 
 func _save(name: String, into: String = "") -> void:
 	for frame in range(3):
@@ -43,6 +52,7 @@ func _run() -> void:
 	root.add_child(scene)
 	current_scene = scene
 	await process_frame
+	root.get_node("FramePacing").visible = false
 	var flow := scene.get_node("Interface")
 	scene.call("set_bot_build_seed", 81738)
 	flow.call("_select_arena", "heliostat")
@@ -86,7 +96,7 @@ func _run() -> void:
 	solar.call("_update_heat", 0.01)
 	await _save("heliostat-solar-overview")
 	var report := {"engine": Engine.get_version_info().string, "controller": solar.get_script().resource_path, "shadow_example": solar.call("get_snapshot"), "player_in_shadow": not solar.call("exposure_at", player.position, 0.32), "source": "actual production scene rendered in Godot"}
-	for index in range(49):
+	for index in range(0 if args.has("quick") else 49):
 		_sample(5.7 + index * 0.5)
 		await _save("sweep-%02d" % index, frames_directory)
 	_sample(6.1)

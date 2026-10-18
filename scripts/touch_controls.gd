@@ -276,7 +276,7 @@ func _draw() -> void:
 			var vector: Vector2 = player.get("_eclipse").get("_touch_vector")
 			draw_circle(center + vector * radius, 14.0 * scale, Color("#dccfff"))
 	if _widget_visible("weapon_button") and (player == null or not bool(player.get("survival_mode"))):
-		_draw_action(actions["weapon"], _action_radius("weapon"), _with_opacity(Color(0.70, 0.44, 0.80, 0.74), "weapon_button"), "G", "weapon_button")
+		_draw_action(actions["weapon"], _action_radius("weapon"), _with_opacity(Color(0.12, 0.18, 0.21, 0.78), "weapon_button"), "⇄", "weapon_button")
 	var font := ThemeDB.fallback_font
 	if _widget_visible("move"):
 		draw_string(font, joystick + Vector2(-30.0 * scale, joystick_radius * 0.72), "DÉPLACER", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(14.0 * scale), _with_opacity(Color(0.82, 0.95, 0.97, 0.82), "move"))

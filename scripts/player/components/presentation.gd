@@ -240,6 +240,8 @@ func flash_impact(critical: bool = false) -> void:
 	var vfx: Node = player._vfx_manager()
 	if vfx != null:
 		vfx.call("hit_flash", player._robot_visuals, critical)
+		if critical:
+			vfx.call("hitstop", player._robot_visuals, 0.06)
 	player._camera_impulse(0.09 if critical else 0.045, 0.065 if critical else 0.025)
 
 

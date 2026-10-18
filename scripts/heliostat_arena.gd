@@ -6,13 +6,13 @@ extends "res://scripts/compact_arena_mechanisms.gd"
 const MIRROR := preload("res://scripts/solar_mirror.gd")
 const SOLAR_GRACE := 4.0
 const SOLAR_WARNING := 1.5
-const SWEEP_SECONDS := 12.0
-const BEAM_WIDTH := 3.2
+const SWEEP_SECONDS := 16.0
+const BEAM_WIDTH := 8.0
 const STRIPS := 48
-const HEAT_RATE := 0.5
-const COOL_RATE := 0.32
+const HEAT_RATE := 0.8
+const COOL_RATE := 0.65
 const BURN_INTERVAL := 0.25
-const BURN_HP_FRACTION := 0.045
+const BURN_HP_FRACTION := 0.14
 const FOOT_RADIUS := 0.32
 
 var phase := "grace"
@@ -79,8 +79,8 @@ func configure(player: Node3D, bot: Node3D) -> void:
 			continue
 		var readout := Label3D.new()
 		readout.name = "SolarHeatReadout"
-		readout.font_size = 24
-		readout.pixel_size = 0.008
+		readout.font_size = 30
+		readout.pixel_size = 0.01
 		readout.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		readout.no_depth_test = true
 		readout.outline_size = 5
@@ -349,11 +349,11 @@ func _update_heat(delta: float) -> void:
 		else:
 			_burn_clock[id] = 0.0
 		if is_instance_valid(readout):
-			readout.global_position = actor.global_position + Vector3(2.1, 3.65, 0)
+			readout.global_position = actor.global_position + Vector3.UP * 2.2
 			var known := actor == _actors[0] or not actor.has_method("is_visible_to") or bool(actor.call("is_visible_to", _actors[0]))
 			readout.visible = value > 0.04 and known
-			readout.text = "♨ %d%%" % roundi(value * 100)
-			readout.modulate = Color("#ff6438") if value >= 0.95 else Color("#ffca64")
+			readout.text = ("À COUVERT · %d%%" if exposed else "REFROIDIT · %d%%") % roundi(value * 100)
+			readout.modulate = Color("#ff6438") if exposed and value >= 0.7 else Color("#ffca64")
 
 func get_heat(actor: Node3D) -> float:
 	return float(heat.get(actor.get_instance_id(), 0.0)) if is_instance_valid(actor) else 0.0

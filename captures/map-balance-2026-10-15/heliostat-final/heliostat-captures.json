@@ -1,0 +1,126 @@
+{
+	"controller": "res://scripts/heliostat_arena.gd",
+	"engine": "4.7.2-stable (official)",
+	"heat_example": {
+		"active_mirror": -1,
+		"arena_id": "heliostat",
+		"bolts": 0,
+		"boosts": 0,
+		"burns": 0,
+		"busy": 1,
+		"elapsed": 13.933333333333366,
+		"enabled": true,
+		"heat": {
+			"392167428713": 1.0,
+			"436442503196": 0.0
+		},
+		"lit_strips": 48,
+		"mirrors": [
+			{
+				"illuminated": false,
+				"lock_remaining": 0.0,
+				"pending": -1,
+				"preset": 1,
+				"rotations": 0,
+				"turn_remaining": 0.0
+			},
+			{
+				"illuminated": false,
+				"lock_remaining": 0.0,
+				"pending": -1,
+				"preset": 1,
+				"rotations": 0,
+				"turn_remaining": 0.0
+			}
+		],
+		"phase": "active",
+		"portals": 0,
+		"running": true,
+		"shadow_strips": 25,
+		"shutters": [],
+		"teleports": 0,
+		"tier": 1
+	},
+	"mirror_after": {
+		"active_mirror": 0,
+		"arena_id": "heliostat",
+		"bolts": 0,
+		"boosts": 0,
+		"burns": 0,
+		"busy": 1,
+		"elapsed": 6.919999999999986,
+		"enabled": true,
+		"heat": {
+			"392167428713": 0.0,
+			"436442503196": 0.0
+		},
+		"lit_strips": 96,
+		"mirrors": [
+			{
+				"illuminated": true,
+				"lock_remaining": 1.9800000000000026,
+				"pending": -1,
+				"preset": 2,
+				"rotations": 1,
+				"turn_remaining": 0.0
+			},
+			{
+				"illuminated": false,
+				"lock_remaining": 0.0,
+				"pending": -1,
+				"preset": 1,
+				"rotations": 0,
+				"turn_remaining": 0.0
+			}
+		],
+		"phase": "active",
+		"portals": 0,
+		"running": true,
+		"shadow_strips": 34,
+		"shutters": [],
+		"teleports": 0,
+		"tier": 1
+	},
+	"player_in_shadow": true,
+	"shadow_example": {
+		"active_mirror": -1,
+		"arena_id": "heliostat",
+		"bolts": 0,
+		"boosts": 0,
+		"burns": 0,
+		"busy": 1,
+		"elapsed": 12.599999999999966,
+		"enabled": true,
+		"heat": {
+			"392167428713": 0.0,
+			"436442503196": 0.0
+		},
+		"lit_strips": 48,
+		"mirrors": [
+			{
+				"illuminated": false,
+				"lock_remaining": 0.0,
+				"pending": -1,
+				"preset": 1,
+				"rotations": 0,
+				"turn_remaining": 0.0
+			},
+			{
+				"illuminated": false,
+				"lock_remaining": 0.0,
+				"pending": -1,
+				"preset": 1,
+				"rotations": 0,
+				"turn_remaining": 0.0
+			}
+		],
+		"phase": "active",
+		"portals": 0,
+		"running": true,
+		"shadow_strips": 34,
+		"shutters": [],
+		"teleports": 0,
+		"tier": 1
+	},
+	"source": "actual production scene rendered in Godot"
+}

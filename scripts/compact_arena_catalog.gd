@@ -6,7 +6,7 @@ const LAYOUT_SCALE := 1.25
 const DEFINITIONS := {
 	"heliostat": {
 		"id": "heliostat", "title": "HÉLIOSTAT", "subtitle": "Le soleil en cage",
-		"description": "22 × 18 m · soleil mobile, ombres protectrices et miroirs à orienter par un impact.",
+		"description": "22 × 18 m · large balayage brûlant, ombres protectrices et miroirs à orienter par un impact.",
 		"half_size": Vector2(11, 9), "color": Color("#f1b653"),
 		"floor": Color("#c9b995"), "metal": Color("#775535"), "accent": Color("#55d7d1"),
 		"spawns": [Vector3(-7, 0, 5), Vector3(7, 0, -5)],
@@ -21,7 +21,7 @@ const DEFINITIONS := {
 	},
 	"tideglass": {
 		"id": "tideglass", "title": "SERRE ENGLOUTIE", "subtitle": "Le jardin submergé",
-		"description": "20 × 20 m · trois îlots et soins dans le bassin. Dans l'eau : déplacement, sans attaque.",
+		"description": "20 × 20 m · rapporte la sève du bassin sur un îlot : +35 % de dégâts d'arme pendant 10 s. Dans l'eau : déplacement, sans attaque.",
 		"half_size": Vector2(10, 10), "corner_cut": 3.0, "color": Color("#53d3c1"),
 		"floor": Color("#91aaa3"), "metal": Color("#376965"), "accent": Color("#91e1b1"),
 		"spawns": [Vector3(-5.8, 1.35, -6), Vector3(5.8, 1.35, -6)],
@@ -31,7 +31,7 @@ const DEFINITIONS := {
 	},
 	"clockwork": {
 		"id": "clockwork", "title": "CŒUR D’HORLOGE", "subtitle": "La treizième heure",
-		"description": "18 × 18 m · balancier annoncé sans dégâts et abris pivotants entre les balayages.",
+		"description": "18 × 18 m · frappe le cœur pour déclencher le balancier annoncé. Poussée sans dégâts, puis rotation des abris.",
 		"half_size": Vector2(9, 9), "corner_cut": 4.0, "color": Color("#bda4ef"),
 		"floor": Color("#58556f"), "metal": Color("#a57b45"), "accent": Color("#bca4ef"),
 		"spawns": [Vector3(-6, 0, 5.5), Vector3(6, 0, -5.5)],

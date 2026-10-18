@@ -1,0 +1,23 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+Vulkan 1.4.341 - Forward Mobile - Using Device #0: NVIDIA - NVIDIA GeForce GTX 1660 SUPER
+
+WORKSHOP FRAME pc-1920-entry camera=(-4.310339, 6.756039, 23.27716) result=0
+WORKSHOP FRAME pc-1920-build camera=(-4.313311, 6.183678, 23.35145) result=0
+WORKSHOP FRAME pc-1920-wide camera=(-6.469966, 8.427517, 35.02717) result=0
+WORKSHOP FRAME pc-1920-weapon camera=(3.179336, 5.19008, 0.564663) result=0
+WORKSHOP FRAME pc-1920-offensive camera=(-5.529983, 3.128339, 2.411794) result=0
+WORKSHOP FRAME pc-1920-defensive camera=(3.99084, 3.070422, 3.906497) result=0
+WORKSHOP FRAME pc-1920-mobility camera=(3.347893, 3.180961, 9.235819) result=0
+WORKSHOP FRAME pc-1920-passive camera=(-4.721031, 3.050044, 9.835541) result=0
+WORKSHOP FRAME phone-844-entry camera=(-3.730165, 4.988934, 10.37896) result=0
+WORKSHOP FRAME phone-844-build camera=(-4.631972, 5.058655, 13.05443) result=0
+WORKSHOP FRAME installation-rocket_basket-180 camera=(-6.644477, 2.82207, -0.802997) result=0
+WORKSHOP FRAME installation-rocket_basket-360 camera=(2.759402, 3.989333, 5.667438) result=0
+WORKSHOP FRAME installation-rocket_basket-480 camera=(2.587922, 1.733877, 2.96633) result=0
+WORKSHOP FRAME installation-pyro_boots-180 camera=(4.986345, 1.98123, 6.549288) result=0
+WORKSHOP FRAME installation-pyro_boots-360 camera=(1.378612, 6.221891, 2.138772) result=0
+WORKSHOP FRAME installation-pyro_boots-480 camera=(1.928873, 3.164346, -2.357068) result=0
+WORKSHOP FRAME installation-auxiliary_reactor-180 camera=(-5.651461, 2.751262, 6.81615) result=0
+WORKSHOP FRAME installation-auxiliary_reactor-360 camera=(5.773661, 5.819749, 0.635035) result=0
+WORKSHOP FRAME installation-auxiliary_reactor-480 camera=(1.571271, 2.516511, -2.570246) result=0
+FORGE WORKSHOP CAPTURE: PASS

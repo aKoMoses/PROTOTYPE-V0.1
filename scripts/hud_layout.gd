@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Stable HUD identities and versioned, local layouts. Coordinates are offsets
 ## from a safe-area anchor, measured in safe-area heights (not screen pixels).
-const VERSION := 1
+const VERSION := 2
 const SAVE_PATH := "user://prototype0_hud_layout.json"
 const BACKUP_PATH := "user://prototype0_hud_layout.backup.json"
 const TEMP_PATH := "user://prototype0_hud_layout.tmp.json"
@@ -11,7 +11,7 @@ const TOUCH_IDS := ["move", "aim", "offensive_button", "defensive_button", "mobi
 const MODULE_IDS := ["offensive_slot", "defensive_slot", "mobility_slot", "passive_slot"]
 
 static func family() -> String:
-	return "mobile" if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available() else "desktop"
+	return "mobile" if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available() or "touch_preview" in OS.get_cmdline_user_args() else "desktop"
 
 static func names() -> Dictionary:
 	return {
@@ -43,17 +43,18 @@ static func size_limits(identifier: String) -> Vector2:
 static func _item(ax: float, ay: float, dx: float, dy: float, shown: bool = true) -> Dictionary:
 	return {"a": [ax, ay], "d": [dx, dy], "s": 1.0, "o": 1.0, "v": shown, "l": false, "z": 0}
 
-static func standard() -> Dictionary:
+static func standard(input_family: String = family()) -> Dictionary:
+	var mobile := input_family == "mobile"
 	return {
 		"move": _item(0.0, 1.0, 0.156, -0.156),
 		"aim": _item(1.0, 1.0, -0.156, -0.156),
-		"offensive_button": _item(0.0, 1.0, 0.139, -0.382),
-		"defensive_button": _item(0.0, 1.0, 0.296, -0.335),
-		"mobility_button": _item(0.0, 1.0, 0.380, -0.197),
-		"weapon_button": _item(1.0, 0.0, -0.067, 0.078),
-		"match_summary": _item(0.5, 0.0, 0.0, 0.058),
+		"offensive_button": _item(0.0, 1.0, 0.139, -0.432),
+		"defensive_button": _item(0.0, 1.0, 0.340, -0.365),
+		"mobility_button": _item(0.0, 1.0, 0.434, -0.204),
+		"weapon_button": _item(1.0, 1.0, -0.156, -0.440),
+		"match_summary": _item(0.62 if mobile else 0.5, 0.0, 0.0, 0.036),
 		"pause": _item(1.0, 0.0, -0.078, 0.056),
-		"player_vitals": _item(0.0, 0.0, 0.22, 0.080, false),
+		"player_vitals": _item(0.0 if mobile else 0.5, 0.0 if mobile else 1.0, 0.275 if mobile else 0.0, 0.036 if mobile else -0.157),
 		"spell_bar": _item(0.5, 1.0, 0.0, -0.064),
 		"offensive_slot": _item(0.0, 0.0, 0.0, 0.0),
 		"defensive_slot": _item(0.0, 0.0, 0.0, 0.0),
@@ -68,16 +69,16 @@ static func standard() -> Dictionary:
 		"training_menu": _item(1.0, 0.0, -0.39, 0.03),
 	}
 
-static func left_handed() -> Dictionary:
-	var result := standard()
+static func left_handed(input_family: String = family()) -> Dictionary:
+	var result := standard(input_family)
 	for identifier in TOUCH_IDS:
 		var entry: Dictionary = result[identifier]
 		entry["a"][0] = 1.0 - float(entry["a"][0])
 		entry["d"][0] = -float(entry["d"][0])
 	return result
 
-static func sanitize(raw: Variant) -> Dictionary:
-	var result := standard()
+static func sanitize(raw: Variant, input_family: String = family()) -> Dictionary:
+	var result := standard(input_family)
 	if not raw is Dictionary:
 		return result
 	for identifier in result.keys():
@@ -156,27 +157,48 @@ static func load_from_paths(primary: String, backup: String) -> Dictionary:
 			continue
 		if int(version) == 0 and parsed.get("layout") is Dictionary:
 			return {"version": VERSION, "families": {"mobile": {"saved": sanitize(parsed.layout)}}}
-		if int(version) == VERSION and parsed.get("families") is Dictionary:
+		if int(version) in [1, VERSION] and parsed.get("families") is Dictionary:
 			var families := {}
 			for input_family in ["mobile", "desktop"]:
 				var raw_record: Variant = parsed.families.get(input_family, {})
 				if not raw_record is Dictionary:
 					continue
-				var record := {"saved": sanitize(raw_record.get("saved", {}))}
+				var saved: Variant = raw_record.get("saved", {})
+				if int(version) == 1:
+					saved = _upgrade_standard(saved, input_family)
+				var record := {"saved": sanitize(saved, input_family)}
 				for slot in ["personal_1", "personal_2"]:
 					if raw_record.get(slot) is Dictionary:
-						record[slot] = sanitize(raw_record[slot])
+						record[slot] = sanitize(raw_record[slot], input_family)
 				var active_slot: Variant = raw_record.get("active_slot", "standard")
 				record["active_slot"] = active_slot if active_slot in ["standard", "gaucher", "personal_1", "personal_2"] else "standard"
 				families[input_family] = record
 			return {"version": VERSION, "families": families}
 	return {"version": VERSION, "families": {}}
 
+static func _upgrade_standard(raw: Variant, input_family: String) -> Variant:
+	# Upgrade untouched old presets only. Personal placements and visibility survive.
+	var previous := standard(input_family)
+	previous.offensive_button = _item(0.0, 1.0, 0.139, -0.382)
+	previous.defensive_button = _item(0.0, 1.0, 0.296, -0.335)
+	previous.mobility_button = _item(0.0, 1.0, 0.380, -0.197)
+	previous.weapon_button = _item(1.0, 0.0, -0.067, 0.078)
+	previous.match_summary = _item(0.5, 0.0, 0.0, 0.058)
+	previous.player_vitals = _item(0.0, 0.0, 0.22, 0.080, false)
+	if raw == previous:
+		return standard(input_family)
+	for identifier in TOUCH_IDS:
+		previous[identifier].a[0] = 1.0 - float(previous[identifier].a[0])
+		previous[identifier].d[0] = -float(previous[identifier].d[0])
+	if raw == previous:
+		return left_handed(input_family)
+	return raw
+
 static func load_active(input_family: String = family()) -> Dictionary:
 	var all := load_all()
 	var families: Dictionary = all.families
 	var record: Dictionary = families.get(input_family, {})
-	return sanitize(record.get("saved", {}))
+	return sanitize(record.get("saved", {}), input_family)
 
 static func save_active(layout: Dictionary, input_family: String = family(), slot: String = "") -> bool:
 	var all := load_all()
@@ -208,7 +230,7 @@ static func save_document(all: Dictionary, primary: String, backup: String, temp
 		var previous := JSON.new()
 		if previous.parse(FileAccess.get_file_as_string(primary)) == OK and previous.data is Dictionary and (previous.data.get("version") is float or previous.data.get("version") is int):
 			var old_version := int(previous.data.version)
-			var readable := (old_version == VERSION and previous.data.get("families") is Dictionary) or (old_version == 0 and previous.data.get("layout") is Dictionary)
+			var readable := (old_version in [1, VERSION] and previous.data.get("families") is Dictionary) or (old_version == 0 and previous.data.get("layout") is Dictionary)
 			# Match the supported loader schemas, including the legacy layout.
 			# A parseable but unreadable primary must not replace a good backup.
 			if readable and DirAccess.copy_absolute(active_absolute, backup_absolute) != OK:

@@ -1,0 +1,32 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+Unable to open Android 'build-tools' directory.
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Initialisation du projet (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Analyse de la structure des fichiers…[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Chargement des noms des classes globales…[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Vérification des GDExtensions…[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Création des scripts de chargement automatique…[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initialisation des extensions…[39m[0m
+[38;2;64;142;171m[1mGD-Sync version 1.0.2 enabled.[22m[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Démarrage du scan de fichiers…[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+
+[38;2;64;142;171mWe are looking for games made with GD-Sync to display on our website![0m
+[38;2;64;142;171mIf you want to display your game on our website, please submit your game using [38;2;97;255;113m[url=https://docs.google.com/forms/d/e/1FAIpQLSe83hfE5DDR_Z2ZsKku3HZrNw_VopqHvcwjbYyZc8gOttSJxg/viewform]this form.[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | Started Enregistrement des classes globales… (8 steps)[39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  11% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  22% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  33% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  44% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  55% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  66% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  77% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[92m[ DONE ][39m [1mupdate_scripts_classes[22m
+[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Started Chargement de l’éditeur (5 steps)[39m[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Chargement de la disposition de l’éditeur…[39m[0m
+[  16% ] [90m[1mloading_editor_layout[22m | Chargement des docks…[39m[0m
+[92m[ DONE ][39m [1mloading_editor_layout[22m
+[0m

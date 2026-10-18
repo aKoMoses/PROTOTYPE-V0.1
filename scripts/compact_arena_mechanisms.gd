@@ -149,6 +149,12 @@ func set_enabled(value: bool) -> void:
 	reset_round()
 	enabled = value
 	visible = value
+	if is_instance_valid(_clockwork):
+		_clockwork.call("set_collision_enabled", value)
+
+
+func get_bot_control_target(body: Node3D, observed_enemy: Vector3, difficulty: String) -> Node3D:
+	return _clockwork.call("get_bot_switch_target", body, observed_enemy, difficulty) if is_instance_valid(_clockwork) else null
 
 
 func reset_round() -> void:

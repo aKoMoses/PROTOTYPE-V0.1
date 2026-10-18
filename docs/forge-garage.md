@@ -1,5 +1,44 @@
 # Forge : garage officiel 3D
 
+## Atelier intégré au bâtiment — 15 octobre 2026
+
+La maquette approuvée `outputs/garage-ambiance-maquettes-2026-10-15/04-atelier-mur-exterieur.png`
+sert de direction à une vraie géométrie 3D. L'atelier est désormais adossé à un seul mur
+extérieur de béton, continu jusqu'à la toiture et aux murs latéraux. Les petites cloisons
+indépendantes, la coque de hangar éloignée et sa seconde passerelle ont été retirées.
+Les établis latéraux partagent le même mur et le même sol que la baie principale.
+
+La fenêtre traverse réellement 56 cm de maçonnerie. Ses jambages, son linteau et son
+appui encadrent une ouverture d'environ 5,2 × 3,8 m ; les vitres sont transparentes et
+séparées du décor opaque. Une cour industrielle simplifiée se trouve plusieurs mètres
+derrière le mur, devant un ciel distant. La source lumineuse est à l'extérieur :
+l'ouverture et les montants projettent les ombres dans l'atelier.
+
+Le cadrage PC est abaissé pour montrer le bâtiment depuis l'intérieur, y compris au
+recul maximal. La toiture et les retours de murs couvrent les positions des caméras.
+Le cadrage téléphone reste inchangé. Les postes, les prises d'équipement et la correction
+indépendante de `forge_module_installation.gd` sont conservés.
+
+L'établi reçoit une lumière ambrée plus marquée et le robot une lumière chaude neutre.
+Le béton reste mat. Le décor reste statique et groupé ; il conserve trois lumières avec
+ombres et n'ajoute pas d'animations d'ambiance. Le bras n'a pas été réexporté.
+
+Sources : `tools/build_forge_garage.py --workshop-only`, `scripts/forge_garage_hangar.gd`,
+`scripts/forge_garage_stage.gd`, `scripts/forge_garage_focus.gd` et
+`scripts/forge_workshop_materials.gd`. Les captures natives et les contrôles sont produits
+par `tools/capture_forge_workshop_architecture.gd` et `tools/test_forge_workshop_architecture.gd`.
+
+Vérification locale : import Godot 4.7.2 réussi, 52 contrôles de structure et de cadrage,
+198 installations / 1 190 contrôles de visibilité caméra et 503 contrôles du parcours
+de builds réussis. Dix-neuf captures Vulkan Mobile montrent l'entrée, la modification,
+le recul maximal, les cinq postes, le format 844 × 390 et neuf moments de pose dans
+`captures/forge-workshop-architecture/`. Le mesh importé garde quinze surfaces et
+compte 86 100 triangles. Le test historique `test_forge_camera_motion.gd` garde 54
+échecs sur des attentes d'ancienne navigation : les 54 messages sont identiques avec
+le script caméra de HEAD et celui de cette passe. Ce test n'est pas annoncé vert.
+L'import signale aussi l'absence locale des outils Android ; aucun APK ni appareil
+Android réel n'est validé ici. Travail local, non publié.
+
 ## Décor et cadrage PC / téléphone — passe du 3 octobre 2026
 
 Le décor visible possède désormais un mur de béton à joints et soubassement en tôle,

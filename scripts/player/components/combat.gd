@@ -192,6 +192,7 @@ func take_damage(amount: float, source_id: String = "", attack_id: String = "") 
 	if bool(result["triggered_baroud"]):
 		player.get_node("/root/GameSfx").play_event("baroud_activation")
 		player._low_health_sound_armed = false
+		player._camera_impulse(0.12, 0.09)
 		if player.survival_mode and player.survival_evolution_effects != null:
 			player.combat_state.health = 1.0
 			player.combat_state.health_changed.emit(player.combat_state.health, player.combat_state.max_health)

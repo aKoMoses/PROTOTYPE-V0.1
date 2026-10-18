@@ -67,14 +67,16 @@ func set_health(current: float, maximum: float) -> void:
 	_health_number.text = "%d" % roundi(current)
 	for index in range(SEGMENT_COUNT):
 		var fill_fraction := clampf(fraction * SEGMENT_COUNT - index, 0.0, 1.0)
-		_segments[index].size.x = 23.0 * fill_fraction
+		_segments[index].size.x = 12.0 * fill_fraction
 		_segments[index].visible = fill_fraction > 0.0
-	_health_number.add_theme_color_override("font_color", Color("#ffb37c") if fraction <= 0.25 else Color("#fff2dc"))
+		_segments[index].color = Color("#ff4d4d") if fraction <= 0.25 else _accent
+	_health_number.add_theme_color_override("font_color", Color("#ff4d4d") if fraction <= 0.25 else Color("#fff2dc"))
 
 
 func set_shotgun_ammo(active: bool, ammo: int, capacity: int, reloading: bool, progress: float) -> void:
 	if _badge_mark == null:
 		return
+	active = active and _damage_side > 0.0
 	_show_shotgun = active
 	_sync_weapon_badge()
 	_ammo_recess.visible = active
@@ -87,7 +89,7 @@ func set_shotgun_ammo(active: bool, ammo: int, capacity: int, reloading: bool, p
 		return
 	var safe_ammo := clampi(ammo, 0, capacity)
 	var reload_progress := clampf(progress, 0.0, 1.0)
-	_ammo_progress_fill.size.x = 262.0 * reload_progress
+	_ammo_progress_fill.size.x = (_ammo_progress_track.size.x - 4.0) * reload_progress
 	_ammo_progress_tip.position.x = 2.0 + maxf(0.0, _ammo_progress_fill.size.x - 2.0)
 	var loading_shell := mini(_ammo_shells.size() - 1, int(reload_progress * _ammo_shells.size()))
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.015)
@@ -105,6 +107,7 @@ func set_shotgun_ammo(active: bool, ammo: int, capacity: int, reloading: bool, p
 func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
 	if _blaster_coil == null:
 		return
+	active = active and _damage_side > 0.0
 	_show_blaster = active
 	_sync_weapon_badge()
 	_blaster_coil_recess.visible = active
@@ -115,7 +118,7 @@ func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
 	if not active:
 		return
 	var ratio := clampf(progress, 0.0, 1.0)
-	_blaster_progress_fill.size.x = 262.0 * ratio
+	_blaster_progress_fill.size.x = (_blaster_progress_track.size.x - 4.0) * ratio
 	_blaster_progress_tip.position.x = 2.0 + maxf(0.0, _blaster_progress_fill.size.x - 2.0)
 	_blaster_coil.default_color = Color("#57bcca").lerp(Color("#aaf7ff"), ratio if charging else 0.0)
 
@@ -123,6 +126,7 @@ func set_blaster_charge(active: bool, charging: bool, progress: float) -> void:
 func set_longshot_cycle(active: bool, count: int, ready: bool) -> void:
 	if _longshot_ready == null:
 		return
+	active = active and _damage_side > 0.0
 	_show_longshot = active
 	_sync_weapon_badge()
 	_longshot_ready.visible = active and ready
@@ -138,7 +142,7 @@ func _sync_weapon_badge() -> void:
 	_badge_mark.visible = show_badge
 
 
-func show_damage(amount: float) -> void:
+func show_damage(amount: float, critical: bool = false) -> void:
 	# Cinematic menus hide this whole readout. Building invisible Label3Ds
 	# still allocates rendering resources and causes recurring shot-time stalls.
 	if amount <= 0.0 or _cinematic_mode or not is_visible_in_tree():
@@ -149,8 +153,9 @@ func show_damage(amount: float) -> void:
 		_latest_popup.name = "DamageNumber%d" % _damage_serial
 		_latest_popup.set_script(DAMAGE_POPUP)
 		_latest_popup.set("side", _damage_side)
+		_latest_popup.set("is_critical", critical)
 		add_child(_latest_popup)
-	_latest_popup.call("add_damage", amount)
+	_latest_popup.call("add_damage", amount, critical)
 	var popups := get_children().filter(func(child: Node) -> bool: return child.name.begins_with("DamageNumber"))
 	if popups.size() > 4:
 		popups.front().queue_free()
@@ -213,6 +218,7 @@ func _build() -> void:
 	plate.add_theme_stylebox_override("panel", plate_style)
 	root.add_child(plate)
 	var header := Panel.new()
+	header.name = "IdentityPanel"
 	header.position = Vector2(11, 9)
 	header.size = Vector2(278, 34)
 	header.add_theme_stylebox_override("panel", _panel_style(Color("#322b29"), Color("#5c4a3c"), 1, 7))
@@ -238,12 +244,14 @@ func _build() -> void:
 	_health_number.size = Vector2(74, 30)
 	root.add_child(_health_number)
 	var track := Panel.new()
+	track.name = "HealthTrack"
 	track.position = Vector2(13, 45)
 	track.size = Vector2(274, 34)
 	track.add_theme_stylebox_override("panel", _panel_style(Color("#0c1113"), Color("#665346"), 1, 3))
 	root.add_child(track)
 	for index in range(SEGMENT_COUNT):
 		var cell := Panel.new()
+		cell.name = "HealthCell%d" % index
 		cell.position = Vector2(18 + index * 26.5, 51)
 		cell.size = Vector2(23, 22)
 		cell.add_theme_stylebox_override("panel", _panel_style(Color("#242d2e"), Color("#14191b"), 1, 2))
@@ -364,6 +372,7 @@ func _build() -> void:
 	root.add_child(_longshot_ready)
 	for bolt_position in [Vector2(12, 12), Vector2(276, 12)]:
 		var bolt := Panel.new()
+		bolt.name = "DecorativeBolt%d" % int(bolt_position.x)
 		bolt.position = bolt_position
 		bolt.size = Vector2(7, 7)
 		bolt.add_theme_stylebox_override("panel", _panel_style(Color("#9f8b70"), Color("#59402d"), 1, 4))
@@ -371,11 +380,34 @@ func _build() -> void:
 	_sprite = Sprite3D.new()
 	_sprite.name = "HealthBarSprite"
 	_sprite.texture = _viewport.get_texture()
-	_sprite.position = Vector3(0.0, 2.65, 0.0)
+	_sprite.position = Vector3(0.0, 2.25, 0.0)
 	_sprite.pixel_size = 0.0105
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.shaded = false
 	add_child(_sprite)
+	_compact_layout(root)
+
+
+func _compact_layout(root: Control) -> void:
+	# Keep the native viewport and weapon API; reduce the actual occupied pixels.
+	for id in ["MetalPlate", "IdentityPanel", "HealthNumber", "DecorativeBolt12", "DecorativeBolt276"]:
+		root.get_node(id).hide()
+	var track := root.get_node("HealthTrack") as Panel
+	track.position = Vector2(77, 46)
+	track.size = Vector2(146, 16)
+	for index in SEGMENT_COUNT:
+		var cell := root.get_node("HealthCell%d" % index) as Panel
+		cell.position = Vector2(81 + index * 14, 50)
+		cell.size = Vector2(12, 8)
+		_segments[index].size = cell.size
+	_badge.position = Vector2(140, 65)
+	_badge.size = Vector2(20, 20)
+	_badge_mark.position = Vector2(134, 62)
+	_badge_mark.add_theme_font_size_override("font_size", 14)
+	for groove in [_ammo_progress_track, _blaster_progress_track]:
+		groove.position = Vector2(79, 62)
+		groove.size = Vector2(142, 6)
+	_format_actor_name(root.get_node("ActorName"), _display_name)
 
 
 func _format_actor_name(item: Label, value: String) -> void:
@@ -384,10 +416,13 @@ func _format_actor_name(item: Label, value: String) -> void:
 	# 34 px header. Separate labels keep both baselines above the health track.
 	var separated := value.contains(" · ")
 	item.text = value.get_slice(" · ", 0) if separated else value
-	item.add_theme_font_size_override("font_size", 14 if separated else 20)
-	item.size = Vector2(160, 20 if separated else 32)
+	item.add_theme_font_size_override("font_size", 17)
+	item.position = Vector2(35, 21)
+	item.size = Vector2(230, 23)
+	item.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	item.visible = _damage_side > 0.0
 	_identity_weapon.text = value.substr(value.find(" · ") + 3) if separated else ""
-	_identity_weapon.visible = separated
+	_identity_weapon.visible = false
 
 
 func _label(value: String, font_size: int, color: Color) -> Label:

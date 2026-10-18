@@ -56,6 +56,8 @@ var _pending_reaction: StringName = &""
 var _welcome_index := 0
 var _approval_index := 0
 var _failure_index := 0
+var _mount_pose_bones: Dictionary = {}
+var _mount_pose_rotations: Dictionary = {}
 
 
 func _ready() -> void:
@@ -68,7 +70,7 @@ func _ready() -> void:
 	viewport.size = Vector2i(1280, 720)
 	viewport.own_world_3d = true
 	viewport.gui_disable_input = true
-	viewport.msaa_3d = Viewport.MSAA_2X
+	viewport.msaa_3d = Viewport.MSAA_2X if OS.has_feature("mobile") else Viewport.MSAA_4X
 	add_child(viewport)
 	world = Node3D.new()
 	world.name = "WorkshopWorld"
@@ -112,6 +114,8 @@ func _process(delta: float) -> void:
 func _advance_robot_animation(delta: float) -> void:
 	if robot_animator == null or idle_clip == &"":
 		return
+	if not _mount_pose_bones.is_empty():
+		return
 	if _rotating_robot or arm.active or _equipment_focused:
 		_return_to_idle()
 		robot_animator.advance(delta * 0.45)
@@ -145,6 +149,48 @@ func _advance_robot_animation(delta: float) -> void:
 
 func _schedule_gesture() -> void:
 	_next_gesture = _gesture_random.randf_range(GESTURE_DELAY.x, GESTURE_DELAY.y)
+
+
+func pose_for_equipment(kind: String, identifier: String, weight: float) -> void:
+	if _mount_pose_bones.is_empty():
+		_return_to_idle(0.0)
+		robot_animator.advance(0.0)
+		for index in skeleton.get_bone_count():
+			var label := skeleton.get_bone_name(index).to_lower().trim_prefix("mixamorig_").trim_prefix("mixamorig:")
+			_mount_pose_bones[label] = index
+			_mount_pose_rotations[index] = skeleton.get_bone_pose_rotation(index)
+	var rotations := {"spine1": Vector3(0, -0.08, 0)}
+	if kind == "weapon" or kind == "offensive":
+		rotations["rightarm"] = Vector3(-0.12, 0, -0.20)
+		rotations["rightforearm"] = Vector3(0, 0, -0.28)
+		if identifier in ["javelin", "rocket_basket"]:
+			rotations["leftarm"] = Vector3(0.10, 0, 0.17)
+	elif kind == "defensive":
+		rotations["leftarm"] = Vector3(-0.10, 0, 0.20)
+		rotations["leftforearm"] = Vector3(0, 0, 0.30)
+	elif kind == "mobility" and identifier != "bio_injector":
+		rotations["leftupleg"] = Vector3(-0.16, 0, 0)
+		rotations["leftleg"] = Vector3(0.23, 0, 0)
+	else:
+		rotations["spine1"] = Vector3(0.06, -0.15, 0)
+	for label in rotations:
+		if not _mount_pose_bones.has(label):
+			continue
+		var index: int = _mount_pose_bones[label]
+		var rotation: Vector3 = rotations[label]
+		var base: Quaternion = _mount_pose_rotations[index]
+		skeleton.set_bone_pose_rotation(index, base * Quaternion.from_euler(rotation * weight))
+	skeleton.force_update_all_bone_transforms()
+
+
+func clear_equipment_pose() -> void:
+	for index in _mount_pose_rotations:
+		skeleton.set_bone_pose_rotation(index, _mount_pose_rotations[index])
+	_mount_pose_bones.clear()
+	_mount_pose_rotations.clear()
+	if robot_animator != null:
+		robot_animator.advance(0.0)
+	skeleton.force_update_all_bone_transforms()
 
 
 func react_to_installation(saved: bool) -> void:
@@ -520,23 +566,24 @@ func _make_paint_opaque() -> void:
 
 
 func _close_workshop_edge() -> void:
-	# The original frontal shot never saw the open right edge of the set.
-	# Station travelling shots now need the same enclosed workshop on that side.
-	var material := FINISHES.surface("steel", Color("#454b4c"), 0.32, 0.76)
+	# Return of the actual building wall, well beyond the equipment aisle.
+	# The old short partition made the active bay read as a booth in a hangar.
+	var material := FINISHES.surface("concrete", Color("#817d73"), 0.0, 1.0)
 	var wall := MeshInstance3D.new()
 	wall.name = "WorkshopRightWall"
 	var wall_mesh := BoxMesh.new()
-	wall_mesh.size = Vector3(0.22, 7.2, 7.2)
+	wall_mesh.size = Vector3(0.40, 11.6, 46.0)
 	wall.mesh = wall_mesh
 	wall.material_override = material
-	wall.position = Vector3(8.85, 3.6, -2.25)
+	wall.position = Vector3(18.0, 5.8, 17.1)
 	world.add_child(wall)
-	for index in 8:
+	var rib_material := FINISHES.surface("dark", Color("#393b38"), 0.3, 0.9)
+	for index in 7:
 		var rib := MeshInstance3D.new()
 		rib.mesh = BoxMesh.new()
-		(rib.mesh as BoxMesh).size = Vector3(0.07, 7.0, 0.055)
-		rib.material_override = material
-		rib.position = Vector3(8.70, 3.5, -5.0 + index * 0.85)
+		(rib.mesh as BoxMesh).size = Vector3(0.16, 11.5, 0.24)
+		rib.material_override = rib_material
+		rib.position = Vector3(17.73, 5.75, -4.8 + index * 7.6)
 		world.add_child(rib)
 
 
@@ -548,28 +595,38 @@ func _build_environment() -> void:
 	settings.background_color = Color("#334650")
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	settings.ambient_light_color = Color("#b2bdc2")
-	settings.ambient_light_energy = 0.26
+	settings.ambient_light_energy = 0.16
 	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	settings.glow_enabled = true
 	settings.glow_intensity = 0.32
 	settings.glow_bloom = 0.03
 	settings.fog_enabled = true
-	settings.fog_density = 0.0015
+	settings.fog_density = 0.0007
 	settings.fog_light_color = Color("#98a4a8")
 	settings.fog_sky_affect = 0.0
 	environment.environment = settings
 	world.add_child(environment)
-	# A local source at the glass keeps warm light in the room and leaves its
-	# corners quieter. It replaces the broad sun, keeping three shadow lights.
-	_add_spot("WindowSun", Vector3(3.8, 4.8, -5.29), Vector3(-1, 0, 3.6), Color("#ffd7a2"), 11.0, 14.0, 58.0)
+	# The source is outside: the real masonry opening and its mullions shape
+	# daylight. Keep the existing budget of three shadow-casting lights.
+	_add_spot("WindowSun", Vector3(4.3, 7.2, -8.7), Vector3(-0.8, 0, 5.2), Color("#ffd39b"), 16.0, 23.0, 42.0)
 	var fill := DirectionalLight3D.new()
 	fill.name = "CoolFrontFill"
 	fill.rotation_degrees = Vector3(-20, -15, 0)
 	fill.light_color = Color("#b3c6d0")
-	fill.light_energy = 0.36
+	fill.light_energy = 0.14
 	world.add_child(fill)
-	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.8, 1.6, -2.1), Color("#ffcf91"), 4.0, 5.0, 58.0)
-	_add_spot("HeroKey", Vector3(2.8, 5.2, 2.3), Vector3(0, 1.6, 0), Color("#edf3ef"), 4.5, 8.0, 40.0)
+	_add_spot("WorkbenchLamp", Vector3(-3.65, 3.47, -1.4), Vector3(-3.8, 1.6, -2.1), Color("#ffcb87"), 2.6, 5.0, 58.0)
+	_add_spot("HeroKey", Vector3(-2.8, 4.4, 3.8), Vector3(0, 1.8, 0), Color("#ffe4bd"), 9.0, 8.0, 38.0)
+	var rim := SpotLight3D.new()
+	rim.name = "HeroRim"
+	rim.light_color = Color("#b5cfda")
+	rim.light_energy = 2.4
+	rim.spot_range = 6.0
+	rim.spot_angle = 32.0
+	rim.shadow_enabled = false
+	world.add_child(rim)
+	rim.position = Vector3(2.5, 3.8, -1.1)
+	rim.look_at(Vector3(0, 1.8, 0))
 
 
 func _add_spot(label: String, pos: Vector3, target: Vector3, color: Color, energy: float, reach: float, spread: float = 54.0) -> void:
